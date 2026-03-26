@@ -1,15 +1,5 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { AppTopbar } from "@/components/app-topbar"
-import { HomeContent } from "@/components/home-content"
+import { redirect } from "next/navigation"
 
-export default function HomePage() {
-  return (
-    <div className="flex min-h-svh">
-      <AppSidebar />
-      <div className="flex flex-1 flex-col min-w-0">
-        <AppTopbar />
-        <HomeContent />
-      </div>
-    </div>
-  )
+export default function RootPage() {
+  redirect("/portfolio")
 }

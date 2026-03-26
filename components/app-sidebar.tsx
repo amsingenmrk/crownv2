@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, User, ChevronRight, Square } from "lucide-react"
+import { Briefcase, Search, User, ChevronRight, Square } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ASSETS = [
@@ -16,7 +16,7 @@ const ASSETS = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const isHome = pathname === "/"
+  const isPortfolio = pathname === "/portfolio"
   const isSearch = pathname === "/search"
 
   return (
@@ -32,16 +32,16 @@ export function AppSidebar() {
       {/* Nav */}
       <nav className="flex flex-col gap-0.5 p-3">
         <Link
-          href="/"
+          href="/portfolio"
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-            isHome
+            isPortfolio
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
         >
-          <Home className="size-4 shrink-0" />
-          Home
+          <Briefcase className="size-4 shrink-0" />
+          Portfolio
         </Link>
         <Link
           href="/search"
