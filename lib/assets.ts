@@ -1,0 +1,193 @@
+/**
+ * Demo assets for sidebar navigation and asset detail pages.
+ */
+
+const BUILDING_IMAGES = [
+  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1516344301847-92e6c9ff876f?w=400&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1594230381576-0a45731e0e2e?w=400&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1576723658630-86ee5118f257?w=400&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
+] as const
+
+export type AssetGroupId = "office" | "industrial" | "retail"
+
+export interface Asset {
+  id: string
+  name: string
+  groupId: AssetGroupId
+  groupLabel: string
+  address: string
+  imageUrl: string
+  /** 0–100 */
+  occupiedPercent: number
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+}
+
+function withImage(asset: Omit<Asset, "imageUrl" | "id">, index: number): Asset {
+  return {
+    ...asset,
+    id: slugify(asset.name),
+    imageUrl: BUILDING_IMAGES[index % BUILDING_IMAGES.length]!,
+  }
+}
+
+const OFFICE_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+  {
+    name: "One Vanderbilt",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "1 Vanderbilt Ave, New York, NY 10017",
+    occupiedPercent: 78,
+  },
+  {
+    name: "Empire State Building",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "350 5th Ave, New York, NY 10118",
+    occupiedPercent: 82,
+  },
+  {
+    name: "425 Park Avenue",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "425 Park Ave, New York, NY 10022",
+    occupiedPercent: 71,
+  },
+  {
+    name: "50 Hudson Yards",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "50 Hudson Yards, New York, NY 10001",
+    occupiedPercent: 88,
+  },
+  {
+    name: "MetLife Building",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "200 Park Ave, New York, NY 10166",
+    occupiedPercent: 76,
+  },
+  {
+    name: "280 Park Avenue",
+    groupId: "office",
+    groupLabel: "Office Buildings",
+    address: "280 Park Ave, New York, NY 10017",
+    occupiedPercent: 69,
+  },
+]
+
+const INDUSTRIAL_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+  {
+    name: "Willis Tower",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "233 S Wacker Dr, Chicago, IL 60606",
+    occupiedPercent: 74,
+  },
+  {
+    name: "Salesforce Tower",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "415 Mission St, San Francisco, CA 94105",
+    occupiedPercent: 91,
+  },
+  {
+    name: "Denver Logistics Center",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "Denver, CO 80239",
+    occupiedPercent: 95,
+  },
+  {
+    name: "Phoenix Distribution Park",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "Phoenix, AZ 85043",
+    occupiedPercent: 88,
+  },
+  {
+    name: "Nashville Cold Storage",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "Nashville, TN 37209",
+    occupiedPercent: 92,
+  },
+  {
+    name: "Charlotte Last-Mile Hub",
+    groupId: "industrial",
+    groupLabel: "Industrial Buildings",
+    address: "Charlotte, NC 28208",
+    occupiedPercent: 86,
+  },
+]
+
+const RETAIL_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+  {
+    name: "3001-3003 Washington Blvd",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "3001 Washington Blvd, Baltimore, MD 21230",
+    occupiedPercent: 81,
+  },
+  {
+    name: "200 Clarendon",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "200 Clarendon St, Boston, MA 02116",
+    occupiedPercent: 77,
+  },
+  {
+    name: "Miami Design District",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "Miami, FL 33137",
+    occupiedPercent: 84,
+  },
+  {
+    name: "Austin Domain Northside",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "Austin, TX 78758",
+    occupiedPercent: 79,
+  },
+  {
+    name: "Seattle University Village",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "Seattle, WA 98105",
+    occupiedPercent: 73,
+  },
+  {
+    name: "Boston Newbury Street",
+    groupId: "retail",
+    groupLabel: "Retail Locations",
+    address: "Newbury St, Boston, MA 02116",
+    occupiedPercent: 68,
+  },
+]
+
+function buildList(raw: Omit<Asset, "imageUrl" | "id">[], offset: number): Asset[] {
+  return raw.map((a, i) => withImage(a, offset + i))
+}
+
+export const ASSETS: Asset[] = [
+  ...buildList(OFFICE_RAW, 0),
+  ...buildList(INDUSTRIAL_RAW, 6),
+  ...buildList(RETAIL_RAW, 12),
+]
+
+export function getAssetById(id: string): Asset | undefined {
+  return ASSETS.find((a) => a.id === id)
+}
+
+export function assetHref(id: string): string {
+  return `/assets/${id}/stacking-plan`
+}

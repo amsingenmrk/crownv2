@@ -22,7 +22,7 @@ export function NavRoutes() {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>App</SidebarGroupLabel>
+      <SidebarGroupLabel>Analyze</SidebarGroupLabel>
       <SidebarMenu>
         {ROUTES.map((item) => {
           const active =

@@ -20,7 +20,7 @@ export function SearchComingSoon() {
       className="flex min-h-0 flex-1 flex-col lg:flex-row"
     >
       {/* Map region */}
-      <div className="flex min-h-[min(50vh,420px)] flex-1 flex-col gap-3 p-4 md:p-6 lg:min-h-0">
+      <div className="flex min-h-[min(50vh,420px)] flex-1 flex-col p-4 md:p-6 lg:min-h-0">
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/20">
           {/* Map canvas skeleton */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size-[48px_48px] opacity-40" />

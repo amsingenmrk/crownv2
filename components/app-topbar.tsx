@@ -13,7 +13,12 @@ const TITLES: Record<string, string> = {
 
 export function AppTopbar() {
   const pathname = usePathname()
-  const title = pathname ? (TITLES[pathname] ?? "Glassbox") : "Glassbox"
+  const title =
+    pathname?.startsWith("/assets/") === true
+      ? "Assets"
+      : pathname
+        ? (TITLES[pathname] ?? "Glassbox")
+        : "Glassbox"
 
   return (
     <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">

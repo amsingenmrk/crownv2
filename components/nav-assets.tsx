@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
 import { Building2, ChevronRight, Factory, Store } from "lucide-react"
 import {
@@ -17,57 +19,28 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import { ASSETS, type AssetGroupId, assetHref } from "@/lib/assets"
 
 const ASSET_GROUPS: {
   label: string
+  groupId: AssetGroupId
   icon: LucideIcon
-  assets: readonly string[]
 }[] = [
-  {
-    label: "Office Buildings",
-    icon: Building2,
-    assets: [
-      "One Vanderbilt",
-      "Empire State Building",
-      "425 Park Avenue",
-      "50 Hudson Yards",
-      "MetLife Building",
-      "280 Park Avenue",
-    ] as const,
-  },
-  {
-    label: "Industrial Buildings",
-    icon: Factory,
-    assets: [
-      "Willis Tower",
-      "Salesforce Tower",
-      "Denver Logistics Center",
-      "Phoenix Distribution Park",
-      "Nashville Cold Storage",
-      "Charlotte Last-Mile Hub",
-    ] as const,
-  },
-  {
-    label: "Retail Locations",
-    icon: Store,
-    assets: [
-      "3001-3003 Washington Blvd",
-      "200 Clarendon",
-      "Miami Design District",
-      "Austin Domain Northside",
-      "Seattle University Village",
-      "Boston Newbury Street",
-    ] as const,
-  },
+  { label: "Office Buildings", groupId: "office", icon: Building2 },
+  { label: "Industrial Buildings", groupId: "industrial", icon: Factory },
+  { label: "Retail Locations", groupId: "retail", icon: Store },
 ]
 
 export function NavAssets() {
+  const pathname = usePathname()
+
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Assets</SidebarGroupLabel>
       <SidebarMenu className="max-h-[50vh] gap-0 overflow-y-auto">
         {ASSET_GROUPS.map((group) => {
           const GroupIcon = group.icon
+          const assets = ASSETS.filter((a) => a.groupId === group.groupId)
           return (
           <Collapsible
             key={group.label}
@@ -89,17 +62,24 @@ export function NavAssets() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarMenuSub>
-                {group.assets.map((name) => (
-                  <SidebarMenuSubItem key={name}>
+                {assets.map((asset) => {
+                  const href = assetHref(asset.id)
+                  const active =
+                    pathname === href ||
+                    pathname.startsWith(`/assets/${asset.id}/`)
+                  return (
+                  <SidebarMenuSubItem key={asset.id}>
                     <SidebarMenuSubButton
                       size="sm"
                       className="h-auto min-h-6 py-1 leading-snug"
-                      render={<button type="button" />}
+                      isActive={active}
+                      render={<Link href={href} />}
                     >
-                      <span className="line-clamp-2 text-left">{name}</span>
+                      <span className="line-clamp-2 text-left">{asset.name}</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
-                ))}
+                  )
+                })}
               </SidebarMenuSub>
             </CollapsibleContent>
           </Collapsible>
