@@ -22,7 +22,10 @@ export function HomeContent() {
   }, [])
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12">
+    <div
+      role="main"
+      className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12"
+    >
       <h1 className="text-center text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
         What do you want to analyze?
       </h1>
@@ -96,6 +99,6 @@ export function HomeContent() {
           </button>
         ))}
       </div>
-    </main>
+    </div>
   )
 }
