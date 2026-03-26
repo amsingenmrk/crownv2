@@ -8,6 +8,7 @@ const TITLES: Record<string, string> = {
   "/": "Portfolio",
   "/portfolio": "Portfolio",
   "/search": "Search",
+  "/benchmarks": "Benchmark",
 }
 
 export function AppTopbar() {

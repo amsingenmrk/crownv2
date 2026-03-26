@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Briefcase, Search } from "lucide-react"
+import { BarChart3, Briefcase, Search } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,6 +14,7 @@ import {
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
   { title: "Search", href: "/search", icon: Search },
+  { title: "Benchmark", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
 export function NavRoutes() {

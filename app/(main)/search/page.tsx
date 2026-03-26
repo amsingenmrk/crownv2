@@ -1,14 +1,12 @@
 import { AppTopbar } from "@/components/app-topbar"
+import { SearchComingSoon } from "@/components/search-coming-soon"
 
 export default function SearchPage() {
   return (
     <>
       <AppTopbar />
-      <div
-        role="main"
-        className="flex flex-1 items-center justify-center p-6"
-      >
-        <p className="text-muted-foreground">Search — coming soon</p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <SearchComingSoon />
       </div>
     </>
   )
