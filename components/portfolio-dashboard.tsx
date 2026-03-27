@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
   ArrowUpRight,
   ChevronRight,
-  MapPin,
+  Expand,
+  Shrink,
 } from "lucide-react"
-import { ASSETS, type Asset } from "@/lib/assets"
+import { ASSETS, assetHref, type Asset } from "@/lib/assets"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -148,13 +150,22 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
 
 const PORTFOLIO_MAP_PINS = mapPinsForRows(PORTFOLIO_ASSET_ROWS)
 
+/** Shared with table header; all columns flex with `minmax(0, …fr)` — no fixed widths. */
+const ASSETS_TABLE_LG_GRID =
+  "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.75fr)_minmax(0,0.65fr)_minmax(0,0.82fr)_minmax(0,0.72fr)_minmax(0,0.95fr)]"
+
 function PropertyRow({ row }: { row: PortfolioAssetRow }) {
   const [open, setOpen] = React.useState(false)
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="grid w-full cursor-pointer grid-cols-1 gap-2 border-0 bg-transparent px-4 py-4 text-left transition-colors hover:bg-muted/50 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_0.7fr_0.9fr_0.85fr_minmax(0,1.1fr)] lg:items-center lg:gap-3 lg:py-3">
-        <span className="flex items-center gap-2 font-medium text-foreground">
+      <CollapsibleTrigger
+        className={cn(
+          "grid w-full cursor-pointer grid-cols-1 gap-2 border-0 bg-transparent px-4 py-4 text-left text-sm transition-colors hover:bg-muted/50 lg:items-center lg:gap-3 lg:py-3",
+          ASSETS_TABLE_LG_GRID
+        )}
+      >
+        <span className="flex items-center gap-2 font-semibold text-foreground">
           <ChevronRight
             className={cn(
               "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
@@ -163,7 +174,7 @@ function PropertyRow({ row }: { row: PortfolioAssetRow }) {
           />
           {row.building}
         </span>
-        <span className="text-sm text-muted-foreground lg:text-foreground">
+        <span className="min-w-0 text-sm text-muted-foreground lg:text-foreground">
           {row.location}
         </span>
         <span className="text-sm tabular-nums">{row.occupancy}</span>
@@ -180,10 +191,14 @@ function PropertyRow({ row }: { row: PortfolioAssetRow }) {
             {row.lift}
           </span>
         </span>
-        <span>
-          <span className="inline-flex rounded-md border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground">
+        <span className="min-w-0" onClick={(e) => e.stopPropagation()}>
+          <Link
+            href={assetHref(row.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex rounded-md border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
             {row.recommendation}
-          </span>
+          </Link>
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -197,6 +212,7 @@ function PropertyRow({ row }: { row: PortfolioAssetRow }) {
 }
 
 export function PortfolioDashboard() {
+  const [mapExpanded, setMapExpanded] = React.useState(false)
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
   const visibleAssetRows = React.useMemo(() => {
     const q = assetTableSearch.trim().toLowerCase()
@@ -230,7 +246,15 @@ export function PortfolioDashboard() {
 
       {/* Map */}
       <section className="w-full">
-        <div className="relative w-full min-h-[220px] overflow-hidden rounded-xl border border-border bg-muted/60 lg:min-h-[280px]">
+        <div
+          id="portfolio-map-canvas"
+          className={cn(
+            "relative w-full overflow-hidden rounded-xl border border-border bg-muted/60 transition-[min-height] duration-300 ease-out",
+            mapExpanded
+              ? "min-h-[550px] lg:min-h-[700px]"
+              : "min-h-[220px] lg:min-h-[280px]"
+          )}
+        >
           {/* Simple street grid */}
           <div
             className="absolute inset-0 opacity-40"
@@ -256,10 +280,20 @@ export function PortfolioDashboard() {
               title={`${pin.building} · Potential lift ${pin.lift}`}
             />
           ))}
-          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
-            <MapPin className="size-3.5" />
-            Portfolio map
-          </div>
+          <button
+            type="button"
+            aria-expanded={mapExpanded}
+            aria-controls="portfolio-map-canvas"
+            onClick={() => setMapExpanded((v) => !v)}
+            className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+          >
+            {mapExpanded ? (
+              <Shrink className="size-3.5 shrink-0" aria-hidden />
+            ) : (
+              <Expand className="size-3.5 shrink-0" aria-hidden />
+            )}
+            {mapExpanded ? "Collapse Map" : "Expand Map"}
+          </button>
         </div>
       </section>
 
@@ -284,7 +318,12 @@ export function PortfolioDashboard() {
           </div>
         </div>
         <div className="overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_0.7fr_0.9fr_0.85fr_minmax(0,1.1fr)] gap-3 border-b border-border bg-muted/40 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground max-lg:hidden">
+          <div
+            className={cn(
+              "grid gap-3 border-b border-border bg-muted/40 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground max-lg:hidden",
+              ASSETS_TABLE_LG_GRID
+            )}
+          >
             <span>Asset</span>
             <span>Location</span>
             <span>Occupancy</span>
