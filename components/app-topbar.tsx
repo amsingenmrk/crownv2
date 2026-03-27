@@ -44,12 +44,7 @@ export function AppTopbar() {
   const showAssetBreadcrumb =
     pathname?.startsWith("/assets/") === true && asset != null
 
-  const isPortfolioPage =
-    pathname === "/portfolio" || pathname === "/"
-
   const pageTitle = pathname ? (TITLES[pathname] ?? "Glassbox") : "Glassbox"
-
-  const showPrimaryAction = isPortfolioPage || showAssetBreadcrumb
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -180,27 +175,16 @@ export function AppTopbar() {
           </span>
         )}
       </div>
-      {showPrimaryAction ? (
-        showAssetBreadcrumb ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mr-4 shrink-0"
-          >
-            <FileUp className="size-3.5" aria-hidden />
-            Import Documents
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="mr-4 shrink-0"
-          >
-            Add asset
-          </Button>
-        )
+      {showAssetBreadcrumb ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mr-4 shrink-0"
+        >
+          <FileUp className="size-3.5" aria-hidden />
+          Import Documents
+        </Button>
       ) : null}
     </header>
   )

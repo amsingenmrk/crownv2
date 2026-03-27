@@ -42,47 +42,49 @@ export function NavAssets() {
           const GroupIcon = group.icon
           const assets = ASSETS.filter((a) => a.groupId === group.groupId)
           return (
-          <Collapsible
-            key={group.label}
-            defaultOpen
-            className="group/collapsible"
-            render={<SidebarMenuItem />}
-          >
-            <CollapsibleTrigger
-              render={
-                <SidebarMenuButton
-                  tooltip={group.label}
-                  className="h-8 data-[panel-open]:[&_svg:last-child]:rotate-90"
-                />
-              }
+            <Collapsible
+              key={group.label}
+              defaultOpen
+              className="group/collapsible"
+              render={<SidebarMenuItem />}
             >
-              <GroupIcon />
-              <span className="truncate">{group.label}</span>
-              <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200" />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarMenuSub>
-                {assets.map((asset) => {
-                  const href = assetHref(asset.id)
-                  const active =
-                    pathname === href ||
-                    pathname.startsWith(`/assets/${asset.id}/`)
-                  return (
-                  <SidebarMenuSubItem key={asset.id}>
-                    <SidebarMenuSubButton
-                      size="sm"
-                      className="h-auto min-h-6 py-1 leading-snug"
-                      isActive={active}
-                      render={<Link href={href} />}
-                    >
-                      <span className="line-clamp-2 text-left">{asset.name}</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  )
-                })}
-              </SidebarMenuSub>
-            </CollapsibleContent>
-          </Collapsible>
+              <CollapsibleTrigger
+                render={
+                  <SidebarMenuButton
+                    tooltip={group.label}
+                    className="h-8 data-[panel-open]:[&_svg:last-child]:rotate-90"
+                  />
+                }
+              >
+                <GroupIcon />
+                <span className="truncate">{group.label}</span>
+                <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {assets.map((asset) => {
+                    const href = assetHref(asset.id)
+                    const active =
+                      pathname === href ||
+                      pathname.startsWith(`/assets/${asset.id}/`)
+                    return (
+                      <SidebarMenuSubItem key={asset.id}>
+                        <SidebarMenuSubButton
+                          size="sm"
+                          className="h-auto min-h-6 py-1 leading-snug"
+                          isActive={active}
+                          render={<Link href={href} />}
+                        >
+                          <span className="line-clamp-2 text-left">
+                            {asset.name}
+                          </span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )
+                  })}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </Collapsible>
           )
         })}
       </SidebarMenu>

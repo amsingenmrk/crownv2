@@ -8,11 +8,13 @@ import {
 } from "lucide-react"
 import { ASSETS, type Asset } from "@/lib/assets"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Input } from "@/components/ui/input"
 
 const KPIS = [
   { label: "Portfolio Value", value: "$85.2M" },
@@ -160,6 +162,20 @@ function PropertyRow({ row }: { row: PortfolioAssetRow }) {
 }
 
 export function PortfolioDashboard() {
+  const [assetTableSearch, setAssetTableSearch] = React.useState("")
+  const visibleAssetRows = React.useMemo(() => {
+    const q = assetTableSearch.trim().toLowerCase()
+    if (!q) return PORTFOLIO_ASSET_ROWS
+    return PORTFOLIO_ASSET_ROWS.filter(
+      (row) =>
+        row.building.toLowerCase().includes(q) ||
+        row.location.toLowerCase().includes(q) ||
+        row.recommendation.toLowerCase().includes(q) ||
+        row.rent.toLowerCase().includes(q) ||
+        row.lift.toLowerCase().includes(q)
+    )
+  }, [assetTableSearch])
+
   return (
     <div className="relative flex flex-1 flex-col gap-8">
       {/* KPI row */}
@@ -212,9 +228,24 @@ export function PortfolioDashboard() {
 
       {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">
-          Assets
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Assets
+          </h2>
+          <div className="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto sm:max-w-xl">
+            <Input
+              type="search"
+              placeholder="Search assets…"
+              value={assetTableSearch}
+              onChange={(e) => setAssetTableSearch(e.target.value)}
+              aria-label="Search assets in table"
+              className="h-9 min-w-0 flex-1 sm:max-w-xs"
+            />
+            <Button type="button" size="sm" className="h-9 shrink-0">
+              Add asset
+            </Button>
+          </div>
+        </div>
         <div className="overflow-hidden rounded-xl border border-border">
           <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_0.7fr_0.9fr_0.85fr_minmax(0,1.1fr)] gap-3 border-b border-border bg-muted/40 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground max-lg:hidden">
             <span>Asset</span>
@@ -229,11 +260,17 @@ export function PortfolioDashboard() {
           </div>
 
           <ul className="divide-y divide-border">
-            {PORTFOLIO_ASSET_ROWS.map((row) => (
-              <li key={row.id}>
-                <PropertyRow row={row} />
+            {visibleAssetRows.length === 0 ? (
+              <li className="px-4 py-10 text-center text-sm text-muted-foreground">
+                No assets match your search.
               </li>
-            ))}
+            ) : (
+              visibleAssetRows.map((row) => (
+                <li key={row.id}>
+                  <PropertyRow row={row} />
+                </li>
+              ))
+            )}
           </ul>
         </div>
       </section>

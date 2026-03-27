@@ -19,14 +19,14 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
-type ModId =
+export type ModId =
   | "gym"
   | "bar"
   | "cafe"
   | "restaurant"
   | "leed"
 
-type ModValues = Record<ModId, string>
+export type ModValues = Record<ModId, string>
 
 /** Sub-options — copy from `planning/modifications.md`. */
 const GYM_OPTIONS: { value: string; title: string; description: string }[] = [
@@ -206,7 +206,7 @@ const MOD_CONFIGS: ModConfig[] = [
   },
 ]
 
-const INITIAL_VALUES: ModValues = {
+export const INITIAL_MOD_VALUES: ModValues = {
   gym: "",
   bar: "",
   cafe: "",
@@ -214,14 +214,21 @@ const INITIAL_VALUES: ModValues = {
   leed: "",
 }
 
+export type BuildingModificationsSidebarProps = Omit<
+  React.ComponentProps<"aside">,
+  "onChange"
+> & {
+  value: ModValues
+  onValuesChange: React.Dispatch<React.SetStateAction<ModValues>>
+}
+
 export function BuildingModificationsSidebar({
   className,
+  value: values,
+  onValuesChange: setValues,
   ...props
-}: React.ComponentProps<"aside">) {
+}: BuildingModificationsSidebarProps) {
   const baseId = React.useId()
-  const [values, setValues] = React.useState<ModValues>(() => ({
-    ...INITIAL_VALUES,
-  }))
 
   const clear = () => {
     setValues({
