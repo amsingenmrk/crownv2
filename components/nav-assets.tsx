@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
@@ -31,20 +32,31 @@ const ASSET_GROUPS: {
   { label: "Retail Locations", groupId: "retail", icon: Store },
 ]
 
+const INITIAL_GROUP_OPEN: Record<AssetGroupId, boolean> = {
+  office: false,
+  industrial: false,
+  retail: false,
+}
+
 export function NavAssets() {
   const pathname = usePathname()
+  const [openByGroup, setOpenByGroup] =
+    React.useState<Record<AssetGroupId, boolean>>(INITIAL_GROUP_OPEN)
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Assets</SidebarGroupLabel>
-      <SidebarMenu className="max-h-[50vh] gap-0 overflow-y-auto">
+      <SidebarMenu className="gap-0">
         {ASSET_GROUPS.map((group) => {
           const GroupIcon = group.icon
           const assets = ASSETS.filter((a) => a.groupId === group.groupId)
           return (
             <Collapsible
-              key={group.label}
-              defaultOpen
+              key={group.groupId}
+              open={openByGroup[group.groupId]}
+              onOpenChange={(open) =>
+                setOpenByGroup((s) => ({ ...s, [group.groupId]: open }))
+              }
               className="group/collapsible"
               render={<SidebarMenuItem />}
             >

@@ -23,8 +23,6 @@ const KPIS = [
   { label: "# High Potential Bldgs", value: "5" },
 ] as const
 
-type LiftTone = "green" | "yellow" | "red"
-
 type PortfolioAssetRow = {
   id: string
   building: string
@@ -34,7 +32,6 @@ type PortfolioAssetRow = {
   lift: string
   /** Numeric lift for sorting (same basis as `lift` label). */
   liftPercent: number
-  liftTone: LiftTone
   recommendation: string
 }
 
@@ -55,7 +52,6 @@ function seedForAsset(asset: Asset, index: number): number {
 
 function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
   const seed = seedForAsset(asset, index)
-  const tones: LiftTone[] = ["green", "yellow", "red"]
   const liftPct = 3 + (seed % 15)
   const rentBase = 38 + (seed % 28)
   return {
@@ -66,7 +62,6 @@ function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
     rent: `$${rentBase} / sqft`,
     lift: `+${liftPct}%`,
     liftPercent: liftPct,
-    liftTone: tones[seed % tones.length]!,
     recommendation: RECOMMENDATIONS[seed % RECOMMENDATIONS.length]!,
   }
 }
@@ -77,41 +72,81 @@ const PORTFOLIO_ASSET_ROWS: PortfolioAssetRow[] = ASSETS.map(rowForAsset).sort(
     a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
 )
 
-/** Map pin positions (percent) + colors matching wireframe mix */
-const MAP_PINS: { top: string; left: string; color: LiftTone }[] = [
-  { top: "22%", left: "28%", color: "red" },
-  { top: "38%", left: "55%", color: "yellow" },
-  { top: "48%", left: "42%", color: "green" },
-  { top: "58%", left: "68%", color: "red" },
-  { top: "68%", left: "32%", color: "yellow" },
-  { top: "72%", left: "58%", color: "green" },
-]
+const LIFT_PCT_EXTENT = (() => {
+  const ps = PORTFOLIO_ASSET_ROWS.map((r) => r.liftPercent)
+  return { min: Math.min(...ps), max: Math.max(...ps) }
+})()
 
-function liftPillClass(tone: LiftTone) {
-  switch (tone) {
-    case "green":
-      return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500/30"
-    case "yellow":
-      return "bg-amber-500/15 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500/35"
-    case "red":
-      return "bg-red-500/15 text-red-800 dark:text-red-300 ring-1 ring-red-500/30"
-    default:
-      return ""
-  }
+/** 0 = lowest lift in portfolio, 1 = highest (violet scale uses this). */
+function normalizedLiftStrength(liftPercent: number): number {
+  const { min, max } = LIFT_PCT_EXTENT
+  if (max <= min) return 1
+  return (liftPercent - min) / (max - min)
 }
 
-function mapPinClass(tone: LiftTone) {
-  switch (tone) {
-    case "green":
-      return "bg-emerald-500 ring-2 ring-white shadow-sm"
-    case "yellow":
-      return "bg-amber-400 ring-2 ring-white shadow-sm"
-    case "red":
-      return "bg-red-500 ring-2 ring-white shadow-sm"
-    default:
-      return ""
+/** Table pill: deeper, more saturated violet as potential lift rises; faint when low. */
+function liftPillClassFromStrength(t: number) {
+  if (t >= 0.85) {
+    return cn(
+      "bg-violet-600 text-white shadow-sm ring-2 ring-violet-400/90",
+      "dark:bg-violet-500 dark:ring-violet-300/75"
+    )
   }
+  if (t >= 0.55) {
+    return cn(
+      "bg-violet-500 text-violet-50 ring-1 ring-violet-500/60",
+      "dark:bg-violet-600 dark:text-white dark:ring-violet-400/45"
+    )
+  }
+  if (t >= 0.3) {
+    return cn(
+      "bg-violet-500/25 text-violet-900 ring-1 ring-violet-500/35",
+      "dark:bg-violet-500/35 dark:text-violet-100 dark:ring-violet-400/30"
+    )
+  }
+  return cn(
+    "bg-violet-500/[0.09] text-violet-700/70 ring-1 ring-violet-400/22",
+    "dark:bg-violet-500/[0.14] dark:text-violet-300/60 dark:ring-violet-500/18"
+  )
 }
+
+/** Map dot: same violet scale as pills. */
+function mapPinClassFromStrength(t: number) {
+  if (t >= 0.85) {
+    return "bg-violet-600 ring-2 ring-white shadow-md dark:bg-violet-500"
+  }
+  if (t >= 0.55) {
+    return "bg-violet-500 ring-2 ring-white shadow-sm dark:bg-violet-400"
+  }
+  if (t >= 0.3) {
+    return "bg-violet-400/90 ring-2 ring-white/95 dark:bg-violet-400/75"
+  }
+  return "bg-violet-300/50 ring-2 ring-white/90 dark:bg-violet-500/35"
+}
+
+/** One map dot per asset; position spirals from center; color = lift strength. */
+function mapPinsForRows(rows: PortfolioAssetRow[]) {
+  const n = rows.length
+  const golden = Math.PI * (3 - Math.sqrt(5))
+  return rows.map((row, i) => {
+    const r = 0.4 * Math.sqrt((i + 0.5) / Math.max(n, 1))
+    const theta = i * golden
+    const x = 0.5 + r * Math.cos(theta)
+    const y = 0.5 + r * Math.sin(theta)
+    const leftPct = Math.min(94, Math.max(6, x * 100))
+    const topPct = Math.min(89, Math.max(11, y * 100))
+    return {
+      id: row.id,
+      building: row.building,
+      lift: row.lift,
+      liftPercent: row.liftPercent,
+      top: `${topPct}%`,
+      left: `${leftPct}%`,
+    }
+  })
+}
+
+const PORTFOLIO_MAP_PINS = mapPinsForRows(PORTFOLIO_ASSET_ROWS)
 
 function PropertyRow({ row }: { row: PortfolioAssetRow }) {
   const [open, setOpen] = React.useState(false)
@@ -139,7 +174,7 @@ function PropertyRow({ row }: { row: PortfolioAssetRow }) {
           <span
             className={cn(
               "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-              liftPillClass(row.liftTone)
+              liftPillClassFromStrength(normalizedLiftStrength(row.liftPercent))
             )}
           >
             {row.lift}
@@ -208,15 +243,17 @@ export function PortfolioDashboard() {
             }}
           />
           <div className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent" />
-          {MAP_PINS.map((pin, idx) => (
+          {PORTFOLIO_MAP_PINS.map((pin) => (
             <span
-              key={idx}
+              key={pin.id}
               className={cn(
                 "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                mapPinClass(pin.color)
+                mapPinClassFromStrength(
+                  normalizedLiftStrength(pin.liftPercent)
+                )
               )}
               style={{ top: pin.top, left: pin.left }}
-              title="Property"
+              title={`${pin.building} · Potential lift ${pin.lift}`}
             />
           ))}
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
@@ -239,9 +276,9 @@ export function PortfolioDashboard() {
               value={assetTableSearch}
               onChange={(e) => setAssetTableSearch(e.target.value)}
               aria-label="Search assets in table"
-              className="h-9 min-w-0 flex-1 sm:max-w-xs"
+              className="min-w-0 flex-1 sm:max-w-xs"
             />
-            <Button type="button" size="sm" className="h-9 shrink-0">
+            <Button type="button" className="shrink-0">
               Add asset
             </Button>
           </div>
@@ -252,9 +289,12 @@ export function PortfolioDashboard() {
             <span>Location</span>
             <span>Occupancy</span>
             <span>Current Rent</span>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 text-violet-700 dark:text-violet-300">
               Potential Lift
-              <ArrowUpRight className="size-3.5 opacity-70" aria-hidden />
+              <ArrowUpRight
+                className="size-3.5 text-violet-600 opacity-90 dark:text-violet-400"
+                aria-hidden
+              />
             </span>
             <span>Top Recommendation</span>
           </div>

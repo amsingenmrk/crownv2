@@ -158,7 +158,7 @@ export function ModificationsWorkspace() {
   const canSave = presetName.trim().length > 0
 
   const selectClass = cn(
-    "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground outline-none transition-colors",
+    "box-border h-7 w-full min-w-0 cursor-pointer rounded-[min(var(--radius-md),12px)] border border-input bg-transparent px-2.5 py-0 text-[0.8rem] leading-7 text-foreground outline-none transition-colors",
     "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
     "disabled:cursor-not-allowed disabled:opacity-50",
     "dark:bg-input/30"
@@ -208,10 +208,10 @@ export function ModificationsWorkspace() {
           >
             Save current as
           </FieldLabel>
-          <div className="flex min-w-0 gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <Input
               id={`${toolbarId}-preset-name`}
-              className="min-w-0 flex-1"
+              className="h-7 min-w-0 flex-1 py-0 text-[0.8rem] leading-7 md:text-[0.8rem]"
               placeholder="Name this set"
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
