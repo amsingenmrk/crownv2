@@ -186,7 +186,7 @@ export function AppTopbar() {
             type="button"
             variant="outline"
             size="sm"
-            className="mr-4 shrink-0 border-primary/60 text-primary hover:bg-primary/10 hover:text-primary"
+            className="mr-4 shrink-0"
           >
             <FileUp className="size-3.5" aria-hidden />
             Import Documents

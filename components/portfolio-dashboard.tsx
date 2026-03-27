@@ -4,23 +4,15 @@ import * as React from "react"
 import {
   ArrowUpRight,
   ChevronRight,
-  FileText,
   MapPin,
 } from "lucide-react"
+import { ASSETS, type Asset } from "@/lib/assets"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-
-const STEPS = [
-  "Analyze Portfolio",
-  "Identify Opportunities",
-  "Modify Assets",
-  "Review Impact",
-] as const
 
 const KPIS = [
   { label: "Portfolio Value", value: "$85.2M" },
@@ -31,53 +23,57 @@ const KPIS = [
 
 type LiftTone = "green" | "yellow" | "red"
 
-const PROPERTIES = [
-  {
-    building: "Parkview Plaza",
-    location: "New York, NY",
-    occupancy: "88%",
-    rent: "$56 / sqft",
-    lift: "+12%",
-    liftTone: "green" as LiftTone,
-    recommendation: "Renovate Lobby",
-  },
-  {
-    building: "Cedar Heights",
-    location: "Chicago, IL",
-    occupancy: "79%",
-    rent: "$48 / sqft",
-    lift: "+9%",
-    liftTone: "yellow" as LiftTone,
-    recommendation: "Upgrade Amenities",
-  },
-  {
-    building: "Sunset Towers",
-    location: "Los Angeles, CA",
-    occupancy: "95%",
-    rent: "$62 / sqft",
-    lift: "+5%",
-    liftTone: "green" as LiftTone,
-    recommendation: "New Leasing Strategy",
-  },
-  {
-    building: "Riverside Lofts",
-    location: "Austin, TX",
-    occupancy: "85%",
-    rent: "$42 / sqft",
-    lift: "+15%",
-    liftTone: "yellow" as LiftTone,
-    recommendation: "Refresh Units",
-  },
-  {
-    building: "Metro Center",
-    location: "Miami, FL",
-    occupancy: "91%",
-    rent: "$60 / sqft",
-    lift: "+3%",
-    liftTone: "green" as LiftTone,
-    recommendation: "Re-Tenant Space",
-  },
+type PortfolioAssetRow = {
+  id: string
+  building: string
+  location: string
+  occupancy: string
+  rent: string
+  lift: string
+  /** Numeric lift for sorting (same basis as `lift` label). */
+  liftPercent: number
+  liftTone: LiftTone
+  recommendation: string
+}
+
+const RECOMMENDATIONS = [
+  "Renovate Lobby",
+  "Upgrade Amenities",
+  "New Leasing Strategy",
+  "Refresh Units",
+  "Re-Tenant Space",
 ] as const
+
+function seedForAsset(asset: Asset, index: number): number {
+  return (
+    asset.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) +
+    index * 31
+  )
+}
+
+function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
+  const seed = seedForAsset(asset, index)
+  const tones: LiftTone[] = ["green", "yellow", "red"]
+  const liftPct = 3 + (seed % 15)
+  const rentBase = 38 + (seed % 28)
+  return {
+    id: asset.id,
+    building: asset.name,
+    location: asset.address,
+    occupancy: `${asset.occupiedPercent}%`,
+    rent: `$${rentBase} / sqft`,
+    lift: `+${liftPct}%`,
+    liftPercent: liftPct,
+    liftTone: tones[seed % tones.length]!,
+    recommendation: RECOMMENDATIONS[seed % RECOMMENDATIONS.length]!,
+  }
+}
+
+const PORTFOLIO_ASSET_ROWS: PortfolioAssetRow[] = ASSETS.map(rowForAsset).sort(
+  (a, b) =>
+    b.liftPercent - a.liftPercent ||
+    a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
+)
 
 /** Map pin positions (percent) + colors matching wireframe mix */
 const MAP_PINS: { top: string; left: string; color: LiftTone }[] = [
@@ -115,11 +111,7 @@ function mapPinClass(tone: LiftTone) {
   }
 }
 
-function PropertyRow({
-  row,
-}: {
-  row: (typeof PROPERTIES)[number]
-}) {
+function PropertyRow({ row }: { row: PortfolioAssetRow }) {
   const [open, setOpen] = React.useState(false)
 
   return (
@@ -168,13 +160,8 @@ function PropertyRow({
 }
 
 export function PortfolioDashboard() {
-  const [activeStep, setActiveStep] = React.useState(0)
-  const [viewMode, setViewMode] = React.useState<"performance" | "opportunity">(
-    "opportunity"
-  )
-
   return (
-    <div className="relative flex flex-1 flex-col gap-8 pb-28 md:pb-32">
+    <div className="relative flex flex-1 flex-col gap-8">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {KPIS.map((kpi) => (
@@ -190,76 +177,9 @@ export function PortfolioDashboard() {
         ))}
       </section>
 
-      {/* Stepper */}
-      <nav aria-label="Portfolio workflow" className="flex flex-wrap gap-2 md:gap-3">
-        {STEPS.map((label, i) => {
-          const active = i === activeStep
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setActiveStep(i)}
-              className={cn(
-                "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors md:px-4 md:py-2",
-                active
-                  ? "border-foreground/20 bg-foreground text-background"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              )}
-            >
-              <span
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium",
-                  active
-                    ? "bg-background/20 text-background"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {i + 1}
-              </span>
-              <span className="font-medium">{label}</span>
-            </button>
-          )
-        })}
-      </nav>
-
-      {/* Map + view toggles */}
-      <section className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-foreground">View</p>
-          <div className="inline-flex w-full max-w-md rounded-lg border border-border bg-muted/40 p-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("performance")}
-              className={cn(
-                "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                viewMode === "performance"
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              View by Performance
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("opportunity")}
-              className={cn(
-                "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                viewMode === "opportunity"
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              View by Opportunity
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {viewMode === "opportunity"
-              ? "Properties ranked by upside and repositioning potential."
-              : "Properties ranked by occupancy, rent, and operating metrics."}
-          </p>
-        </div>
-
-        <div className="relative min-h-[220px] overflow-hidden rounded-xl border border-border bg-muted/60 lg:min-h-[280px]">
+      {/* Map */}
+      <section className="w-full">
+        <div className="relative w-full min-h-[220px] overflow-hidden rounded-xl border border-border bg-muted/60 lg:min-h-[280px]">
           {/* Simple street grid */}
           <div
             className="absolute inset-0 opacity-40"
@@ -271,7 +191,7 @@ export function PortfolioDashboard() {
               backgroundSize: "28px 28px",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-muted/20 to-transparent" />
+          <div className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent" />
           {MAP_PINS.map((pin, idx) => (
             <span
               key={idx}
@@ -290,14 +210,14 @@ export function PortfolioDashboard() {
         </div>
       </section>
 
-      {/* Property table */}
+      {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">
-          Property Overview
+          Assets
         </h2>
         <div className="overflow-hidden rounded-xl border border-border">
           <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_0.7fr_0.9fr_0.85fr_minmax(0,1.1fr)] gap-3 border-b border-border bg-muted/40 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground max-lg:hidden">
-            <span>Building</span>
+            <span>Asset</span>
             <span>Location</span>
             <span>Occupancy</span>
             <span>Current Rent</span>
@@ -309,38 +229,14 @@ export function PortfolioDashboard() {
           </div>
 
           <ul className="divide-y divide-border">
-            {PROPERTIES.map((row) => (
-              <li key={row.building}>
+            {PORTFOLIO_ASSET_ROWS.map((row) => (
+              <li key={row.id}>
                 <PropertyRow row={row} />
               </li>
             ))}
           </ul>
         </div>
       </section>
-
-      {/* Impact tracker */}
-      <aside className="fixed bottom-6 right-6 z-30 w-[min(100vw-2rem,18rem)] rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-zinc-50 shadow-xl dark:border-zinc-600 dark:bg-zinc-950">
-        <div className="flex items-center gap-2 border-b border-zinc-700 pb-3 dark:border-zinc-600">
-          <FileText className="size-4 text-zinc-400" />
-          <h3 className="text-sm font-semibold">Impact Tracker</h3>
-        </div>
-        <ul className="mt-3 space-y-2 text-sm">
-          <li>
-            <span className="font-medium text-emerald-400">+ $2.1M</span>
-            <span className="text-zinc-400"> Portfolio Value</span>
-          </li>
-          <li>
-            <span className="font-medium text-emerald-400">+ 3.2%</span>
-            <span className="text-zinc-400"> Rent Lift</span>
-          </li>
-        </ul>
-        <Button
-          type="button"
-          className="mt-4 h-9 w-full border-0 bg-white text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:bg-zinc-100"
-        >
-          View Changes
-        </Button>
-      </aside>
     </div>
   )
 }
