@@ -2,14 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname, useParams } from "next/navigation"
-import {
-  Home,
-  ChevronRight,
-  Building,
-  Layers,
-  Wrench,
-  LineChart,
-} from "lucide-react"
+import { Building, Layers, Wrench, LineChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getAssetById } from "@/lib/assets"
 
@@ -56,24 +49,6 @@ export function AssetDetailHeader() {
 
   return (
     <>
-      <header className="border-b border-border bg-background h-[60px]">
-        <div className="px-6 h-[60px] flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Home className="w-4 h-4 shrink-0" />
-            <ChevronRight className="w-4 h-4 shrink-0" />
-            <button
-              type="button"
-              onClick={() => router.push("/portfolio")}
-              className="hover:text-foreground transition-colors"
-            >
-              Assets
-            </button>
-            <ChevronRight className="w-4 h-4 shrink-0" />
-            <span className="text-foreground truncate min-w-0">{buildingLabel}</span>
-          </div>
-        </div>
-      </header>
-
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="flex items-start gap-4 min-w-0">

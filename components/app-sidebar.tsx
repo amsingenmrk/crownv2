@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
-import { Square } from "lucide-react"
 
 import { NavAssets } from "@/components/nav-assets"
 import { NavRoutes } from "@/components/nav-routes"
@@ -31,8 +31,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/portfolio" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Square className="size-4" />
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+                <Image
+                  src="/newmark_symbol_light.svg"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7"
+                  aria-hidden
+                />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Glassbox</span>
