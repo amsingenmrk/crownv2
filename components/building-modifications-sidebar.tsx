@@ -404,7 +404,7 @@ export function BuildingModificationsSidebar({
             htmlFor={`${baseId}-saved-set`}
             className="text-xs font-medium text-muted-foreground"
           >
-            Saved set
+            Saved sets
           </FieldLabel>
           <select
             id={`${baseId}-saved-set`}
