@@ -582,7 +582,7 @@ export function BuildingModificationsSidebar({
         disabled={!hasAnySelection}
         onClick={clear}
       >
-        Clear
+        Clear all
       </Button>
     </aside>
   )

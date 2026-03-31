@@ -18,12 +18,34 @@ import {
 } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 
-const KPIS = [
-  { label: "Portfolio Value", value: "$85.2M" },
-  { label: "Avg Occupancy", value: "92%" },
-  { label: "Projected Upside", value: "+8.5%" },
-  { label: "# High Potential Bldgs", value: "5" },
-] as const
+type PortfolioKpi = {
+  label: string
+  value: string
+  subLabel?: string
+  subValue?: string
+}
+
+const KPIS: PortfolioKpi[] = [
+  {
+    label: "Est. Value",
+    value: "$1.24B",
+    subLabel: "Est. Value / SF",
+    subValue: "$485 / SF",
+  },
+  {
+    label: "Occupancy",
+    value: "91.60%",
+    subLabel: "Vacancy",
+    subValue: "8.40%",
+  },
+  {
+    label: "NOI",
+    value: "$74.2M / yr",
+    subLabel: "NOI / SF",
+    subValue: "$29.10 / SF",
+  },
+  { label: "Cap Rate", value: "6.00%" },
+]
 
 type PortfolioAssetRow = {
   id: string
@@ -126,6 +148,11 @@ function mapPinClassFromStrength(t: number) {
   return "bg-violet-300/50 ring-2 ring-white/90 dark:bg-violet-500/35"
 }
 
+/** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
+function toCssPercent(n: number): string {
+  return `${n.toFixed(4)}%`
+}
+
 /** One map dot per asset; position spirals from center; color = lift strength. */
 function mapPinsForRows(rows: PortfolioAssetRow[]) {
   const n = rows.length
@@ -142,8 +169,8 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
       building: row.building,
       lift: row.lift,
       liftPercent: row.liftPercent,
-      top: `${topPct}%`,
-      left: `${leftPct}%`,
+      top: toCssPercent(topPct),
+      left: toCssPercent(leftPct),
     }
   })
 }
@@ -240,6 +267,14 @@ export function PortfolioDashboard() {
             <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
               {kpi.value}
             </p>
+            {kpi.subLabel != null && kpi.subValue != null ? (
+              <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">{kpi.subLabel}</p>
+                <p className="text-sm font-medium tabular-nums text-foreground">
+                  {kpi.subValue}
+                </p>
+              </div>
+            ) : null}
           </div>
         ))}
       </section>
