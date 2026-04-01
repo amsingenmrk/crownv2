@@ -6,6 +6,7 @@ import Link from "next/link"
 
 import { NavAssets } from "@/components/nav-assets"
 import { NavRoutes } from "@/components/nav-routes"
+import { NavScenarios } from "@/components/nav-scenarios"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -53,6 +54,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavRoutes />
+        <NavScenarios />
         <NavAssets />
       </SidebarContent>
       <SidebarFooter>

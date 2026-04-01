@@ -6,6 +6,7 @@ import {
   Dumbbell,
   Leaf,
   Mic,
+  Trash2,
   UtensilsCrossed,
 } from "lucide-react"
 
@@ -18,6 +19,13 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 export type ModId =
@@ -217,14 +225,16 @@ export const INITIAL_MOD_VALUES: ModValues = {
 
 const MOD_IDS: ModId[] = ["gym", "bar", "cafe", "restaurant", "leed"]
 
-type ModificationSetRecord = {
+const NO_SAVED_PRESET_VALUE = "__no_saved_preset__"
+
+export type ModificationSetRecord = {
   id: string
   name: string
   values: ModValues
   savedAt: number
 }
 
-function storageKeyForAsset(assetId: string) {
+export function storageKeyForAsset(assetId: string) {
   return `glassbox:modification-sets:${assetId}`
 }
 
@@ -240,7 +250,7 @@ function parseModValues(raw: unknown): ModValues | null {
   return next
 }
 
-function parseStoredSets(raw: string | null): ModificationSetRecord[] {
+export function parseStoredSets(raw: string | null): ModificationSetRecord[] {
   if (!raw) return []
   try {
     const data = JSON.parse(raw) as unknown
@@ -265,10 +275,6 @@ function parseStoredSets(raw: string | null): ModificationSetRecord[] {
   } catch {
     return []
   }
-}
-
-function valuesEqual(a: ModValues, b: ModValues) {
-  return MOD_IDS.every((id) => a[id] === b[id])
 }
 
 export type BuildingModificationsSidebarProps = Omit<
@@ -305,12 +311,9 @@ export function BuildingModificationsSidebar({
     const preset = savedSets.find((s) => s.id === activePresetId)
     if (!preset) {
       setActivePresetId(null)
-      return
+      setPresetName("")
     }
-    if (!valuesEqual(preset.values, values)) {
-      setActivePresetId(null)
-    }
-  }, [values, activePresetId, savedSets])
+  }, [activePresetId, savedSets])
 
   const persistSets = React.useCallback(
     (next: ModificationSetRecord[]) => {
@@ -327,12 +330,28 @@ export function BuildingModificationsSidebar({
   const applyPreset = React.useCallback((record: ModificationSetRecord) => {
     setValues({ ...record.values })
     setActivePresetId(record.id)
+    setPresetName(record.name)
   }, [setValues])
 
   const saveCurrentAsPreset = () => {
     const name = presetName.trim()
     if (!name) return
     const now = Date.now()
+
+    if (activePresetId != null) {
+      const idx = savedSets.findIndex((s) => s.id === activePresetId)
+      if (idx < 0) return
+      const nameTakenElsewhere = savedSets.some(
+        (s, i) => i !== idx && s.name.toLowerCase() === name.toLowerCase()
+      )
+      if (nameTakenElsewhere) return
+      const next = savedSets.map((s, i) =>
+        i === idx ? { ...s, name, values: { ...values }, savedAt: now } : s
+      )
+      persistSets(next)
+      return
+    }
+
     const existingIdx = savedSets.findIndex(
       (s) => s.name.toLowerCase() === name.toLowerCase()
     )
@@ -354,6 +373,14 @@ export function BuildingModificationsSidebar({
     }
     persistSets(next)
     setActivePresetId(appliedId)
+    setPresetName(name)
+  }
+
+  const deleteActivePreset = () => {
+    if (activePresetId == null) return
+    const next = savedSets.filter((s) => s.id !== activePresetId)
+    persistSets(next)
+    setActivePresetId(null)
     setPresetName("")
   }
 
@@ -361,14 +388,18 @@ export function BuildingModificationsSidebar({
     () => [...savedSets].sort((a, b) => a.name.localeCompare(b.name)),
     [savedSets]
   )
-  const canSave = presetName.trim().length > 0
 
-  const selectClass = cn(
-    "box-border h-7 w-full min-w-0 cursor-pointer rounded-[min(var(--radius-md),12px)] border border-input bg-transparent px-2.5 py-0 text-[0.8rem] leading-7 text-foreground outline-none transition-colors",
-    "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-    "disabled:cursor-not-allowed disabled:opacity-50",
-    "dark:bg-input/30"
-  )
+  const savedSetItemLabels = React.useMemo(() => {
+    const labels: Record<string, React.ReactNode> = {
+      [NO_SAVED_PRESET_VALUE]: "Select a saved set…",
+    }
+    for (const s of sortedSavedSets) {
+      labels[s.id] = s.name
+    }
+    return labels
+  }, [sortedSavedSets])
+
+  const canSave = presetName.trim().length > 0
 
   const clear = () => {
     setValues({
@@ -395,41 +426,46 @@ export function BuildingModificationsSidebar({
         Building modifications
       </h2>
 
+      <div className="min-w-0">
+        <Select
+          items={savedSetItemLabels}
+          value={activePresetId ?? NO_SAVED_PRESET_VALUE}
+          onValueChange={(id) => {
+            if (id == null || id === NO_SAVED_PRESET_VALUE) {
+              setActivePresetId(null)
+              setPresetName("")
+              return
+            }
+            const record = savedSets.find((s) => s.id === id)
+            if (record) applyPreset(record)
+          }}
+          disabled={sortedSavedSets.length === 0}
+        >
+          <SelectTrigger
+            id={`${baseId}-saved-set`}
+            size="sm"
+            className="w-full min-w-0 text-[0.8rem]"
+            aria-label="Saved sets"
+          >
+            <SelectValue placeholder="Select a saved set…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_SAVED_PRESET_VALUE}>
+              Select a saved set…
+            </SelectItem>
+            {sortedSavedSets.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <section
-        aria-label="Saved modification sets"
+        aria-label="Save modification set"
         className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
       >
-        <Field className="min-w-0 gap-1.5">
-          <FieldLabel
-            htmlFor={`${baseId}-saved-set`}
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Saved sets
-          </FieldLabel>
-          <select
-            id={`${baseId}-saved-set`}
-            className={selectClass}
-            value={activePresetId ?? ""}
-            disabled={sortedSavedSets.length === 0}
-            onChange={(e) => {
-              const id = e.target.value
-              if (!id) {
-                setActivePresetId(null)
-                return
-              }
-              const record = savedSets.find((s) => s.id === id)
-              if (record) applyPreset(record)
-            }}
-          >
-            <option value="">Select a saved set…</option>
-            {sortedSavedSets.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
         <Field className="min-w-0 gap-1.5">
           <FieldLabel
             htmlFor={`${baseId}-preset-name`}
@@ -451,16 +487,30 @@ export function BuildingModificationsSidebar({
                 }
               }}
             />
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-7 shrink-0"
-              disabled={!canSave}
-              onClick={saveCurrentAsPreset}
-            >
-              Save
-            </Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-7"
+                disabled={!canSave}
+                onClick={saveCurrentAsPreset}
+              >
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="h-7 text-muted-foreground hover:text-destructive"
+                disabled={activePresetId == null}
+                aria-label="Delete saved set"
+                title="Delete saved set"
+                onClick={deleteActivePreset}
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+              </Button>
+            </div>
           </div>
         </Field>
       </section>

@@ -28,7 +28,8 @@ const TITLES: Record<string, string> = {
   "/": "Portfolio",
   "/portfolio": "Portfolio",
   "/search": "Search",
-  "/benchmarks": "Benchmark",
+  "/benchmarks": "Benchmarks",
+  "/scenarios/2026-capital-planning": "2026 Capital Planning",
 }
 
 export function AppTopbar() {

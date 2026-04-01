@@ -20,16 +20,33 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { ASSETS, type AssetGroupId, assetHref } from "@/lib/assets"
+import {
+  ASSETS,
+  ASSET_GROUP_SIDEBAR_LABELS,
+  type AssetGroupId,
+  assetHref,
+} from "@/lib/assets"
 
 const ASSET_GROUPS: {
   label: string
   groupId: AssetGroupId
   icon: LucideIcon
 }[] = [
-  { label: "Office Buildings", groupId: "office", icon: Building2 },
-  { label: "Industrial Buildings", groupId: "industrial", icon: Factory },
-  { label: "Retail Locations", groupId: "retail", icon: Store },
+  {
+    label: ASSET_GROUP_SIDEBAR_LABELS.office,
+    groupId: "office",
+    icon: Building2,
+  },
+  {
+    label: ASSET_GROUP_SIDEBAR_LABELS.industrial,
+    groupId: "industrial",
+    icon: Factory,
+  },
+  {
+    label: ASSET_GROUP_SIDEBAR_LABELS.retail,
+    groupId: "retail",
+    icon: Store,
+  },
 ]
 
 const INITIAL_GROUP_OPEN: Record<AssetGroupId, boolean> = {

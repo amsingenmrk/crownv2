@@ -13,6 +13,13 @@ const BUILDING_IMAGES = [
 
 export type AssetGroupId = "office" | "industrial" | "retail"
 
+/** Labels used in the sidebar asset groups and portfolio group filter. */
+export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
+  office: "Office Buildings",
+  industrial: "Industrial Buildings",
+  retail: "Retail Locations",
+}
+
 export interface Asset {
   id: string
   name: string

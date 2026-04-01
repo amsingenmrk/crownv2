@@ -8,7 +8,7 @@ import {
   INITIAL_MOD_VALUES,
   type ModValues,
 } from "@/components/building-modifications-sidebar"
-import { AssetStatCardsSkeleton } from "@/components/asset-stat-cards-skeleton"
+import { AssetStatCards } from "@/components/asset-stat-cards"
 import { StackingPlanSkeleton } from "@/components/stacking-plan-skeleton"
 
 export function ModificationsWorkspace() {
@@ -32,7 +32,7 @@ export function ModificationsWorkspace() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-6">
-          <AssetStatCardsSkeleton />
+          <AssetStatCards variant="modifications" />
           <StackingPlanSkeleton />
         </div>
       </div>

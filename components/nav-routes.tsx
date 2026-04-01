@@ -14,7 +14,7 @@ import {
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
   { title: "Search", href: "/search", icon: Search },
-  { title: "Benchmark", href: "/benchmarks", icon: BarChart3 },
+  { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
 export function NavRoutes() {
