@@ -94,12 +94,13 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "building",
+      enableHiding: false,
       header: ({ column }) => (
         <SortableHeader column={column}>Asset</SortableHeader>
       ),
       cell: ({ row }) => (
-        <div className="flex min-w-0 items-start gap-2">
-          <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="flex min-w-0 items-start gap-2 text-left">
+          <div className="min-w-0 flex flex-col gap-0.5 text-left">
             <span className="font-semibold leading-snug text-foreground">
               {row.original.building}
             </span>
@@ -112,15 +113,19 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "typeLabel",
+      enableHiding: true,
+      meta: { columnLabel: "Type" },
       header: ({ column }) => (
         <SortableHeader column={column}>Type</SortableHeader>
       ),
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.typeLabel}</span>
+        <span className="text-left text-sm">{row.original.typeLabel}</span>
       ),
     },
     {
       accessorKey: "rsf",
+      enableHiding: true,
+      meta: { columnLabel: "RSF" },
       header: ({ column }) => (
         <SortableHeader column={column}>RSF</SortableHeader>
       ),
@@ -136,6 +141,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "occPct",
+      enableHiding: true,
+      meta: { columnLabel: "Occ%" },
       header: ({ column }) => (
         <SortableHeader column={column}>Occ%</SortableHeader>
       ),
@@ -150,6 +157,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "pricePerSf",
+      enableHiding: true,
+      meta: { columnLabel: "$/SF" },
       header: ({ column }) => (
         <SortableHeader column={column}>$/SF</SortableHeader>
       ),
@@ -164,6 +173,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "noi",
+      enableHiding: true,
+      meta: { columnLabel: "NOI" },
       header: ({ column }) => (
         <SortableHeader column={column}>NOI</SortableHeader>
       ),
@@ -179,6 +190,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "value",
+      enableHiding: true,
+      meta: { columnLabel: "Value" },
       header: ({ column }) => (
         <SortableHeader column={column}>Value</SortableHeader>
       ),
@@ -194,6 +207,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "capRate",
+      enableHiding: true,
+      meta: { columnLabel: "Cap" },
       header: ({ column }) => (
         <SortableHeader column={column}>Cap</SortableHeader>
       ),
@@ -208,6 +223,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "wale",
+      enableHiding: true,
+      meta: { columnLabel: "WALE" },
       header: ({ column }) => (
         <SortableHeader column={column}>WALE</SortableHeader>
       ),
@@ -222,6 +239,8 @@ export function createPortfolioAssetColumns(
     },
     {
       accessorKey: "debtYield",
+      enableHiding: true,
+      meta: { columnLabel: "Debt Yield" },
       header: ({ column }) => (
         <SortableHeader column={column}>Debt Yield</SortableHeader>
       ),
@@ -237,6 +256,7 @@ export function createPortfolioAssetColumns(
     {
       id: "lift",
       accessorKey: "liftPercent",
+      enableHiding: false,
       header: ({ column }) => (
         <SortableHeader column={column}>Potential Lift</SortableHeader>
       ),
@@ -255,6 +275,7 @@ export function createPortfolioAssetColumns(
     },
     {
       id: "modifications",
+      enableHiding: false,
       header: "Modifications",
       cell: ({ row }) => (
         <AssetModificationSetSelect

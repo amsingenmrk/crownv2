@@ -1,9 +1,18 @@
 "use client"
 
 import * as React from "react"
-import type { RowSelectionState } from "@tanstack/react-table"
+import {
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type RowSelectionState,
+  type SortingState,
+  type VisibilityState,
+} from "@tanstack/react-table"
 import { Expand, Shrink } from "lucide-react"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
+import { PortfolioAssetsViewOptions } from "@/components/portfolio/portfolio-assets-view-options"
+import { createPortfolioAssetColumns } from "@/components/portfolio/portfolio-assets-columns"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
@@ -241,6 +250,32 @@ export function PortfolioDashboard() {
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
+  const portfolioColumns = React.useMemo(
+    () => createPortfolioAssetColumns(LIFT_PCT_EXTENT),
+    []
+  )
+
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "lift", desc: true },
+  ])
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({})
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
+  const portfolioTable = useReactTable({
+    data: visibleAssetRows,
+    columns: portfolioColumns,
+    state: { rowSelection, sorting, columnVisibility },
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => row.id,
+    enableRowSelection: true,
+    enableHiding: true,
+  })
+
   React.useEffect(() => {
     const visible = new Set(visibleAssetRows.map((r) => r.id))
     setRowSelection((s) => {
@@ -255,11 +290,6 @@ export function PortfolioDashboard() {
       return changed ? next : s
     })
   }, [visibleAssetRows])
-
-  const selectedCount = React.useMemo(
-    () => Object.values(rowSelection).filter(Boolean).length,
-    [rowSelection]
-  )
 
   return (
     <div className="relative flex flex-1 flex-col gap-8">
@@ -361,7 +391,15 @@ export function PortfolioDashboard() {
               {visibleAssetRows.length}
             </span>
           </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:max-w-xl">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:max-w-none sm:justify-end">
+            <Input
+              type="search"
+              placeholder="Search assets…"
+              value={assetTableSearch}
+              onChange={(e) => setAssetTableSearch(e.target.value)}
+              aria-label="Search assets in table"
+              className="min-w-0 w-full flex-1 sm:max-w-xs sm:w-auto"
+            />
             <Select
               items={PORTFOLIO_GROUP_SELECT_LABELS}
               value={portfolioGroupFilter}
@@ -398,13 +436,9 @@ export function PortfolioDashboard() {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="search"
-              placeholder="Search assets…"
-              value={assetTableSearch}
-              onChange={(e) => setAssetTableSearch(e.target.value)}
-              aria-label="Search assets in table"
-              className="min-w-0 flex-1 sm:max-w-xs"
+            <PortfolioAssetsViewOptions
+              table={portfolioTable}
+              className="hidden lg:flex"
             />
             <Button type="button" className="shrink-0">
               Add asset
@@ -412,45 +446,10 @@ export function PortfolioDashboard() {
           </div>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
-          <div className="min-w-[1290px]">
-            <div className="flex flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <p className="text-sm text-muted-foreground">
-                {selectedCount === 0 ? (
-                  <>
-                    <span className="tabular-nums">
-                      {visibleAssetRows.length}
-                    </span>{" "}
-                    {visibleAssetRows.length === 1 ? "Asset" : "Assets"}
-                  </>
-                ) : (
-                  <>
-                    <span className="tabular-nums">{selectedCount}</span>
-                    {" of "}
-                    <span className="tabular-nums">
-                      {visibleAssetRows.length}
-                    </span>{" "}
-                    {visibleAssetRows.length === 1 ? "Asset" : "Assets"}{" "}
-                    Selected
-                  </>
-                )}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-border text-muted-foreground hover:text-foreground"
-                  disabled={selectedCount === 0}
-                >
-                  Add to Scenario
-                </Button>
-              </div>
-            </div>
+          <div className="portfolio-assets-table-scroll-inner">
             <PortfolioAssetsDataTable
-              data={visibleAssetRows}
+              table={portfolioTable}
               liftExtent={LIFT_PCT_EXTENT}
-              rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
             />
           </div>
         </div>

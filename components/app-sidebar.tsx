@@ -4,6 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 
+import { AppCommandPalette } from "@/components/app-command-palette"
 import { NavAssets } from "@/components/nav-assets"
 import { NavRoutes } from "@/components/nav-routes"
 import { NavScenarios } from "@/components/nav-scenarios"
@@ -53,6 +54,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <AppCommandPalette />
         <NavRoutes />
         <NavScenarios />
         <NavAssets />

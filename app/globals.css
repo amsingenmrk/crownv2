@@ -124,3 +124,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* At least viewport-wide; grows with intrinsic table width for horizontal scroll */
+  .portfolio-assets-table-scroll-inner {
+    width: max-content;
+    min-width: 100%;
+  }
+}

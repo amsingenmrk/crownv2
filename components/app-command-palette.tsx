@@ -11,6 +11,12 @@ import {
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
+import {
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -36,7 +42,13 @@ function isMac(): boolean {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
 }
 
-export function AppCommandPalette({ className }: { className?: string }) {
+export function AppCommandPalette({
+  variant = "sidebar",
+  className,
+}: {
+  variant?: "header" | "sidebar"
+  className?: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
@@ -74,25 +86,50 @@ export function AppCommandPalette({ className }: { className?: string }) {
     setOpen(false)
   }
 
+  const shortcut = (
+    <kbd className="pointer-events-none ml-auto hidden h-5 items-center gap-0.5 rounded border border-sidebar-border bg-sidebar-accent px-1.5 font-mono text-[10px] font-medium opacity-80 group-data-[collapsible=icon]:hidden sm:inline-flex">
+      {isMac() ? "⌘" : "Ctrl"}K
+    </kbd>
+  )
+
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={cn(
-          "h-8 gap-2 text-muted-foreground",
-          className
-        )}
-        onClick={() => setOpen(true)}
-        aria-label="Open command palette"
-      >
-        <Search className="size-3.5 shrink-0" aria-hidden />
-        <span className="hidden text-xs sm:inline">Search</span>
-        <kbd className="pointer-events-none ml-0.5 hidden h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
-          {isMac() ? "⌘" : "Ctrl"}K
-        </kbd>
-      </Button>
+      {variant === "sidebar" ? (
+        <SidebarGroup className={cn("p-2 pb-1", className)}>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                type="button"
+                tooltip="Search"
+                className="text-sidebar-foreground/80"
+                onClick={() => setOpen(true)}
+                aria-label="Open command palette"
+              >
+                <Search aria-hidden />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Search
+                </span>
+                {shortcut}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("h-8 gap-2 text-muted-foreground", className)}
+          onClick={() => setOpen(true)}
+          aria-label="Open command palette"
+        >
+          <Search className="size-3.5 shrink-0" aria-hidden />
+          <span className="hidden text-xs sm:inline">Search</span>
+          <kbd className="pointer-events-none ml-0.5 hidden h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+            {isMac() ? "⌘" : "Ctrl"}K
+          </kbd>
+        </Button>
+      )}
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Search assets, scenarios, pages…" />

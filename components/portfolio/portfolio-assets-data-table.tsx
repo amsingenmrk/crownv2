@@ -1,16 +1,10 @@
 "use client"
 
 import * as React from "react"
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  type RowSelectionState,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, type Table } from "@tanstack/react-table"
 import { useRouter } from "next/navigation"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   TableBody,
@@ -26,14 +20,15 @@ import {
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
-import { createPortfolioAssetColumns } from "./portfolio-assets-columns"
-
-/**
- * Matches header + body rows; first column = checkbox.
- * Wide layout — parent uses horizontal scroll on small viewports.
- */
-export const ASSETS_TABLE_LG_GRID =
-  "lg:grid-cols-[minmax(2rem,2rem)_minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.5rem)_minmax(0,4.25rem)_minmax(0,3rem)_minmax(0,3.25rem)_minmax(0,4.5rem)_minmax(8.5rem,12rem)_minmax(8rem,10.5rem)]"
+import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
+function gridTemplateForVisibleColumns(
+  table: Table<PortfolioAssetRow>
+): string {
+  return table
+    .getVisibleLeafColumns()
+    .map((c) => PORTFOLIO_ASSETS_COLUMN_GRID_TRACK[c.id] ?? "auto")
+    .join(" ")
+}
 
 function isInteractiveTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false
@@ -45,40 +40,32 @@ function isInteractiveTarget(el: EventTarget | null) {
 }
 
 export function PortfolioAssetsDataTable({
-  data,
+  table,
   liftExtent,
-  rowSelection,
-  onRowSelectionChange,
 }: {
-  data: PortfolioAssetRow[]
+  table: Table<PortfolioAssetRow>
   liftExtent: { min: number; max: number }
-  rowSelection: RowSelectionState
-  onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>
 }) {
   const router = useRouter()
-  const columns = React.useMemo(
-    () => createPortfolioAssetColumns(liftExtent),
-    [liftExtent]
-  )
+  const data = table.options.data
 
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "lift", desc: true },
-  ])
-
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
-  const table = useReactTable({
-    data,
-    columns,
-    state: { rowSelection, sorting },
-    onRowSelectionChange,
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: (row) => row.id,
-    enableRowSelection: true,
-  })
+  const selectedCount = Object.values(
+    table.getState().rowSelection
+  ).filter(Boolean).length
 
   const sortedRows = table.getRowModel().rows
+
+  const gridTemplateColumns = gridTemplateForVisibleColumns(table)
+
+  const gridRowStyle = React.useMemo(
+    () =>
+      ({
+        gridColumn: "1 / -1",
+        gridTemplateColumns: "subgrid",
+        columnGap: "0.75rem",
+      }) as const,
+    []
+  )
 
   const strength = React.useCallback(
     (liftPercent: number) =>
@@ -88,24 +75,53 @@ export function PortfolioAssetsDataTable({
 
   return (
     <>
-      <table className="hidden w-full caption-bottom text-sm max-lg:hidden lg:table">
-        <TableHeader>
+      <div className="flex flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <p className="text-sm text-muted-foreground">
+          {selectedCount === 0 ? (
+            <>
+              <span className="tabular-nums">{data.length}</span>{" "}
+              {data.length === 1 ? "Asset" : "Assets"}
+            </>
+          ) : (
+            <>
+              <span className="tabular-nums">{selectedCount}</span>
+              {" of "}
+              <span className="tabular-nums">{data.length}</span>{" "}
+              {data.length === 1 ? "Asset" : "Assets"} Selected
+            </>
+          )}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-border text-muted-foreground hover:text-foreground"
+            disabled={selectedCount === 0}
+          >
+            Add to Scenario
+          </Button>
+        </div>
+      </div>
+      <table
+        className="hidden w-full min-w-max caption-bottom text-sm max-lg:hidden lg:grid lg:px-4"
+        style={{ gridTemplateColumns }}
+      >
+        <TableHeader className="contents [&_tr]:border-0">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className={cn(
-                "grid items-center gap-3 border-border bg-muted/50 px-4 hover:bg-muted/50",
-                ASSETS_TABLE_LG_GRID
-              )}
+              className="grid items-center border-b border-border bg-muted/50 hover:bg-muted/50"
+              style={gridRowStyle}
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
                   scope="col"
                   className={cn(
-                    "h-auto px-0 py-2 align-middle",
+                    "h-auto min-w-0 px-0 py-2 text-left align-middle",
                     header.column.id === "select" &&
-                      "flex w-8 items-center justify-start",
+                      "flex w-8 max-w-8 items-center justify-start",
                     header.column.id !== "select" && "font-medium"
                   )}
                 >
@@ -120,16 +136,14 @@ export function PortfolioAssetsDataTable({
             </TableRow>
           ))}
         </TableHeader>
-        <TableBody>
+        <TableBody className="contents [&_tr:last-child]:border-b-0">
           {sortedRows.length ? (
             sortedRows.map((row) => (
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
-                className={cn(
-                  "grid cursor-pointer items-center gap-3 border-border px-4 hover:bg-muted/50",
-                  ASSETS_TABLE_LG_GRID
-                )}
+                className="grid cursor-pointer items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
+                style={gridRowStyle}
                 role="link"
                 tabIndex={0}
                 aria-label={`Open ${row.original.building}, ${row.original.location}`}
@@ -148,7 +162,7 @@ export function PortfolioAssetsDataTable({
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className="border-0 p-0 py-3 align-middle [&:has([role=checkbox])]:pr-0"
+                    className="min-w-0 border-0 p-0 py-3 text-left align-middle [&:has([role=checkbox])]:pr-0"
                   >
                     {flexRender(
                       cell.column.columnDef.cell,
@@ -159,7 +173,10 @@ export function PortfolioAssetsDataTable({
               </TableRow>
             ))
           ) : (
-            <TableRow className="grid border-0 hover:bg-transparent">
+            <TableRow
+              className="grid border-0 hover:bg-transparent"
+              style={gridRowStyle}
+            >
               <TableCell
                 className="h-24 border-0 py-10 text-center text-sm text-muted-foreground"
                 style={{ gridColumn: "1 / -1" }}
@@ -180,7 +197,7 @@ export function PortfolioAssetsDataTable({
           sortedRows.map((tableRow) => {
             const row = tableRow.original
             const href = assetHref(row.id)
-            const selected = Boolean(rowSelection[row.id])
+            const selected = tableRow.getIsSelected()
             return (
               <li key={tableRow.id}>
                 <div className="flex flex-col gap-3 px-4 py-4 text-sm">
@@ -193,12 +210,7 @@ export function PortfolioAssetsDataTable({
                       <Checkbox
                         checked={selected}
                         onCheckedChange={(checked) => {
-                          onRowSelectionChange((s) => {
-                            const next = { ...s }
-                            if (checked) next[row.id] = true
-                            else delete next[row.id]
-                            return next
-                          })
+                          tableRow.toggleSelected(!!checked)
                         }}
                         aria-label={`Select ${row.building}`}
                       />
