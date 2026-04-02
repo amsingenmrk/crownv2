@@ -11,9 +11,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ASSETS, getAssetById } from "@/lib/assets"
+import { humanizeScenarioSlug } from "@/lib/scenario-slug"
+import { readUserScenarios } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
 
 function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string {
@@ -27,9 +36,23 @@ function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string
 const TITLES: Record<string, string> = {
   "/": "Portfolio",
   "/portfolio": "Portfolio",
-  "/search": "Search",
+  "/search": "Property search",
   "/benchmarks": "Benchmarks",
-  "/scenarios/2026-capital-planning": "2026 Capital Planning",
+}
+
+function titleForPathname(pathname: string | null): string {
+  if (!pathname) return "Glassbox"
+  const explicit = TITLES[pathname]
+  if (explicit) return explicit
+  if (pathname.startsWith("/scenarios/")) {
+    const slug = pathname.slice("/scenarios/".length).split("/")[0]
+    if (slug) {
+      const user = readUserScenarios().find((s) => s.slug === slug)
+      if (user) return user.name
+      return humanizeScenarioSlug(slug)
+    }
+  }
+  return "Glassbox"
 }
 
 export function AppTopbar() {
@@ -44,8 +67,10 @@ export function AppTopbar() {
   const asset = assetId ? getAssetById(assetId) : null
   const showAssetBreadcrumb =
     pathname?.startsWith("/assets/") === true && asset != null
+  const showScenarioBreadcrumb =
+    pathname != null && pathname.startsWith("/scenarios/")
 
-  const pageTitle = pathname ? (TITLES[pathname] ?? "Glassbox") : "Glassbox"
+  const pageTitle = titleForPathname(pathname ?? null)
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -170,6 +195,22 @@ export function AppTopbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        ) : showScenarioBreadcrumb ? (
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <span className="font-medium text-muted-foreground">
+                  Scenarios
+                </span>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate font-medium">
+                  {pageTitle}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         ) : (
           <span className="text-sm font-medium text-muted-foreground">
             {pageTitle}

@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   Search,
+  TextSearch,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -27,19 +28,41 @@ import {
 } from "@/components/ui/command"
 import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
 import { getRecentAssetIds, recordRecentAsset } from "@/lib/recent-assets"
+import { BUILTIN_SCENARIO, readUserScenarios } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
-
-const SCENARIO_HREF = "/scenarios/2026-capital-planning" as const
 
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { title: "Search", href: "/search", icon: Search },
+  { title: "Property search", href: "/search", icon: Search },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
 function isMac(): boolean {
   if (typeof navigator === "undefined") return false
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+}
+
+function CommandKeyHint({ className }: { className?: string }) {
+  return (
+    <kbd
+      className={cn(
+        "pointer-events-none inline-flex h-6 items-center gap-1 rounded-md border px-2 font-medium text-muted-foreground",
+        className
+      )}
+    >
+      {isMac() ? (
+        <span
+          className="flex size-[1.1rem] items-center justify-center font-sans text-sm leading-none"
+          aria-hidden
+        >
+          ⌘
+        </span>
+      ) : (
+        <span className="text-xs leading-none">Ctrl</span>
+      )}
+      <span className="font-mono text-xs leading-none">K</span>
+    </kbd>
+  )
 }
 
 export function AppCommandPalette({
@@ -69,6 +92,27 @@ export function AppCommandPalette({
     [recentIds]
   )
 
+  const commandScenarios = useMemo(() => {
+    if (!open) return []
+    const user = readUserScenarios()
+      .slice()
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    return [
+      {
+        name: BUILTIN_SCENARIO.name,
+        href: `/scenarios/${BUILTIN_SCENARIO.slug}`,
+        value: `scenario ${BUILTIN_SCENARIO.name.toLowerCase()}`,
+      },
+      ...user.map((s) => ({
+        name: s.name,
+        href: `/scenarios/${s.slug}`,
+        value: `scenario ${s.name} ${s.slug}`,
+      })),
+    ]
+  }, [open])
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -87,9 +131,7 @@ export function AppCommandPalette({
   }
 
   const shortcut = (
-    <kbd className="pointer-events-none ml-auto hidden h-5 items-center gap-0.5 rounded border border-sidebar-border bg-sidebar-accent px-1.5 font-mono text-[10px] font-medium opacity-80 group-data-[collapsible=icon]:hidden sm:inline-flex">
-      {isMac() ? "⌘" : "Ctrl"}K
-    </kbd>
+    <CommandKeyHint className="ml-auto hidden border-sidebar-border bg-sidebar-accent opacity-90 group-data-[collapsible=icon]:hidden sm:inline-flex" />
   )
 
   return (
@@ -100,14 +142,14 @@ export function AppCommandPalette({
             <SidebarMenuItem>
               <SidebarMenuButton
                 type="button"
-                tooltip="Search"
+                tooltip="Find anything — ⌘K"
                 className="text-sidebar-foreground/80"
                 onClick={() => setOpen(true)}
                 aria-label="Open command palette"
               >
-                <Search aria-hidden />
+                <TextSearch aria-hidden />
                 <span className="group-data-[collapsible=icon]:hidden">
-                  Search
+                  Find anything
                 </span>
                 {shortcut}
               </SidebarMenuButton>
@@ -123,16 +165,14 @@ export function AppCommandPalette({
           onClick={() => setOpen(true)}
           aria-label="Open command palette"
         >
-          <Search className="size-3.5 shrink-0" aria-hidden />
-          <span className="hidden text-xs sm:inline">Search</span>
-          <kbd className="pointer-events-none ml-0.5 hidden h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
-            {isMac() ? "⌘" : "Ctrl"}K
-          </kbd>
+          <TextSearch className="size-3.5 shrink-0" aria-hidden />
+          <span className="hidden text-xs sm:inline">Find anything</span>
+          <CommandKeyHint className="ml-0.5 hidden border-border bg-muted sm:ml-1 sm:inline-flex" />
         </Button>
       )}
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Search assets, scenarios, pages…" />
+        <CommandInput placeholder="Find assets, scenarios, pages…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
 
@@ -175,13 +215,16 @@ export function AppCommandPalette({
           <CommandSeparator />
 
           <CommandGroup heading="Scenarios">
-            <CommandItem
-              value="scenario 2026 capital planning"
-              onSelect={() => go(SCENARIO_HREF)}
-            >
-              <CalendarDays className="text-muted-foreground" aria-hidden />
-              2026 Capital Planning
-            </CommandItem>
+            {commandScenarios.map((s) => (
+              <CommandItem
+                key={s.href}
+                value={s.value}
+                onSelect={() => go(s.href)}
+              >
+                <CalendarDays className="text-muted-foreground" aria-hidden />
+                {s.name}
+              </CommandItem>
+            ))}
           </CommandGroup>
 
           <CommandSeparator />

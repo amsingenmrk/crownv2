@@ -2,16 +2,20 @@
 
 import type { ReactNode } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
+import Link from "next/link"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import { assetHref } from "@/lib/assets"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
+
+export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
 
 function SortableHeader({
   column,
@@ -67,21 +71,18 @@ function SelectHeader({ table }: { table: Table<PortfolioAssetRow> }) {
 }
 
 export function createPortfolioAssetColumns(
+  variant: PortfolioAssetsTableVariant,
   liftExtent: { min: number; max: number }
 ): ColumnDef<PortfolioAssetRow>[] {
-  const strength = (liftPercent: number) =>
+  const liftStrength = (liftPercent: number) =>
     normalizedLiftStrength(liftPercent, liftExtent.min, liftExtent.max)
 
-  return [
+  const columns: ColumnDef<PortfolioAssetRow>[] = [
     {
       id: "select",
       header: ({ table }) => <SelectHeader table={table} />,
       cell: ({ row }) => (
-        <span
-          className="flex items-center"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        <span className="flex items-center">
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(v) => row.toggleSelected(!!v)}
@@ -101,9 +102,12 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="flex min-w-0 items-start gap-2 text-left">
           <div className="min-w-0 flex flex-col gap-0.5 text-left">
-            <span className="font-semibold leading-snug text-foreground">
-              {row.original.building}
-            </span>
+            <Link
+              href={assetHref(row.original.id)}
+              className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <span className="truncate">{row.original.building}</span>
+            </Link>
             <span className="text-xs leading-snug text-muted-foreground">
               {row.original.location}
             </span>
@@ -253,27 +257,45 @@ export function createPortfolioAssetColumns(
         </div>
       ),
     },
-    {
+  ]
+
+  if (variant === "portfolio") {
+    columns.push({
       id: "lift",
-      accessorKey: "liftPercent",
-      enableHiding: false,
+      accessorFn: (row) => row.liftPercent,
+      enableHiding: true,
+      meta: { columnLabel: "Potential Lift" },
       header: ({ column }) => (
         <SortableHeader column={column}>Potential Lift</SortableHeader>
       ),
+      sortingFn: (rowA, rowB, id) =>
+        Number(rowA.getValue(id)) - Number(rowB.getValue(id)),
       cell: ({ row }) => (
         <div className="flex justify-start">
           <span
             className={cn(
               "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-              liftPillClassFromStrength(strength(row.original.liftPercent))
+              liftPillClassFromStrength(liftStrength(row.original.liftPercent))
             )}
           >
             {row.original.lift}
           </span>
         </div>
       ),
-    },
-    {
+    })
+    columns.push({
+      accessorKey: "recommendation",
+      enableHiding: true,
+      meta: { columnLabel: "Recommendations" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>Recommendations</SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <span className="text-left text-sm">{row.original.recommendation}</span>
+      ),
+    })
+  } else {
+    columns.push({
       id: "modifications",
       enableHiding: false,
       header: "Modifications",
@@ -284,6 +306,8 @@ export function createPortfolioAssetColumns(
         />
       ),
       enableSorting: false,
-    },
-  ]
+    })
+  }
+
+  return columns
 }

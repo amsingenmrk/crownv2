@@ -10,9 +10,16 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { Expand, Shrink } from "lucide-react"
+import {
+  parseStoredSets,
+  storageKeyForAsset,
+} from "@/components/building-modifications-sidebar"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
 import { PortfolioAssetsViewOptions } from "@/components/portfolio/portfolio-assets-view-options"
-import { createPortfolioAssetColumns } from "@/components/portfolio/portfolio-assets-columns"
+import {
+  createPortfolioAssetColumns,
+  type PortfolioAssetsTableVariant,
+} from "@/components/portfolio/portfolio-assets-columns"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
@@ -178,6 +185,13 @@ function toCssPercent(n: number): string {
 }
 
 /** One map dot per asset; position spirals from center; color = lift strength. */
+function assetHasSavedModificationSets(assetId: string): boolean {
+  const sets = parseStoredSets(
+    localStorage.getItem(storageKeyForAsset(assetId))
+  )
+  return sets.length >= 1
+}
+
 function mapPinsForRows(rows: PortfolioAssetRow[]) {
   const n = rows.length
   const golden = Math.PI * (3 - Math.sqrt(5))
@@ -199,7 +213,11 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
   })
 }
 
-export function PortfolioDashboard() {
+export function PortfolioDashboard({
+  assetsTableVariant,
+}: {
+  assetsTableVariant: PortfolioAssetsTableVariant
+}) {
   const assetsHeadingId = React.useId()
   const [mapExpanded, setMapExpanded] = React.useState(false)
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
@@ -212,6 +230,47 @@ export function PortfolioDashboard() {
       ? "All assets"
       : ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]
 
+  /**
+   * Scenarios: after layout, `Set` of asset ids with ≥1 saved modification set
+   * (localStorage). `null` = not computed yet (show unfiltered until then).
+   */
+  const [scenarioEligibleAssetIds, setScenarioEligibleAssetIds] =
+    React.useState<Set<string> | null>(null)
+
+  React.useLayoutEffect(() => {
+    if (assetsTableVariant !== "scenarios") {
+      setScenarioEligibleAssetIds(null)
+      return
+    }
+
+    function computeEligibleIds(): Set<string> {
+      const ids = new Set<string>()
+      for (const row of PORTFOLIO_ASSET_ROWS) {
+        if (assetHasSavedModificationSets(row.id)) ids.add(row.id)
+      }
+      return ids
+    }
+
+    setScenarioEligibleAssetIds(computeEligibleIds())
+
+    const refresh = () => setScenarioEligibleAssetIds(computeEligibleIds())
+
+    const onStorage = (e: StorageEvent) => {
+      if (
+        e.key != null &&
+        e.key.startsWith("glassbox:modification-sets:")
+      ) {
+        refresh()
+      }
+    }
+    window.addEventListener("storage", onStorage)
+    window.addEventListener("glassbox:modification-sets-changed", refresh)
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener("glassbox:modification-sets-changed", refresh)
+    }
+  }, [assetsTableVariant])
+
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
       portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
@@ -219,29 +278,42 @@ export function PortfolioDashboard() {
         : PORTFOLIO_ASSET_ROWS.filter((r) => r.groupId === portfolioGroupFilter)
 
     const q = assetTableSearch.trim().toLowerCase()
-    if (!q) return baseRows
-    return baseRows.filter((row) => {
-      return [
-        row.building,
-        row.location,
-        row.typeLabel,
-        row.rsf,
-        row.occPct,
-        row.pricePerSf,
-        row.noi,
-        row.value,
-        row.capRate,
-        row.wale,
-        row.debtYield,
-        row.status,
-        row.lift,
-        row.recommendation,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    })
-  }, [assetTableSearch, portfolioGroupFilter])
+    let rows =
+      !q
+        ? baseRows
+        : baseRows.filter((row) => {
+            return [
+              row.building,
+              row.location,
+              row.typeLabel,
+              row.rsf,
+              row.occPct,
+              row.pricePerSf,
+              row.noi,
+              row.value,
+              row.capRate,
+              row.wale,
+              row.debtYield,
+              row.status,
+              row.lift,
+              row.recommendation,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(q)
+          })
+
+    if (assetsTableVariant === "scenarios" && scenarioEligibleAssetIds != null) {
+      rows = rows.filter((r) => scenarioEligibleAssetIds.has(r.id))
+    }
+
+    return rows
+  }, [
+    assetTableSearch,
+    portfolioGroupFilter,
+    assetsTableVariant,
+    scenarioEligibleAssetIds,
+  ])
 
   const visibleMapPins = React.useMemo(
     () => mapPinsForRows(visibleAssetRows),
@@ -251,13 +323,15 @@ export function PortfolioDashboard() {
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   const portfolioColumns = React.useMemo(
-    () => createPortfolioAssetColumns(LIFT_PCT_EXTENT),
-    []
+    () => createPortfolioAssetColumns(assetsTableVariant, LIFT_PCT_EXTENT),
+    [assetsTableVariant]
   )
 
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "lift", desc: true },
-  ])
+  const [sorting, setSorting] = React.useState<SortingState>(() =>
+    assetsTableVariant === "portfolio"
+      ? [{ id: "lift", desc: true }]
+      : [{ id: "building", desc: false }]
+  )
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
 
@@ -338,7 +412,10 @@ export function PortfolioDashboard() {
               backgroundSize: "28px 28px",
             }}
           />
-          <div className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent" />
+          <div
+            className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent"
+            aria-hidden
+          />
           {visibleMapPins.map((pin) => (
             <span
               key={pin.id}
@@ -449,6 +526,7 @@ export function PortfolioDashboard() {
           <div className="portfolio-assets-table-scroll-inner">
             <PortfolioAssetsDataTable
               table={portfolioTable}
+              variant={assetsTableVariant}
               liftExtent={LIFT_PCT_EXTENT}
             />
           </div>

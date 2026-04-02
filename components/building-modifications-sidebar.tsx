@@ -320,6 +320,7 @@ export function BuildingModificationsSidebar({
       setSavedSets(next)
       try {
         localStorage.setItem(persistKey, JSON.stringify(next))
+        window.dispatchEvent(new Event("glassbox:modification-sets-changed"))
       } catch {
         /* ignore */
       }

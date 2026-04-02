@@ -3,11 +3,12 @@
 import * as React from "react"
 import type { Column, Table } from "@tanstack/react-table"
 import { ChevronDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -20,7 +21,7 @@ function columnMenuLabel(column: Column<PortfolioAssetRow, unknown>): string {
   return meta?.columnLabel ?? column.id
 }
 
-/** Column visibility: pill “Columns” trigger and checkbox menu (shadcn Data Table pattern). */
+/** Column visibility: outline “Columns” trigger and checkbox menu (shadcn Data Table pattern). */
 export function PortfolioAssetsViewOptions({
   table,
   className,
@@ -39,34 +40,38 @@ export function PortfolioAssetsViewOptions({
     <div className={cn("shrink-0", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 rounded-full border-border bg-muted/50 px-4 font-medium text-foreground shadow-sm hover:bg-muted dark:bg-muted/30"
-              aria-label="Choose which columns to show"
-            />
-          }
+          className={cn(buttonVariants({ variant: "outline" }))}
+          aria-label="Choose which columns to show"
         >
           Columns
-          <ChevronDown className="size-4 opacity-60" aria-hidden />
+          <ChevronDown
+            className="size-4 opacity-60"
+            aria-hidden
+            data-icon="inline-end"
+          />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[10rem]">
-          <DropdownMenuLabel className="font-normal text-muted-foreground">
-            Toggle columns
-          </DropdownMenuLabel>
+        <DropdownMenuContent
+          align="end"
+          className="z-[100] min-w-[10rem]"
+        >
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="font-normal text-muted-foreground">
+              Toggle columns
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {hideable.map((column) => (
-            <DropdownMenuCheckboxItem
-              key={column.id}
-              className="normal-case"
-              checked={column.getIsVisible()}
-              onCheckedChange={(value) => column.toggleVisibility(!!value)}
-            >
-              {columnMenuLabel(column)}
-            </DropdownMenuCheckboxItem>
-          ))}
+          <DropdownMenuGroup>
+            {hideable.map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                className="normal-case"
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              >
+                {columnMenuLabel(column)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

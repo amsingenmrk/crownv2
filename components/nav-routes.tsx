@@ -13,7 +13,7 @@ import {
 
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { title: "Search", href: "/search", icon: Search },
+  { title: "Property search", href: "/search", icon: Search },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 

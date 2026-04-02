@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { flexRender, type Table } from "@tanstack/react-table"
-import { useRouter } from "next/navigation"
-import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -14,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { assetHref } from "@/lib/assets"
+import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import type { PortfolioAssetsTableVariant } from "@/components/portfolio/portfolio-assets-columns"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
@@ -30,24 +31,22 @@ function gridTemplateForVisibleColumns(
     .join(" ")
 }
 
-function isInteractiveTarget(el: EventTarget | null) {
-  if (!(el instanceof HTMLElement)) return false
-  return Boolean(
-    el.closest(
-      '[data-slot="checkbox"],button,a,[role="combobox"],[data-slot="select-trigger"]'
-    )
-  )
-}
-
 export function PortfolioAssetsDataTable({
   table,
+  variant,
   liftExtent,
 }: {
   table: Table<PortfolioAssetRow>
+  variant: PortfolioAssetsTableVariant
   liftExtent: { min: number; max: number }
 }) {
-  const router = useRouter()
   const data = table.options.data
+
+  const liftStrength = React.useCallback(
+    (liftPercent: number) =>
+      normalizedLiftStrength(liftPercent, liftExtent.min, liftExtent.max),
+    [liftExtent.min, liftExtent.max]
+  )
 
   const selectedCount = Object.values(
     table.getState().rowSelection
@@ -65,12 +64,6 @@ export function PortfolioAssetsDataTable({
         columnGap: "0.75rem",
       }) as const,
     []
-  )
-
-  const strength = React.useCallback(
-    (liftPercent: number) =>
-      normalizedLiftStrength(liftPercent, liftExtent.min, liftExtent.max),
-    [liftExtent.min, liftExtent.max]
   )
 
   return (
@@ -95,8 +88,6 @@ export function PortfolioAssetsDataTable({
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="border-border text-muted-foreground hover:text-foreground"
             disabled={selectedCount === 0}
           >
             Add to Scenario
@@ -104,7 +95,7 @@ export function PortfolioAssetsDataTable({
         </div>
       </div>
       <table
-        className="hidden w-full min-w-max caption-bottom text-sm max-lg:hidden lg:grid lg:px-4"
+        className="hidden w-full min-w-max px-0 caption-bottom text-sm max-lg:hidden lg:grid"
         style={{ gridTemplateColumns }}
       >
         <TableHeader className="contents [&_tr]:border-0">
@@ -119,10 +110,10 @@ export function PortfolioAssetsDataTable({
                   key={header.id}
                   scope="col"
                   className={cn(
-                    "h-auto min-w-0 px-0 py-2 text-left align-middle",
-                    header.column.id === "select" &&
-                      "flex w-8 max-w-8 items-center justify-start",
-                    header.column.id !== "select" && "font-medium"
+                    "h-auto min-w-0 py-2 text-left align-middle",
+                    header.column.id === "select"
+                      ? "flex items-center justify-start pl-3 pr-0"
+                      : "px-2 font-medium"
                   )}
                 >
                   {header.isPlaceholder
@@ -142,27 +133,18 @@ export function PortfolioAssetsDataTable({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
-                className="grid cursor-pointer items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
+                className="grid items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
                 style={gridRowStyle}
-                role="link"
-                tabIndex={0}
-                aria-label={`Open ${row.original.building}, ${row.original.location}`}
-                onClick={(e) => {
-                  if (isInteractiveTarget(e.target)) return
-                  router.push(assetHref(row.original.id))
-                }}
-                onKeyDown={(e) => {
-                  if (isInteractiveTarget(e.target)) return
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    router.push(assetHref(row.original.id))
-                  }
-                }}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className="min-w-0 border-0 p-0 py-3 text-left align-middle [&:has([role=checkbox])]:pr-0"
+                    className={cn(
+                      "min-w-0 border-0 py-2 text-left align-middle",
+                      cell.column.id === "select"
+                        ? "pl-3 pr-0"
+                        : "px-2"
+                    )}
                   >
                     {flexRender(
                       cell.column.columnDef.cell,
@@ -178,7 +160,7 @@ export function PortfolioAssetsDataTable({
               style={gridRowStyle}
             >
               <TableCell
-                className="h-24 border-0 py-10 text-center text-sm text-muted-foreground"
+                className="h-24 border-0 px-3 py-10 text-center text-sm text-muted-foreground"
                 style={{ gridColumn: "1 / -1" }}
               >
                 No assets in this view.
@@ -202,11 +184,7 @@ export function PortfolioAssetsDataTable({
               <li key={tableRow.id}>
                 <div className="flex flex-col gap-3 px-4 py-4 text-sm">
                   <div className="flex items-start gap-3">
-                    <span
-                      className="flex shrink-0 items-center pt-0.5"
-                      onClick={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
+                    <span className="flex shrink-0 items-center pt-0.5">
                       <Checkbox
                         checked={selected}
                         onCheckedChange={(checked) => {
@@ -215,18 +193,17 @@ export function PortfolioAssetsDataTable({
                         aria-label={`Select ${row.building}`}
                       />
                     </span>
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      onClick={() => router.push(href)}
-                    >
-                      <span className="font-semibold leading-snug text-foreground">
-                        {row.building}
-                      </span>
+                    <div className="min-w-0 flex-1 text-left">
+                      <Link
+                        href={href}
+                        className="inline-flex max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <span className="truncate">{row.building}</span>
+                      </Link>
                       <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                         {row.location}
                       </span>
-                    </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Type</span>
@@ -235,22 +212,37 @@ export function PortfolioAssetsDataTable({
                     <span className="text-left tabular-nums text-foreground">
                       {row.rsf}
                     </span>
-                    <span>Lift</span>
-                    <span className="flex justify-start">
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-                          liftPillClassFromStrength(strength(row.liftPercent))
-                        )}
-                      >
-                        {row.lift}
-                      </span>
-                    </span>
                   </div>
-                  <AssetModificationSetSelect
-                    assetId={row.id}
-                    building={row.building}
-                  />
+                  {variant === "scenarios" ? (
+                    <AssetModificationSetSelect
+                      assetId={row.id}
+                      building={row.building}
+                    />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Potential Lift</span>
+                        <span className="flex justify-start">
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
+                              liftPillClassFromStrength(
+                                liftStrength(row.liftPercent)
+                              )
+                            )}
+                          >
+                            {row.lift}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Recommendations</span>
+                        <span className="text-left text-foreground">
+                          {row.recommendation}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </li>
             )
