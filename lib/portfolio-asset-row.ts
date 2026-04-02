@@ -5,6 +5,8 @@ export type PortfolioAssetRow = {
   groupId: AssetGroupId
   building: string
   location: string
+  /** Display label for the Ownership column (e.g. badge text). */
+  ownership: string
   typeLabel: string
   rsf: string
   occPct: string

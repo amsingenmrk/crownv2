@@ -205,6 +205,12 @@ export function PortfolioAssetsDataTable({
                       </span>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Ownership</span>
+                    <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
+                      {row.ownership}
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Type</span>
                     <span className="text-left text-foreground">{row.typeLabel}</span>

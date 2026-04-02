@@ -116,6 +116,18 @@ export function createPortfolioAssetColumns(
       ),
     },
     {
+      accessorKey: "ownership",
+      enableHiding: true,
+      meta: { columnLabel: "Ownership" },
+      header: () => <div className="font-medium">Ownership</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
+          {row.original.ownership}
+        </span>
+      ),
+    },
+    {
       accessorKey: "typeLabel",
       enableHiding: true,
       meta: { columnLabel: "Type" },
@@ -291,7 +303,7 @@ export function createPortfolioAssetColumns(
         <SortableHeader column={column}>Recommendations</SortableHeader>
       ),
       cell: ({ row }) => (
-        <span className="text-left text-sm">{row.original.recommendation}</span>
+        <span className="text-left text-xs">{row.original.recommendation}</span>
       ),
     })
   } else {

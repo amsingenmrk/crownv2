@@ -14,7 +14,12 @@ import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/components/building-modifications-sidebar"
+import { ScenarioMetricInlinePair } from "@/components/portfolio/scenario-comparative-kpis"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
+import {
+  ScenarioModificationSelectionsProvider,
+  useScenarioModificationSelections,
+} from "@/components/scenario-modification-selections-context"
 import { PortfolioAssetsViewOptions } from "@/components/portfolio/portfolio-assets-view-options"
 import {
   createPortfolioAssetColumns,
@@ -26,6 +31,18 @@ import {
   type Asset,
   type AssetGroupId,
 } from "@/lib/assets"
+import {
+  formatCapRatePts,
+  formatPctChange,
+  formatUsdDeltaCompact,
+  formatUsdPerSf,
+  formatUsdPortfolioCompact,
+} from "@/lib/scenario-kpi-format"
+import { computeScenarioPortfolioAggregate } from "@/lib/scenario-portfolio-aggregate"
+import {
+  portfolioValueNoiCapFromSeed,
+  seedForAsset,
+} from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   mapPinClassFromStrength,
@@ -80,13 +97,6 @@ const RECOMMENDATIONS = [
   "Re-Tenant Space",
 ] as const
 
-function seedForAsset(asset: Asset, index: number): number {
-  return (
-    asset.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) +
-    index * 31
-  )
-}
-
 function formatRsfShort(sqft: number): string {
   if (sqft >= 1_000_000) {
     const m = sqft / 1_000_000
@@ -109,8 +119,8 @@ const ASSET_STATUS_LABELS = [
 
 function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
   const seed = seedForAsset(asset, index)
+  const fin = portfolioValueNoiCapFromSeed(seed)
   const liftPct = 3 + (seed % 15)
-  const pricePerSfN = 38 + (seed % 68)
 
   const typeLabel =
     asset.groupId === "office"
@@ -119,28 +129,27 @@ function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
         ? "Industrial"
         : "Retail"
 
-  const rsfSqft = 120_000 + (seed * 97_331) % 3_800_000
-  const valueMills = 180 + (seed * 53) % 2_320
   const value =
-    valueMills >= 1000
-      ? `$${(valueMills / 1000).toFixed(1)}B`
-      : `$${valueMills.toFixed(1)}M`
+    fin.valueMills >= 1000
+      ? `$${(fin.valueMills / 1000).toFixed(1)}B`
+      : `$${fin.valueMills.toFixed(1)}M`
 
-  const noiTenthM = (seed % 95) / 10
-  const noi = noiTenthM < 0.15 ? "$0.0" : `$${noiTenthM.toFixed(1)}M`
+  const noi =
+    fin.noiTenthM < 0.15 ? "$0.0" : `$${fin.noiTenthM.toFixed(1)}M`
 
   return {
     id: asset.id,
     groupId: asset.groupId,
     building: asset.name,
     location: asset.address,
+    ownership: "Owned",
     typeLabel,
-    rsf: formatRsfShort(rsfSqft),
+    rsf: formatRsfShort(fin.rsfSqft),
     occPct: `${asset.occupiedPercent}%`,
-    pricePerSf: `$${pricePerSfN}`,
+    pricePerSf: `$${fin.pricePerSfN}`,
     noi,
     value,
-    capRate: `${(4.2 + (seed % 28) / 10).toFixed(1)}%`,
+    capRate: `${fin.capRatePct.toFixed(1)}%`,
     wale: `${(4.5 + (seed % 35) / 10).toFixed(1)}y`,
     debtYield: `${((seed % 85) / 10).toFixed(1)}%`,
     status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
@@ -167,6 +176,12 @@ function liftStrengthForRow(liftPercent: number) {
     LIFT_PCT_EXTENT.min,
     LIFT_PCT_EXTENT.max
   )
+}
+
+function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
+  if (d > 1e-6) return "up"
+  if (d < -1e-6) return "down"
+  return "neutral"
 }
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
@@ -213,7 +228,7 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
   })
 }
 
-export function PortfolioDashboard({
+function PortfolioDashboardInner({
   assetsTableVariant,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
@@ -285,6 +300,7 @@ export function PortfolioDashboard({
             return [
               row.building,
               row.location,
+              row.ownership,
               row.typeLabel,
               row.rsf,
               row.occPct,
@@ -365,29 +381,243 @@ export function PortfolioDashboard({
     })
   }, [visibleAssetRows])
 
+  const { selections } = useScenarioModificationSelections()
+  const [scenarioModSetsTick, setScenarioModSetsTick] = React.useState(0)
+
+  React.useEffect(() => {
+    const bump = () => setScenarioModSetsTick((n) => n + 1)
+    window.addEventListener("glassbox:modification-sets-changed", bump)
+    return () =>
+      window.removeEventListener("glassbox:modification-sets-changed", bump)
+  }, [])
+
+  const scenarioAggregate = React.useMemo(() => {
+    if (assetsTableVariant !== "scenarios") return null
+    void scenarioModSetsTick
+    return computeScenarioPortfolioAggregate(
+      visibleAssetRows,
+      selections,
+      typeof window !== "undefined"
+    )
+  }, [
+    assetsTableVariant,
+    visibleAssetRows,
+    selections,
+    scenarioModSetsTick,
+  ])
+
+  const kpiCardClass =
+    "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
+
   return (
     <div className="relative flex flex-1 flex-col gap-8">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {KPIS.map((kpi) => (
-          <div
-            key={kpi.label}
-            className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
-          >
-            <p className="text-sm text-muted-foreground">{kpi.label}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              {kpi.value}
-            </p>
-            {kpi.subLabel != null && kpi.subValue != null ? (
-              <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
-                <p className="text-xs text-muted-foreground">{kpi.subLabel}</p>
-                <p className="text-sm font-medium tabular-nums text-foreground">
-                  {kpi.subValue}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        ))}
+        {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
+          <>
+            <div className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">Est. Value</p>
+              <ScenarioMetricInlinePair
+                baseFormatted={formatUsdPortfolioCompact(
+                  scenarioAggregate.baseValueUsd
+                )}
+                scenarioFormatted={formatUsdPortfolioCompact(
+                  scenarioAggregate.scenarioValueUsd
+                )}
+                showScenario={scenarioAggregate.hasTableSelection}
+                deltaLine={
+                  scenarioAggregate.hasTableSelection
+                    ? `${formatUsdDeltaCompact(
+                        scenarioAggregate.scenarioValueUsd -
+                          scenarioAggregate.baseValueUsd
+                      )}`
+                    : undefined
+                }
+                pctLine={
+                  scenarioAggregate.hasTableSelection
+                    ? formatPctChange(
+                        scenarioAggregate.baseValueUsd,
+                        scenarioAggregate.scenarioValueUsd
+                      )
+                    : undefined
+                }
+                deltaDirection={
+                  scenarioAggregate.hasTableSelection
+                    ? scenarioDeltaDirection(
+                        scenarioAggregate.scenarioValueUsd -
+                          scenarioAggregate.baseValueUsd
+                      )
+                    : undefined
+                }
+              />
+              {scenarioAggregate.totalRsfSqft > 0 ? (
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Est. Value / SF
+                    </p>
+                    <p className="text-sm font-medium tabular-nums text-foreground">
+                      {formatUsdPerSf(
+                        scenarioAggregate.baseValueUsd,
+                        scenarioAggregate.totalRsfSqft
+                      )}
+                    </p>
+                  </div>
+                  {scenarioAggregate.hasTableSelection ? (
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                        Scenario est. value / SF
+                      </p>
+                      <p className="text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                        {formatUsdPerSf(
+                          scenarioAggregate.scenarioValueUsd,
+                          scenarioAggregate.totalRsfSqft
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">
+                {KPIS[1]!.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                {KPIS[1]!.value}
+              </p>
+              {KPIS[1]!.subLabel != null && KPIS[1]!.subValue != null ? (
+                <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    {KPIS[1]!.subLabel}
+                  </p>
+                  <p className="text-sm font-medium tabular-nums text-foreground">
+                    {KPIS[1]!.subValue}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            <div className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">{KPIS[2]!.label}</p>
+              <ScenarioMetricInlinePair
+                baseFormatted={formatUsdPortfolioCompact(
+                  scenarioAggregate.baseNoiUsd
+                )}
+                scenarioFormatted={formatUsdPortfolioCompact(
+                  scenarioAggregate.scenarioNoiUsd
+                )}
+                showScenario={scenarioAggregate.hasTableSelection}
+                deltaLine={
+                  scenarioAggregate.hasTableSelection
+                    ? `${formatUsdDeltaCompact(
+                        scenarioAggregate.scenarioNoiUsd -
+                          scenarioAggregate.baseNoiUsd
+                      )}`
+                    : undefined
+                }
+                pctLine={
+                  scenarioAggregate.hasTableSelection
+                    ? formatPctChange(
+                        scenarioAggregate.baseNoiUsd,
+                        scenarioAggregate.scenarioNoiUsd
+                      )
+                    : undefined
+                }
+                deltaDirection={
+                  scenarioAggregate.hasTableSelection
+                    ? scenarioDeltaDirection(
+                        scenarioAggregate.scenarioNoiUsd -
+                          scenarioAggregate.baseNoiUsd
+                      )
+                    : undefined
+                }
+              />
+              {scenarioAggregate.totalRsfSqft > 0 ? (
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">NOI / SF</p>
+                    <p className="text-sm font-medium tabular-nums text-foreground">
+                      {formatUsdPerSf(
+                        scenarioAggregate.baseNoiUsd,
+                        scenarioAggregate.totalRsfSqft
+                      )}
+                    </p>
+                  </div>
+                  {scenarioAggregate.hasTableSelection ? (
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                        Scenario NOI / SF
+                      </p>
+                      <p className="text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                        {formatUsdPerSf(
+                          scenarioAggregate.scenarioNoiUsd,
+                          scenarioAggregate.totalRsfSqft
+                        )}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">{KPIS[3]!.label}</p>
+              <ScenarioMetricInlinePair
+                baseFormatted={`${scenarioAggregate.baseCapPct.toFixed(2)}%`}
+                scenarioFormatted={`${scenarioAggregate.scenarioCapPct.toFixed(2)}%`}
+                showScenario={scenarioAggregate.hasTableSelection}
+                deltaLine={
+                  scenarioAggregate.hasTableSelection
+                    ? `${formatCapRatePts(
+                        scenarioAggregate.scenarioCapPct -
+                          scenarioAggregate.baseCapPct
+                      )}`
+                    : undefined
+                }
+                pctLine={
+                  scenarioAggregate.hasTableSelection
+                    ? formatPctChange(
+                        scenarioAggregate.baseCapPct,
+                        scenarioAggregate.scenarioCapPct
+                      )
+                    : undefined
+                }
+                deltaDirection={
+                  scenarioAggregate.hasTableSelection
+                    ? scenarioDeltaDirection(
+                        scenarioAggregate.scenarioCapPct -
+                          scenarioAggregate.baseCapPct
+                      )
+                    : undefined
+                }
+              />
+            </div>
+            <div className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">
+                {KPIS[4]!.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                {KPIS[4]!.value}
+              </p>
+            </div>
+          </>
+        ) : (
+          KPIS.map((kpi) => (
+            <div key={kpi.label} className={kpiCardClass}>
+              <p className="text-sm text-muted-foreground">{kpi.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                {kpi.value}
+              </p>
+              {kpi.subLabel != null && kpi.subValue != null ? (
+                <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">{kpi.subLabel}</p>
+                  <p className="text-sm font-medium tabular-nums text-foreground">
+                    {kpi.subValue}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ))
+        )}
       </section>
 
       {/* Map */}
@@ -533,5 +763,17 @@ export function PortfolioDashboard({
         </div>
       </section>
     </div>
+  )
+}
+
+export function PortfolioDashboard({
+  assetsTableVariant,
+}: {
+  assetsTableVariant: PortfolioAssetsTableVariant
+}) {
+  return (
+    <ScenarioModificationSelectionsProvider>
+      <PortfolioDashboardInner assetsTableVariant={assetsTableVariant} />
+    </ScenarioModificationSelectionsProvider>
   )
 }

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 import { cn } from "@/lib/utils"
 
 export const NO_TABLE_MOD_PRESET_VALUE = "__no_table_mod_preset__"
@@ -50,7 +51,8 @@ export function AssetModificationSetSelect({
   building: string
 }) {
   const { sortedSets, reload } = useSavedModificationSets(assetId)
-  const [value, setValue] = React.useState("")
+  const { selections, setTableSelection } = useScenarioModificationSelections()
+  const value = selections[assetId] ?? ""
 
   const modificationSetItemLabels = React.useMemo(() => {
     const labels: Record<string, React.ReactNode> = {
@@ -72,7 +74,10 @@ export function AssetModificationSetSelect({
         items={modificationSetItemLabels}
         value={value === "" ? NO_TABLE_MOD_PRESET_VALUE : value}
         onValueChange={(v) =>
-          setValue(v == null || v === NO_TABLE_MOD_PRESET_VALUE ? "" : v)
+          setTableSelection(
+            assetId,
+            v == null || v === NO_TABLE_MOD_PRESET_VALUE ? "" : v
+          )
         }
         onOpenChange={(open) => {
           if (open) reload()
