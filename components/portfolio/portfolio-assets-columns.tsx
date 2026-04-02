@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight } from "lucide-react"
+import { ArrowDown, ArrowUp } from "lucide-react"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -16,39 +16,24 @@ import { cn } from "@/lib/utils"
 function SortableHeader({
   column,
   className,
-  align = "start",
   children,
 }: {
   column: Column<PortfolioAssetRow, unknown>
   className?: string
-  align?: "start" | "end"
   children: ReactNode
 }) {
   if (!column.getCanSort()) {
     return (
-      <div
-        className={cn(
-          "font-medium",
-          align === "end" && "flex w-full justify-end",
-          className
-        )}
-      >
-        {children}
-      </div>
+      <div className={cn("font-medium", className)}>{children}</div>
     )
   }
   return (
-    <div
-      className={cn(
-        "flex w-full",
-        align === "end" ? "justify-end" : "justify-start"
-      )}
-    >
+    <div className="flex w-full justify-start">
       <Button
         type="button"
         variant="ghost"
         className={cn(
-          "-mx-2 h-8 gap-1.5 px-2 font-medium text-foreground",
+          "-mx-2 h-auto min-h-0 gap-1.5 px-2 py-0 font-medium text-foreground",
           className
         )}
         onClick={column.getToggleSortingHandler()}
@@ -58,9 +43,7 @@ function SortableHeader({
           <ArrowDown className="size-4 shrink-0 opacity-70" aria-hidden />
         ) : column.getIsSorted() === "asc" ? (
           <ArrowUp className="size-4 shrink-0 opacity-70" aria-hidden />
-        ) : (
-          <ArrowUpDown className="size-4 shrink-0 opacity-45" aria-hidden />
-        )}
+        ) : null}
       </Button>
     </div>
   )
@@ -139,16 +122,14 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "rsf",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          RSF
-        </SortableHeader>
+        <SortableHeader column={column}>RSF</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
           numeric: true,
         }),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.rsf}
         </div>
       ),
@@ -156,15 +137,13 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "occPct",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          Occ%
-        </SortableHeader>
+        <SortableHeader column={column}>Occ%</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.occPct}
         </div>
       ),
@@ -172,15 +151,13 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "pricePerSf",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          $/SF
-        </SortableHeader>
+        <SortableHeader column={column}>$/SF</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseInt(String(rowA.getValue(id)).replace(/\D/g, ""), 10) -
         Number.parseInt(String(rowB.getValue(id)).replace(/\D/g, ""), 10),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.pricePerSf}
         </div>
       ),
@@ -188,16 +165,14 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "noi",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          NOI
-        </SortableHeader>
+        <SortableHeader column={column}>NOI</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
           numeric: true,
         }),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.noi}
         </div>
       ),
@@ -205,16 +180,14 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "value",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          Value
-        </SortableHeader>
+        <SortableHeader column={column}>Value</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
           numeric: true,
         }),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.value}
         </div>
       ),
@@ -222,15 +195,13 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "capRate",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          Cap
-        </SortableHeader>
+        <SortableHeader column={column}>Cap</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.capRate}
         </div>
       ),
@@ -238,15 +209,13 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "wale",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          WALE
-        </SortableHeader>
+        <SortableHeader column={column}>WALE</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.wale}
         </div>
       ),
@@ -254,15 +223,13 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "debtYield",
       header: ({ column }) => (
-        <SortableHeader column={column} align="end">
-          Debt Yield
-        </SortableHeader>
+        <SortableHeader column={column}>Debt Yield</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
-        <div className="text-right text-sm tabular-nums">
+        <div className="text-left text-sm tabular-nums">
           {row.original.debtYield}
         </div>
       ),
@@ -271,22 +238,10 @@ export function createPortfolioAssetColumns(
       id: "lift",
       accessorKey: "liftPercent",
       header: ({ column }) => (
-        <SortableHeader
-          column={column}
-          align="end"
-          className="text-violet-700 dark:text-violet-300 [&_svg:not([class*='size-'])]:size-3.5"
-        >
-          <span className="inline-flex items-center gap-1">
-            Potential Lift
-            <ArrowUpRight
-              className="text-violet-600 opacity-90 dark:text-violet-400"
-              aria-hidden
-            />
-          </span>
-        </SortableHeader>
+        <SortableHeader column={column}>Potential Lift</SortableHeader>
       ),
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <span
             className={cn(
               "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",

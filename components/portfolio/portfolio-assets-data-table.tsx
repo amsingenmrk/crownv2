@@ -33,20 +33,7 @@ import { createPortfolioAssetColumns } from "./portfolio-assets-columns"
  * Wide layout — parent uses horizontal scroll on small viewports.
  */
 export const ASSETS_TABLE_LG_GRID =
-  "lg:grid-cols-[minmax(2.75rem,2.75rem)_minmax(11rem,1fr)_minmax(0,4.5rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.5rem)_minmax(0,4.25rem)_minmax(0,3rem)_minmax(0,3.25rem)_minmax(0,4.5rem)_minmax(8.5rem,12rem)_minmax(8rem,10.5rem)]"
-
-/** Sticky offsets: row `px-4` + checkbox track + `gap-3` (aligns with grid). */
-const STICKY_CHECKBOX_LEFT = "left-4"
-const STICKY_ASSET_LEFT = "left-[4.5rem]"
-
-const stickyHeaderCheckboxClass =
-  "sticky z-30 border-0 bg-muted/50 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.25)]"
-const stickyHeaderAssetClass =
-  "sticky z-30 min-w-[11rem] border-0 border-r border-border bg-muted/50 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.08)] dark:shadow-[6px_0_12px_-6px_rgba(0,0,0,0.3)]"
-const stickyBodyCheckboxClass =
-  "sticky z-20 border-0 bg-background shadow-[4px_0_8px_-4px_rgba(0,0,0,0.06)] group-hover:bg-muted/50 group-data-[state=selected]:bg-muted dark:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.25)]"
-const stickyBodyAssetClass =
-  "sticky z-20 min-w-[11rem] border-0 border-r border-border bg-background shadow-[6px_0_12px_-6px_rgba(0,0,0,0.08)] group-hover:bg-muted/50 group-data-[state=selected]:bg-muted dark:shadow-[6px_0_12px_-6px_rgba(0,0,0,0.3)]"
+  "lg:grid-cols-[minmax(2rem,2rem)_minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.5rem)_minmax(0,4.25rem)_minmax(0,3rem)_minmax(0,3.25rem)_minmax(0,4.5rem)_minmax(8.5rem,12rem)_minmax(8rem,10.5rem)]"
 
 function isInteractiveTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false
@@ -116,13 +103,10 @@ export function PortfolioAssetsDataTable({
                   key={header.id}
                   scope="col"
                   className={cn(
-                    "h-auto px-0 py-3 align-middle",
-                    header.column.id === "select" && "w-11",
-                    header.column.id !== "select" && "font-medium",
+                    "h-auto px-0 py-2 align-middle",
                     header.column.id === "select" &&
-                      cn(STICKY_CHECKBOX_LEFT, stickyHeaderCheckboxClass),
-                    header.column.id === "building" &&
-                      cn(STICKY_ASSET_LEFT, stickyHeaderAssetClass)
+                      "flex w-8 items-center justify-start",
+                    header.column.id !== "select" && "font-medium"
                   )}
                 >
                   {header.isPlaceholder
@@ -143,7 +127,7 @@ export function PortfolioAssetsDataTable({
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
                 className={cn(
-                  "group grid cursor-pointer items-center gap-3 border-border px-4 hover:bg-muted/50",
+                  "grid cursor-pointer items-center gap-3 border-border px-4 hover:bg-muted/50",
                   ASSETS_TABLE_LG_GRID
                 )}
                 role="link"
@@ -164,13 +148,7 @@ export function PortfolioAssetsDataTable({
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className={cn(
-                      "border-0 p-0 py-3 align-middle [&:has([role=checkbox])]:pr-0",
-                      cell.column.id === "select" &&
-                        cn(STICKY_CHECKBOX_LEFT, stickyBodyCheckboxClass),
-                      cell.column.id === "building" &&
-                        cn(STICKY_ASSET_LEFT, stickyBodyAssetClass)
-                    )}
+                    className="border-0 p-0 py-3 align-middle [&:has([role=checkbox])]:pr-0"
                   >
                     {flexRender(
                       cell.column.columnDef.cell,
@@ -240,13 +218,13 @@ export function PortfolioAssetsDataTable({
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Type</span>
-                    <span className="text-right text-foreground">{row.typeLabel}</span>
+                    <span className="text-left text-foreground">{row.typeLabel}</span>
                     <span>RSF</span>
-                    <span className="text-right tabular-nums text-foreground">
+                    <span className="text-left tabular-nums text-foreground">
                       {row.rsf}
                     </span>
                     <span>Lift</span>
-                    <span className="flex justify-end">
+                    <span className="flex justify-start">
                       <span
                         className={cn(
                           "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",

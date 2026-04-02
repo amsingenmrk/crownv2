@@ -415,14 +415,24 @@ export function PortfolioDashboard() {
           <div className="min-w-[1290px]">
             <div className="flex flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <p className="text-sm text-muted-foreground">
-                {visibleAssetRows.length}{" "}
-                {visibleAssetRows.length === 1 ? "Asset" : "Assets"}
-                {selectedCount > 0 ? (
-                  <span className="text-foreground">
-                    {" "}
-                    · {selectedCount} selected
-                  </span>
-                ) : null}
+                {selectedCount === 0 ? (
+                  <>
+                    <span className="tabular-nums">
+                      {visibleAssetRows.length}
+                    </span>{" "}
+                    {visibleAssetRows.length === 1 ? "Asset" : "Assets"}
+                  </>
+                ) : (
+                  <>
+                    <span className="tabular-nums">{selectedCount}</span>
+                    {" of "}
+                    <span className="tabular-nums">
+                      {visibleAssetRows.length}
+                    </span>{" "}
+                    {visibleAssetRows.length === 1 ? "Asset" : "Assets"}{" "}
+                    Selected
+                  </>
+                )}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
