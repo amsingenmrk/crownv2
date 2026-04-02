@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { AppCommandPalette } from "@/components/app-command-palette"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { cn } from "@/lib/utils"
 
@@ -176,17 +177,20 @@ export function AppTopbar() {
           </span>
         )}
       </div>
-      {showAssetBreadcrumb ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mr-4 shrink-0"
-        >
-          <FileUp className="size-3.5" aria-hidden />
-          Import Documents
-        </Button>
-      ) : null}
+      <div className="flex shrink-0 items-center gap-2 pr-4">
+        <AppCommandPalette className="shrink-0" />
+        {showAssetBreadcrumb ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+          >
+            <FileUp className="size-3.5" aria-hidden />
+            Import Documents
+          </Button>
+        ) : null}
+      </div>
     </header>
   )
 }

@@ -1,23 +1,22 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
-import { ArrowUpRight, Expand, Shrink } from "lucide-react"
-import {
-  parseStoredSets,
-  storageKeyForAsset,
-  type ModificationSetRecord,
-} from "@/components/building-modifications-sidebar"
+import type { RowSelectionState } from "@tanstack/react-table"
+import { Expand, Shrink } from "lucide-react"
+import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
-  assetHref,
   type Asset,
   type AssetGroupId,
 } from "@/lib/assets"
+import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import {
+  mapPinClassFromStrength,
+  normalizedLiftStrength,
+} from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -26,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 type PortfolioKpi = {
   label: string
@@ -57,27 +55,6 @@ const KPIS: PortfolioKpi[] = [
   { label: "Cap Rate", value: "6.00%" },
   { label: "WALE / WALT", value: "5.8 yrs" },
 ]
-
-type PortfolioAssetRow = {
-  id: string
-  groupId: AssetGroupId
-  building: string
-  location: string
-  typeLabel: string
-  rsf: string
-  occPct: string
-  pricePerSf: string
-  noi: string
-  value: string
-  capRate: string
-  wale: string
-  debtYield: string
-  status: string
-  lift: string
-  /** Numeric lift for sorting (same basis as `lift` label). */
-  liftPercent: number
-  recommendation: string
-}
 
 const RECOMMENDATIONS = [
   "Renovate Lobby",
@@ -168,6 +145,14 @@ const LIFT_PCT_EXTENT = (() => {
   return { min: Math.min(...ps), max: Math.max(...ps) }
 })()
 
+function liftStrengthForRow(liftPercent: number) {
+  return normalizedLiftStrength(
+    liftPercent,
+    LIFT_PCT_EXTENT.min,
+    LIFT_PCT_EXTENT.max
+  )
+}
+
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
 const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
 
@@ -176,53 +161,6 @@ const PORTFOLIO_GROUP_SELECT_LABELS: Record<string, React.ReactNode> = {
   office: ASSET_GROUP_SIDEBAR_LABELS.office,
   industrial: ASSET_GROUP_SIDEBAR_LABELS.industrial,
   retail: ASSET_GROUP_SIDEBAR_LABELS.retail,
-}
-
-/** 0 = lowest lift in portfolio, 1 = highest (violet scale uses this). */
-function normalizedLiftStrength(liftPercent: number): number {
-  const { min, max } = LIFT_PCT_EXTENT
-  if (max <= min) return 1
-  return (liftPercent - min) / (max - min)
-}
-
-/** Table pill: deeper, more saturated violet as potential lift rises; faint when low. */
-function liftPillClassFromStrength(t: number) {
-  if (t >= 0.85) {
-    return cn(
-      "bg-violet-600 text-white shadow-sm ring-2 ring-violet-400/90",
-      "dark:bg-violet-500 dark:ring-violet-300/75"
-    )
-  }
-  if (t >= 0.55) {
-    return cn(
-      "bg-violet-500 text-violet-50 ring-1 ring-violet-500/60",
-      "dark:bg-violet-600 dark:text-white dark:ring-violet-400/45"
-    )
-  }
-  if (t >= 0.3) {
-    return cn(
-      "bg-violet-500/25 text-violet-900 ring-1 ring-violet-500/35",
-      "dark:bg-violet-500/35 dark:text-violet-100 dark:ring-violet-400/30"
-    )
-  }
-  return cn(
-    "bg-violet-500/[0.09] text-violet-700/70 ring-1 ring-violet-400/22",
-    "dark:bg-violet-500/[0.14] dark:text-violet-300/60 dark:ring-violet-500/18"
-  )
-}
-
-/** Map dot: same violet scale as pills. */
-function mapPinClassFromStrength(t: number) {
-  if (t >= 0.85) {
-    return "bg-violet-600 ring-2 ring-white shadow-md dark:bg-violet-500"
-  }
-  if (t >= 0.55) {
-    return "bg-violet-500 ring-2 ring-white shadow-sm dark:bg-violet-400"
-  }
-  if (t >= 0.3) {
-    return "bg-violet-400/90 ring-2 ring-white/95 dark:bg-violet-400/75"
-  }
-  return "bg-violet-300/50 ring-2 ring-white/90 dark:bg-violet-500/35"
 }
 
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
@@ -252,176 +190,6 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
   })
 }
 
-/**
- * Asset + underwriting-style columns + lift / mods.
- * Wide layout — parent uses horizontal scroll on small viewports.
- */
-const ASSETS_TABLE_LG_GRID =
-  "lg:grid-cols-[minmax(2.75rem,2.75rem)_minmax(11rem,1fr)_minmax(0,4.5rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.25rem)_minmax(0,3.5rem)_minmax(0,4.25rem)_minmax(0,3rem)_minmax(0,3.25rem)_minmax(0,4.5rem)_minmax(8.5rem,12rem)_minmax(8rem,10.5rem)]"
-
-const NO_TABLE_MOD_PRESET_VALUE = "__no_table_mod_preset__"
-
-function useSavedModificationSets(assetId: string) {
-  const storageKey = storageKeyForAsset(assetId)
-  const [sets, setSets] = React.useState<ModificationSetRecord[]>([])
-
-  const reload = React.useCallback(() => {
-    setSets(parseStoredSets(localStorage.getItem(storageKey)))
-  }, [storageKey])
-
-  React.useEffect(() => {
-    reload()
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === storageKey) reload()
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [storageKey, reload])
-
-  const sortedSets = React.useMemo(
-    () => [...sets].sort((a, b) => a.name.localeCompare(b.name)),
-    [sets]
-  )
-
-  return { sortedSets, reload }
-}
-
-function AssetModificationSetSelect({
-  assetId,
-  building,
-}: {
-  assetId: string
-  building: string
-}) {
-  const { sortedSets, reload } = useSavedModificationSets(assetId)
-  const [value, setValue] = React.useState("")
-
-  const modificationSetItemLabels = React.useMemo(() => {
-    const labels: Record<string, React.ReactNode> = {
-      [NO_TABLE_MOD_PRESET_VALUE]: "Select a saved set…",
-    }
-    for (const s of sortedSets) {
-      labels[s.id] = s.name
-    }
-    return labels
-  }, [sortedSets])
-
-  return (
-    <span
-      className="block min-w-0 w-full max-w-full"
-      onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <Select
-        items={modificationSetItemLabels}
-        value={value === "" ? NO_TABLE_MOD_PRESET_VALUE : value}
-        onValueChange={(v) =>
-          setValue(
-            v == null || v === NO_TABLE_MOD_PRESET_VALUE ? "" : v
-          )
-        }
-        onOpenChange={(open) => {
-          if (open) reload()
-        }}
-      >
-        <SelectTrigger
-          className="w-full max-w-full min-w-0"
-          aria-label={`Modifications saved set for ${building}`}
-        >
-          <SelectValue placeholder="Select a saved set…" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NO_TABLE_MOD_PRESET_VALUE}>
-            Select a saved set…
-          </SelectItem>
-          {sortedSets.map((s) => (
-            <SelectItem key={s.id} value={s.id}>
-              {s.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </span>
-  )
-}
-
-function PropertyRow({
-  row,
-  selected,
-  onSelectedChange,
-}: {
-  row: PortfolioAssetRow
-  selected: boolean
-  onSelectedChange: (next: boolean) => void
-}) {
-  const router = useRouter()
-  const href = assetHref(row.id)
-
-  return (
-    <div
-      role="link"
-      tabIndex={0}
-      className={cn(
-        "grid w-full cursor-pointer grid-cols-1 gap-2 px-4 py-4 text-left text-sm outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:items-center lg:gap-3 lg:py-3",
-        ASSETS_TABLE_LG_GRID
-      )}
-      onClick={() => router.push(href)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault()
-          router.push(href)
-        }
-      }}
-      aria-label={`Open ${row.building}, ${row.location}`}
-    >
-      <span
-        className="flex items-center"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        <Checkbox
-          checked={selected}
-          onCheckedChange={(checked) => onSelectedChange(checked)}
-          aria-label={`Select ${row.building}`}
-        />
-      </span>
-      <div className="flex min-w-0 items-start gap-2">
-        <div className="min-w-0 flex flex-col gap-0.5">
-          <span className="font-semibold leading-snug text-foreground">
-            {row.building}
-          </span>
-          <span className="text-xs leading-snug text-muted-foreground">
-            {row.location}
-          </span>
-        </div>
-      </div>
-      <span className="text-sm">{row.typeLabel}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.rsf}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.occPct}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.pricePerSf}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.noi}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.value}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.capRate}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.wale}</span>
-      <span className="text-sm tabular-nums lg:text-end">{row.debtYield}</span>
-      <span className="flex lg:justify-end">
-        <span
-          className={cn(
-            "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
-            liftPillClassFromStrength(normalizedLiftStrength(row.liftPercent))
-          )}
-        >
-          {row.lift}
-        </span>
-      </span>
-      <span className="block min-w-0">
-        <AssetModificationSetSelect assetId={row.id} building={row.building} />
-      </span>
-    </div>
-  )
-}
-
 export function PortfolioDashboard() {
   const assetsHeadingId = React.useId()
   const [mapExpanded, setMapExpanded] = React.useState(false)
@@ -436,14 +204,14 @@ export function PortfolioDashboard() {
       : ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]
 
   const visibleAssetRows = React.useMemo(() => {
-    let rows =
+    const baseRows =
       portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
         ? PORTFOLIO_ASSET_ROWS
         : PORTFOLIO_ASSET_ROWS.filter((r) => r.groupId === portfolioGroupFilter)
 
     const q = assetTableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => {
+    if (!q) return baseRows
+    return baseRows.filter((row) => {
       return [
         row.building,
         row.location,
@@ -471,13 +239,11 @@ export function PortfolioDashboard() {
     [visibleAssetRows]
   )
 
-  const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>(
-    {}
-  )
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   React.useEffect(() => {
     const visible = new Set(visibleAssetRows.map((r) => r.id))
-    setSelectedIds((s) => {
+    setRowSelection((s) => {
       let changed = false
       const next = { ...s }
       for (const id of Object.keys(next)) {
@@ -491,17 +257,9 @@ export function PortfolioDashboard() {
   }, [visibleAssetRows])
 
   const selectedCount = React.useMemo(
-    () =>
-      visibleAssetRows.reduce((n, r) => n + (selectedIds[r.id] ? 1 : 0), 0),
-    [visibleAssetRows, selectedIds]
+    () => Object.values(rowSelection).filter(Boolean).length,
+    [rowSelection]
   )
-
-  const allVisibleSelected =
-    visibleAssetRows.length > 0 &&
-    visibleAssetRows.every((r) => selectedIds[r.id])
-  const someVisibleSelected = visibleAssetRows.some((r) => selectedIds[r.id])
-  const headerIndeterminate =
-    someVisibleSelected && !allVisibleSelected
 
   return (
     <div className="relative flex flex-1 flex-col gap-8">
@@ -556,9 +314,7 @@ export function PortfolioDashboard() {
               key={pin.id}
               className={cn(
                 "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                mapPinClassFromStrength(
-                  normalizedLiftStrength(pin.liftPercent)
-                )
+                mapPinClassFromStrength(liftStrengthForRow(pin.liftPercent))
               )}
               style={{ top: pin.top, left: pin.left }}
               title={`${pin.building} · Potential lift ${pin.lift}`}
@@ -680,134 +436,12 @@ export function PortfolioDashboard() {
                 </Button>
               </div>
             </div>
-            <table className="hidden w-full caption-bottom text-sm max-lg:hidden lg:table">
-              <TableHeader>
-                <TableRow
-                  className={cn(
-                    "grid items-center gap-3 border-border bg-muted/50 px-4 hover:bg-muted/50",
-                    ASSETS_TABLE_LG_GRID
-                  )}
-                >
-                  <TableHead scope="col" className="h-auto w-11 px-0 py-3">
-                    <Checkbox
-                      checked={allVisibleSelected}
-                      indeterminate={headerIndeterminate}
-                      disabled={visibleAssetRows.length === 0}
-                      onCheckedChange={(checked) => {
-                        setSelectedIds((s) => {
-                          const next = { ...s }
-                          if (checked) {
-                            for (const r of visibleAssetRows) {
-                              next[r.id] = true
-                            }
-                          } else {
-                            for (const r of visibleAssetRows) {
-                              delete next[r.id]
-                            }
-                          }
-                          return next
-                        })
-                      }}
-                      aria-label="Select all assets in view"
-                    />
-                  </TableHead>
-                  <TableHead scope="col" className="h-auto px-0 py-3 font-medium">
-                    Asset
-                  </TableHead>
-                  <TableHead scope="col" className="h-auto px-0 py-3 font-medium">
-                    Type
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    RSF
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    Occ%
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    $/SF
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    NOI
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    Value
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    Cap
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    WALE
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    Debt Yield
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="h-auto px-0 py-3 text-right font-medium"
-                  >
-                    <span className="inline-flex items-center justify-end gap-1 text-violet-700 dark:text-violet-300">
-                      Potential Lift
-                      <ArrowUpRight
-                        className="size-3.5 text-violet-600 opacity-90 dark:text-violet-400"
-                        aria-hidden
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead scope="col" className="h-auto px-0 py-3 font-medium">
-                    Modifications
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-            </table>
-
-            <ul className="divide-y divide-border">
-            {visibleAssetRows.length === 0 ? (
-              <li className="px-4 py-10 text-center text-sm text-muted-foreground">
-                No assets in this view.
-              </li>
-            ) : (
-              visibleAssetRows.map((row) => (
-                <li key={row.id}>
-                  <PropertyRow
-                    row={row}
-                    selected={Boolean(selectedIds[row.id])}
-                    onSelectedChange={(next) => {
-                      setSelectedIds((s) => {
-                        const clone = { ...s }
-                        if (next) clone[row.id] = true
-                        else delete clone[row.id]
-                        return clone
-                      })
-                    }}
-                  />
-                </li>
-              ))
-            )}
-            </ul>
+            <PortfolioAssetsDataTable
+              data={visibleAssetRows}
+              liftExtent={LIFT_PCT_EXTENT}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+            />
           </div>
         </div>
       </section>
