@@ -246,9 +246,8 @@ function PortfolioDashboardInner({
       : ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]
 
   /**
-   * Scenarios: `Set` of asset ids with ≥1 saved modification set (localStorage).
-   * `null` = do not filter — including before hydration, or when no asset has
-   * saved sets yet (fresh deploy / empty storage) so the table is not empty.
+   * Scenarios: after layout, `Set` of asset ids with ≥1 saved modification set
+   * (localStorage). `null` = not computed yet (show unfiltered until then).
    */
   const [scenarioEligibleAssetIds, setScenarioEligibleAssetIds] =
     React.useState<Set<string> | null>(null)
@@ -267,14 +266,9 @@ function PortfolioDashboardInner({
       return ids
     }
 
-    function applyEligibleFromStorage() {
-      const ids = computeEligibleIds()
-      setScenarioEligibleAssetIds(ids.size === 0 ? null : ids)
-    }
+    setScenarioEligibleAssetIds(computeEligibleIds())
 
-    applyEligibleFromStorage()
-
-    const refresh = () => applyEligibleFromStorage()
+    const refresh = () => setScenarioEligibleAssetIds(computeEligibleIds())
 
     const onStorage = (e: StorageEvent) => {
       if (
