@@ -30,6 +30,7 @@ import {
   appendUserScenario,
   BUILTIN_SCENARIO,
   readUserScenarios,
+  USER_SCENARIOS_CHANGED_EVENT,
   type UserScenario,
 } from "@/lib/user-scenarios"
 
@@ -72,7 +73,7 @@ export function NavScenarios() {
     const base = slugifyScenarioName(trimmed)
     const reserved = new Set<string>([
       BUILTIN_SCENARIO.slug,
-      ...userScenarios.map((s) => s.slug),
+      ...readUserScenarios().map((s) => s.slug),
     ])
     const slug = uniqueScenarioSlug(base, reserved)
     const scenario: UserScenario = { name: trimmed, slug }
@@ -81,16 +82,19 @@ export function NavScenarios() {
     setNewName("")
     setDialogOpen(false)
     router.push(`/scenarios/${slug}`)
-  }, [newName, router, userScenarios])
+  }, [newName, router])
 
   React.useEffect(() => {
-    setUserScenarios(readUserScenarios())
+    const sync = () => setUserScenarios(readUserScenarios())
+    sync()
     const onStorage = (e: StorageEvent) => {
       if (e.key !== "glassbox:user-scenarios") return
-      setUserScenarios(readUserScenarios())
+      sync()
     }
+    window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
     window.addEventListener("storage", onStorage)
     return () => {
+      window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
       window.removeEventListener("storage", onStorage)
     }
   }, [])

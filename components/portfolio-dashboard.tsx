@@ -230,8 +230,15 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
 
 function PortfolioDashboardInner({
   assetsTableVariant,
+  scenarioRelaxedAssetFilter = true,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
+  /**
+   * Built-in scenarios: when no asset has saved modification sets, show the full
+   * asset list (helps empty localStorage / deploy). User-created scenarios:
+   * pass `false` so the table starts empty until assets have saved sets.
+   */
+  scenarioRelaxedAssetFilter?: boolean
 }) {
   const assetsHeadingId = React.useId()
   const [mapExpanded, setMapExpanded] = React.useState(false)
@@ -247,11 +254,15 @@ function PortfolioDashboardInner({
 
   /**
    * Scenarios: `Set` of asset ids with ≥1 saved modification set (localStorage).
-   * `null` = skip filter (before layout, or no saved sets anywhere — e.g. fresh
-   * deploy — so the table still lists assets).
+   * `null` = skip filter (only when `scenarioRelaxedAssetFilter` and no saved
+   * sets — built-in scenario / deploy). Otherwise an empty `Set` yields an
+   * empty table (user-created scenarios).
    */
   const [scenarioEligibleAssetIds, setScenarioEligibleAssetIds] =
     React.useState<Set<string> | null>(null)
+
+  const { selections, scenarioExcludedAssetIds } =
+    useScenarioModificationSelections()
 
   React.useLayoutEffect(() => {
     if (assetsTableVariant !== "scenarios") {
@@ -269,7 +280,9 @@ function PortfolioDashboardInner({
 
     function applyEligibleFromStorage() {
       const ids = computeEligibleIds()
-      setScenarioEligibleAssetIds(ids.size === 0 ? null : ids)
+      const relax =
+        scenarioRelaxedAssetFilter !== false && ids.size === 0
+      setScenarioEligibleAssetIds(relax ? null : ids)
     }
 
     applyEligibleFromStorage()
@@ -290,7 +303,7 @@ function PortfolioDashboardInner({
       window.removeEventListener("storage", onStorage)
       window.removeEventListener("glassbox:modification-sets-changed", refresh)
     }
-  }, [assetsTableVariant])
+  }, [assetsTableVariant, scenarioRelaxedAssetFilter])
 
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
@@ -329,12 +342,17 @@ function PortfolioDashboardInner({
       rows = rows.filter((r) => scenarioEligibleAssetIds.has(r.id))
     }
 
+    if (assetsTableVariant === "scenarios" && scenarioExcludedAssetIds.size > 0) {
+      rows = rows.filter((r) => !scenarioExcludedAssetIds.has(r.id))
+    }
+
     return rows
   }, [
     assetTableSearch,
     portfolioGroupFilter,
     assetsTableVariant,
     scenarioEligibleAssetIds,
+    scenarioExcludedAssetIds,
   ])
 
   const visibleMapPins = React.useMemo(
@@ -387,7 +405,6 @@ function PortfolioDashboardInner({
     })
   }, [visibleAssetRows])
 
-  const { selections } = useScenarioModificationSelections()
   const [scenarioModSetsTick, setScenarioModSetsTick] = React.useState(0)
 
   React.useEffect(() => {
@@ -774,12 +791,17 @@ function PortfolioDashboardInner({
 
 export function PortfolioDashboard({
   assetsTableVariant,
+  scenarioRelaxedAssetFilter,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
+  scenarioRelaxedAssetFilter?: boolean
 }) {
   return (
     <ScenarioModificationSelectionsProvider>
-      <PortfolioDashboardInner assetsTableVariant={assetsTableVariant} />
+      <PortfolioDashboardInner
+        assetsTableVariant={assetsTableVariant}
+        scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
+      />
     </ScenarioModificationSelectionsProvider>
   )
 }

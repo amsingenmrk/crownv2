@@ -8,6 +8,16 @@ export const BUILTIN_SCENARIO = {
 
 const STORAGE_KEY = "glassbox:user-scenarios"
 
+/** Same-tab updates (localStorage does not fire `storage` in the active window). */
+export const USER_SCENARIOS_CHANGED_EVENT = "glassbox:user-scenarios-changed" as const
+
+function clearScenarioRouteLocalStorage(slug: string) {
+  if (typeof window === "undefined") return
+  const path = `/scenarios/${slug}`
+  localStorage.removeItem(`glassbox:scenario-table-selections:${path}`)
+  localStorage.removeItem(`glassbox:scenario-excluded-assets:${path}`)
+}
+
 function isUserScenario(v: unknown): v is UserScenario {
   if (v == null || typeof v !== "object") return false
   const o = v as Record<string, unknown>
@@ -30,5 +40,21 @@ export function readUserScenarios(): UserScenario[] {
 export function appendUserScenario(scenario: UserScenario): UserScenario[] {
   const next = [...readUserScenarios(), scenario]
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
+  }
+  return next
+}
+
+/** Removes a user scenario and its per-route table state. Returns null if slug is builtin or not found. */
+export function removeUserScenarioBySlug(slug: string): UserScenario[] | null {
+  if (typeof window === "undefined") return null
+  if (slug === BUILTIN_SCENARIO.slug) return null
+  const list = readUserScenarios()
+  const next = list.filter((s) => s.slug !== slug)
+  if (next.length === list.length) return null
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  clearScenarioRouteLocalStorage(slug)
+  window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
   return next
 }

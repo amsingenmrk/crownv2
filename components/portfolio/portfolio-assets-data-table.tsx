@@ -22,6 +22,7 @@ import {
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
+import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 function gridTemplateForVisibleColumns(
   table: Table<PortfolioAssetRow>
 ): string {
@@ -41,6 +42,11 @@ export function PortfolioAssetsDataTable({
   liftExtent: { min: number; max: number }
 }) {
   const data = table.options.data
+  const {
+    scenarioExcludedAssetIds,
+    excludeAssetsFromScenario,
+    restoreAssetsToScenario,
+  } = useScenarioModificationSelections()
 
   const liftStrength = React.useCallback(
     (liftPercent: number) =>
@@ -51,6 +57,32 @@ export function PortfolioAssetsDataTable({
   const selectedCount = Object.values(
     table.getState().rowSelection
   ).filter(Boolean).length
+
+  const selectedRowIds = table
+    .getFilteredSelectedRowModel()
+    .rows.map((r) => r.original.id)
+
+  const allSelectedExcluded =
+    variant === "scenarios" &&
+    selectedRowIds.length > 0 &&
+    selectedRowIds.every((id) => scenarioExcludedAssetIds.has(id))
+
+  const scenarioToolbarLabel =
+    variant === "scenarios"
+      ? allSelectedExcluded
+        ? "Add to Scenario"
+        : "Remove from Scenario"
+      : "Add to Scenario"
+
+  const onScenarioToolbarClick = () => {
+    if (variant !== "scenarios" || selectedRowIds.length === 0) return
+    if (allSelectedExcluded) {
+      restoreAssetsToScenario(selectedRowIds)
+    } else {
+      excludeAssetsFromScenario(selectedRowIds)
+    }
+    table.resetRowSelection()
+  }
 
   const sortedRows = table.getRowModel().rows
 
@@ -89,8 +121,11 @@ export function PortfolioAssetsDataTable({
             type="button"
             variant="outline"
             disabled={selectedCount === 0}
+            onClick={
+              variant === "scenarios" ? onScenarioToolbarClick : undefined
+            }
           >
-            Add to Scenario
+            {scenarioToolbarLabel}
           </Button>
         </div>
       </div>
