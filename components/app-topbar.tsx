@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -47,6 +48,7 @@ import {
   getUserScenariosStoreSnapshot,
   removeUserScenarioBySlug,
   subscribeUserScenarios,
+  updateUserScenarioNameBySlug,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
@@ -102,6 +104,9 @@ export function AppTopbar() {
     () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
+  const [renameScenarioOpen, setRenameScenarioOpen] = useState(false)
+  const [renameName, setRenameName] = useState("")
+  const renameInputId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
@@ -118,8 +123,24 @@ export function AppTopbar() {
   )
   const canDeleteCurrentScenario =
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
+  const canRenameCurrentScenario = canDeleteCurrentScenario
 
   const pageTitle = titleForPathname(pathname ?? null, userScenarios)
+
+  useEffect(() => {
+    if (!renameScenarioOpen || scenarioSlug == null) return
+    const list = getUserScenariosStoreSnapshot()
+    const current = list.find((s) => s.slug === scenarioSlug)?.name ?? ""
+    setRenameName(current)
+    const id = requestAnimationFrame(() => {
+      const el = document.getElementById(renameInputId)
+      if (el instanceof HTMLInputElement) {
+        el.focus()
+        el.select()
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [renameScenarioOpen, scenarioSlug, renameInputId])
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -291,6 +312,20 @@ export function AppTopbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={6}>
                 <DropdownMenuItem
+                  disabled={!canRenameCurrentScenario}
+                  title={
+                    canRenameCurrentScenario
+                      ? undefined
+                      : "Built-in scenarios cannot be renamed"
+                  }
+                  onClick={() => {
+                    if (!canRenameCurrentScenario) return
+                    setRenameScenarioOpen(true)
+                  }}
+                >
+                  Rename Scenario
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   variant="destructive"
                   disabled={!canDeleteCurrentScenario}
                   title={
@@ -307,6 +342,64 @@ export function AppTopbar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Dialog open={renameScenarioOpen} onOpenChange={setRenameScenarioOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename scenario</DialogTitle>
+                  <DialogDescription>
+                    Update the display name. The scenario URL stays the same.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                  <label htmlFor={renameInputId} className="sr-only">
+                    Scenario name
+                  </label>
+                  <Input
+                    id={renameInputId}
+                    value={renameName}
+                    onChange={(e) => setRenameName(e.target.value)}
+                    placeholder="Scenario name"
+                    autoComplete="off"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        if (
+                          scenarioSlug != null &&
+                          renameName.trim() &&
+                          updateUserScenarioNameBySlug(
+                            scenarioSlug,
+                            renameName
+                          )
+                        ) {
+                          setRenameScenarioOpen(false)
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setRenameScenarioOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!renameName.trim()}
+                    onClick={() => {
+                      if (scenarioSlug == null) return
+                      if (!updateUserScenarioNameBySlug(scenarioSlug, renameName))
+                        return
+                      setRenameScenarioOpen(false)
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={deleteScenarioOpen} onOpenChange={setDeleteScenarioOpen}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>

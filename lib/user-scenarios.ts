@@ -103,6 +103,27 @@ export function appendUserScenario(scenario: UserScenario): UserScenario[] {
   return next
 }
 
+/** Updates display name only; slug and URL stay the same. Returns null if builtin or not found. */
+export function updateUserScenarioNameBySlug(
+  slug: string,
+  newName: string
+): UserScenario[] | null {
+  if (typeof window === "undefined") return null
+  if (slug === BUILTIN_SCENARIO.slug) return null
+  const trimmed = newName.trim()
+  if (!trimmed) return null
+  const list = readUserScenarios()
+  const idx = list.findIndex((s) => s.slug === slug)
+  if (idx === -1) return null
+  const next = list.slice()
+  const prev = next[idx]!
+  if (prev.name === trimmed) return next
+  next[idx] = { slug: prev.slug, name: trimmed }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
+  return next
+}
+
 /** Removes a user scenario and its per-route table state. Returns null if slug is builtin or not found. */
 export function removeUserScenarioBySlug(slug: string): UserScenario[] | null {
   if (typeof window === "undefined") return null
