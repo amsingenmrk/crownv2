@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
 import {
   excludedStorageKeyForScenarioPathname,
   parseScenarioExcludedAssetIds,
@@ -9,14 +10,36 @@ import {
   SCENARIO_EXCLUDED_CHANGED_EVENT,
   type ScenarioExcludedChangedDetail,
 } from "@/lib/scenario-excluded-assets-storage"
+import { readIncludedAssetIdsWithV1Migration } from "@/lib/scenario-included-assets-migration"
+import {
+  includedStorageKeyForScenarioPathname,
+  parseScenarioIncludedAssetIds,
+  persistScenarioIncludedAssetIds,
+  SCENARIO_INCLUDED_CHANGED_EVENT,
+  type ScenarioIncludedChangedDetail,
+} from "@/lib/scenario-included-assets-storage"
 
 export type ScenarioTableSelections = Record<string, string>
 
+export type ScenarioMembershipMode = "off" | "builtin" | "explicit-inclusion"
+
+function scenarioMembershipModeFromPathname(
+  pathname: string | null
+): ScenarioMembershipMode {
+  if (pathname == null || !pathname.startsWith("/scenarios/")) return "off"
+  const base = `/scenarios/${BUILTIN_SCENARIO.slug}`
+  if (pathname === base || pathname.startsWith(`${base}/`)) return "builtin"
+  return "explicit-inclusion"
+}
+
 type Ctx = {
+  scenarioMembershipMode: ScenarioMembershipMode
   selections: ScenarioTableSelections
   setTableSelection: (assetId: string, setId: string) => void
-  /** Assets hidden from this scenario route (localStorage, per pathname). */
+  /** Built-in scenario: assets hidden via exclusion list. */
   scenarioExcludedAssetIds: ReadonlySet<string>
+  /** User scenario: assets explicitly in the scenario. */
+  scenarioIncludedAssetIds: ReadonlySet<string>
   excludeAssetsFromScenario: (assetIds: readonly string[]) => void
   restoreAssetsToScenario: (assetIds: readonly string[]) => void
 }
@@ -75,6 +98,7 @@ export function ScenarioModificationSelectionsProvider({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const membershipMode = scenarioMembershipModeFromPathname(pathname)
 
   const [selections, setSelections] = React.useState<ScenarioTableSelections>(
     {}
@@ -82,18 +106,28 @@ export function ScenarioModificationSelectionsProvider({
   const [excluded, setExcluded] = React.useState<Set<string>>(
     () => new Set()
   )
+  const [included, setIncluded] = React.useState<Set<string>>(
+    () => new Set()
+  )
 
   React.useLayoutEffect(() => {
     const selKey = storageKeySelections(pathname)
     const exKey = excludedStorageKeyForScenarioPathname(pathname)
+    const inKey = includedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) {
       setSelections({})
       setExcluded(new Set())
+      setIncluded(new Set())
       return
     }
     setSelections(parseStoredSelections(localStorage.getItem(selKey)))
     setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
-  }, [pathname])
+    if (inKey != null && membershipMode === "explicit-inclusion") {
+      setIncluded(readIncludedAssetIdsWithV1Migration(pathname))
+    } else {
+      setIncluded(new Set())
+    }
+  }, [pathname, membershipMode])
 
   const setTableSelection = React.useCallback(
     (assetId: string, setId: string) => {
@@ -124,6 +158,7 @@ export function ScenarioModificationSelectionsProvider({
     (assetIds: readonly string[]) => {
       if (assetIds.length === 0) return
       const exKey = excludedStorageKeyForScenarioPathname(pathname)
+      const inKey = includedStorageKeyForScenarioPathname(pathname)
       const selKey = storageKeySelections(pathname)
       if (exKey == null) return
 
@@ -139,6 +174,26 @@ export function ScenarioModificationSelectionsProvider({
         return next
       })
 
+      if (
+        membershipMode === "explicit-inclusion" &&
+        inKey != null &&
+        pathname != null
+      ) {
+        setIncluded((prev) => {
+          const next = new Set(prev)
+          for (const id of assetIds) next.delete(id)
+          persistScenarioIncludedAssetIds(inKey, next)
+          return next
+        })
+        window.dispatchEvent(
+          new CustomEvent<ScenarioIncludedChangedDetail>(
+            SCENARIO_INCLUDED_CHANGED_EVENT,
+            { detail: { pathname } }
+          )
+        )
+        return
+      }
+
       setExcluded((prev) => {
         const next = new Set(prev)
         for (const id of assetIds) next.add(id)
@@ -146,14 +201,35 @@ export function ScenarioModificationSelectionsProvider({
         return next
       })
     },
-    [pathname]
+    [membershipMode, pathname]
   )
 
   const restoreAssetsToScenario = React.useCallback(
     (assetIds: readonly string[]) => {
       if (assetIds.length === 0) return
       const exKey = excludedStorageKeyForScenarioPathname(pathname)
+      const inKey = includedStorageKeyForScenarioPathname(pathname)
       if (exKey == null) return
+
+      if (
+        membershipMode === "explicit-inclusion" &&
+        inKey != null &&
+        pathname != null
+      ) {
+        setIncluded((prev) => {
+          const next = new Set(prev)
+          for (const id of assetIds) next.add(id)
+          persistScenarioIncludedAssetIds(inKey, next)
+          return next
+        })
+        window.dispatchEvent(
+          new CustomEvent<ScenarioIncludedChangedDetail>(
+            SCENARIO_INCLUDED_CHANGED_EVENT,
+            { detail: { pathname } }
+          )
+        )
+        return
+      }
 
       setExcluded((prev) => {
         const next = new Set(prev)
@@ -162,12 +238,13 @@ export function ScenarioModificationSelectionsProvider({
         return next
       })
     },
-    [pathname]
+    [membershipMode, pathname]
   )
 
   React.useEffect(() => {
     const selKey = storageKeySelections(pathname)
     const exKey = excludedStorageKeyForScenarioPathname(pathname)
+    const inKey = includedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) return
 
     const onStorage = (e: StorageEvent) => {
@@ -176,6 +253,9 @@ export function ScenarioModificationSelectionsProvider({
       }
       if (e.key === exKey) {
         setExcluded(parseScenarioExcludedAssetIds(e.newValue))
+      }
+      if (inKey != null && e.key === inKey) {
+        setIncluded(parseScenarioIncludedAssetIds(e.newValue))
       }
     }
     window.addEventListener("storage", onStorage)
@@ -201,18 +281,41 @@ export function ScenarioModificationSelectionsProvider({
       )
   }, [pathname])
 
+  React.useEffect(() => {
+    const path = pathname
+    const inKey = includedStorageKeyForScenarioPathname(path)
+    if (inKey == null || membershipMode !== "explicit-inclusion") return
+
+    const onIncludedChanged = (e: Event) => {
+      const d = (e as CustomEvent<ScenarioIncludedChangedDetail>).detail
+      if (d?.pathname === path) {
+        setIncluded(parseScenarioIncludedAssetIds(localStorage.getItem(inKey)))
+      }
+    }
+    window.addEventListener(SCENARIO_INCLUDED_CHANGED_EVENT, onIncludedChanged)
+    return () =>
+      window.removeEventListener(
+        SCENARIO_INCLUDED_CHANGED_EVENT,
+        onIncludedChanged
+      )
+  }, [membershipMode, pathname])
+
   const value = React.useMemo(
     () => ({
+      scenarioMembershipMode: membershipMode,
       selections,
       setTableSelection,
       scenarioExcludedAssetIds: excluded,
+      scenarioIncludedAssetIds: included,
       excludeAssetsFromScenario,
       restoreAssetsToScenario,
     }),
     [
+      membershipMode,
       selections,
       setTableSelection,
       excluded,
+      included,
       excludeAssetsFromScenario,
       restoreAssetsToScenario,
     ]

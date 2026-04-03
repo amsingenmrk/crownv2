@@ -1,4 +1,9 @@
 import { EXCLUDED_PREFIX } from "@/lib/scenario-excluded-assets-storage"
+import {
+  INCLUDED_MIGRATED_PREFIX,
+  INCLUDED_PREFIX,
+  markScenarioInclusionMigratedForPathname,
+} from "@/lib/scenario-included-assets-storage"
 
 export type UserScenario = { name: string; slug: string }
 
@@ -10,14 +15,33 @@ export const BUILTIN_SCENARIO = {
 
 const STORAGE_KEY = "glassbox:user-scenarios"
 
+/** Stable empty list for `useSyncExternalStore` server / hydration snapshot. */
+export const USER_SCENARIOS_SERVER_SNAPSHOT: UserScenario[] = []
+
 /** Same-tab updates (localStorage does not fire `storage` in the active window). */
 export const USER_SCENARIOS_CHANGED_EVENT = "glassbox:user-scenarios-changed" as const
+
+/** Subscribe to user scenario list changes (localStorage + same-tab events). */
+export function subscribeUserScenarios(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {}
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) onStoreChange()
+  }
+  window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, onStoreChange)
+  window.addEventListener("storage", onStorage)
+  return () => {
+    window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, onStoreChange)
+    window.removeEventListener("storage", onStorage)
+  }
+}
 
 function clearScenarioRouteLocalStorage(slug: string) {
   if (typeof window === "undefined") return
   const path = `/scenarios/${slug}`
   localStorage.removeItem(`glassbox:scenario-table-selections:${path}`)
   localStorage.removeItem(`${EXCLUDED_PREFIX}${path}`)
+  localStorage.removeItem(`${INCLUDED_PREFIX}${path}`)
+  localStorage.removeItem(`${INCLUDED_MIGRATED_PREFIX}${path}`)
 }
 
 function isUserScenario(v: unknown): v is UserScenario {
@@ -39,10 +63,41 @@ export function readUserScenarios(): UserScenario[] {
   }
 }
 
+let storeSnapshotRaw: string | null | undefined
+let storeSnapshotList: UserScenario[] = USER_SCENARIOS_SERVER_SNAPSHOT
+
+/**
+ * Snapshot for `useSyncExternalStore`: referentially stable while localStorage
+ * value is unchanged (required by React).
+ */
+export function getUserScenariosStoreSnapshot(): UserScenario[] {
+  if (typeof window === "undefined") return USER_SCENARIOS_SERVER_SNAPSHOT
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw === storeSnapshotRaw) return storeSnapshotList
+    storeSnapshotRaw = raw
+    if (!raw) {
+      storeSnapshotList = USER_SCENARIOS_SERVER_SNAPSHOT
+      return storeSnapshotList
+    }
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      storeSnapshotList = USER_SCENARIOS_SERVER_SNAPSHOT
+      return storeSnapshotList
+    }
+    storeSnapshotList = parsed.filter(isUserScenario)
+    return storeSnapshotList
+  } catch {
+    storeSnapshotList = USER_SCENARIOS_SERVER_SNAPSHOT
+    return storeSnapshotList
+  }
+}
+
 export function appendUserScenario(scenario: UserScenario): UserScenario[] {
   const next = [...readUserScenarios(), scenario]
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   if (typeof window !== "undefined") {
+    markScenarioInclusionMigratedForPathname(`/scenarios/${scenario.slug}`)
     window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
   }
   return next

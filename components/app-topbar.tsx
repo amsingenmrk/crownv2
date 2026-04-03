@@ -1,6 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import {
   Check,
   ChevronDown,
@@ -38,9 +44,10 @@ import { ASSETS, getAssetById } from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
   BUILTIN_SCENARIO,
-  readUserScenarios,
+  getUserScenariosStoreSnapshot,
   removeUserScenarioBySlug,
-  USER_SCENARIOS_CHANGED_EVENT,
+  subscribeUserScenarios,
+  USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
 
@@ -65,14 +72,17 @@ function scenarioSlugFromPathname(pathname: string | null): string | null {
   return slug || null
 }
 
-function titleForPathname(pathname: string | null): string {
+function titleForPathname(
+  pathname: string | null,
+  userScenarios: readonly { name: string; slug: string }[]
+): string {
   if (!pathname) return "Glassbox"
   const explicit = TITLES[pathname]
   if (explicit) return explicit
   if (pathname.startsWith("/scenarios/")) {
     const slug = pathname.slice("/scenarios/".length).split("/")[0]
     if (slug) {
-      const user = readUserScenarios().find((s) => s.slug === slug)
+      const user = userScenarios.find((s) => s.slug === slug)
       if (user) return user.name
       return humanizeScenarioSlug(slug)
     }
@@ -86,10 +96,10 @@ export function AppTopbar() {
   const router = useRouter()
   const [assetMenuOpen, setAssetMenuOpen] = useState(false)
   const [assetSearch, setAssetSearch] = useState("")
-  const [userScenarioSlugs, setUserScenarioSlugs] = useState<string[]>(() =>
-    typeof window !== "undefined"
-      ? readUserScenarios().map((s) => s.slug)
-      : []
+  const userScenarios = useSyncExternalStore(
+    subscribeUserScenarios,
+    getUserScenariosStoreSnapshot,
+    () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
@@ -102,26 +112,14 @@ export function AppTopbar() {
     pathname != null && pathname.startsWith("/scenarios/")
   const scenarioSlug = scenarioSlugFromPathname(pathname ?? null)
   const showScenarioMoreMenu = showScenarioBreadcrumb && scenarioSlug != null
+  const userScenarioSlugs = useMemo(
+    () => userScenarios.map((s) => s.slug),
+    [userScenarios]
+  )
   const canDeleteCurrentScenario =
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
 
-  const pageTitle = titleForPathname(pathname ?? null)
-
-  useEffect(() => {
-    const sync = () =>
-      setUserScenarioSlugs(readUserScenarios().map((s) => s.slug))
-    sync()
-    window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== "glassbox:user-scenarios") return
-      sync()
-    }
-    window.addEventListener("storage", onStorage)
-    return () => {
-      window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
-      window.removeEventListener("storage", onStorage)
-    }
-  }, [])
+  const pageTitle = titleForPathname(pathname ?? null, userScenarios)
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()

@@ -26,6 +26,7 @@ import {
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
+import { addAssetsToScenarioIncludedBySlug } from "@/lib/scenario-included-assets-storage"
 import { includeAssetsInScenarioBySlug } from "@/lib/scenario-excluded-assets-storage"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
@@ -67,6 +68,7 @@ export function PortfolioAssetsDataTable({
   const router = useRouter()
   const {
     scenarioExcludedAssetIds,
+    scenarioMembershipMode,
     excludeAssetsFromScenario,
     restoreAssetsToScenario,
   } = useScenarioModificationSelections()
@@ -116,6 +118,7 @@ export function PortfolioAssetsDataTable({
 
   const allSelectedExcluded =
     variant === "scenarios" &&
+    scenarioMembershipMode === "builtin" &&
     selectedRowIds.length > 0 &&
     selectedRowIds.every((id) => scenarioExcludedAssetIds.has(id))
 
@@ -196,7 +199,17 @@ export function PortfolioAssetsDataTable({
                       <DropdownMenuItem
                         key={s.slug}
                         onSelect={() => {
-                          includeAssetsInScenarioBySlug(s.slug, selectedRowIds)
+                          if (s.slug === BUILTIN_SCENARIO.slug) {
+                            includeAssetsInScenarioBySlug(
+                              s.slug,
+                              selectedRowIds
+                            )
+                          } else {
+                            addAssetsToScenarioIncludedBySlug(
+                              s.slug,
+                              selectedRowIds
+                            )
+                          }
                           table.resetRowSelection()
                         }}
                       >
@@ -220,7 +233,7 @@ export function PortfolioAssetsDataTable({
                 open={newScenarioOpen}
                 onOpenChange={setNewScenarioOpen}
                 afterCreate={(scenario) => {
-                  includeAssetsInScenarioBySlug(
+                  addAssetsToScenarioIncludedBySlug(
                     scenario.slug,
                     createScenarioAssetIdsRef.current
                   )

@@ -234,9 +234,9 @@ function PortfolioDashboardInner({
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   /**
-   * Built-in scenarios: when no asset has saved modification sets, show the full
-   * asset list (helps empty localStorage / deploy). User-created scenarios:
-   * pass `false` so the table starts empty until assets have saved sets.
+   * Built-in scenario only: when no asset has saved modification sets, show the full
+   * asset list (helps empty localStorage / deploy). User-created scenarios use an
+   * explicit inclusion list in localStorage instead of this filter.
    */
   scenarioRelaxedAssetFilter?: boolean
 }) {
@@ -253,19 +253,26 @@ function PortfolioDashboardInner({
       : ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]
 
   /**
-   * Scenarios: `Set` of asset ids with ≥1 saved modification set (localStorage).
-   * `null` = skip filter (only when `scenarioRelaxedAssetFilter` and no saved
-   * sets — built-in scenario / deploy). Otherwise an empty `Set` yields an
-   * empty table (user-created scenarios).
+   * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.
+   * `null` = skip filter when `scenarioRelaxedAssetFilter` and no saved sets.
+   * User scenarios use `scenarioIncludedAssetIds` from context instead.
    */
   const [scenarioEligibleAssetIds, setScenarioEligibleAssetIds] =
     React.useState<Set<string> | null>(null)
 
-  const { selections, scenarioExcludedAssetIds } =
-    useScenarioModificationSelections()
+  const {
+    selections,
+    scenarioExcludedAssetIds,
+    scenarioIncludedAssetIds,
+    scenarioMembershipMode,
+  } = useScenarioModificationSelections()
 
   React.useLayoutEffect(() => {
     if (assetsTableVariant !== "scenarios") {
+      setScenarioEligibleAssetIds(null)
+      return
+    }
+    if (scenarioMembershipMode === "explicit-inclusion") {
       setScenarioEligibleAssetIds(null)
       return
     }
@@ -303,7 +310,7 @@ function PortfolioDashboardInner({
       window.removeEventListener("storage", onStorage)
       window.removeEventListener("glassbox:modification-sets-changed", refresh)
     }
-  }, [assetsTableVariant, scenarioRelaxedAssetFilter])
+  }, [assetsTableVariant, scenarioMembershipMode, scenarioRelaxedAssetFilter])
 
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
@@ -338,12 +345,22 @@ function PortfolioDashboardInner({
               .includes(q)
           })
 
-    if (assetsTableVariant === "scenarios" && scenarioEligibleAssetIds != null) {
-      rows = rows.filter((r) => scenarioEligibleAssetIds.has(r.id))
-    }
+    if (
+      assetsTableVariant === "scenarios" &&
+      scenarioMembershipMode === "explicit-inclusion"
+    ) {
+      rows = rows.filter((r) => scenarioIncludedAssetIds.has(r.id))
+    } else {
+      if (assetsTableVariant === "scenarios" && scenarioEligibleAssetIds != null) {
+        rows = rows.filter((r) => scenarioEligibleAssetIds.has(r.id))
+      }
 
-    if (assetsTableVariant === "scenarios" && scenarioExcludedAssetIds.size > 0) {
-      rows = rows.filter((r) => !scenarioExcludedAssetIds.has(r.id))
+      if (
+        assetsTableVariant === "scenarios" &&
+        scenarioExcludedAssetIds.size > 0
+      ) {
+        rows = rows.filter((r) => !scenarioExcludedAssetIds.has(r.id))
+      }
     }
 
     return rows
@@ -353,6 +370,8 @@ function PortfolioDashboardInner({
     assetsTableVariant,
     scenarioEligibleAssetIds,
     scenarioExcludedAssetIds,
+    scenarioIncludedAssetIds,
+    scenarioMembershipMode,
   ])
 
   const visibleMapPins = React.useMemo(
