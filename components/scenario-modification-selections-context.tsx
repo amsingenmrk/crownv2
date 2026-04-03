@@ -2,6 +2,13 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import {
+  excludedStorageKeyForScenarioPathname,
+  parseScenarioExcludedAssetIds,
+  persistScenarioExcludedAssetIds,
+  SCENARIO_EXCLUDED_CHANGED_EVENT,
+  type ScenarioExcludedChangedDetail,
+} from "@/lib/scenario-excluded-assets-storage"
 
 export type ScenarioTableSelections = Record<string, string>
 
@@ -19,16 +26,10 @@ const ScenarioModificationSelectionsContext = React.createContext<Ctx | null>(
 )
 
 const SELECTIONS_PREFIX = "glassbox:scenario-table-selections:" as const
-const EXCLUDED_PREFIX = "glassbox:scenario-excluded-assets:" as const
 
 function storageKeySelections(pathname: string | null): string | null {
   if (pathname == null || !pathname.startsWith("/scenarios/")) return null
   return `${SELECTIONS_PREFIX}${pathname}`
-}
-
-function storageKeyExcluded(pathname: string | null): string | null {
-  if (pathname == null || !pathname.startsWith("/scenarios/")) return null
-  return `${EXCLUDED_PREFIX}${pathname}`
 }
 
 function parseStoredSelections(raw: string | null): ScenarioTableSelections {
@@ -45,19 +46,6 @@ function parseStoredSelections(raw: string | null): ScenarioTableSelections {
     return out
   } catch {
     return {}
-  }
-}
-
-function parseExcluded(raw: string | null): Set<string> {
-  if (raw == null || raw === "") return new Set()
-  try {
-    const data = JSON.parse(raw) as unknown
-    if (!Array.isArray(data)) return new Set()
-    return new Set(
-      data.filter((x): x is string => typeof x === "string" && x.length > 0)
-    )
-  } catch {
-    return new Set()
   }
 }
 
@@ -97,14 +85,14 @@ export function ScenarioModificationSelectionsProvider({
 
   React.useLayoutEffect(() => {
     const selKey = storageKeySelections(pathname)
-    const exKey = storageKeyExcluded(pathname)
+    const exKey = excludedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) {
       setSelections({})
       setExcluded(new Set())
       return
     }
     setSelections(parseStoredSelections(localStorage.getItem(selKey)))
-    setExcluded(parseExcluded(localStorage.getItem(exKey)))
+    setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
   }, [pathname])
 
   const setTableSelection = React.useCallback(
@@ -135,7 +123,7 @@ export function ScenarioModificationSelectionsProvider({
   const excludeAssetsFromScenario = React.useCallback(
     (assetIds: readonly string[]) => {
       if (assetIds.length === 0) return
-      const exKey = storageKeyExcluded(pathname)
+      const exKey = excludedStorageKeyForScenarioPathname(pathname)
       const selKey = storageKeySelections(pathname)
       if (exKey == null) return
 
@@ -154,7 +142,7 @@ export function ScenarioModificationSelectionsProvider({
       setExcluded((prev) => {
         const next = new Set(prev)
         for (const id of assetIds) next.add(id)
-        persistJson(exKey, [...next])
+        persistScenarioExcludedAssetIds(exKey, next)
         return next
       })
     },
@@ -164,13 +152,13 @@ export function ScenarioModificationSelectionsProvider({
   const restoreAssetsToScenario = React.useCallback(
     (assetIds: readonly string[]) => {
       if (assetIds.length === 0) return
-      const exKey = storageKeyExcluded(pathname)
+      const exKey = excludedStorageKeyForScenarioPathname(pathname)
       if (exKey == null) return
 
       setExcluded((prev) => {
         const next = new Set(prev)
         for (const id of assetIds) next.delete(id)
-        persistJson(exKey, next.size === 0 ? null : [...next])
+        persistScenarioExcludedAssetIds(exKey, next)
         return next
       })
     },
@@ -179,7 +167,7 @@ export function ScenarioModificationSelectionsProvider({
 
   React.useEffect(() => {
     const selKey = storageKeySelections(pathname)
-    const exKey = storageKeyExcluded(pathname)
+    const exKey = excludedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) return
 
     const onStorage = (e: StorageEvent) => {
@@ -187,11 +175,30 @@ export function ScenarioModificationSelectionsProvider({
         setSelections(parseStoredSelections(e.newValue))
       }
       if (e.key === exKey) {
-        setExcluded(parseExcluded(e.newValue))
+        setExcluded(parseScenarioExcludedAssetIds(e.newValue))
       }
     }
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)
+  }, [pathname])
+
+  React.useEffect(() => {
+    const path = pathname
+    const exKey = excludedStorageKeyForScenarioPathname(path)
+    if (exKey == null) return
+
+    const onExcludedChanged = (e: Event) => {
+      const d = (e as CustomEvent<ScenarioExcludedChangedDetail>).detail
+      if (d?.pathname === path) {
+        setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
+      }
+    }
+    window.addEventListener(SCENARIO_EXCLUDED_CHANGED_EVENT, onExcludedChanged)
+    return () =>
+      window.removeEventListener(
+        SCENARIO_EXCLUDED_CHANGED_EVENT,
+        onExcludedChanged
+      )
   }, [pathname])
 
   const value = React.useMemo(

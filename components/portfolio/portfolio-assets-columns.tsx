@@ -1,11 +1,19 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { assetHref } from "@/lib/assets"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
@@ -14,6 +22,7 @@ import {
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
+import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
 export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
 
@@ -49,6 +58,65 @@ function SortableHeader({
           <ArrowUp className="size-4 shrink-0 opacity-70" aria-hidden />
         ) : null}
       </Button>
+    </div>
+  )
+}
+
+export function ScenarioRemoveFromScenarioCell({
+  assetId,
+  building,
+}: {
+  assetId: string
+  building: string
+}) {
+  const { excludeAssetsFromScenario } = useScenarioModificationSelections()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  return (
+    <div className="flex justify-end">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
+        aria-label={`Remove ${building} from scenario`}
+        aria-haspopup="dialog"
+        aria-expanded={confirmOpen}
+        onClick={() => setConfirmOpen(true)}
+      >
+        <Trash2 className="size-4" aria-hidden />
+      </Button>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove asset from scenario</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{building}</span>{" "}
+              will be removed from this scenario. Saved modification sets in the
+              sidebar are not deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                excludeAssetsFromScenario([assetId])
+                setConfirmOpen(false)
+              }}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -313,6 +381,20 @@ export function createPortfolioAssetColumns(
       header: "Modifications",
       cell: ({ row }) => (
         <AssetModificationSetSelect
+          assetId={row.original.id}
+          building={row.original.building}
+        />
+      ),
+      enableSorting: false,
+    })
+    columns.push({
+      id: "scenarioRemove",
+      enableHiding: false,
+      header: () => (
+        <span className="sr-only">Remove from scenario</span>
+      ),
+      cell: ({ row }) => (
+        <ScenarioRemoveFromScenarioCell
           assetId={row.original.id}
           building={row.original.building}
         />

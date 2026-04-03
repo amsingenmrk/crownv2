@@ -10,7 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
@@ -58,9 +57,6 @@ export function PortfolioAssetsViewOptions({
             <DropdownMenuLabel className="font-normal text-muted-foreground">
               Toggle columns
             </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
             {hideable.map((column) => (
               <DropdownMenuCheckboxItem
                 key={column.id}

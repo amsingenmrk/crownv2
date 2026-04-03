@@ -3,7 +3,9 @@
 import * as React from "react"
 import { flexRender, type Table } from "@tanstack/react-table"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { ChevronDown, Plus } from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   TableBody,
@@ -14,15 +16,35 @@ import {
 } from "@/components/ui/table"
 import { assetHref } from "@/lib/assets"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
-import type { PortfolioAssetsTableVariant } from "@/components/portfolio/portfolio-assets-columns"
+import {
+  ScenarioRemoveFromScenarioCell,
+  type PortfolioAssetsTableVariant,
+} from "@/components/portfolio/portfolio-assets-columns"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
+import { includeAssetsInScenarioBySlug } from "@/lib/scenario-excluded-assets-storage"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
+import { NewScenarioDialog } from "@/components/new-scenario-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
+import {
+  BUILTIN_SCENARIO,
+  readUserScenarios,
+  USER_SCENARIOS_CHANGED_EVENT,
+  type UserScenario,
+} from "@/lib/user-scenarios"
 function gridTemplateForVisibleColumns(
   table: Table<PortfolioAssetRow>
 ): string {
@@ -42,11 +64,41 @@ export function PortfolioAssetsDataTable({
   liftExtent: { min: number; max: number }
 }) {
   const data = table.options.data
+  const router = useRouter()
   const {
     scenarioExcludedAssetIds,
     excludeAssetsFromScenario,
     restoreAssetsToScenario,
   } = useScenarioModificationSelections()
+
+  const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
+  const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
+  const createScenarioAssetIdsRef = React.useRef<readonly string[]>([])
+
+  React.useEffect(() => {
+    const sync = () => setUserScenarios(readUserScenarios())
+    sync()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "glassbox:user-scenarios") return
+      sync()
+    }
+    window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+    window.addEventListener("storage", onStorage)
+    return () => {
+      window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [])
+
+  const scenariosForMenu = React.useMemo(() => {
+    const userSorted = [...userScenarios].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    )
+    return [
+      { name: BUILTIN_SCENARIO.name, slug: BUILTIN_SCENARIO.slug },
+      ...userSorted,
+    ]
+  }, [userScenarios])
 
   const liftStrength = React.useCallback(
     (liftPercent: number) =>
@@ -117,16 +169,76 @@ export function PortfolioAssetsDataTable({
           )}
         </p>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={selectedCount === 0}
-            onClick={
-              variant === "scenarios" ? onScenarioToolbarClick : undefined
-            }
-          >
-            {scenarioToolbarLabel}
-          </Button>
+          {variant === "portfolio" ? (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={selectedCount === 0}
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                  aria-label="Add selected assets to a scenario"
+                >
+                  Add to Scenario
+                  <ChevronDown
+                    className="size-4 opacity-60"
+                    aria-hidden
+                    data-icon="inline-end"
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="z-[100] min-w-[12rem]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Add to scenario
+                    </DropdownMenuLabel>
+                    {scenariosForMenu.map((s) => (
+                      <DropdownMenuItem
+                        key={s.slug}
+                        onSelect={() => {
+                          includeAssetsInScenarioBySlug(s.slug, selectedRowIds)
+                          table.resetRowSelection()
+                        }}
+                      >
+                        <span className="truncate">{s.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      createScenarioAssetIdsRef.current = selectedRowIds
+                      setNewScenarioOpen(true)
+                    }}
+                  >
+                    <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                    Create new scenario
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <NewScenarioDialog
+                open={newScenarioOpen}
+                onOpenChange={setNewScenarioOpen}
+                afterCreate={(scenario) => {
+                  includeAssetsInScenarioBySlug(
+                    scenario.slug,
+                    createScenarioAssetIdsRef.current
+                  )
+                  table.resetRowSelection()
+                  router.push(`/scenarios/${scenario.slug}`)
+                }}
+              />
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={selectedCount === 0}
+              onClick={onScenarioToolbarClick}
+            >
+              {scenarioToolbarLabel}
+            </Button>
+          )}
         </div>
       </div>
       <table
@@ -148,7 +260,9 @@ export function PortfolioAssetsDataTable({
                     "h-auto min-w-0 py-2 text-left align-middle",
                     header.column.id === "select"
                       ? "flex items-center justify-start pl-3 pr-0"
-                      : "px-2 font-medium"
+                      : header.column.id === "scenarioRemove"
+                        ? "flex items-center justify-end px-2 pr-3"
+                        : "px-2 font-medium"
                   )}
                 >
                   {header.isPlaceholder
@@ -178,7 +292,9 @@ export function PortfolioAssetsDataTable({
                       "min-w-0 border-0 py-2 text-left align-middle",
                       cell.column.id === "select"
                         ? "pl-3 pr-0"
-                        : "px-2"
+                        : cell.column.id === "scenarioRemove"
+                          ? "px-2 pr-3"
+                          : "px-2"
                     )}
                   >
                     {flexRender(
@@ -255,10 +371,18 @@ export function PortfolioAssetsDataTable({
                     </span>
                   </div>
                   {variant === "scenarios" ? (
-                    <AssetModificationSetSelect
-                      assetId={row.id}
-                      building={row.building}
-                    />
+                    <>
+                      <AssetModificationSetSelect
+                        assetId={row.id}
+                        building={row.building}
+                      />
+                      <div className="flex justify-end border-t border-border pt-3">
+                        <ScenarioRemoveFromScenarioCell
+                          assetId={row.id}
+                          building={row.building}
+                        />
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">

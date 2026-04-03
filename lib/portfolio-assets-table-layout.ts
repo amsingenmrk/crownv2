@@ -16,5 +16,6 @@ export const PORTFOLIO_ASSETS_COLUMN_GRID_TRACK: Record<string, string> = {
   debtYield: "auto",
   lift: "minmax(5.5rem, max-content)",
   modifications: "minmax(9rem, max-content)",
+  scenarioRemove: "minmax(2.75rem, max-content)",
   recommendation: "minmax(9rem, max-content)",
 }

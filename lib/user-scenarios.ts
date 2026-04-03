@@ -1,3 +1,5 @@
+import { EXCLUDED_PREFIX } from "@/lib/scenario-excluded-assets-storage"
+
 export type UserScenario = { name: string; slug: string }
 
 /** Default scenario; not stored in localStorage. */
@@ -15,7 +17,7 @@ function clearScenarioRouteLocalStorage(slug: string) {
   if (typeof window === "undefined") return
   const path = `/scenarios/${slug}`
   localStorage.removeItem(`glassbox:scenario-table-selections:${path}`)
-  localStorage.removeItem(`glassbox:scenario-excluded-assets:${path}`)
+  localStorage.removeItem(`${EXCLUDED_PREFIX}${path}`)
 }
 
 function isUserScenario(v: unknown): v is UserScenario {

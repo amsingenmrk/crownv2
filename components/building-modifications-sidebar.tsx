@@ -599,11 +599,17 @@ export function BuildingModificationsSidebar({
                           key={opt.value}
                           orientation="horizontal"
                           className={cn(
-                            "rounded-md p-2 transition-colors",
+                            "cursor-pointer rounded-md p-2 transition-colors",
                             value === opt.value
                               ? "bg-primary/10"
                               : "hover:bg-muted/40"
                           )}
+                          onClick={() =>
+                            setValues((s) => ({
+                              ...s,
+                              [id]: opt.value,
+                            }))
+                          }
                         >
                           <RadioGroupItem value={opt.value} id={itemId} />
                           <FieldContent>
