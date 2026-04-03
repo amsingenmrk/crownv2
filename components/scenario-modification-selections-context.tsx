@@ -38,7 +38,7 @@ type Ctx = {
   setTableSelection: (assetId: string, setId: string) => void
   /** Built-in scenario: assets hidden via exclusion list. */
   scenarioExcludedAssetIds: ReadonlySet<string>
-  /** User scenario: assets explicitly in the scenario. */
+  /** User scenario: full membership. Built-in: portfolio “add” overlay (eligible ∪ overlay). */
   scenarioIncludedAssetIds: ReadonlySet<string>
   excludeAssetsFromScenario: (assetIds: readonly string[]) => void
   restoreAssetsToScenario: (assetIds: readonly string[]) => void
@@ -124,6 +124,8 @@ export function ScenarioModificationSelectionsProvider({
     setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
     if (inKey != null && membershipMode === "explicit-inclusion") {
       setIncluded(readIncludedAssetIdsWithV1Migration(pathname))
+    } else if (inKey != null && membershipMode === "builtin") {
+      setIncluded(parseScenarioIncludedAssetIds(localStorage.getItem(inKey)))
     } else {
       setIncluded(new Set())
     }
@@ -192,6 +194,25 @@ export function ScenarioModificationSelectionsProvider({
           )
         )
         return
+      }
+
+      if (
+        membershipMode === "builtin" &&
+        inKey != null &&
+        pathname != null
+      ) {
+        setIncluded((prev) => {
+          const next = new Set(prev)
+          for (const id of assetIds) next.delete(id)
+          persistScenarioIncludedAssetIds(inKey, next)
+          return next
+        })
+        window.dispatchEvent(
+          new CustomEvent<ScenarioIncludedChangedDetail>(
+            SCENARIO_INCLUDED_CHANGED_EVENT,
+            { detail: { pathname } }
+          )
+        )
       }
 
       setExcluded((prev) => {
@@ -284,7 +305,12 @@ export function ScenarioModificationSelectionsProvider({
   React.useEffect(() => {
     const path = pathname
     const inKey = includedStorageKeyForScenarioPathname(path)
-    if (inKey == null || membershipMode !== "explicit-inclusion") return
+    if (
+      inKey == null ||
+      (membershipMode !== "explicit-inclusion" && membershipMode !== "builtin")
+    ) {
+      return
+    }
 
     const onIncludedChanged = (e: Event) => {
       const d = (e as CustomEvent<ScenarioIncludedChangedDetail>).detail

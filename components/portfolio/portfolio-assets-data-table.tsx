@@ -26,8 +26,8 @@ import {
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
+import { useAppToast } from "@/components/app-toast"
 import { addAssetsToScenarioIncludedBySlug } from "@/lib/scenario-included-assets-storage"
-import { includeAssetsInScenarioBySlug } from "@/lib/scenario-excluded-assets-storage"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import {
@@ -66,6 +66,7 @@ export function PortfolioAssetsDataTable({
 }) {
   const data = table.options.data
   const router = useRouter()
+  const showToast = useAppToast()
   const {
     scenarioExcludedAssetIds,
     scenarioMembershipMode,
@@ -198,18 +199,19 @@ export function PortfolioAssetsDataTable({
                     {scenariosForMenu.map((s) => (
                       <DropdownMenuItem
                         key={s.slug}
-                        onSelect={() => {
-                          if (s.slug === BUILTIN_SCENARIO.slug) {
-                            includeAssetsInScenarioBySlug(
-                              s.slug,
-                              selectedRowIds
+                        onClick={() => {
+                          addAssetsToScenarioIncludedBySlug(
+                            s.slug,
+                            selectedRowIds
+                          )
+                          const n = selectedRowIds.length
+                          queueMicrotask(() => {
+                            showToast(
+                              n === 1
+                                ? `Added 1 asset to “${s.name}”.`
+                                : `Added ${n} assets to “${s.name}”.`
                             )
-                          } else {
-                            addAssetsToScenarioIncludedBySlug(
-                              s.slug,
-                              selectedRowIds
-                            )
-                          }
+                          })
                           table.resetRowSelection()
                         }}
                       >
@@ -219,7 +221,7 @@ export function PortfolioAssetsDataTable({
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onSelect={() => {
+                    onClick={() => {
                       createScenarioAssetIdsRef.current = selectedRowIds
                       setNewScenarioOpen(true)
                     }}
@@ -233,12 +235,18 @@ export function PortfolioAssetsDataTable({
                 open={newScenarioOpen}
                 onOpenChange={setNewScenarioOpen}
                 afterCreate={(scenario) => {
-                  addAssetsToScenarioIncludedBySlug(
-                    scenario.slug,
-                    createScenarioAssetIdsRef.current
-                  )
+                  const ids = createScenarioAssetIdsRef.current
+                  addAssetsToScenarioIncludedBySlug(scenario.slug, ids)
                   table.resetRowSelection()
                   router.push(`/scenarios/${scenario.slug}`)
+                  const n = ids.length
+                  showToast(
+                    n === 0
+                      ? `Created “${scenario.name}”.`
+                      : n === 1
+                        ? `Created “${scenario.name}” and added 1 asset.`
+                        : `Created “${scenario.name}” and added ${n} assets.`
+                  )
                 }}
               />
             </>

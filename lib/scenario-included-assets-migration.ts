@@ -49,6 +49,12 @@ export function readIncludedAssetIdsWithV1Migration(pathname: string): Set<strin
     return parseScenarioIncludedAssetIds(localStorage.getItem(inKey))
   }
 
+  const existing = parseScenarioIncludedAssetIds(localStorage.getItem(inKey))
+  if (existing.size > 0) {
+    persistScenarioIncludedAssetIds(inKey, existing)
+    return existing
+  }
+
   const legacy = legacyIncludedForUserScenarioPathname(pathname)
   persistScenarioIncludedAssetIds(inKey, legacy)
   return legacy

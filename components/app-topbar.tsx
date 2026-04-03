@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -107,6 +108,7 @@ export function AppTopbar() {
   const [renameScenarioOpen, setRenameScenarioOpen] = useState(false)
   const [renameName, setRenameName] = useState("")
   const renameInputId = useId()
+  const renameInputRef = useRef<HTMLInputElement>(null)
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
@@ -127,20 +129,14 @@ export function AppTopbar() {
 
   const pageTitle = titleForPathname(pathname ?? null, userScenarios)
 
-  useEffect(() => {
-    if (!renameScenarioOpen || scenarioSlug == null) return
-    const list = getUserScenariosStoreSnapshot()
-    const current = list.find((s) => s.slug === scenarioSlug)?.name ?? ""
-    setRenameName(current)
+  useLayoutEffect(() => {
+    if (!renameScenarioOpen) return
     const id = requestAnimationFrame(() => {
-      const el = document.getElementById(renameInputId)
-      if (el instanceof HTMLInputElement) {
-        el.focus()
-        el.select()
-      }
+      renameInputRef.current?.focus()
+      renameInputRef.current?.select()
     })
     return () => cancelAnimationFrame(id)
-  }, [renameScenarioOpen, scenarioSlug, renameInputId])
+  }, [renameScenarioOpen])
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -319,7 +315,11 @@ export function AppTopbar() {
                       : "Built-in scenarios cannot be renamed"
                   }
                   onClick={() => {
-                    if (!canRenameCurrentScenario) return
+                    if (!canRenameCurrentScenario || scenarioSlug == null) return
+                    const list = getUserScenariosStoreSnapshot()
+                    const current =
+                      list.find((s) => s.slug === scenarioSlug)?.name ?? ""
+                    setRenameName(current)
                     setRenameScenarioOpen(true)
                   }}
                 >
@@ -342,7 +342,18 @@ export function AppTopbar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={renameScenarioOpen} onOpenChange={setRenameScenarioOpen}>
+            <Dialog
+              open={renameScenarioOpen}
+              onOpenChange={(open) => {
+                setRenameScenarioOpen(open)
+                if (open && scenarioSlug != null) {
+                  const list = getUserScenariosStoreSnapshot()
+                  setRenameName(
+                    list.find((s) => s.slug === scenarioSlug)?.name ?? ""
+                  )
+                }
+              }}
+            >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Rename scenario</DialogTitle>
@@ -355,6 +366,7 @@ export function AppTopbar() {
                     Scenario name
                   </label>
                   <Input
+                    ref={renameInputRef}
                     id={renameInputId}
                     value={renameName}
                     onChange={(e) => setRenameName(e.target.value)}

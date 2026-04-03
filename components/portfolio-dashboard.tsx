@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -48,7 +49,9 @@ import {
   mapPinClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
+import { lngLatForAssetId } from "@/lib/asset-coordinates"
 import { cn } from "@/lib/utils"
+import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -228,6 +231,14 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
   })
 }
 
+const PortfolioMapbox = dynamic(
+  () =>
+    import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox),
+  { ssr: false }
+)
+
+const MAPBOX_ENABLED = Boolean(process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)
+
 function PortfolioDashboardInner({
   assetsTableVariant,
   scenarioRelaxedAssetFilter = true,
@@ -352,6 +363,19 @@ function PortfolioDashboardInner({
       scenarioMembershipMode === "explicit-inclusion"
     ) {
       rows = rows.filter((r) => scenarioIncludedAssetIds.has(r.id))
+    } else if (
+      assetsTableVariant === "scenarios" &&
+      scenarioMembershipMode === "builtin"
+    ) {
+      rows = rows.filter((r) => {
+        const eligibleOk =
+          scenarioEligibleAssetIds == null ||
+          scenarioEligibleAssetIds.has(r.id)
+        const overlayOk = scenarioIncludedAssetIds.has(r.id)
+        if (!eligibleOk && !overlayOk) return false
+        if (scenarioExcludedAssetIds.has(r.id)) return false
+        return true
+      })
     } else {
       if (assetsTableVariant === "scenarios" && scenarioEligibleAssetIds != null) {
         rows = rows.filter((r) => scenarioEligibleAssetIds.has(r.id))
@@ -380,6 +404,24 @@ function PortfolioDashboardInner({
     () => mapPinsForRows(visibleAssetRows),
     [visibleAssetRows]
   )
+
+  const portfolioMapboxPins = React.useMemo((): PortfolioMapboxPin[] => {
+    return visibleAssetRows
+      .map((row) => {
+        const ll = lngLatForAssetId(row.id)
+        if (!ll) return null
+        return {
+          id: row.id,
+          longitude: ll[0],
+          latitude: ll[1],
+          building: row.building,
+          lift: row.lift,
+          liftPercent: row.liftPercent,
+          liftStrength: liftStrengthForRow(row.liftPercent),
+        }
+      })
+      .filter((p): p is PortfolioMapboxPin => p != null)
+  }, [visibleAssetRows])
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
@@ -675,38 +717,44 @@ function PortfolioDashboardInner({
               : "min-h-[220px] lg:min-h-[280px]"
           )}
         >
-          {/* Simple street grid */}
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage: `
+          {MAPBOX_ENABLED ? (
+            <PortfolioMapbox pins={portfolioMapboxPins} />
+          ) : (
+            <>
+              {/* Simple street grid (fallback when no Mapbox token) */}
+              <div
+                className="absolute inset-0 opacity-40"
+                style={{
+                  backgroundImage: `
                 linear-gradient(to right, var(--border) 1px, transparent 1px),
                 linear-gradient(to bottom, var(--border) 1px, transparent 1px)
               `,
-              backgroundSize: "28px 28px",
-            }}
-          />
-          <div
-            className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent"
-            aria-hidden
-          />
-          {visibleMapPins.map((pin) => (
-            <span
-              key={pin.id}
-              className={cn(
-                "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                mapPinClassFromStrength(liftStrengthForRow(pin.liftPercent))
-              )}
-              style={{ top: pin.top, left: pin.left }}
-              title={`${pin.building} · Potential lift ${pin.lift}`}
-            />
-          ))}
+                  backgroundSize: "28px 28px",
+                }}
+              />
+              <div
+                className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent"
+                aria-hidden
+              />
+              {visibleMapPins.map((pin) => (
+                <span
+                  key={pin.id}
+                  className={cn(
+                    "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                    mapPinClassFromStrength(liftStrengthForRow(pin.liftPercent))
+                  )}
+                  style={{ top: pin.top, left: pin.left }}
+                  title={`${pin.building} · Potential lift ${pin.lift}`}
+                />
+              ))}
+            </>
+          )}
           <button
             type="button"
             aria-expanded={mapExpanded}
             aria-controls="portfolio-map-canvas"
             onClick={() => setMapExpanded((v) => !v)}
-            className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+            className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
           >
             {mapExpanded ? (
               <Shrink className="size-3.5 shrink-0" aria-hidden />

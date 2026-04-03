@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { slugifyScenarioName, uniqueScenarioSlug } from "@/lib/scenario-slug"
+import { useAppToast } from "@/components/app-toast"
 import {
   appendUserScenario,
   BUILTIN_SCENARIO,
@@ -31,6 +32,7 @@ export function NewScenarioDialog({
   afterCreate?: (scenario: UserScenario) => void
 }) {
   const router = useRouter()
+  const showToast = useAppToast()
   const inputId = React.useId()
   const [name, setName] = React.useState("")
 
@@ -68,8 +70,9 @@ export function NewScenarioDialog({
       afterCreate(scenario)
     } else {
       router.push(`/scenarios/${slug}`)
+      showToast(`Scenario “${trimmed}” created.`)
     }
-  }, [afterCreate, name, onOpenChange, router])
+  }, [afterCreate, name, onOpenChange, router, showToast])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
