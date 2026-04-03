@@ -49,9 +49,9 @@ import {
   mapPinClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
-import { lngLatForAssetId } from "@/lib/asset-coordinates"
 import { cn } from "@/lib/utils"
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
+import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -237,8 +237,6 @@ const PortfolioMapbox = dynamic(
   { ssr: false }
 )
 
-const MAPBOX_ENABLED = Boolean(process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)
-
 function PortfolioDashboardInner({
   assetsTableVariant,
   scenarioRelaxedAssetFilter = true,
@@ -405,10 +403,14 @@ function PortfolioDashboardInner({
     [visibleAssetRows]
   )
 
+  const { mapboxEnabled, coordinates: mapGeocodeCoordinates } =
+    usePortfolioAssetCoordinates()
+
   const portfolioMapboxPins = React.useMemo((): PortfolioMapboxPin[] => {
+    const coords = mapGeocodeCoordinates
     return visibleAssetRows
       .map((row) => {
-        const ll = lngLatForAssetId(row.id)
+        const ll = coords[row.id]
         if (!ll) return null
         return {
           id: row.id,
@@ -421,7 +423,7 @@ function PortfolioDashboardInner({
         }
       })
       .filter((p): p is PortfolioMapboxPin => p != null)
-  }, [visibleAssetRows])
+  }, [visibleAssetRows, mapGeocodeCoordinates])
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
@@ -717,11 +719,11 @@ function PortfolioDashboardInner({
               : "min-h-[220px] lg:min-h-[280px]"
           )}
         >
-          {MAPBOX_ENABLED ? (
+          {mapboxEnabled ? (
             <PortfolioMapbox pins={portfolioMapboxPins} />
           ) : (
             <>
-              {/* Simple street grid (fallback when no Mapbox token) */}
+              {/* Placeholder when NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is unset */}
               <div
                 className="absolute inset-0 opacity-40"
                 style={{

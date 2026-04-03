@@ -52,7 +52,7 @@ export function PortfolioMapbox({
   pins: PortfolioMapboxPin[]
   className?: string
 }) {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
 
@@ -107,7 +107,11 @@ export function PortfolioMapbox({
                 "block size-3 cursor-default rounded-full",
                 mapPinClassFromStrength(p.liftStrength)
               )}
-              title={`${p.building} · Potential lift ${p.lift}`}
+              title={
+                p.lift
+                  ? `${p.building} · Potential lift ${p.lift}`
+                  : p.building
+              }
             />
           </Marker>
         ))}
