@@ -11,6 +11,29 @@ import {
 import { AssetStatCards } from "@/components/asset-stat-cards"
 import { StackingPlanSkeleton } from "@/components/stacking-plan-skeleton"
 
+function modificationDraftStorageKey(assetId: string) {
+  return `glassbox:modification-draft:${assetId}`
+}
+
+function parseModificationDraft(raw: string | null): ModValues | null {
+  if (raw == null || raw === "") return null
+  try {
+    const data = JSON.parse(raw) as unknown
+    if (data == null || typeof data !== "object" || Array.isArray(data)) {
+      return null
+    }
+    const o = data as Record<string, unknown>
+    const next: ModValues = { ...INITIAL_MOD_VALUES }
+    for (const k of Object.keys(INITIAL_MOD_VALUES) as (keyof ModValues)[]) {
+      const v = o[k as string]
+      if (typeof v === "string") next[k] = v
+    }
+    return next
+  } catch {
+    return null
+  }
+}
+
 export function ModificationsWorkspace() {
   const params = useParams()
   const assetId =
@@ -18,9 +41,28 @@ export function ModificationsWorkspace() {
       ? params.id
       : "default"
 
+  const draftKey = modificationDraftStorageKey(assetId)
+
   const [values, setValues] = React.useState<ModValues>(() => ({
     ...INITIAL_MOD_VALUES,
   }))
+
+  React.useLayoutEffect(() => {
+    const parsed = parseModificationDraft(
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem(draftKey)
+        : null
+    )
+    setValues(parsed ?? { ...INITIAL_MOD_VALUES })
+  }, [draftKey])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(values))
+    } catch {
+      /* quota / private mode */
+    }
+  }, [values, draftKey])
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-4">
