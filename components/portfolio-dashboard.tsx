@@ -234,9 +234,11 @@ function PortfolioDashboardInner({
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   /**
-   * Built-in scenario only: when no asset has saved modification sets, show the full
-   * asset list (helps empty localStorage / deploy). User-created scenarios use an
-   * explicit inclusion list in localStorage instead of this filter.
+   * Built-in scenario (`/scenarios/2026-capital-planning`) only: when `true` and no
+   * asset has saved modification sets, the table skips the “has mod sets” filter and
+   * shows the full list (legacy empty-storage behavior). Pass `false` on the built-in
+   * route so the table always lists only assets with ≥1 saved set. User scenarios use
+   * an explicit inclusion list instead of this flag.
    */
   scenarioRelaxedAssetFilter?: boolean
 }) {
@@ -254,8 +256,8 @@ function PortfolioDashboardInner({
 
   /**
    * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.
-   * `null` = skip filter when `scenarioRelaxedAssetFilter` and no saved sets.
-   * User scenarios use `scenarioIncludedAssetIds` from context instead.
+   * `null` = skip that filter when `scenarioRelaxedAssetFilter` is true and no saved
+   * sets exist. User scenarios use `scenarioIncludedAssetIds` from context instead.
    */
   const [scenarioEligibleAssetIds, setScenarioEligibleAssetIds] =
     React.useState<Set<string> | null>(null)
