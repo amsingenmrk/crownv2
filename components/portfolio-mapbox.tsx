@@ -1,10 +1,13 @@
 "use client"
 
 import * as React from "react"
+
+import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
 import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl/mapbox"
 import { useTheme } from "next-themes"
 
+import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
 import { mapPinClassFromStrength } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
 
@@ -56,10 +59,7 @@ export function PortfolioMapbox({
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
 
-  const mapStyle =
-    resolvedTheme === "dark"
-      ? "mapbox://styles/mapbox/dark-v11"
-      : "mapbox://styles/mapbox/light-v11"
+  const mapStyle = resolveMapboxMapStyle(resolvedTheme)
 
   const bounds = React.useMemo(() => boundsFromPins(pins), [pins])
 
@@ -78,12 +78,12 @@ export function PortfolioMapbox({
   }
 
   return (
-    <div className={cn("absolute inset-0", className)}>
+    <div className={cn("absolute inset-0 min-h-[200px] w-full", className)}>
       <Map
         ref={mapRef}
         mapboxAccessToken={token}
         mapStyle={mapStyle}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", minHeight: "100%" }}
         initialViewState={
           bounds && pins.length > 0
             ? {

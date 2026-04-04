@@ -74,7 +74,7 @@ export function SearchComingSoon() {
     >
       {/* Map region */}
       <div className="flex min-h-[min(50vh,420px)] flex-1 flex-col p-4 md:p-6 lg:min-h-0">
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/20">
+        <div className="relative min-h-[min(50vh,420px)] flex-1 overflow-hidden rounded-xl border border-border bg-muted/20 lg:min-h-[420px]">
           {showMapbox ? (
             <PortfolioMapbox pins={searchMapPins} />
           ) : (

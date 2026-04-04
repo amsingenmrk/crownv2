@@ -498,7 +498,7 @@ function PortfolioDashboardInner({
     "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
 
   return (
-    <div className="relative flex flex-1 flex-col gap-8">
+    <div className="relative flex flex-1 flex-col gap-6">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
@@ -713,10 +713,11 @@ function PortfolioDashboardInner({
         <div
           id="portfolio-map-canvas"
           className={cn(
-            "relative w-full overflow-hidden rounded-xl border border-border bg-muted/60 transition-[min-height] duration-300 ease-out",
+            "relative w-full overflow-hidden rounded-xl border border-border bg-muted/60 transition-[height,min-height] duration-300 ease-out",
+            /* Explicit height so Mapbox canvas gets a non-zero size (min-height alone is unreliable with absolute children). */
             mapExpanded
-              ? "min-h-[550px] lg:min-h-[700px]"
-              : "min-h-[220px] lg:min-h-[280px]"
+              ? "h-[min(78dvh,720px)] min-h-[520px] lg:h-[min(82dvh,760px)] lg:min-h-[600px]"
+              : "h-[300px] min-h-[240px] sm:h-[320px]"
           )}
         >
           {mapboxEnabled ? (
