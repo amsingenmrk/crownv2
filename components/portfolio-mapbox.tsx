@@ -18,6 +18,7 @@ import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
 import {
   liftPillClassFromStrength,
   mapPinClassFromStrength,
+  mapPinClassMarket,
 } from "@/lib/portfolio-lift"
 import {
   listingPreviewBodyClassName,
@@ -35,6 +36,11 @@ export type PortfolioMapboxPin = {
   lift: string
   liftPercent: number
   liftStrength: number
+  /**
+   * `portfolio` (default): violet pins, your assets.
+   * `market`: dark pins for broader market inventory (e.g. /search).
+   */
+  listingScope?: "portfolio" | "market"
   /** When set, pin opens a summary card and the card links to this path. */
   assetDetailHref?: string
   imageUrl?: string
@@ -149,12 +155,22 @@ function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
   )
 }
 
+const NO_MAP_VIEW_PADDING = {
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
+} as const
+
 export function PortfolioMapbox({
   pins,
   className,
+  edgeToEdge = false,
 }: {
   pins: PortfolioMapboxPin[]
   className?: string
+  /** When true, clears Mapbox viewport padding so the canvas fills the container edge-to-edge. */
+  edgeToEdge?: boolean
 }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
   const { resolvedTheme } = useTheme()
@@ -171,20 +187,43 @@ export function PortfolioMapbox({
     map.fitBounds(bounds, { padding: 52, maxZoom: 11, duration: 450 })
   }, [bounds, pins.length])
 
+  const handleMapLoad = React.useCallback(() => {
+    if (edgeToEdge) {
+      mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
+    }
+    fitToPins()
+    if (edgeToEdge) {
+      requestAnimationFrame(() => {
+        mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
+      })
+    }
+  }, [edgeToEdge, fitToPins])
+
   React.useEffect(() => {
     fitToPins()
-  }, [fitToPins])
+    if (!edgeToEdge) return
+    const id = requestAnimationFrame(() => {
+      mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [edgeToEdge, fitToPins])
 
   const openPin = openPinId
     ? pins.find((p) => p.id === openPinId) ?? null
     : null
+
+  const pinsForMap = React.useMemo(() => {
+    const rank = (p: PortfolioMapboxPin) =>
+      p.listingScope === "market" ? 0 : 1
+    return [...pins].sort((a, b) => rank(a) - rank(b))
+  }, [pins])
 
   if (!token) {
     return null
   }
 
   return (
-    <div className={cn("absolute inset-0 min-h-[200px] w-full", className)}>
+    <div className={cn("absolute inset-0 min-h-0 size-full", className)}>
       <Map
         ref={mapRef}
         mapboxAccessToken={token}
@@ -195,15 +234,25 @@ export function PortfolioMapbox({
             ? {
                 bounds,
                 fitBoundsOptions: { padding: 52, maxZoom: 11 },
+                ...(edgeToEdge ? { padding: { ...NO_MAP_VIEW_PADDING } } : {}),
               }
-            : { longitude: -98, latitude: 39, zoom: 3 }
+            : {
+                longitude: -98,
+                latitude: 39,
+                zoom: 3,
+                ...(edgeToEdge ? { padding: { ...NO_MAP_VIEW_PADDING } } : {}),
+              }
         }
-        onLoad={fitToPins}
+        onLoad={handleMapLoad}
         onClick={() => setOpenPinId(null)}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        {pins.map((p) => {
+        {pinsForMap.map((p) => {
           const hasCard = Boolean(p.assetDetailHref)
+          const isMarket = p.listingScope === "market"
+          const pinColorClass = isMarket
+            ? mapPinClassMarket()
+            : mapPinClassFromStrength(p.liftStrength)
           return (
             <Marker
               key={p.id}
@@ -214,20 +263,25 @@ export function PortfolioMapbox({
               <button
                 type="button"
                 aria-label={
-                  p.lift
-                    ? `${p.building}, potential lift ${p.lift}`
-                    : p.building
+                  isMarket
+                    ? `Market listing: ${p.building}`
+                    : p.lift
+                      ? `${p.building}, potential lift ${p.lift}`
+                      : p.building
                 }
                 aria-expanded={hasCard ? openPinId === p.id : undefined}
                 className={cn(
                   "relative block size-3 rounded-full border border-background/80 shadow-sm outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring",
-                  mapPinClassFromStrength(p.liftStrength),
-                  hasCard && "cursor-pointer hover:scale-125"
+                  pinColorClass,
+                  hasCard && "cursor-pointer hover:scale-125",
+                  isMarket && "cursor-default"
                 )}
                 title={
-                  p.lift
-                    ? `${p.building} · Potential lift ${p.lift}`
-                    : p.building
+                  isMarket
+                    ? `${p.building} · Market listing`
+                    : p.lift
+                      ? `${p.building} · Potential lift ${p.lift}`
+                      : p.building
                 }
                 onClick={(e) => {
                   e.stopPropagation()

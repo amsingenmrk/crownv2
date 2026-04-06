@@ -7,7 +7,7 @@ export default function BenchmarksPage() {
       <AppTopbar />
       <div
         role="main"
-        className="flex flex-1 flex-col gap-8 px-4 py-6 md:px-6"
+        className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-6 md:px-6"
       >
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Benchmarks</h1>

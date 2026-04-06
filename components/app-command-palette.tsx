@@ -37,12 +37,17 @@ const ROUTES = [
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
-function isMac(): boolean {
-  if (typeof navigator === "undefined") return false
-  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+/** SSR and the first client paint must match; read `navigator` only after mount. */
+function useMacLikePlatform() {
+  const [macLike, setMacLike] = useState(false)
+  useEffect(() => {
+    setMacLike(/Mac|iPhone|iPad|iPod/i.test(navigator.platform))
+  }, [])
+  return macLike
 }
 
 function CommandKeyHint({ className }: { className?: string }) {
+  const macLike = useMacLikePlatform()
   return (
     <kbd
       className={cn(
@@ -50,16 +55,15 @@ function CommandKeyHint({ className }: { className?: string }) {
         className
       )}
     >
-      {isMac() ? (
-        <span
-          className="flex size-[1.1rem] items-center justify-center font-sans text-sm leading-none"
-          aria-hidden
-        >
-          ⌘
-        </span>
-      ) : (
-        <span className="text-xs leading-none">Ctrl</span>
-      )}
+      <span
+        className={cn(
+          "inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center leading-none",
+          macLike ? "size-[1.1rem] font-sans text-sm" : "text-xs"
+        )}
+        aria-hidden={macLike || undefined}
+      >
+        {macLike ? "⌘" : "Ctrl"}
+      </span>
       <span className="font-mono text-xs leading-none">K</span>
     </kbd>
   )
