@@ -10,7 +10,6 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table"
-import { Expand, Shrink } from "lucide-react"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -61,6 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 type PortfolioKpi = {
   label: string
@@ -252,7 +252,9 @@ function PortfolioDashboardInner({
   scenarioRelaxedAssetFilter?: boolean
 }) {
   const assetsHeadingId = React.useId()
-  const [mapExpanded, setMapExpanded] = React.useState(false)
+  const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
+    "table"
+  )
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
   const [portfolioGroupFilter, setPortfolioGroupFilter] = React.useState<
     typeof ALL_PORTFOLIO_GROUPS_VALUE | AssetGroupId
@@ -498,7 +500,7 @@ function PortfolioDashboardInner({
     "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
 
   return (
-    <div className="relative flex flex-1 flex-col gap-6">
+    <div className="relative flex min-h-0 flex-1 flex-col gap-6">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
@@ -708,73 +710,15 @@ function PortfolioDashboardInner({
         )}
       </section>
 
-      {/* Map */}
-      <section className="w-full">
-        <div
-          id="portfolio-map-canvas"
-          className={cn(
-            "relative w-full overflow-hidden rounded-xl border border-border bg-muted/60 transition-[height,min-height] duration-300 ease-out",
-            /* Explicit height so Mapbox canvas gets a non-zero size (min-height alone is unreliable with absolute children). */
-            mapExpanded
-              ? "h-[min(78dvh,720px)] min-h-[520px] lg:h-[min(82dvh,760px)] lg:min-h-[600px]"
-              : "h-[300px] min-h-[240px] sm:h-[320px]"
-          )}
-        >
-          {mapboxEnabled ? (
-            <PortfolioMapbox pins={portfolioMapboxPins} />
-          ) : (
-            <>
-              {/* Placeholder when NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is unset */}
-              <div
-                className="absolute inset-0 opacity-40"
-                style={{
-                  backgroundImage: `
-                linear-gradient(to right, var(--border) 1px, transparent 1px),
-                linear-gradient(to bottom, var(--border) 1px, transparent 1px)
-              `,
-                  backgroundSize: "28px 28px",
-                }}
-              />
-              <div
-                className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent"
-                aria-hidden
-              />
-              {visibleMapPins.map((pin) => (
-                <span
-                  key={pin.id}
-                  className={cn(
-                    "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                    mapPinClassFromStrength(liftStrengthForRow(pin.liftPercent))
-                  )}
-                  style={{ top: pin.top, left: pin.left }}
-                  title={`${pin.building} · Potential lift ${pin.lift}`}
-                />
-              ))}
-            </>
-          )}
-          <button
-            type="button"
-            aria-expanded={mapExpanded}
-            aria-controls="portfolio-map-canvas"
-            onClick={() => setMapExpanded((v) => !v)}
-            className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
-          >
-            {mapExpanded ? (
-              <Shrink className="size-3.5 shrink-0" aria-hidden />
-            ) : (
-              <Expand className="size-3.5 shrink-0" aria-hidden />
-            )}
-            {mapExpanded ? "Collapse Map" : "Expand Map"}
-          </button>
-        </div>
-      </section>
-
       {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section
-        className="flex flex-col gap-3"
+        className={cn(
+          "flex flex-col gap-3",
+          assetsMainView === "map" && "min-h-0 flex-1"
+        )}
         aria-labelledby={assetsHeadingId}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <h2
               id={assetsHeadingId}
@@ -792,6 +736,20 @@ function PortfolioDashboardInner({
             >
               {visibleAssetRows.length}
             </span>
+            <ToggleGroup
+              value={[assetsMainView]}
+              onValueChange={(v) => {
+                const next = v[0]
+                if (next === "table" || next === "map") {
+                  setAssetsMainView(next)
+                }
+              }}
+              aria-label="Switch between table and map"
+              className="ml-auto sm:ml-2"
+            >
+              <ToggleGroupItem value="table">Table</ToggleGroupItem>
+              <ToggleGroupItem value="map">Map</ToggleGroupItem>
+            </ToggleGroup>
           </div>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:max-w-none sm:justify-end">
             <Input
@@ -847,14 +805,67 @@ function PortfolioDashboardInner({
             </Button>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <div className="portfolio-assets-table-scroll-inner">
-            <PortfolioAssetsDataTable
-              table={portfolioTable}
-              variant={assetsTableVariant}
-              liftExtent={LIFT_PCT_EXTENT}
-            />
-          </div>
+        <div
+          id="portfolio-assets-main-panel"
+          className={cn(
+            "min-h-0 w-full",
+            assetsMainView === "map" && "flex min-h-0 flex-1 flex-col"
+          )}
+        >
+          {assetsMainView === "map" ? (
+            <div
+              id="portfolio-map-canvas"
+              className={cn(
+                "relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/60",
+                /* Fills viewport below KPIs + assets header (flex chain + min-h-0). */
+                "min-h-[min(40dvh,320px)]"
+              )}
+            >
+              {mapboxEnabled ? (
+                <PortfolioMapbox pins={portfolioMapboxPins} />
+              ) : (
+                <>
+                  <div
+                    className="absolute inset-0 opacity-40"
+                    style={{
+                      backgroundImage: `
+                linear-gradient(to right, var(--border) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--border) 1px, transparent 1px)
+              `,
+                      backgroundSize: "28px 28px",
+                    }}
+                  />
+                  <div
+                    className="absolute inset-0 w-full bg-gradient-to-br from-muted/20 to-transparent"
+                    aria-hidden
+                  />
+                  {visibleMapPins.map((pin) => (
+                    <span
+                      key={pin.id}
+                      className={cn(
+                        "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                        mapPinClassFromStrength(
+                          liftStrengthForRow(pin.liftPercent)
+                        )
+                      )}
+                      style={{ top: pin.top, left: pin.left }}
+                      title={`${pin.building} · Potential lift ${pin.lift}`}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <div className="portfolio-assets-table-scroll-inner">
+                <PortfolioAssetsDataTable
+                  table={portfolioTable}
+                  variant={assetsTableVariant}
+                  liftExtent={LIFT_PCT_EXTENT}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>
