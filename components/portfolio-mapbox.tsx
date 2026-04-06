@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Image as LandscapeImageIcon, X } from "lucide-react"
+import { Image as LandscapeImageIcon } from "lucide-react"
 
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
@@ -19,7 +19,12 @@ import {
   liftPillClassFromStrength,
   mapPinClassFromStrength,
 } from "@/lib/portfolio-lift"
-import { Button } from "@/components/ui/button"
+import {
+  listingPreviewBodyClassName,
+  listingPreviewCardInnerLayoutClassName,
+  listingPreviewCardMaxWidthClass,
+  listingPreviewThumbClassName,
+} from "@/lib/listing-preview-card-layout"
 import { cn } from "@/lib/utils"
 
 export type PortfolioMapboxPin = {
@@ -80,112 +85,65 @@ function potentialLiftBadgeText(pin: PortfolioMapboxPin): string {
   return `Potential lift ${v}`
 }
 
-function PortfolioMapPinSummaryCard({
-  pin,
-  onClose,
-}: {
-  pin: PortfolioMapboxPin
-  onClose: () => void
-}) {
+function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
   if (!pin.assetDetailHref) return null
 
   const liftBadgeText = potentialLiftBadgeText(pin)
   const liftText = liftLabel(pin)
 
   return (
-    <div
-      className={cn(
-        "relative w-[min(100vw-2rem,360px)] overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm"
-      )}
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="absolute top-2 right-2 z-10 size-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="Close"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          onClose()
-        }}
-      >
-        <X className="size-3.5" aria-hidden />
-      </Button>
+    <div className={cn("relative w-full", listingPreviewCardMaxWidthClass)}>
       <Link
         href={pin.assetDetailHref}
-        className="block w-full cursor-pointer text-left text-card-foreground outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className={cn(
+          listingPreviewCardInnerLayoutClassName,
+          "text-left text-card-foreground outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header: square thumbnail | title, address, badge */}
-        <div className="flex gap-3 p-3 pr-11">
-          <div className="relative size-[100px] shrink-0 overflow-hidden rounded-md bg-muted">
-            {pin.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={pin.imageUrl}
-                alt={pin.building}
-                className="size-full object-cover"
-              />
-            ) : (
-              <div
-                className="flex size-full items-center justify-center text-muted-foreground"
-                aria-hidden
-              >
-                <LandscapeImageIcon className="size-9 opacity-50" strokeWidth={1.25} />
-              </div>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
-            <p className="truncate text-base font-semibold tracking-tight text-foreground">
-              {pin.building}
-            </p>
-            {pin.location ? (
-              <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
-                {pin.location}
-              </p>
-            ) : null}
-            <span
-              className={cn(
-                "inline-flex w-fit max-w-full rounded-full px-3 py-1 text-xs font-semibold",
-                liftPillClassFromStrength(pin.liftStrength)
-              )}
-              aria-label={
-                liftText === "—"
-                  ? "Potential lift, not available"
-                  : `Potential lift ${liftText}`
-              }
+        <div className={listingPreviewThumbClassName}>
+          {pin.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pin.imageUrl}
+              alt={pin.building}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div
+              className="flex size-full items-center justify-center text-muted-foreground"
+              aria-hidden
             >
-              <span className="truncate">{liftBadgeText}</span>
-            </span>
-          </div>
+              <LandscapeImageIcon
+                className="size-6 opacity-50"
+                strokeWidth={1.25}
+              />
+            </div>
+          )}
         </div>
-
-        <div className="h-px w-full bg-border" aria-hidden />
-
-        {/* Metrics: full width below header */}
-        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-          <dt className="text-muted-foreground">Value</dt>
-          <dd className="text-right font-medium tabular-nums text-foreground">
-            {pin.value ?? "—"}
-          </dd>
-          <dt className="text-muted-foreground">Occupancy</dt>
-          <dd className="text-right font-medium tabular-nums text-foreground">
-            {pin.occPct ?? "—"}
-          </dd>
-          <dt className="text-muted-foreground">NOI</dt>
-          <dd className="text-right font-medium tabular-nums text-foreground">
-            {pin.noi ?? "—"}
-          </dd>
-          <dt className="text-muted-foreground">Cap rate</dt>
-          <dd className="text-right font-medium tabular-nums text-foreground">
-            {pin.capRate ?? "—"}
-          </dd>
-          <dt className="text-muted-foreground">WALE / WALT</dt>
-          <dd className="text-right font-medium tabular-nums text-foreground">
-            {pin.wale ?? "—"}
-          </dd>
-        </dl>
+        <div className={listingPreviewBodyClassName}>
+          <p className="line-clamp-2 text-sm font-semibold leading-4 text-foreground">
+            {pin.building}
+          </p>
+          {pin.location ? (
+            <p className="line-clamp-2 text-xs leading-3 text-muted-foreground">
+              {pin.location}
+            </p>
+          ) : null}
+          <span
+            className={cn(
+              "inline-flex w-fit max-w-full rounded-full px-2.5 py-0.5 text-xs font-semibold leading-3",
+              liftPillClassFromStrength(pin.liftStrength)
+            )}
+            aria-label={
+              liftText === "—"
+                ? "Potential lift, not available"
+                : `Potential lift ${liftText}`
+            }
+          >
+            <span className="truncate">{liftBadgeText}</span>
+          </span>
+        </div>
       </Link>
     </div>
   )
@@ -289,14 +247,11 @@ export function PortfolioMapbox({
             closeButton={false}
             closeOnClick={false}
             closeOnMove={false}
-            maxWidth="380px"
+            maxWidth="min(100vw, 380px)"
             className="portfolio-map-pin-popup"
             onClose={() => setOpenPinId(null)}
           >
-            <PortfolioMapPinSummaryCard
-              pin={openPin}
-              onClose={() => setOpenPinId(null)}
-            />
+            <PortfolioMapPinSummaryCard pin={openPin} />
           </Popup>
         ) : null}
       </Map>

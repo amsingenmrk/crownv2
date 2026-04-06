@@ -8,6 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ASSETS } from "@/lib/assets"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import {
+  listingPreviewBodyClassName,
+  listingPreviewCardClassName,
+  listingPreviewThumbClassName,
+} from "@/lib/listing-preview-card-layout"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 
 const PortfolioMapbox = dynamic(
@@ -17,9 +22,9 @@ const PortfolioMapbox = dynamic(
 
 function ListingSkeletonCard() {
   return (
-    <div className="flex gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-      <Skeleton className="size-16 shrink-0 rounded-md" />
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5">
+    <div className={listingPreviewCardClassName}>
+      <Skeleton className={listingPreviewThumbClassName} />
+      <div className={listingPreviewBodyClassName}>
         <Skeleton className="h-4 w-[85%]" />
         <Skeleton className="h-3 w-[60%]" />
         <Skeleton className="h-3 w-[40%]" />

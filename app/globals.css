@@ -132,12 +132,18 @@
     min-width: 100%;
   }
 
-  .portfolio-map-pin-popup .mapboxgl-popup-content {
-    padding: 0;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    background: transparent;
+  /* Card chrome lives on Mapbox shell, not the inner <a> */
+  .portfolio-map-pin-popup.mapboxgl-popup {
     box-shadow: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .portfolio-map-pin-popup .mapboxgl-popup-content {
+    @apply border border-border bg-card shadow-sm;
+    padding: 12px;
+    border-radius: 8px;
+    overflow: hidden;
   }
 
   .portfolio-map-pin-popup .mapboxgl-popup-tip {
