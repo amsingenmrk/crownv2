@@ -7,6 +7,8 @@ import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ASSETS } from "@/lib/assets"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
+import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 
 const PortfolioMapbox = dynamic(
   () => import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox),
@@ -50,19 +52,23 @@ export function SearchComingSoon() {
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
 
   const searchMapPins = React.useMemo((): PortfolioMapboxPin[] => {
-    return ASSETS.map((a) => {
-      const ll = coordinates[a.id]
-      if (!ll) return null
+    const raw = ASSETS.map((a) => {
+      const [longitude, latitude] = lngLatForPortfolioAsset(
+        a.id,
+        a.groupId,
+        coordinates
+      )
       return {
         id: a.id,
-        longitude: ll[0],
-        latitude: ll[1],
+        longitude,
+        latitude,
         building: a.name,
         lift: "",
         liftPercent: 0,
         liftStrength: 0.45,
       }
-    }).filter((p): p is PortfolioMapboxPin => p != null)
+    })
+    return spreadPortfolioMapPinsForDisplay(raw)
   }, [coordinates])
 
   const showMapbox = mapboxEnabled

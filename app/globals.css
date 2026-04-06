@@ -131,4 +131,16 @@
     width: max-content;
     min-width: 100%;
   }
+
+  .portfolio-map-pin-popup .mapboxgl-popup-content {
+    padding: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .portfolio-map-pin-popup .mapboxgl-popup-tip {
+    border-top-color: var(--border);
+  }
 }

@@ -28,6 +28,8 @@ import {
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
+  assetHref,
+  getAssetById,
   type Asset,
   type AssetGroupId,
 } from "@/lib/assets"
@@ -51,6 +53,8 @@ import {
 import { cn } from "@/lib/utils"
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
+import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -409,22 +413,32 @@ function PortfolioDashboardInner({
     usePortfolioAssetCoordinates()
 
   const portfolioMapboxPins = React.useMemo((): PortfolioMapboxPin[] => {
-    const coords = mapGeocodeCoordinates
-    return visibleAssetRows
-      .map((row) => {
-        const ll = coords[row.id]
-        if (!ll) return null
-        return {
-          id: row.id,
-          longitude: ll[0],
-          latitude: ll[1],
-          building: row.building,
-          lift: row.lift,
-          liftPercent: row.liftPercent,
-          liftStrength: liftStrengthForRow(row.liftPercent),
-        }
-      })
-      .filter((p): p is PortfolioMapboxPin => p != null)
+    const raw = visibleAssetRows.map((row) => {
+      const [longitude, latitude] = lngLatForPortfolioAsset(
+        row.id,
+        row.groupId,
+        mapGeocodeCoordinates
+      )
+      const asset = getAssetById(row.id)
+      return {
+        id: row.id,
+        longitude,
+        latitude,
+        building: row.building,
+        lift: row.lift,
+        liftPercent: row.liftPercent,
+        liftStrength: liftStrengthForRow(row.liftPercent),
+        assetDetailHref: assetHref(row.id),
+        imageUrl: asset?.imageUrl,
+        location: row.location,
+        value: row.value,
+        occPct: row.occPct,
+        noi: row.noi,
+        capRate: row.capRate,
+        wale: row.wale,
+      }
+    })
+    return spreadPortfolioMapPinsForDisplay(raw)
   }, [visibleAssetRows, mapGeocodeCoordinates])
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
