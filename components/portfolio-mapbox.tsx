@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { X } from "lucide-react"
+import { Image as LandscapeImageIcon, X } from "lucide-react"
 
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
@@ -74,6 +74,12 @@ function liftLabel(pin: PortfolioMapboxPin): string {
   return "—"
 }
 
+function potentialLiftBadgeText(pin: PortfolioMapboxPin): string {
+  const v = liftLabel(pin)
+  if (v === "—") return "Potential lift —"
+  return `Potential lift ${v}`
+}
+
 function PortfolioMapPinSummaryCard({
   pin,
   onClose,
@@ -83,19 +89,20 @@ function PortfolioMapPinSummaryCard({
 }) {
   if (!pin.assetDetailHref) return null
 
+  const liftBadgeText = potentialLiftBadgeText(pin)
   const liftText = liftLabel(pin)
 
   return (
     <div
       className={cn(
-        "relative w-[min(100vw-2rem,320px)] overflow-hidden rounded-lg bg-card text-card-foreground shadow-sm ring-1 ring-border"
+        "relative w-[min(100vw-2rem,360px)] overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm"
       )}
     >
       <Button
         type="button"
         variant="ghost"
         size="icon-xs"
-        className="absolute top-1.5 right-1.5 z-10 size-7 rounded-full text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+        className="absolute top-2 right-2 z-10 size-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         aria-label="Close"
         onClick={(e) => {
           e.preventDefault()
@@ -107,32 +114,40 @@ function PortfolioMapPinSummaryCard({
       </Button>
       <Link
         href={pin.assetDetailHref}
-        className="flex min-h-[112px] w-full cursor-pointer text-left text-card-foreground outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="block w-full cursor-pointer text-left text-card-foreground outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative w-[104px] shrink-0 self-stretch bg-muted">
-          {pin.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={pin.imageUrl}
-              alt={pin.building}
-              className="absolute inset-0 size-full object-cover"
-            />
-          ) : null}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2 py-3 pl-3 pr-10">
-          <div className="min-w-0 space-y-1.5">
-            <p className="truncate text-sm font-semibold text-foreground">
+        {/* Header: square thumbnail | title, address, badge */}
+        <div className="flex gap-3 p-3 pr-11">
+          <div className="relative size-[100px] shrink-0 overflow-hidden rounded-md bg-muted">
+            {pin.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pin.imageUrl}
+                alt={pin.building}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div
+                className="flex size-full items-center justify-center text-muted-foreground"
+                aria-hidden
+              >
+                <LandscapeImageIcon className="size-9 opacity-50" strokeWidth={1.25} />
+              </div>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+            <p className="truncate text-base font-semibold tracking-tight text-foreground">
               {pin.building}
             </p>
             {pin.location ? (
-              <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+              <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
                 {pin.location}
               </p>
             ) : null}
             <span
               className={cn(
-                "inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
+                "inline-flex w-fit max-w-full rounded-full px-3 py-1 text-xs font-semibold",
                 liftPillClassFromStrength(pin.liftStrength)
               )}
               aria-label={
@@ -141,32 +156,36 @@ function PortfolioMapPinSummaryCard({
                   : `Potential lift ${liftText}`
               }
             >
-              {liftText}
+              <span className="truncate">{liftBadgeText}</span>
             </span>
           </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-border/60 pt-2 text-xs">
-            <dt className="text-muted-foreground">Value</dt>
-            <dd className="text-right font-medium tabular-nums text-foreground">
-              {pin.value ?? "—"}
-            </dd>
-            <dt className="text-muted-foreground">Occupancy</dt>
-            <dd className="text-right font-medium tabular-nums text-foreground">
-              {pin.occPct ?? "—"}
-            </dd>
-            <dt className="text-muted-foreground">NOI</dt>
-            <dd className="text-right font-medium tabular-nums text-foreground">
-              {pin.noi ?? "—"}
-            </dd>
-            <dt className="text-muted-foreground">Cap rate</dt>
-            <dd className="text-right font-medium tabular-nums text-foreground">
-              {pin.capRate ?? "—"}
-            </dd>
-            <dt className="text-muted-foreground">WALE / WALT</dt>
-            <dd className="text-right font-medium tabular-nums text-foreground">
-              {pin.wale ?? "—"}
-            </dd>
-          </dl>
         </div>
+
+        <div className="h-px w-full bg-border" aria-hidden />
+
+        {/* Metrics: full width below header */}
+        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 px-3 py-3 text-sm">
+          <dt className="text-muted-foreground">Value</dt>
+          <dd className="text-right font-medium tabular-nums text-foreground">
+            {pin.value ?? "—"}
+          </dd>
+          <dt className="text-muted-foreground">Occupancy</dt>
+          <dd className="text-right font-medium tabular-nums text-foreground">
+            {pin.occPct ?? "—"}
+          </dd>
+          <dt className="text-muted-foreground">NOI</dt>
+          <dd className="text-right font-medium tabular-nums text-foreground">
+            {pin.noi ?? "—"}
+          </dd>
+          <dt className="text-muted-foreground">Cap rate</dt>
+          <dd className="text-right font-medium tabular-nums text-foreground">
+            {pin.capRate ?? "—"}
+          </dd>
+          <dt className="text-muted-foreground">WALE / WALT</dt>
+          <dd className="text-right font-medium tabular-nums text-foreground">
+            {pin.wale ?? "—"}
+          </dd>
+        </dl>
       </Link>
     </div>
   )
@@ -270,7 +289,7 @@ export function PortfolioMapbox({
             closeButton={false}
             closeOnClick={false}
             closeOnMove={false}
-            maxWidth="340px"
+            maxWidth="380px"
             className="portfolio-map-pin-popup"
             onClose={() => setOpenPinId(null)}
           >
