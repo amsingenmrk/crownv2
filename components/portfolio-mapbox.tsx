@@ -6,12 +6,7 @@ import { Image as LandscapeImageIcon } from "lucide-react"
 
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
-import Map, {
-  Marker,
-  NavigationControl,
-  Popup,
-  type MapRef,
-} from "react-map-gl/mapbox"
+import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl/mapbox"
 import { useTheme } from "next-themes"
 
 import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
@@ -177,6 +172,11 @@ export function PortfolioMapbox({
   const mapRef = React.useRef<MapRef>(null)
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
   const [openPinId, setOpenPinId] = React.useState<string | null>(null)
+  /** Screen position for the open-pin card; avoids react-map-gl Popup + React 19 DOM teardown races. */
+  const [openPinScreenPos, setOpenPinScreenPos] = React.useState<{
+    x: number
+    y: number
+  } | null>(null)
 
   const mapStyle = resolveMapboxMapStyle(resolvedTheme)
 
@@ -188,6 +188,23 @@ export function PortfolioMapbox({
     map.fitBounds(bounds, { padding: 52, maxZoom: 11, duration: 450 })
   }, [bounds, pins.length])
 
+  const openPin = openPinId
+    ? pins.find((p) => p.id === openPinId) ?? null
+    : null
+
+  const syncOpenPinScreenPos = React.useCallback(() => {
+    if (!openPin) {
+      setOpenPinScreenPos(null)
+      return
+    }
+    const map = mapRef.current?.getMap()
+    if (!map?.loaded()) return
+    const p = map.project([openPin.longitude, openPin.latitude])
+    setOpenPinScreenPos({ x: p.x, y: p.y })
+  }, [openPin])
+
+  const [mapLoadGeneration, setMapLoadGeneration] = React.useState(0)
+
   const handleMapLoad = React.useCallback(() => {
     if (edgeToEdge) {
       mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
@@ -196,13 +213,15 @@ export function PortfolioMapbox({
     requestAnimationFrame(() => {
       map?.resize()
       fitToPins()
+      syncOpenPinScreenPos()
+      setMapLoadGeneration((g) => g + 1)
     })
     if (edgeToEdge) {
       requestAnimationFrame(() => {
         mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
       })
     }
-  }, [edgeToEdge, fitToPins])
+  }, [edgeToEdge, fitToPins, syncOpenPinScreenPos])
 
   React.useLayoutEffect(() => {
     const el = mapContainerRef.current
@@ -233,9 +252,37 @@ export function PortfolioMapbox({
     return () => cancelAnimationFrame(id)
   }, [edgeToEdge, fitToPins])
 
-  const openPin = openPinId
-    ? pins.find((p) => p.id === openPinId) ?? null
-    : null
+  React.useEffect(() => {
+    if (!openPin) {
+      setOpenPinScreenPos(null)
+      return
+    }
+    const map = mapRef.current?.getMap()
+    if (!map) return
+
+    const onViewportChange = () => {
+      syncOpenPinScreenPos()
+    }
+
+    onViewportChange()
+    if (!map.loaded()) {
+      map.once("load", onViewportChange)
+    }
+    map.on("move", onViewportChange)
+    map.on("zoom", onViewportChange)
+    map.on("rotate", onViewportChange)
+    map.on("pitch", onViewportChange)
+    map.on("resize", onViewportChange)
+
+    return () => {
+      map.off("load", onViewportChange)
+      map.off("move", onViewportChange)
+      map.off("zoom", onViewportChange)
+      map.off("rotate", onViewportChange)
+      map.off("pitch", onViewportChange)
+      map.off("resize", onViewportChange)
+    }
+  }, [openPin, syncOpenPinScreenPos, mapLoadGeneration])
 
   const pinsForMap = React.useMemo(() => {
     const rank = (p: PortfolioMapboxPin) =>
@@ -320,23 +367,22 @@ export function PortfolioMapbox({
             </Marker>
           )
         })}
-        {openPin?.assetDetailHref ? (
-          <Popup
-            longitude={openPin.longitude}
-            latitude={openPin.latitude}
-            anchor="bottom"
-            offset={16}
-            closeButton={false}
-            closeOnClick={false}
-            closeOnMove={false}
-            maxWidth="min(100vw, 380px)"
-            className="portfolio-map-pin-popup"
-            onClose={() => setOpenPinId(null)}
+      </Map>
+      {openPin?.assetDetailHref && openPinScreenPos ? (
+        <div className="pointer-events-none absolute inset-0 z-20 min-h-0 min-w-0">
+          <div
+            className="pointer-events-auto absolute max-w-[min(100vw,380px)] rounded-lg border border-border bg-card p-3 shadow-sm"
+            style={{
+              left: openPinScreenPos.x,
+              top: openPinScreenPos.y,
+              transform: "translate(-50%, calc(-100% - 16px))",
+            }}
+            onClick={(e) => e.stopPropagation()}
           >
             <PortfolioMapPinSummaryCard pin={openPin} />
-          </Popup>
-        ) : null}
-      </Map>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

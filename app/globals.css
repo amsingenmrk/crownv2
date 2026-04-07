@@ -137,23 +137,3 @@
   }
 }
 
-/*
- * Unlayered: mapbox-gl.css is unlayered and loads from the map component, so rules in
- * @layer components lose the cascade to Mapbox defaults (e.g. 10px/15px padding, 3px radius).
- */
-.portfolio-map-pin-popup.mapboxgl-popup {
-  box-shadow: none;
-  background: transparent;
-  padding: 0;
-}
-
-.portfolio-map-pin-popup .mapboxgl-popup-content {
-  @apply border border-border bg-card shadow-sm;
-  padding: 12px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.portfolio-map-pin-popup .mapboxgl-popup-tip {
-  display: none;
-}

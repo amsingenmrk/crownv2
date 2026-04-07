@@ -327,10 +327,6 @@ export function SearchComingSoon() {
             <p className="text-sm font-medium text-foreground">
               Search results
             </p>
-            <p className="text-xs text-muted-foreground">
-              {listingPins.length} total · {portfolioPins.length} in your
-              portfolio · {marketPins.length} market (demo) — matches map pins
-            </p>
           </div>
           <div
             className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-1"
