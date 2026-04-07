@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CalendarDays, Plus } from "lucide-react"
+import { Diff, Plus } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupAction,
@@ -72,7 +72,7 @@ export function NavScenarios() {
               isActive={builtinActive}
               render={<Link href={BUILTIN_HREF} />}
             >
-              <CalendarDays />
+              <Diff />
               <span>{BUILTIN_SCENARIO.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -86,7 +86,7 @@ export function NavScenarios() {
                   isActive={active}
                   render={<Link href={href} />}
                 >
-                  <CalendarDays />
+                  <Diff />
                   <span className="truncate">{s.name}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -31,10 +31,6 @@ export function PortfolioScenarioComparison() {
 
   const [slotKeys, setSlotKeys] = React.useState(() => defaultCompareSlotKeys([]))
 
-  const [modificationsOn, setModificationsOn] = React.useState<boolean[]>(() =>
-    defaultCompareSlotKeys([]).map(() => true)
-  )
-
   React.useEffect(() => {
     const built = scenarioKey(BUILTIN_SCENARIO.slug)
     setSlotKeys((prev) => {
@@ -65,22 +61,6 @@ export function PortfolioScenarioComparison() {
     })
   }, [validKeys, userScenarios])
 
-  React.useEffect(() => {
-    setModificationsOn((prev) => {
-      if (prev.length === slotKeys.length) return prev
-      if (prev.length < slotKeys.length) {
-        return [
-          ...prev,
-          ...Array.from(
-            { length: slotKeys.length - prev.length },
-            () => true
-          ),
-        ]
-      }
-      return prev.slice(0, slotKeys.length)
-    })
-  }, [slotKeys.length])
-
   const options = React.useMemo(
     () => entitySelectOptions(userScenarios),
     [userScenarios]
@@ -99,35 +79,16 @@ export function PortfolioScenarioComparison() {
     })
   }, [])
 
-  const setModificationsOnAt = React.useCallback(
-    (index: number, on: boolean) => {
-      setModificationsOn((prev) => {
-        const next = [...prev]
-        next[index] = on
-        return next
-      })
-    },
-    []
-  )
-
   const addCompareColumn = React.useCallback(() => {
     const built = scenarioKey(BUILTIN_SCENARIO.slug)
     setSlotKeys((prev) => {
       if (prev.length >= MAX_COMPARE_COLUMNS) return prev
       return [...prev, built]
     })
-    setModificationsOn((prev) => {
-      if (prev.length >= MAX_COMPARE_COLUMNS) return prev
-      return [...prev, true]
-    })
   }, [])
 
   const removeCompareColumn = React.useCallback((index: number) => {
     setSlotKeys((prev) => {
-      if (prev.length <= MIN_COMPARE_COLUMNS) return prev
-      return prev.filter((_, i) => i !== index)
-    })
-    setModificationsOn((prev) => {
       if (prev.length <= MIN_COMPARE_COLUMNS) return prev
       return prev.filter((_, i) => i !== index)
     })
@@ -139,8 +100,6 @@ export function PortfolioScenarioComparison() {
         slotKeys={slotKeys}
         setSlot={setSlot}
         options={options}
-        modificationsOn={modificationsOn}
-        setModificationsOnAt={setModificationsOnAt}
         baseColumns={baseColumns}
         onAddColumn={addCompareColumn}
         onRemoveColumn={removeCompareColumn}

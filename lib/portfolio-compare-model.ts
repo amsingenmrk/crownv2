@@ -301,16 +301,3 @@ export function formatCompareMetricDelta(
   }
 }
 
-export function effectiveCompareNumeric(
-  col: CompareColumn,
-  modsOn: boolean
-): HeaderKpiNumeric {
-  return modsOn ? col.numeric : PORTFOLIO_KPIS_NUMERIC_BASELINE
-}
-
-export function effectiveCompareDisplay(
-  col: CompareColumn,
-  modsOn: boolean
-): HeaderKpiMetrics {
-  return modsOn ? col.metrics : PORTFOLIO_KPIS_BASELINE
-}

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, Briefcase, GitCompareArrows, Search } from "lucide-react"
+import { BarChart3, Briefcase, Columns4, Search } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,7 +14,7 @@ import {
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
   { title: "Property search", href: "/search", icon: Search },
-  { title: "Compare", href: "/compare", icon: GitCompareArrows },
+  { title: "Compare", href: "/compare", icon: Columns4 },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 

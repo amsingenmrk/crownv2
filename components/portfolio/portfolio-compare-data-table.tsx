@@ -9,7 +9,6 @@ import {
 } from "@tanstack/react-table"
 import { Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -22,8 +21,6 @@ import { TableBody, TableCell, TableRow } from "@/components/ui/table"
 import {
   compareGridTemplateColumns,
   COMPARE_ROW_LABEL_COL_PX,
-  effectiveCompareDisplay,
-  effectiveCompareNumeric,
   formatCompareMetricDelta,
   KPI_TABLE_ROWS,
   MAX_COMPARE_COLUMNS,
@@ -38,7 +35,6 @@ import { cn } from "@/lib/utils"
 
 export type CompareTableRow =
   | { id: "header-select"; kind: "header-select" }
-  | { id: "header-mods"; kind: "header-mods" }
   | {
       id: string
       kind: "metric"
@@ -51,8 +47,6 @@ export type PortfolioCompareTableMeta = {
   slotKeys: string[]
   setSlot: (index: number, value: string) => void
   options: { value: string; label: string }[]
-  modificationsOn: boolean[]
-  setModificationsOnAt: (index: number, on: boolean) => void
   baseColumns: CompareColumn[]
   onAddColumn: () => void
   onRemoveColumn: (index: number) => void
@@ -60,7 +54,6 @@ export type PortfolioCompareTableMeta = {
 
 const COMPARE_ROWS: CompareTableRow[] = [
   { id: "header-select", kind: "header-select" },
-  { id: "header-mods", kind: "header-mods" },
   ...KPI_TABLE_ROWS.map((r) => ({
     id: `metric-${r.metricKey}`,
     kind: "metric" as const,
@@ -103,9 +96,6 @@ function createCompareColumns(
             ) : null}
           </div>
         )
-      }
-      if (r.kind === "header-mods") {
-        return <span className="font-medium">Modifications</span>
       }
       return <span className="font-medium">{r.label}</span>
     },
@@ -165,45 +155,21 @@ function createCompareColumns(
           )
         }
 
-        if (r.kind === "header-mods") {
-          return (
-            <div className="flex items-center justify-start gap-2">
-              <Checkbox
-                checked={meta.modificationsOn[slotIndex] === true}
-                onCheckedChange={(checked) =>
-                  meta.setModificationsOnAt(slotIndex, !!checked)
-                }
-                aria-label={`Include modifications for column ${slotIndex + 1}`}
-              />
-            </div>
-          )
-        }
-
         const baseCol = meta.baseColumns[slotIndex]!
-        const modsOn = meta.modificationsOn[slotIndex] === true
         const refCol = meta.baseColumns[0]!
-        const refModsOn = meta.modificationsOn[0] === true
 
-        const displayCur = effectiveCompareDisplay(baseCol, modsOn)
-        const absolute = r.get(displayCur)
+        const absolute = r.get(baseCol.metrics)
         const deltaStr =
           slotIndex > 0
             ? formatCompareMetricDelta(
                 r.metricKey,
-                numericForMetricKey(
-                  effectiveCompareNumeric(baseCol, modsOn),
-                  r.metricKey
-                ) -
-                  numericForMetricKey(
-                    effectiveCompareNumeric(refCol, refModsOn),
-                    r.metricKey
-                  )
+                numericForMetricKey(baseCol.numeric, r.metricKey) -
+                  numericForMetricKey(refCol.numeric, r.metricKey)
               )
             : null
         const showDeltaAfter = deltaStr != null && deltaStr !== "—"
 
         const affectedByMods =
-          modsOn &&
           METRIC_KEYS_AFFECTED_BY_MODS.has(r.metricKey) &&
           baseCol.metrics[r.metricKey] !== PORTFOLIO_KPIS_BASELINE[r.metricKey]
 
@@ -235,8 +201,6 @@ export function PortfolioCompareDataTable({
   slotKeys,
   setSlot,
   options,
-  modificationsOn,
-  setModificationsOnAt,
   baseColumns,
   onAddColumn,
   onRemoveColumn,
@@ -244,8 +208,6 @@ export function PortfolioCompareDataTable({
   slotKeys: string[]
   setSlot: (index: number, value: string) => void
   options: { value: string; label: string }[]
-  modificationsOn: boolean[]
-  setModificationsOnAt: (index: number, on: boolean) => void
   baseColumns: CompareColumn[]
   onAddColumn: () => void
   onRemoveColumn: (index: number) => void
@@ -267,8 +229,6 @@ export function PortfolioCompareDataTable({
       slotKeys,
       setSlot,
       options,
-      modificationsOn,
-      setModificationsOnAt,
       baseColumns,
       onAddColumn,
       onRemoveColumn,
@@ -277,8 +237,6 @@ export function PortfolioCompareDataTable({
       slotKeys,
       setSlot,
       options,
-      modificationsOn,
-      setModificationsOnAt,
       baseColumns,
       onAddColumn,
       onRemoveColumn,
@@ -309,8 +267,7 @@ export function PortfolioCompareDataTable({
         <TableBody className="contents [&_tr:last-child]:border-b-0">
           {rows.map((row) => {
             const kind = row.original.kind
-            const isHeaderRow =
-              kind === "header-select" || kind === "header-mods"
+            const isHeaderRow = kind === "header-select"
             return (
               <TableRow
                 key={row.id}
