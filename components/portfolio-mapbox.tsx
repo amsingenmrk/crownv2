@@ -82,8 +82,8 @@ function liftLabel(pin: PortfolioMapboxPin): string {
 
 function potentialLiftBadgeText(pin: PortfolioMapboxPin): string {
   const v = liftLabel(pin)
-  if (v === "—") return "Potential lift —"
-  return `Potential lift ${v}`
+  if (v === "—") return "Potential —"
+  return `Potential ${v}`
 }
 
 function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
@@ -138,8 +138,8 @@ function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
             )}
             aria-label={
               liftText === "—"
-                ? "Potential lift, not available"
-                : `Potential lift ${liftText}`
+                ? "Potential, not available"
+                : `Potential ${liftText}`
             }
           >
             <span className="truncate">{liftBadgeText}</span>
@@ -204,24 +204,52 @@ export function PortfolioMapbox({
   }, [openPin])
 
   const [mapLoadGeneration, setMapLoadGeneration] = React.useState(0)
+  const postLoadResizeTimeoutsRef = React.useRef<number[]>([])
 
   const handleMapLoad = React.useCallback(() => {
     if (edgeToEdge) {
       mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
     }
     const map = mapRef.current?.getMap()
-    requestAnimationFrame(() => {
+    const bumpAndResize = () => {
       map?.resize()
       fitToPins()
       syncOpenPinScreenPos()
       setMapLoadGeneration((g) => g + 1)
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(bumpAndResize)
     })
     if (edgeToEdge) {
       requestAnimationFrame(() => {
         mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
       })
     }
+    /**
+     * Flex parents often settle height after first paint; without this, the GL canvas
+     * can stay 0×0 until something forces a resize (e.g. opening DevTools).
+     */
+    for (const id of postLoadResizeTimeoutsRef.current) {
+      window.clearTimeout(id)
+    }
+    postLoadResizeTimeoutsRef.current = [0, 32, 100, 250, 500].map((ms) =>
+      window.setTimeout(() => {
+        mapRef.current?.getMap()?.resize()
+        fitToPins()
+        syncOpenPinScreenPos()
+      }, ms)
+    )
   }, [edgeToEdge, fitToPins, syncOpenPinScreenPos])
+
+  React.useEffect(
+    () => () => {
+      for (const id of postLoadResizeTimeoutsRef.current) {
+        window.clearTimeout(id)
+      }
+      postLoadResizeTimeoutsRef.current = []
+    },
+    []
+  )
 
   React.useLayoutEffect(() => {
     const el = mapContainerRef.current
@@ -241,7 +269,7 @@ export function PortfolioMapbox({
       ro.disconnect()
       window.removeEventListener("resize", resizeMap)
     }
-  }, [])
+  }, [mapLoadGeneration])
 
   React.useEffect(() => {
     fitToPins()
@@ -355,7 +383,7 @@ export function PortfolioMapbox({
                   isMarket
                     ? `${p.building} · Market listing`
                     : p.lift
-                      ? `${p.building} · Potential lift ${p.lift}`
+                      ? `${p.building} · Potential ${p.lift}`
                       : p.building
                 }
                 onClick={(e) => {

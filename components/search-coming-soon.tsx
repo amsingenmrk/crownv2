@@ -3,20 +3,30 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Image as LandscapeImageIcon, Search } from "lucide-react"
+import {
+  Briefcase,
+  Image as LandscapeImageIcon,
+  Search,
+} from "lucide-react"
 
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { ASSETS, assetHref } from "@/lib/assets"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import {
   listingPreviewBodyClassName,
-  listingPreviewCardClassName,
   listingPreviewThumbClassName,
 } from "@/lib/listing-preview-card-layout"
+import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import {
   MARKET_SEARCH_LISTING_COUNT,
   marketSearchDemoPinsBase,
@@ -38,8 +48,28 @@ const PortfolioMapbox = dynamic(
   { ssr: false }
 )
 
+/** Same column labels as the portfolio assets table (RSF … WALE). */
+const SEARCH_CARD_PORTFOLIO_METRICS: {
+  label: string
+  get: (row: PortfolioAssetRow) => string
+}[] = [
+  { label: "RSF", get: (r) => r.rsf },
+  { label: "Occ%", get: (r) => r.occPct },
+  { label: "$/SF", get: (r) => r.pricePerSf },
+  { label: "NOI", get: (r) => r.noi },
+  { label: "Value", get: (r) => r.value },
+  { label: "Cap", get: (r) => r.capRate },
+  { label: "WALE", get: (r) => r.wale },
+]
+
 function SearchListingPreviewCard({ pin }: { pin: PortfolioMapboxPin }) {
   const isMarket = pin.listingScope === "market"
+  const portfolioRow = React.useMemo(() => {
+    if (isMarket) return null
+    const index = ASSETS.findIndex((a) => a.id === pin.id)
+    if (index < 0) return null
+    return portfolioAssetRowForAsset(ASSETS[index]!, index)
+  }, [isMarket, pin.id])
   const liftText =
     pin.lift.trim() !== ""
       ? pin.lift
@@ -47,77 +77,104 @@ function SearchListingPreviewCard({ pin }: { pin: PortfolioMapboxPin }) {
         ? `+${pin.liftPercent}%`
         : "—"
   const liftBadgeText =
-    liftText === "—" ? "Potential lift —" : `Potential lift ${liftText}`
+    liftText === "—" ? "Potential —" : `Potential ${liftText}`
 
   const liftPillClass = isMarket
     ? marketLiftPillClassFromStrength(pin.liftStrength)
     : liftPillClassFromStrength(pin.liftStrength)
 
-  const scopeBadgeClass = isMarket
-    ? "bg-muted text-muted-foreground ring-1 ring-border"
-    : "bg-primary/10 text-primary ring-1 ring-primary/25 dark:bg-primary/15 dark:ring-primary/30"
-
   const cardInner = (
     <>
-      <div className={listingPreviewThumbClassName}>
-        {pin.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pin.imageUrl}
-            alt={pin.building}
-            className="size-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex size-full items-center justify-center text-muted-foreground"
-            aria-hidden
-          >
-            <LandscapeImageIcon
-              className="size-6 opacity-50"
-              strokeWidth={1.25}
+      <div className="flex gap-3 p-3">
+        <div className={listingPreviewThumbClassName}>
+          {pin.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pin.imageUrl}
+              alt={pin.building}
+              className="size-full object-cover"
             />
-          </div>
-        )}
-      </div>
-      <div className={listingPreviewBodyClassName}>
-        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
-          <h3 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-4 text-foreground">
-            {pin.building}
-          </h3>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
-              scopeBadgeClass
-            )}
-          >
-            {isMarket ? "Market" : "Portfolio"}
-          </span>
-        </div>
-        {pin.location ? (
-          <p className="line-clamp-2 text-xs leading-3 text-muted-foreground">
-            {pin.location}
-          </p>
-        ) : null}
-        <span
-          className={cn(
-            "inline-flex w-fit max-w-full rounded-full px-2.5 py-0.5 text-xs font-semibold leading-3",
-            liftPillClass
+          ) : (
+            <div
+              className="flex size-full items-center justify-center text-muted-foreground"
+              aria-hidden
+            >
+              <LandscapeImageIcon
+                className="size-6 opacity-50"
+                strokeWidth={1.25}
+              />
+            </div>
           )}
-          aria-label={
-            liftText === "—"
-              ? "Potential lift, not available"
-              : `Potential lift ${liftText}`
-          }
-        >
-          <span className="truncate">{liftBadgeText}</span>
-        </span>
+        </div>
+        <div className={cn(listingPreviewBodyClassName, "justify-start")}>
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                {pin.building}
+              </h3>
+              {pin.location ? (
+                <p className="line-clamp-2 min-h-8 text-xs leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+                  {pin.location}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5 self-start">
+              <span
+                className={cn(
+                  "inline-flex w-fit max-w-[min(100%,11rem)] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-3",
+                  liftPillClass
+                )}
+                aria-label={
+                  liftText === "—"
+                    ? "Potential, not available"
+                    : `Potential ${liftText}`
+                }
+              >
+                <span className="truncate">{liftBadgeText}</span>
+              </span>
+              {!isMarket ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className="inline-flex shrink-0 cursor-default text-muted-foreground"
+                        aria-label="Portfolio Asset"
+                      />
+                    }
+                  >
+                    <Briefcase className="size-4" strokeWidth={2} aria-hidden />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Portfolio Asset</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
+      {portfolioRow ? (
+        <div
+          className="border-t border-border bg-muted/25 px-3 py-2.5"
+          aria-label="Portfolio table metrics"
+        >
+          <dl className="grid grid-cols-4 gap-x-2 gap-y-2.5 sm:grid-cols-7">
+            {SEARCH_CARD_PORTFOLIO_METRICS.map(({ label, get }) => (
+              <div key={label} className="min-w-0">
+                <dt className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {label}
+                </dt>
+                <dd className="truncate text-xs font-medium tabular-nums text-foreground">
+                  {get(portfolioRow)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
     </>
   )
 
   const articleClass = cn(
-    "min-w-0",
-    listingPreviewCardClassName,
+    "min-w-0 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
     !isMarket && pin.assetDetailHref && "transition-colors hover:bg-muted/35"
   )
 
@@ -325,41 +382,27 @@ export function SearchComingSoon() {
         </div>
 
         {/* Listings skeleton */}
-        <aside className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden border-t border-border bg-muted/15 p-4 md:p-5 lg:h-full lg:w-[min(100%,380px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[420px]">
+        <aside className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden border-t border-border bg-muted/15 p-4 md:p-5 lg:h-full lg:w-[min(100%,456px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[504px]">
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
               Search results
             </p>
           </div>
           <div
-            className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-1"
-            role="region"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto pt-1"
+            role="list"
             aria-label="Listing results"
           >
-            <section aria-label="Your portfolio">
-              <h2 className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Your portfolio
-              </h2>
-              <div className="space-y-3" role="list">
-                {portfolioPins.map((pin) => (
-                  <div key={pin.id} role="listitem">
-                    <SearchListingPreviewCard pin={pin} />
-                  </div>
-                ))}
+            {portfolioPins.map((pin) => (
+              <div key={pin.id} role="listitem">
+                <SearchListingPreviewCard pin={pin} />
               </div>
-            </section>
-            <section aria-label="Market listings">
-              <h2 className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Market
-              </h2>
-              <div className="space-y-3" role="list">
-                {marketPins.map((pin) => (
-                  <div key={pin.id} role="listitem">
-                    <SearchListingPreviewCard pin={pin} />
-                  </div>
-                ))}
+            ))}
+            {marketPins.map((pin) => (
+              <div key={pin.id} role="listitem">
+                <SearchListingPreviewCard pin={pin} />
               </div>
-            </section>
+            ))}
           </div>
         </aside>
       </div>

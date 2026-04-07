@@ -14,5 +14,5 @@ export const listingPreviewThumbClassName =
 export const listingPreviewBodyClassName =
   "flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5"
 
-/** Typical max width inside search aside (380px) minus horizontal padding (md:p-5). */
-export const listingPreviewCardMaxWidthClass = "max-w-[min(100vw-2rem,340px)]"
+/** Typical max width inside search aside (~456px) minus horizontal padding (md:p-5). */
+export const listingPreviewCardMaxWidthClass = "max-w-[min(100vw-2rem,408px)]"

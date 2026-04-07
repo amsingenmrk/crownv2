@@ -30,7 +30,6 @@ import {
   ASSET_GROUP_SIDEBAR_LABELS,
   assetHref,
   getAssetById,
-  type Asset,
   type AssetGroupId,
 } from "@/lib/assets"
 import {
@@ -41,11 +40,9 @@ import {
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
 import { computeScenarioPortfolioAggregate } from "@/lib/scenario-portfolio-aggregate"
-import {
-  portfolioValueNoiCapFromSeed,
-  seedForAsset,
-} from "@/lib/portfolio-asset-financials"
+import { seedForAsset } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import {
   mapPinClassFromStrength,
   normalizedLiftStrength,
@@ -96,76 +93,9 @@ const KPIS: PortfolioKpi[] = [
   { label: "WALE / WALT", value: "5.8 yrs" },
 ]
 
-const RECOMMENDATIONS = [
-  "Renovate Lobby",
-  "Upgrade Amenities",
-  "New Leasing Strategy",
-  "Refresh Units",
-  "Re-Tenant Space",
-] as const
-
-function formatRsfShort(sqft: number): string {
-  if (sqft >= 1_000_000) {
-    const m = sqft / 1_000_000
-    const rounded = Math.round(m * 10) / 10
-    const s =
-      rounded % 1 === 0 ? String(Math.round(rounded)) : rounded.toFixed(1)
-    return `${s}M`
-  }
-  if (sqft >= 1000) {
-    return `${Math.round(sqft / 1000)}K`
-  }
-  return String(sqft)
-}
-
-const ASSET_STATUS_LABELS = [
-  "Stabilized",
-  "Lease-up",
-  "Redevelopment",
-] as const
-
-function rowForAsset(asset: Asset, index: number): PortfolioAssetRow {
-  const seed = seedForAsset(asset, index)
-  const fin = portfolioValueNoiCapFromSeed(seed)
-  const liftPct = 3 + (seed % 15)
-
-  const typeLabel =
-    asset.groupId === "office"
-      ? "Office"
-      : asset.groupId === "industrial"
-        ? "Industrial"
-        : "Retail"
-
-  const value =
-    fin.valueMills >= 1000
-      ? `$${(fin.valueMills / 1000).toFixed(1)}B`
-      : `$${fin.valueMills.toFixed(1)}M`
-
-  const noi =
-    fin.noiTenthM < 0.15 ? "$0.0" : `$${fin.noiTenthM.toFixed(1)}M`
-
-  return {
-    id: asset.id,
-    groupId: asset.groupId,
-    building: asset.name,
-    location: asset.address,
-    ownership: "Owned",
-    typeLabel,
-    rsf: formatRsfShort(fin.rsfSqft),
-    occPct: `${asset.occupiedPercent}%`,
-    pricePerSf: `$${fin.pricePerSfN}`,
-    noi,
-    value,
-    capRate: `${fin.capRatePct.toFixed(1)}%`,
-    wale: `${(4.5 + (seed % 35) / 10).toFixed(1)}y`,
-    status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
-    lift: `+${liftPct}%`,
-    liftPercent: liftPct,
-    recommendation: RECOMMENDATIONS[seed % RECOMMENDATIONS.length]!,
-  }
-}
-
-const PORTFOLIO_ASSET_ROWS: PortfolioAssetRow[] = ASSETS.map(rowForAsset).sort(
+const PORTFOLIO_ASSET_ROWS: PortfolioAssetRow[] = ASSETS.map(
+  portfolioAssetRowForAsset
+).sort(
   (a, b) =>
     b.liftPercent - a.liftPercent ||
     a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
@@ -863,20 +793,22 @@ function PortfolioDashboardInner({
                         )
                       )}
                       style={{ top: pin.top, left: pin.left }}
-                      title={`${pin.building} · Potential lift ${pin.lift}`}
+                      title={`${pin.building} · Potential ${pin.lift}`}
                     />
                   ))}
                 </>
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <div className="portfolio-assets-table-scroll-inner">
-                <PortfolioAssetsDataTable
-                  table={portfolioTable}
-                  variant={assetsTableVariant}
-                  liftExtent={LIFT_PCT_EXTENT}
-                />
+            <div className="min-w-0 w-full max-w-full rounded-xl border border-border bg-card p-0 shadow-sm">
+              <div className="min-w-0 w-full overflow-x-auto overscroll-x-contain">
+                <div className="portfolio-assets-table-scroll-inner">
+                  <PortfolioAssetsDataTable
+                    table={portfolioTable}
+                    variant={assetsTableVariant}
+                    liftExtent={LIFT_PCT_EXTENT}
+                  />
+                </div>
               </div>
             </div>
           )}
