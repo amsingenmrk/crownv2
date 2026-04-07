@@ -237,7 +237,9 @@ function mapPinsForRows(rows: PortfolioAssetRow[]) {
 
 const PortfolioMapbox = dynamic(
   () =>
-    import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox),
+    import("@/lib/configure-mapbox-gl-worker").then(() =>
+      import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox)
+    ),
   { ssr: false }
 )
 
@@ -514,7 +516,7 @@ function PortfolioDashboardInner({
     "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-6">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-[24px]">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
@@ -831,8 +833,8 @@ function PortfolioDashboardInner({
               id="portfolio-map-canvas"
               className={cn(
                 "relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/60",
-                /* Fills viewport below KPIs + assets header (flex chain + min-h-0). */
-                "min-h-[min(40dvh,320px)]"
+                /* Min height + flex growth so Mapbox canvas always gets real pixels (flex-only sizing can leave 0). */
+                "min-h-[min(52dvh,420px)] lg:min-h-[min(58dvh,560px)]"
               )}
             >
               {mapboxEnabled ? (

@@ -31,7 +31,10 @@ import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread
 import { cn } from "@/lib/utils"
 
 const PortfolioMapbox = dynamic(
-  () => import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox),
+  () =>
+    import("@/lib/configure-mapbox-gl-worker").then(() =>
+      import("@/components/portfolio-mapbox").then((m) => m.PortfolioMapbox)
+    ),
   { ssr: false }
 )
 
