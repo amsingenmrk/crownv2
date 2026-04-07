@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -42,10 +43,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useAppToast } from "@/components/app-toast"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
   BUILTIN_SCENARIO,
+  duplicateScenarioFromSourceSlug,
   getUserScenariosStoreSnapshot,
   removeUserScenarioBySlug,
   subscribeUserScenarios,
@@ -94,10 +97,112 @@ function titleForPathname(
   return "Glassbox"
 }
 
+function ScenarioBreadcrumbCurrentPage({
+  scenarioSlug,
+  pageTitle,
+  canRenameInline,
+  showToast,
+}: {
+  scenarioSlug: string
+  pageTitle: string
+  canRenameInline: boolean
+  showToast: (message: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    if (!editing) return
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [editing])
+
+  const commit = useCallback(() => {
+    if (!canRenameInline) {
+      setEditing(false)
+      return
+    }
+    const trimmed = draft.trim()
+    if (!trimmed || trimmed === pageTitle) {
+      setEditing(false)
+      setDraft("")
+      return
+    }
+    if (updateUserScenarioNameBySlug(scenarioSlug, trimmed)) {
+      showToast(`Renamed to “${trimmed}”.`)
+    }
+    setEditing(false)
+    setDraft("")
+  }, [canRenameInline, draft, pageTitle, scenarioSlug, showToast])
+
+  const cancel = useCallback(() => {
+    setEditing(false)
+    setDraft("")
+  }, [])
+
+  return (
+    <BreadcrumbItem className="min-w-0">
+      {editing && canRenameInline ? (
+        <Input
+          ref={inputRef}
+          id={inputId}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              commit()
+            }
+            if (e.key === "Escape") {
+              e.preventDefault()
+              cancel()
+            }
+          }}
+          autoComplete="off"
+          aria-label="Scenario name"
+          className="h-8 min-w-[10rem] max-w-[min(28rem,calc(100vw-8rem))] text-sm font-medium"
+        />
+      ) : canRenameInline ? (
+        <span
+          data-slot="breadcrumb-page"
+          role="link"
+          aria-current="page"
+          className="inline-flex min-w-0 max-w-full items-center"
+        >
+          <button
+            type="button"
+            className={cn(
+              "truncate rounded-sm px-1 py-0.5 text-left text-sm font-medium text-foreground -mx-1",
+              "underline-offset-4 outline-none hover:bg-muted/80 hover:underline",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            title="Click to rename"
+            onClick={() => {
+              setDraft(pageTitle)
+              setEditing(true)
+            }}
+          >
+            {pageTitle}
+          </button>
+        </span>
+      ) : (
+        <BreadcrumbPage className="truncate font-medium">{pageTitle}</BreadcrumbPage>
+      )}
+    </BreadcrumbItem>
+  )
+}
+
 export function AppTopbar() {
   const pathname = usePathname()
   const params = useParams()
   const router = useRouter()
+  const showToast = useAppToast()
   const [assetMenuOpen, setAssetMenuOpen] = useState(false)
   const [assetSearch, setAssetSearch] = useState("")
   const userScenarios = useSyncExternalStore(
@@ -106,10 +211,6 @@ export function AppTopbar() {
     () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
-  const [renameScenarioOpen, setRenameScenarioOpen] = useState(false)
-  const [renameName, setRenameName] = useState("")
-  const renameInputId = useId()
-  const renameInputRef = useRef<HTMLInputElement>(null)
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
@@ -126,18 +227,9 @@ export function AppTopbar() {
   )
   const canDeleteCurrentScenario =
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
-  const canRenameCurrentScenario = canDeleteCurrentScenario
+  const canRenameScenarioInline = canDeleteCurrentScenario
 
   const pageTitle = titleForPathname(pathname ?? null, userScenarios)
-
-  useLayoutEffect(() => {
-    if (!renameScenarioOpen) return
-    const id = requestAnimationFrame(() => {
-      renameInputRef.current?.focus()
-      renameInputRef.current?.select()
-    })
-    return () => cancelAnimationFrame(id)
-  }, [renameScenarioOpen])
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -262,7 +354,7 @@ export function AppTopbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        ) : showScenarioBreadcrumb ? (
+        ) : showScenarioBreadcrumb && scenarioSlug != null ? (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
               <BreadcrumbItem className="shrink-0">
@@ -271,11 +363,13 @@ export function AppTopbar() {
                 </span>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate font-medium">
-                  {pageTitle}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
+              <ScenarioBreadcrumbCurrentPage
+                key={scenarioSlug}
+                scenarioSlug={scenarioSlug}
+                pageTitle={pageTitle}
+                canRenameInline={canRenameScenarioInline}
+                showToast={showToast}
+              />
             </BreadcrumbList>
           </Breadcrumb>
         ) : (
@@ -301,7 +395,7 @@ export function AppTopbar() {
                     variant="ghost"
                     size="icon"
                     className="shrink-0"
-                    aria-label="Scenario actions"
+                    aria-label="Duplicate or delete scenario"
                   />
                 }
               >
@@ -309,22 +403,17 @@ export function AppTopbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={6}>
                 <DropdownMenuItem
-                  disabled={!canRenameCurrentScenario}
-                  title={
-                    canRenameCurrentScenario
-                      ? undefined
-                      : "Built-in scenarios cannot be renamed"
-                  }
+                  disabled={scenarioSlug == null}
                   onClick={() => {
-                    if (!canRenameCurrentScenario || scenarioSlug == null) return
-                    const list = getUserScenariosStoreSnapshot()
-                    const current =
-                      list.find((s) => s.slug === scenarioSlug)?.name ?? ""
-                    setRenameName(current)
-                    setRenameScenarioOpen(true)
+                    if (scenarioSlug == null) return
+                    const created = duplicateScenarioFromSourceSlug(scenarioSlug)
+                    if (created != null) {
+                      router.push(`/scenarios/${created.slug}`)
+                      showToast(`Scenario “${created.name}” created.`)
+                    }
                   }}
                 >
-                  Rename Scenario
+                  Duplicate Scenario
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
@@ -343,76 +432,6 @@ export function AppTopbar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog
-              open={renameScenarioOpen}
-              onOpenChange={(open) => {
-                setRenameScenarioOpen(open)
-                if (open && scenarioSlug != null) {
-                  const list = getUserScenariosStoreSnapshot()
-                  setRenameName(
-                    list.find((s) => s.slug === scenarioSlug)?.name ?? ""
-                  )
-                }
-              }}
-            >
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Rename scenario</DialogTitle>
-                  <DialogDescription>
-                    Update the display name. The scenario URL stays the same.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-2">
-                  <label htmlFor={renameInputId} className="sr-only">
-                    Scenario name
-                  </label>
-                  <Input
-                    ref={renameInputRef}
-                    id={renameInputId}
-                    value={renameName}
-                    onChange={(e) => setRenameName(e.target.value)}
-                    placeholder="Scenario name"
-                    autoComplete="off"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        if (
-                          scenarioSlug != null &&
-                          renameName.trim() &&
-                          updateUserScenarioNameBySlug(
-                            scenarioSlug,
-                            renameName
-                          )
-                        ) {
-                          setRenameScenarioOpen(false)
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setRenameScenarioOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={!renameName.trim()}
-                    onClick={() => {
-                      if (scenarioSlug == null) return
-                      if (!updateUserScenarioNameBySlug(scenarioSlug, renameName))
-                        return
-                      setRenameScenarioOpen(false)
-                    }}
-                  >
-                    Save
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
             <Dialog open={deleteScenarioOpen} onOpenChange={setDeleteScenarioOpen}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>

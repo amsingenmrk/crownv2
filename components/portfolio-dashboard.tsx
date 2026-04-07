@@ -42,6 +42,12 @@ import {
 import { computeScenarioPortfolioAggregate } from "@/lib/scenario-portfolio-aggregate"
 import { seedForAsset } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import {
+  getMarketListingPinById,
+} from "@/lib/market-search-demo-listings"
+import {
+  portfolioAssetRowForMarketPin,
+} from "@/lib/market-listing-portfolio-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import {
   mapPinClassFromStrength,
@@ -141,6 +147,32 @@ function assetHasSavedModificationSets(assetId: string): boolean {
     localStorage.getItem(storageKeyForAsset(assetId))
   )
   return sets.length >= 1
+}
+
+function portfolioRowMatchesAssetTableSearch(
+  row: PortfolioAssetRow,
+  q: string
+): boolean {
+  if (!q) return true
+  return [
+    row.building,
+    row.location,
+    row.ownership,
+    row.typeLabel,
+    row.rsf,
+    row.occPct,
+    row.pricePerSf,
+    row.noi,
+    row.value,
+    row.capRate,
+    row.wale,
+    row.status,
+    row.lift,
+    row.recommendation,
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q)
 }
 
 function mapPinsForRows(rows: PortfolioAssetRow[]) {
@@ -323,6 +355,53 @@ function PortfolioDashboardInner({
       }
     }
 
+    if (assetsTableVariant === "scenarios") {
+      const existing = new Set(rows.map((r) => r.id))
+      const extras: PortfolioAssetRow[] = []
+
+      const tryAppendMarketRow = (id: string, passesScenarioFilter: boolean) => {
+        if (!passesScenarioFilter) return
+        if (existing.has(id)) return
+        const pin = getMarketListingPinById(id)
+        if (!pin) return
+        const r = portfolioAssetRowForMarketPin(pin)
+        if (
+          portfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
+          r.groupId !== portfolioGroupFilter
+        ) {
+          return
+        }
+        if (!portfolioRowMatchesAssetTableSearch(r, q)) return
+        extras.push(r)
+        existing.add(id)
+      }
+
+      if (scenarioMembershipMode === "explicit-inclusion") {
+        for (const id of scenarioIncludedAssetIds) {
+          tryAppendMarketRow(id, true)
+        }
+      } else if (scenarioMembershipMode === "builtin") {
+        for (const id of scenarioIncludedAssetIds) {
+          const eligibleOk =
+            scenarioEligibleAssetIds == null ||
+            scenarioEligibleAssetIds.has(id)
+          const overlayOk = scenarioIncludedAssetIds.has(id)
+          const passes =
+            (eligibleOk || overlayOk) && !scenarioExcludedAssetIds.has(id)
+          tryAppendMarketRow(id, passes)
+        }
+      }
+
+      if (extras.length > 0) {
+        extras.sort((a, b) =>
+          a.building.localeCompare(b.building, undefined, {
+            sensitivity: "base",
+          })
+        )
+        rows = [...rows, ...extras]
+      }
+    }
+
     return rows
   }, [
     assetTableSearch,
@@ -344,6 +423,26 @@ function PortfolioDashboardInner({
 
   const portfolioMapboxPins = React.useMemo((): PortfolioMapboxPin[] => {
     const raw = visibleAssetRows.map((row) => {
+      const marketPin = getMarketListingPinById(row.id)
+      if (marketPin) {
+        return {
+          id: row.id,
+          longitude: marketPin.longitude,
+          latitude: marketPin.latitude,
+          building: row.building,
+          lift: row.lift,
+          liftPercent: row.liftPercent,
+          liftStrength: liftStrengthForRow(row.liftPercent),
+          listingScope: "market" as const,
+          imageUrl: marketPin.imageUrl,
+          location: row.location,
+          value: row.value,
+          occPct: row.occPct,
+          noi: row.noi,
+          capRate: row.capRate,
+          wale: row.wale,
+        }
+      }
       const [longitude, latitude] = lngLatForPortfolioAsset(
         row.id,
         row.groupId,

@@ -3,23 +3,37 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
-  Briefcase,
+  Diff,
+  Filter,
   Image as LandscapeImageIcon,
+  Plus,
   Search,
+  X,
 } from "lucide-react"
 
+import { useAppToast } from "@/components/app-toast"
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
+import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
 import { ASSETS, assetHref } from "@/lib/assets"
+import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
+import { useScenariosIncludingAssetCount } from "@/hooks/use-scenarios-including-asset-count"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import {
   listingPreviewBodyClassName,
@@ -28,6 +42,7 @@ import {
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import {
+  getMarketListingPinById,
   MARKET_SEARCH_LISTING_COUNT,
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
@@ -39,6 +54,12 @@ import {
 } from "@/lib/portfolio-lift"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { cn } from "@/lib/utils"
+import {
+  BUILTIN_SCENARIO,
+  readUserScenarios,
+  USER_SCENARIOS_CHANGED_EVENT,
+  type UserScenario,
+} from "@/lib/user-scenarios"
 
 const PortfolioMapbox = dynamic(
   () =>
@@ -62,10 +83,94 @@ const SEARCH_CARD_PORTFOLIO_METRICS: {
   { label: "WALE", get: (r) => r.wale },
 ]
 
-function SearchListingPreviewCard({ pin }: { pin: PortfolioMapboxPin }) {
+const DEFAULT_SEARCH_LISTING_FILTERS = {
+  showPortfolio: true,
+  showMarket: true,
+} as const
+
+type SearchListingFilters = {
+  showPortfolio: boolean
+  showMarket: boolean
+}
+
+type ScenarioMenuOption = { name: string; slug: string }
+
+function SearchListingCardActions({
+  assetId,
+  scenariosForMenu,
+  onOpenCreateScenario,
+}: {
+  assetId: string
+  scenariosForMenu: ScenarioMenuOption[]
+  onOpenCreateScenario: () => void
+}) {
+  const showToast = useAppToast()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Add to scenario"
+          />
+        }
+      >
+        <Diff className="size-4" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        side="top"
+        sideOffset={6}
+        className="z-[120] min-w-[12rem]"
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal text-muted-foreground">
+            Scenarios
+          </DropdownMenuLabel>
+          {scenariosForMenu.map((s) => (
+            <DropdownMenuItem
+              key={s.slug}
+              onClick={() => {
+                addPortfolioAssetToScenarioBySlug(s.slug, assetId)
+                queueMicrotask(() =>
+                  showToast(`Added to “${s.name}”.`)
+                )
+              }}
+            >
+              <span className="truncate">{s.name}</span>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onOpenCreateScenario}>
+            <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+            Create new scenario
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function SearchListingPreviewCard({
+  pin,
+  scenariosForMenu,
+  onOpenCreateScenario,
+}: {
+  pin: PortfolioMapboxPin
+  scenariosForMenu: ScenarioMenuOption[]
+  onOpenCreateScenario: (assetId: string) => void
+}) {
   const isMarket = pin.listingScope === "market"
+  const scenariosIncludingCount = useScenariosIncludingAssetCount(pin.id)
   const portfolioRow = React.useMemo(() => {
-    if (isMarket) return null
+    if (isMarket) {
+      const marketPin = getMarketListingPinById(pin.id)
+      return marketPin ? portfolioAssetRowForMarketPin(marketPin) : null
+    }
     const index = ASSETS.findIndex((a) => a.id === pin.id)
     if (index < 0) return null
     return portfolioAssetRowForAsset(ASSETS[index]!, index)
@@ -83,110 +188,134 @@ function SearchListingPreviewCard({ pin }: { pin: PortfolioMapboxPin }) {
     ? marketLiftPillClassFromStrength(pin.liftStrength)
     : liftPillClassFromStrength(pin.liftStrength)
 
-  const cardInner = (
-    <>
-      <div className="flex gap-3 p-3">
-        <div className={listingPreviewThumbClassName}>
-          {pin.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={pin.imageUrl}
-              alt={pin.building}
-              className="size-full object-cover"
+  const cardTop = (
+    <div className="flex gap-3 p-3">
+      <div className={listingPreviewThumbClassName}>
+        {pin.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pin.imageUrl}
+            alt={pin.building}
+            className="size-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex size-full items-center justify-center text-muted-foreground"
+            aria-hidden
+          >
+            <LandscapeImageIcon
+              className="size-6 opacity-50"
+              strokeWidth={1.25}
             />
-          ) : (
-            <div
-              className="flex size-full items-center justify-center text-muted-foreground"
-              aria-hidden
+          </div>
+        )}
+      </div>
+      <div className={cn(listingPreviewBodyClassName, "justify-start")}>
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+              {pin.building}
+            </h3>
+            {pin.location ? (
+              <p className="truncate text-xs leading-4 text-muted-foreground">
+                {pin.location}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5 self-start">
+            <span
+              className={cn(
+                "inline-flex w-fit max-w-[min(100%,11rem)] items-center justify-center gap-1 rounded-full px-[7px] py-0.5 text-[11px] font-medium leading-tight",
+                liftPillClass
+              )}
+              aria-label={
+                liftText === "—"
+                  ? "Potential, not available"
+                  : `Potential ${liftText}`
+              }
             >
-              <LandscapeImageIcon
-                className="size-6 opacity-50"
-                strokeWidth={1.25}
-              />
-            </div>
-          )}
-        </div>
-        <div className={cn(listingPreviewBodyClassName, "justify-start")}>
-          <div className="flex min-w-0 flex-1 items-start gap-2">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-                {pin.building}
-              </h3>
-              {pin.location ? (
-                <p className="line-clamp-2 min-h-8 text-xs leading-4 text-muted-foreground [overflow-wrap:anywhere]">
-                  {pin.location}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5 self-start">
+              <span className="truncate">{liftBadgeText}</span>
+            </span>
+            <div className="flex max-w-full flex-row flex-wrap items-center justify-end gap-1.5">
               <span
-                className={cn(
-                  "inline-flex w-fit max-w-[min(100%,11rem)] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-3",
-                  liftPillClass
-                )}
-                aria-label={
-                  liftText === "—"
-                    ? "Potential, not available"
-                    : `Potential ${liftText}`
-                }
+                className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-[7px] py-0.5 text-[11px] font-medium leading-tight text-muted-foreground"
+                aria-label={isMarket ? "Market listing" : "Portfolio asset"}
               >
-                <span className="truncate">{liftBadgeText}</span>
+                {isMarket ? "Market" : "Asset"}
               </span>
-              {!isMarket ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <span
-                        className="inline-flex shrink-0 cursor-default text-muted-foreground"
-                        aria-label="Portfolio Asset"
-                      />
-                    }
-                  >
-                    <Briefcase className="size-4" strokeWidth={2} aria-hidden />
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Portfolio Asset</TooltipContent>
-                </Tooltip>
+              {scenariosIncludingCount > 0 ? (
+                <span
+                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-[7px] py-0.5 text-[11px] font-medium leading-tight text-muted-foreground"
+                  aria-label={
+                    scenariosIncludingCount === 1
+                      ? "Included in 1 scenario"
+                      : `Included in ${scenariosIncludingCount} scenarios`
+                  }
+                >
+                  {scenariosIncludingCount}{" "}
+                  {scenariosIncludingCount === 1 ? "Scenario" : "Scenarios"}
+                </span>
               ) : null}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  )
+
+  const cardFooter = (
+    <div className="flex items-end justify-between gap-3 border-t border-border bg-muted/25 px-3 py-2.5">
       {portfolioRow ? (
-        <div
-          className="border-t border-border bg-muted/25 px-3 py-2.5"
-          aria-label="Portfolio table metrics"
+        <dl
+          className="grid min-w-0 flex-1 grid-cols-4 gap-x-2 gap-y-2.5 sm:grid-cols-7"
+          aria-label="Listing metrics"
         >
-          <dl className="grid grid-cols-4 gap-x-2 gap-y-2.5 sm:grid-cols-7">
-            {SEARCH_CARD_PORTFOLIO_METRICS.map(({ label, get }) => (
-              <div key={label} className="min-w-0">
-                <dt className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {label}
-                </dt>
-                <dd className="truncate text-xs font-medium tabular-nums text-foreground">
-                  {get(portfolioRow)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
-    </>
+          {SEARCH_CARD_PORTFOLIO_METRICS.map(({ label, get }) => (
+            <div key={label} className="min-w-0">
+              <dt className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </dt>
+              <dd className="truncate text-xs font-medium tabular-nums text-foreground">
+                {get(portfolioRow)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="min-w-0 flex-1" aria-hidden />
+      )}
+      <div className="shrink-0">
+        <SearchListingCardActions
+          assetId={pin.id}
+          scenariosForMenu={scenariosForMenu}
+          onOpenCreateScenario={() => onOpenCreateScenario(pin.id)}
+        />
+      </div>
+    </div>
   )
 
-  const articleClass = cn(
-    "min-w-0 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
-    !isMarket && pin.assetDetailHref && "transition-colors hover:bg-muted/35"
+  const articleClass =
+    "min-w-0 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+
+  const mainSurfaceClass = cn(
+    "min-w-0",
+    !isMarket &&
+      pin.assetDetailHref &&
+      "transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
   )
 
-  if (!isMarket && pin.assetDetailHref) {
-    return (
-      <Link href={pin.assetDetailHref} className="block min-w-0 rounded-lg">
-        <article className={articleClass}>{cardInner}</article>
-      </Link>
-    )
-  }
-
-  return <article className={articleClass}>{cardInner}</article>
+  return (
+    <article className={articleClass}>
+      {!isMarket && pin.assetDetailHref ? (
+        <Link href={pin.assetDetailHref} className={mainSurfaceClass}>
+          {cardTop}
+        </Link>
+      ) : (
+        <div className={mainSurfaceClass}>{cardTop}</div>
+      )}
+      {cardFooter}
+    </article>
+  )
 }
 
 function MapRegionSkeleton({
@@ -233,75 +362,20 @@ function MapRegionSkeleton({
   )
 }
 
-type ListingSearchFilter = "office" | "size" | "rent"
-
-function SearchListingsToolbar({
-  searchQuery,
-  onSearchQueryChange,
-  activeFilter,
-  onActiveFilterChange,
-}: {
-  searchQuery: string
-  onSearchQueryChange: (value: string) => void
-  activeFilter: ListingSearchFilter
-  onActiveFilterChange: (value: ListingSearchFilter) => void
-}) {
-  return (
-    <div
-      className="shrink-0 border-b border-border px-3 py-3"
-      aria-label="Search and filter listings"
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between lg:gap-4">
-        <div className="relative min-w-0 flex-1 sm:max-w-md lg:max-w-xl">
-          <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            placeholder="Downtown Denver"
-            aria-label="Search properties by location or name"
-            className="h-9 pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              ["office", "Office"],
-              ["size", "Size"],
-              ["rent", "Rent"],
-            ] as const
-          ).map(([id, label]) => (
-            <Button
-              key={id}
-              type="button"
-              variant={activeFilter === id ? "outline" : "secondary"}
-              size="lg"
-              className={
-                activeFilter === id
-                  ? "border-primary text-primary hover:bg-primary/5 hover:text-primary"
-                  : undefined
-              }
-              onClick={() => onActiveFilterChange(id)}
-              aria-pressed={activeFilter === id}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function SearchComingSoon() {
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [activeFilter, setActiveFilter] =
-    React.useState<ListingSearchFilter>("office")
-
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
+  const filterTitleId = React.useId()
+  const portfolioCbId = React.useId()
+  const marketCbId = React.useId()
+
+  const [filterPanelOpen, setFilterPanelOpen] = React.useState(false)
+  const [appliedFilters, setAppliedFilters] = React.useState<SearchListingFilters>(
+    { ...DEFAULT_SEARCH_LISTING_FILTERS }
+  )
+  const [draftFilters, setDraftFilters] = React.useState<SearchListingFilters>(
+    { ...DEFAULT_SEARCH_LISTING_FILTERS }
+  )
+  const [mapSearchQuery, setMapSearchQuery] = React.useState("")
 
   const { listingPins, portfolioPins, marketPins } = React.useMemo(() => {
     const liftPcts = ASSETS.map(
@@ -355,57 +429,320 @@ export function SearchComingSoon() {
     }
   }, [coordinates])
 
+  const displayedPortfolioPins = appliedFilters.showPortfolio
+    ? portfolioPins
+    : []
+  const displayedMarketPins = appliedFilters.showMarket ? marketPins : []
+  const displayedListingPins = React.useMemo(
+    () => [...displayedPortfolioPins, ...displayedMarketPins],
+    [displayedPortfolioPins, displayedMarketPins]
+  )
+
+  const mapSearchFilteredPins = React.useMemo(() => {
+    const q = mapSearchQuery.trim().toLowerCase()
+    if (!q) return displayedListingPins
+    return displayedListingPins.filter((pin) => {
+      const haystack = [pin.building, pin.location ?? ""]
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [displayedListingPins, mapSearchQuery])
+
+  const searchFilteredPortfolioPins = React.useMemo(
+    () => mapSearchFilteredPins.filter((p) => p.listingScope !== "market"),
+    [mapSearchFilteredPins]
+  )
+  const searchFilteredMarketPins = React.useMemo(
+    () => mapSearchFilteredPins.filter((p) => p.listingScope === "market"),
+    [mapSearchFilteredPins]
+  )
+
+  const openFilterPanel = React.useCallback(() => {
+    setDraftFilters(appliedFilters)
+    setFilterPanelOpen(true)
+  }, [appliedFilters])
+
+  const closeFilterPanel = React.useCallback(() => {
+    setFilterPanelOpen(false)
+  }, [])
+
+  const handleFilterClear = React.useCallback(() => {
+    setDraftFilters({ ...DEFAULT_SEARCH_LISTING_FILTERS })
+  }, [])
+
+  const handleFilterCancel = React.useCallback(() => {
+    setFilterPanelOpen(false)
+  }, [])
+
+  const handleFilterApply = React.useCallback(() => {
+    setAppliedFilters(draftFilters)
+    setFilterPanelOpen(false)
+  }, [draftFilters])
+
+  React.useEffect(() => {
+    if (!filterPanelOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleFilterCancel()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [filterPanelOpen, handleFilterCancel])
+
+  const router = useRouter()
+  const showToast = useAppToast()
+  const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
+  const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
+  const createScenarioAssetIdRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    const sync = () => setUserScenarios(readUserScenarios())
+    sync()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "glassbox:user-scenarios") return
+      sync()
+    }
+    window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+    window.addEventListener("storage", onStorage)
+    return () => {
+      window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [])
+
+  const scenariosForMenu = React.useMemo((): ScenarioMenuOption[] => {
+    const userSorted = [...userScenarios].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    )
+    return [
+      { name: BUILTIN_SCENARIO.name, slug: BUILTIN_SCENARIO.slug },
+      ...userSorted,
+    ]
+  }, [userScenarios])
+
   const showMapbox = mapboxEnabled
+  const propertyCount = mapSearchFilteredPins.length
 
   return (
+    <>
     <div role="main" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <SearchListingsToolbar
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        activeFilter={activeFilter}
-        onActiveFilterChange={setActiveFilter}
-      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Map region */}
         <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
           <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
             {showMapbox ? (
-              <PortfolioMapbox pins={listingPins} edgeToEdge />
+              <PortfolioMapbox pins={mapSearchFilteredPins} edgeToEdge />
             ) : (
               <MapRegionSkeleton
-                totalListings={listingPins.length}
-                portfolioCount={portfolioPins.length}
-                marketCount={marketPins.length}
+                totalListings={mapSearchFilteredPins.length}
+                portfolioCount={searchFilteredPortfolioPins.length}
+                marketCount={searchFilteredMarketPins.length}
               />
             )}
+            <div className="pointer-events-none absolute inset-0 z-20 flex justify-start">
+              <div className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-3 sm:max-w-sm md:p-4">
+                <div className="rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
+                  <label htmlFor="property-map-search" className="sr-only">
+                    Search properties on map
+                  </label>
+                  <div className="relative">
+                    <Search
+                      className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <Input
+                      id="property-map-search"
+                      type="search"
+                      value={mapSearchQuery}
+                      onChange={(e) => setMapSearchQuery(e.target.value)}
+                      placeholder="Search address or building…"
+                      autoComplete="off"
+                      className="h-9 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Listings skeleton */}
-        <aside className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden border-t border-border bg-muted/15 p-4 md:p-5 lg:h-full lg:w-[min(100%,456px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[504px]">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">
-              Search results
+        <aside className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden border-t border-border bg-muted/15 p-4 lg:h-full lg:max-h-full lg:w-[min(100%,456px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[504px]">
+          <div className="flex shrink-0 min-w-0 items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-sm font-medium text-foreground">
+              {propertyCount === 1
+                ? "1 Property"
+                : `${propertyCount} Properties`}
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              aria-label="Filter properties"
+              aria-expanded={filterPanelOpen}
+              onClick={() =>
+                filterPanelOpen ? handleFilterCancel() : openFilterPanel()
+              }
+            >
+              <Filter className="size-3.5" aria-hidden />
+              Filter
+            </Button>
           </div>
-          <div
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto pt-1"
-            role="list"
-            aria-label="Listing results"
-          >
-            {portfolioPins.map((pin) => (
-              <div key={pin.id} role="listitem">
-                <SearchListingPreviewCard pin={pin} />
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {!filterPanelOpen ? (
+              <div
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pt-1 [-webkit-overflow-scrolling:touch]"
+                role="list"
+                aria-label={
+                  propertyCount === 1
+                    ? "1 property in results"
+                    : `${propertyCount} properties in results`
+                }
+              >
+                {searchFilteredPortfolioPins.map((pin) => (
+                  <div key={pin.id} role="listitem">
+                    <SearchListingPreviewCard
+                      pin={pin}
+                      scenariosForMenu={scenariosForMenu}
+                      onOpenCreateScenario={(assetId) => {
+                        createScenarioAssetIdRef.current = assetId
+                        setNewScenarioOpen(true)
+                      }}
+                    />
+                  </div>
+                ))}
+                {searchFilteredMarketPins.map((pin) => (
+                  <div key={pin.id} role="listitem">
+                    <SearchListingPreviewCard
+                      pin={pin}
+                      scenariosForMenu={scenariosForMenu}
+                      onOpenCreateScenario={(assetId) => {
+                        createScenarioAssetIdRef.current = assetId
+                        setNewScenarioOpen(true)
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-            {marketPins.map((pin) => (
-              <div key={pin.id} role="listitem">
-                <SearchListingPreviewCard pin={pin} />
+            ) : null}
+
+            {filterPanelOpen ? (
+              <div
+                className="absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={filterTitleId}
+              >
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+                  <h2
+                    id={filterTitleId}
+                    className="text-sm font-semibold text-foreground"
+                  >
+                    Filters
+                  </h2>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0"
+                    aria-label="Close filters"
+                    onClick={handleFilterCancel}
+                  >
+                    <X className="size-4" aria-hidden />
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                  <p className="mb-3 text-xs font-medium text-muted-foreground">
+                    Listing scope
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <label
+                      htmlFor={portfolioCbId}
+                      className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                    >
+                      <Checkbox
+                        id={portfolioCbId}
+                        checked={draftFilters.showPortfolio}
+                        onCheckedChange={(v) =>
+                          setDraftFilters((prev) => ({
+                            ...prev,
+                            showPortfolio: !!v,
+                          }))
+                        }
+                        aria-label="Show portfolio assets"
+                      />
+                      <span>Portfolio assets</span>
+                    </label>
+                    <label
+                      htmlFor={marketCbId}
+                      className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                    >
+                      <Checkbox
+                        id={marketCbId}
+                        checked={draftFilters.showMarket}
+                        onCheckedChange={(v) =>
+                          setDraftFilters((prev) => ({
+                            ...prev,
+                            showMarket: !!v,
+                          }))
+                        }
+                        aria-label="Show market listings"
+                      />
+                      <span>Market listings</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="justify-center sm:justify-start"
+                    onClick={handleFilterClear}
+                  >
+                    Clear
+                  </Button>
+                  <div className="flex flex-1 justify-end gap-2 sm:flex-none">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleFilterCancel}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="button" size="sm" onClick={handleFilterApply}>
+                      Apply
+                    </Button>
+                  </div>
+                </div>
               </div>
-            ))}
+            ) : null}
           </div>
         </aside>
       </div>
     </div>
+    <NewScenarioDialog
+      open={newScenarioOpen}
+      onOpenChange={(open) => {
+        setNewScenarioOpen(open)
+        if (!open) createScenarioAssetIdRef.current = null
+      }}
+      afterCreate={(scenario) => {
+        const id = createScenarioAssetIdRef.current
+        if (id) {
+          addPortfolioAssetToScenarioBySlug(scenario.slug, id)
+        }
+        createScenarioAssetIdRef.current = null
+        router.push(`/scenarios/${scenario.slug}`)
+        showToast(
+          id
+            ? `Created “${scenario.name}” and added this asset.`
+            : `Created “${scenario.name}”.`
+        )
+      }}
+    />
+    </>
   )
 }

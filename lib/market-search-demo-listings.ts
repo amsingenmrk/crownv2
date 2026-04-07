@@ -89,7 +89,8 @@ const MARKET_BUILDINGS: readonly string[] = [
   "Downtown West Palm Hub",
 ]
 
-function hash32(s: string): number {
+/** Stable hash for demo data (exported for market listing table rows / scenario aggregates). */
+export function marketSearchDemoHash32(s: string): number {
   let h = 2_166_136_261
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)
@@ -99,7 +100,7 @@ function hash32(s: string): number {
 }
 
 function u01(seed: string): number {
-  return hash32(seed) / 0xffff_ffff
+  return marketSearchDemoHash32(seed) / 0xffff_ffff
 }
 
 /** Default synthetic market listings on /search (map + sidebar use the same count). */
@@ -112,7 +113,7 @@ export function marketSearchDemoPinsBase(
   if (n === 0) return []
 
   const liftPcts = Array.from({ length: n }, (_, i) => {
-    return 2 + (hash32(`mkt-lift:${i}`) % 17)
+    return 2 + (marketSearchDemoHash32(`mkt-lift:${i}`) % 17)
   })
   const minLift = Math.min(...liftPcts)
   const maxLift = Math.max(...liftPcts)
@@ -157,4 +158,21 @@ export function marketSearchDemoPinsBase(
       location: `${Math.floor(100 + u01(`mkt:${i}:addr`) * 900)} Main St · ${cityLine}`,
     }
   })
+}
+
+const MKT_ID_RE = /^mkt-(\d+)$/
+
+/** True when `id` matches synthetic market listing pins from {@link marketSearchDemoPinsBase}. */
+export function isMarketListingPinId(id: string): boolean {
+  return MKT_ID_RE.test(id)
+}
+
+/** Resolves a market listing pin by id, or `null` if unknown / out of range. */
+export function getMarketListingPinById(id: string): PortfolioMapboxPin | null {
+  const m = MKT_ID_RE.exec(id)
+  if (!m) return null
+  const i = Number(m[1])
+  if (!Number.isInteger(i) || i < 0) return null
+  const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
+  return pins[i] ?? null
 }

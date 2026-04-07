@@ -52,7 +52,7 @@ export function AssetDetailHeader() {
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="w-[72px] h-12 rounded-[8px] overflow-hidden bg-muted shrink-0">
+            <div className="h-12 w-[70px] shrink-0 overflow-hidden rounded-[8px] bg-muted">
               {asset.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

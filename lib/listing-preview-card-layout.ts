@@ -8,8 +8,9 @@ export const listingPreviewCardClassName =
 /** Flex row for map popup link only (no padding; Mapbox popup chrome supplies spacing). */
 export const listingPreviewCardInnerLayoutClassName = "flex gap-3"
 
+/** 70×48 — matches asset detail header thumb. */
 export const listingPreviewThumbClassName =
-  "size-16 shrink-0 overflow-hidden rounded-md bg-muted"
+  "h-12 w-[70px] shrink-0 overflow-hidden rounded-[8px] bg-muted"
 
 export const listingPreviewBodyClassName =
   "flex min-w-0 flex-1 flex-col justify-center gap-2 py-0.5"

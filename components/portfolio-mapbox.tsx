@@ -133,7 +133,7 @@ function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
           ) : null}
           <span
             className={cn(
-              "inline-flex w-fit max-w-full rounded-full px-2.5 py-0.5 text-xs font-semibold leading-3",
+              "inline-flex w-fit max-w-full items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
               liftPillClassFromStrength(pin.liftStrength)
             )}
             aria-label={

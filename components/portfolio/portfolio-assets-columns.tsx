@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { assetHref } from "@/lib/assets"
+import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
@@ -170,12 +171,18 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="flex min-w-0 items-start gap-2 text-left">
           <div className="min-w-0 flex flex-col gap-0.5 text-left">
-            <Link
-              href={assetHref(row.original.id)}
-              className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <span className="truncate">{row.original.building}</span>
-            </Link>
+            {isMarketListingRowId(row.original.id) ? (
+              <span className="inline-flex w-fit max-w-full font-semibold leading-snug text-foreground">
+                <span className="truncate">{row.original.building}</span>
+              </span>
+            ) : (
+              <Link
+                href={assetHref(row.original.id)}
+                className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <span className="truncate">{row.original.building}</span>
+              </Link>
+            )}
             <span className="text-xs leading-snug text-muted-foreground">
               {row.original.location}
             </span>
@@ -338,7 +345,7 @@ export function createPortfolioAssetColumns(
         <div className="flex justify-start">
           <span
             className={cn(
-              "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
+              "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
               liftPillClassFromStrength(liftStrength(row.original.liftPercent))
             )}
           >
@@ -363,12 +370,15 @@ export function createPortfolioAssetColumns(
       id: "modifications",
       enableHiding: false,
       header: "Modifications",
-      cell: ({ row }) => (
-        <AssetModificationSetSelect
-          assetId={row.original.id}
-          building={row.original.building}
-        />
-      ),
+      cell: ({ row }) =>
+        isMarketListingRowId(row.original.id) ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <AssetModificationSetSelect
+            assetId={row.original.id}
+            building={row.original.building}
+          />
+        ),
       enableSorting: false,
     })
     columns.push({

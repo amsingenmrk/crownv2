@@ -1,4 +1,8 @@
 import { ASSETS, type Asset } from "@/lib/assets"
+import {
+  isMarketListingPinId,
+  marketSearchDemoHash32,
+} from "@/lib/market-search-demo-listings"
 
 export function seedForAsset(asset: Asset, index: number): number {
   return (
@@ -41,6 +45,10 @@ export function financialMetricsForAssetAtIndex(asset: Asset, index: number) {
 }
 
 export function financialMetricsForAssetId(assetId: string) {
+  if (isMarketListingPinId(assetId)) {
+    const seed = marketSearchDemoHash32(`market-row:${assetId}`)
+    return portfolioValueNoiCapFromSeed(seed)
+  }
   const index = ASSETS.findIndex((a) => a.id === assetId)
   if (index < 0) return null
   return financialMetricsForAssetAtIndex(ASSETS[index]!, index)

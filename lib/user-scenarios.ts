@@ -1,9 +1,20 @@
-import { EXCLUDED_PREFIX } from "@/lib/scenario-excluded-assets-storage"
+import {
+  EXCLUDED_PREFIX,
+  SCENARIO_EXCLUDED_CHANGED_EVENT,
+  type ScenarioExcludedChangedDetail,
+} from "@/lib/scenario-excluded-assets-storage"
 import {
   INCLUDED_MIGRATED_PREFIX,
   INCLUDED_PREFIX,
   markScenarioInclusionMigratedForPathname,
+  SCENARIO_INCLUDED_CHANGED_EVENT,
+  type ScenarioIncludedChangedDetail,
 } from "@/lib/scenario-included-assets-storage"
+import {
+  humanizeScenarioSlug,
+  slugifyScenarioName,
+  uniqueScenarioSlug,
+} from "@/lib/scenario-slug"
 
 export type UserScenario = { name: string; slug: string }
 
@@ -35,13 +46,40 @@ export function subscribeUserScenarios(onStoreChange: () => void): () => void {
   }
 }
 
+function scenarioPathFromSlug(slug: string): string {
+  return `/scenarios/${slug}`
+}
+
 function clearScenarioRouteLocalStorage(slug: string) {
   if (typeof window === "undefined") return
-  const path = `/scenarios/${slug}`
+  const path = scenarioPathFromSlug(slug)
   localStorage.removeItem(`glassbox:scenario-table-selections:${path}`)
   localStorage.removeItem(`${EXCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_MIGRATED_PREFIX}${path}`)
+}
+
+function copyScenarioRouteLocalStorage(
+  sourcePath: string,
+  destPath: string
+): void {
+  if (typeof window === "undefined") return
+  const pairs: [string, string][] = [
+    [
+      `glassbox:scenario-table-selections:${sourcePath}`,
+      `glassbox:scenario-table-selections:${destPath}`,
+    ],
+    [`${EXCLUDED_PREFIX}${sourcePath}`, `${EXCLUDED_PREFIX}${destPath}`],
+    [`${INCLUDED_PREFIX}${sourcePath}`, `${INCLUDED_PREFIX}${destPath}`],
+    [
+      `${INCLUDED_MIGRATED_PREFIX}${sourcePath}`,
+      `${INCLUDED_MIGRATED_PREFIX}${destPath}`,
+    ],
+  ]
+  for (const [srcKey, destKey] of pairs) {
+    const v = localStorage.getItem(srcKey)
+    if (v != null) localStorage.setItem(destKey, v)
+  }
 }
 
 function isUserScenario(v: unknown): v is UserScenario {
@@ -97,10 +135,63 @@ export function appendUserScenario(scenario: UserScenario): UserScenario[] {
   const next = [...readUserScenarios(), scenario]
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   if (typeof window !== "undefined") {
-    markScenarioInclusionMigratedForPathname(`/scenarios/${scenario.slug}`)
+    markScenarioInclusionMigratedForPathname(scenarioPathFromSlug(scenario.slug))
     window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
   }
   return next
+}
+
+/**
+ * Creates a user scenario by copying table selection, exclusions, and inclusions
+ * from an existing scenario (built-in or user). Navigates the caller via returned slug.
+ */
+export function duplicateScenarioFromSourceSlug(
+  sourceSlug: string
+): UserScenario | null {
+  if (typeof window === "undefined") return null
+
+  const sourcePath = scenarioPathFromSlug(sourceSlug)
+  let sourceDisplayName: string
+  if (sourceSlug === BUILTIN_SCENARIO.slug) {
+    sourceDisplayName = BUILTIN_SCENARIO.name
+  } else {
+    const u = readUserScenarios().find((s) => s.slug === sourceSlug)
+    sourceDisplayName = u?.name ?? humanizeScenarioSlug(sourceSlug)
+  }
+
+  const duplicateName = `Copy of ${sourceDisplayName}`
+  const base = slugifyScenarioName(duplicateName)
+  const reserved = new Set<string>([
+    BUILTIN_SCENARIO.slug,
+    ...readUserScenarios().map((s) => s.slug),
+  ])
+  const newSlug = uniqueScenarioSlug(base, reserved)
+  const scenario: UserScenario = { name: duplicateName, slug: newSlug }
+  const destPath = scenarioPathFromSlug(newSlug)
+
+  copyScenarioRouteLocalStorage(sourcePath, destPath)
+
+  if (localStorage.getItem(`${INCLUDED_MIGRATED_PREFIX}${destPath}`) == null) {
+    markScenarioInclusionMigratedForPathname(destPath)
+  }
+
+  const next = [...readUserScenarios(), scenario]
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  window.dispatchEvent(new Event(USER_SCENARIOS_CHANGED_EVENT))
+  window.dispatchEvent(
+    new CustomEvent<ScenarioExcludedChangedDetail>(
+      SCENARIO_EXCLUDED_CHANGED_EVENT,
+      { detail: { pathname: destPath } }
+    )
+  )
+  window.dispatchEvent(
+    new CustomEvent<ScenarioIncludedChangedDetail>(
+      SCENARIO_INCLUDED_CHANGED_EVENT,
+      { detail: { pathname: destPath } }
+    )
+  )
+
+  return scenario
 }
 
 /** Updates display name only; slug and URL stay the same. Returns null if builtin or not found. */
