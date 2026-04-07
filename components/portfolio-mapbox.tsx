@@ -175,6 +175,7 @@ export function PortfolioMapbox({
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
+  const mapContainerRef = React.useRef<HTMLDivElement>(null)
   const [openPinId, setOpenPinId] = React.useState<string | null>(null)
 
   const mapStyle = resolveMapboxMapStyle(resolvedTheme)
@@ -191,13 +192,37 @@ export function PortfolioMapbox({
     if (edgeToEdge) {
       mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
     }
-    fitToPins()
+    const map = mapRef.current?.getMap()
+    requestAnimationFrame(() => {
+      map?.resize()
+      fitToPins()
+    })
     if (edgeToEdge) {
       requestAnimationFrame(() => {
         mapRef.current?.getMap()?.setPadding({ ...NO_MAP_VIEW_PADDING })
       })
     }
   }, [edgeToEdge, fitToPins])
+
+  React.useLayoutEffect(() => {
+    const el = mapContainerRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+
+    const resizeMap = () => {
+      requestAnimationFrame(() => {
+        mapRef.current?.getMap()?.resize()
+      })
+    }
+
+    const ro = new ResizeObserver(resizeMap)
+    ro.observe(el)
+    window.addEventListener("resize", resizeMap)
+    resizeMap()
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", resizeMap)
+    }
+  }, [])
 
   React.useEffect(() => {
     fitToPins()
@@ -223,7 +248,10 @@ export function PortfolioMapbox({
   }
 
   return (
-    <div className={cn("absolute inset-0 min-h-0 size-full", className)}>
+    <div
+      ref={mapContainerRef}
+      className={cn("absolute inset-0 min-h-0 min-w-0 size-full", className)}
+    >
       <Map
         ref={mapRef}
         mapboxAccessToken={token}

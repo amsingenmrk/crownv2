@@ -102,17 +102,22 @@ function u01(seed: string): number {
   return hash32(seed) / 0xffff_ffff
 }
 
-/** Number of synthetic market pins shown on /search. */
+/** Default synthetic market listings on /search (map + sidebar use the same count). */
 export const MARKET_SEARCH_LISTING_COUNT = 56
 
-export function marketSearchDemoPinsBase(): PortfolioMapboxPin[] {
-  const liftPcts = Array.from({ length: MARKET_SEARCH_LISTING_COUNT }, (_, i) => {
+export function marketSearchDemoPinsBase(
+  count: number = MARKET_SEARCH_LISTING_COUNT
+): PortfolioMapboxPin[] {
+  const n = Math.max(0, Math.floor(count))
+  if (n === 0) return []
+
+  const liftPcts = Array.from({ length: n }, (_, i) => {
     return 2 + (hash32(`mkt-lift:${i}`) % 17)
   })
   const minLift = Math.min(...liftPcts)
   const maxLift = Math.max(...liftPcts)
 
-  return Array.from({ length: MARKET_SEARCH_LISTING_COUNT }, (_, i) => {
+  return Array.from({ length: n }, (_, i) => {
     const metro = METROS[i % METROS.length]!
     const uLng = u01(`mkt:${i}:lng`)
     const uLat = u01(`mkt:${i}:lat`)

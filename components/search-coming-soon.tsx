@@ -17,7 +17,10 @@ import {
   listingPreviewCardClassName,
   listingPreviewThumbClassName,
 } from "@/lib/listing-preview-card-layout"
-import { marketSearchDemoPinsBase } from "@/lib/market-search-demo-listings"
+import {
+  MARKET_SEARCH_LISTING_COUNT,
+  marketSearchDemoPinsBase,
+} from "@/lib/market-search-demo-listings"
 import { seedForAsset } from "@/lib/portfolio-asset-financials"
 import {
   liftPillClassFromStrength,
@@ -126,20 +129,44 @@ function SearchListingPreviewCard({ pin }: { pin: PortfolioMapboxPin }) {
   return <article className={articleClass}>{cardInner}</article>
 }
 
-function MapRegionSkeleton() {
+function MapRegionSkeleton({
+  totalListings,
+  portfolioCount,
+  marketCount,
+}: {
+  totalListings: number
+  portfolioCount: number
+  marketCount: number
+}) {
+  const previewDots =
+    totalListings <= 0 ? 0 : Math.min(totalListings, 12)
+  const dotPositions = Array.from({ length: previewDots }, (_, i) => {
+    const u = ((i * 37) % 97) / 97
+    const v = ((i * 53) % 89) / 89
+    return {
+      left: `${12 + u * 76}%`,
+      top: `${18 + v * 64}%`,
+    }
+  })
+
   return (
     <>
       <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size-[48px_48px] opacity-40" />
       <div className="absolute inset-0 bg-gradient-to-br from-muted/40 via-transparent to-muted/30" />
-      <Skeleton className="absolute left-[22%] top-[28%] size-3 rounded-full shadow-sm ring-2 ring-background" />
-      <Skeleton className="absolute left-[48%] top-[42%] size-3 rounded-full shadow-sm ring-2 ring-background" />
-      <Skeleton className="absolute left-[62%] top-[36%] size-3 rounded-full shadow-sm ring-2 ring-background" />
-      <Skeleton className="absolute left-[38%] top-[58%] size-3 rounded-full shadow-sm ring-2 ring-background" />
-      <Skeleton className="absolute left-[72%] top-[62%] size-3 rounded-full shadow-sm ring-2 ring-background" />
+      {dotPositions.map((pos, i) => (
+        <Skeleton
+          key={i}
+          className="absolute size-3 rounded-full shadow-sm ring-2 ring-background"
+          style={{ left: pos.left, top: pos.top }}
+        />
+      ))}
       <div className="absolute inset-0 flex items-center justify-center p-6">
         <div className="rounded-lg border border-border bg-background/90 px-4 py-3 text-center shadow-sm backdrop-blur-sm">
           <p className="text-sm font-medium text-foreground">Interactive map</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Coming soon</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {totalListings} locations match the list · {portfolioCount}{" "}
+            portfolio, {marketCount} market (demo)
+          </p>
         </div>
       </div>
     </>
@@ -161,7 +188,7 @@ function SearchListingsToolbar({
 }) {
   return (
     <div
-      className="shrink-0 border-b border-border px-4 py-3 md:px-6 md:py-4"
+      className="shrink-0 border-b border-border px-3 py-3"
       aria-label="Search and filter listings"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between lg:gap-4">
@@ -216,7 +243,7 @@ export function SearchComingSoon() {
 
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
 
-  const searchMapPins = React.useMemo((): PortfolioMapboxPin[] => {
+  const { listingPins, portfolioPins, marketPins } = React.useMemo(() => {
     const liftPcts = ASSETS.map(
       (a, i) => 3 + (seedForAsset(a, i) % 15)
     )
@@ -243,37 +270,53 @@ export function SearchComingSoon() {
         location: a.address,
       }
     })
-    const marketRaw = marketSearchDemoPinsBase()
-    return spreadPortfolioMapPinsForDisplay([...portfolioRaw, ...marketRaw])
+    const marketRaw = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
+    const spread = spreadPortfolioMapPinsForDisplay([
+      ...portfolioRaw,
+      ...marketRaw,
+    ])
+    const pf = spread.filter((p) => p.listingScope !== "market")
+    const mk = spread.filter((p) => p.listingScope === "market")
+    if (
+      process.env.NODE_ENV === "development" &&
+      pf.length + mk.length !== spread.length
+    ) {
+      console.warn(
+        "[search] listingScope partition does not cover all pins",
+        spread.length,
+        pf.length,
+        mk.length
+      )
+    }
+    return {
+      listingPins: spread,
+      portfolioPins: pf,
+      marketPins: mk,
+    }
   }, [coordinates])
-
-  const portfolioPins = React.useMemo(
-    () => searchMapPins.filter((p) => p.listingScope !== "market"),
-    [searchMapPins]
-  )
-  const marketPins = React.useMemo(
-    () => searchMapPins.filter((p) => p.listingScope === "market"),
-    [searchMapPins]
-  )
 
   const showMapbox = mapboxEnabled
 
   return (
-    <div role="main" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div role="main" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <SearchListingsToolbar
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         activeFilter={activeFilter}
         onActiveFilterChange={setActiveFilter}
       />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Map region */}
-        <div className="flex min-h-[min(50vh,420px)] flex-1 flex-col lg:h-full lg:min-h-0">
-          <div className="relative min-h-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
+        <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
+          <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
             {showMapbox ? (
-              <PortfolioMapbox pins={searchMapPins} edgeToEdge />
+              <PortfolioMapbox pins={listingPins} edgeToEdge />
             ) : (
-              <MapRegionSkeleton />
+              <MapRegionSkeleton
+                totalListings={listingPins.length}
+                portfolioCount={portfolioPins.length}
+                marketCount={marketPins.length}
+              />
             )}
             {showMapbox ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
@@ -282,7 +325,9 @@ export function SearchComingSoon() {
                     Map legend
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Violet: your portfolio · Dark: market listings
+                    {listingPins.length} listings on map (same as list) · Violet:
+                    portfolio ({portfolioPins.length}) · Dark: market (
+                    {marketPins.length})
                   </p>
                 </div>
               </div>
@@ -297,8 +342,8 @@ export function SearchComingSoon() {
               Search results
             </p>
             <p className="text-xs text-muted-foreground">
-              {portfolioPins.length} in your portfolio · {marketPins.length}{" "}
-              market listings (demo)
+              {listingPins.length} total · {portfolioPins.length} in your
+              portfolio · {marketPins.length} market (demo) — matches map pins
             </p>
           </div>
           <div

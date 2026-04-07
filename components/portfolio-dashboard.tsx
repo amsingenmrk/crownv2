@@ -514,7 +514,7 @@ function PortfolioDashboardInner({
     "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col gap-6">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-6">
       {/* KPI row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
@@ -727,7 +727,7 @@ function PortfolioDashboardInner({
       {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section
         className={cn(
-          "flex flex-col gap-3",
+          "flex min-w-0 flex-col gap-3",
           assetsMainView === "map" && "min-h-0 flex-1"
         )}
         aria-labelledby={assetsHeadingId}
@@ -822,7 +822,7 @@ function PortfolioDashboardInner({
         <div
           id="portfolio-assets-main-panel"
           className={cn(
-            "min-h-0 w-full",
+            "min-h-0 min-w-0 w-full max-w-full",
             assetsMainView === "map" && "flex min-h-0 flex-1 flex-col"
           )}
         >

@@ -126,8 +126,12 @@
 }
 
 @layer components {
-  /* At least viewport-wide; grows with intrinsic table width for horizontal scroll */
+  /*
+   * Wider than the scrollport when columns need it (horizontal scroll).
+   * min-width: 100% keeps short tables spanning the padded scroll area.
+   */
   .portfolio-assets-table-scroll-inner {
+    box-sizing: border-box;
     width: max-content;
     min-width: 100%;
   }
