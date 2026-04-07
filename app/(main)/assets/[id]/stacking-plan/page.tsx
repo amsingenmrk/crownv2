@@ -1,11 +1,17 @@
 import { AssetStatCards } from "@/components/asset-stat-cards"
-import { StackingPlanSkeleton } from "@/components/stacking-plan-skeleton"
+import { AssetStackingPlanWorkspace } from "@/components/asset-stacking-plan-workspace"
 
-export default function AssetStackingPlanPage() {
+export default async function AssetStackingPlanPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+
   return (
     <div className="flex flex-col gap-6">
       <AssetStatCards />
-      <StackingPlanSkeleton />
+      <AssetStackingPlanWorkspace assetId={id} />
     </div>
   )
 }

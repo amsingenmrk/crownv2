@@ -8,8 +8,8 @@ import {
   INITIAL_MOD_VALUES,
   type ModValues,
 } from "@/components/building-modifications-sidebar"
+import { AssetStackingPlanWorkspace } from "@/components/asset-stacking-plan-workspace"
 import { AssetStatCards } from "@/components/asset-stat-cards"
-import { StackingPlanSkeleton } from "@/components/stacking-plan-skeleton"
 
 function modificationDraftStorageKey(assetId: string) {
   return `glassbox:modification-draft:${assetId}`
@@ -75,7 +75,12 @@ export function ModificationsWorkspace() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-6">
           <AssetStatCards variant="modifications" />
-          <StackingPlanSkeleton />
+          <AssetStackingPlanWorkspace
+            assetId={assetId}
+            lockedViewMode="simplified"
+            showViewToggle={false}
+            showSortControl={false}
+          />
         </div>
       </div>
     </div>
