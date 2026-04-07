@@ -321,22 +321,6 @@ export function createPortfolioAssetColumns(
         </div>
       ),
     },
-    {
-      accessorKey: "debtYield",
-      enableHiding: true,
-      meta: { columnLabel: "Debt Yield" },
-      header: ({ column }) => (
-        <SortableHeader column={column}>Debt Yield</SortableHeader>
-      ),
-      sortingFn: (rowA, rowB, id) =>
-        Number.parseFloat(String(rowA.getValue(id))) -
-        Number.parseFloat(String(rowB.getValue(id))),
-      cell: ({ row }) => (
-        <div className="text-left text-sm tabular-nums">
-          {row.original.debtYield}
-        </div>
-      ),
-    },
   ]
 
   if (variant === "portfolio") {

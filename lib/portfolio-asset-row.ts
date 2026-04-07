@@ -15,7 +15,6 @@ export type PortfolioAssetRow = {
   value: string
   capRate: string
   wale: string
-  debtYield: string
   status: string
   lift: string
   liftPercent: number
