@@ -318,20 +318,6 @@ export function SearchComingSoon() {
                 marketCount={marketPins.length}
               />
             )}
-            {showMapbox ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
-                <div className="rounded-lg border border-border bg-background/90 px-3 py-2 text-center shadow-sm backdrop-blur-sm">
-                  <p className="text-xs font-medium text-foreground">
-                    Map legend
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {listingPins.length} listings on map (same as list) · Violet:
-                    portfolio ({portfolioPins.length}) · Dark: market (
-                    {marketPins.length})
-                  </p>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
 
