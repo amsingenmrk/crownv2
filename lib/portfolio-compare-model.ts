@@ -5,7 +5,8 @@ import {
 } from "@/lib/user-scenarios"
 
 export const PORTFOLIO_KEY = "portfolio"
-export const COMPARE_SLOT_COUNT = 3
+export const MIN_COMPARE_COLUMNS = 1
+export const MAX_COMPARE_COLUMNS = 6
 export const COMPARE_ROW_LABEL_COL_PX = 200
 
 export function scenarioKey(slug: string) {
@@ -171,6 +172,17 @@ export function entitySelectOptions(userScenarios: readonly UserScenario[]) {
   ]
 }
 
-export function compareGridTemplateColumns(): string {
-  return `${COMPARE_ROW_LABEL_COL_PX}px repeat(${COMPARE_SLOT_COUNT}, minmax(0, 1fr))`
+export function compareGridTemplateColumns(slotCount: number): string {
+  const n = Math.max(0, slotCount)
+  return `${COMPARE_ROW_LABEL_COL_PX}px repeat(${n}, minmax(0, 1fr))`
+}
+
+/** Default columns: Portfolio → built-in scenario → first user scenario (or built-in again if none). */
+export function defaultCompareSlotKeys(
+  userScenarios: readonly UserScenario[]
+): string[] {
+  const built = scenarioKey(BUILTIN_SCENARIO.slug)
+  const third =
+    userScenarios[0] != null ? scenarioKey(userScenarios[0].slug) : built
+  return [PORTFOLIO_KEY, built, third]
 }

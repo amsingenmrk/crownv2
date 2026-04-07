@@ -7,6 +7,8 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table"
+import { Plus, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
@@ -18,10 +20,12 @@ import {
 } from "@/components/ui/select"
 import { TableBody, TableCell, TableRow } from "@/components/ui/table"
 import {
-  COMPARE_SLOT_COUNT,
   compareGridTemplateColumns,
+  COMPARE_ROW_LABEL_COL_PX,
   KPI_TABLE_ROWS,
+  MAX_COMPARE_COLUMNS,
   METRIC_KEYS_AFFECTED_BY_MODS,
+  MIN_COMPARE_COLUMNS,
   PORTFOLIO_KPIS_BASELINE,
   type CompareColumn,
   type HeaderKpiMetrics,
@@ -46,6 +50,8 @@ export type PortfolioCompareTableMeta = {
   modificationsOn: boolean[]
   setModificationsOnAt: (index: number, on: boolean) => void
   baseColumns: CompareColumn[]
+  onAddColumn: () => void
+  onRemoveColumn: (index: number) => void
 }
 
 const COMPARE_ROWS: CompareTableRow[] = [
@@ -66,14 +72,33 @@ const gridRowStyle = {
   columnGap: "0.75rem",
 } as const
 
-function compareColumns(): ColumnDef<CompareTableRow>[] {
+function createCompareColumns(
+  slotCount: number
+): ColumnDef<CompareTableRow>[] {
   const labelCol: ColumnDef<CompareTableRow> = {
     id: "label",
     header: () => null,
     cell: ({ row, table }) => {
       const r = row.original
+      const meta = table.options.meta as PortfolioCompareTableMeta | undefined
       if (r.kind === "header-select") {
-        return null
+        const canAdd = (meta?.slotKeys.length ?? 0) < MAX_COMPARE_COLUMNS
+        return (
+          <div className="flex items-center justify-start">
+            {canAdd ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="size-8 shrink-0"
+                onClick={() => meta?.onAddColumn()}
+                aria-label="Add compare column"
+              >
+                <Plus className="size-4" aria-hidden />
+              </Button>
+            ) : null}
+          </div>
+        )
       }
       if (r.kind === "header-mods") {
         return <span className="font-medium">Modifications</span>
@@ -83,7 +108,7 @@ function compareColumns(): ColumnDef<CompareTableRow>[] {
   }
 
   const slots: ColumnDef<CompareTableRow>[] = Array.from(
-    { length: COMPARE_SLOT_COUNT },
+    { length: slotCount },
     (_, slotIndex) => ({
       id: `slot${slotIndex}`,
       header: () => null,
@@ -94,30 +119,45 @@ function compareColumns(): ColumnDef<CompareTableRow>[] {
 
         if (r.kind === "header-select") {
           const key = meta.slotKeys[slotIndex]!
+          const canRemove = meta.slotKeys.length > MIN_COMPARE_COLUMNS
           return (
-            <Select
-              value={key}
-              items={meta.options}
-              onValueChange={(v) => {
-                if (v) meta.setSlot(slotIndex, v)
-              }}
-            >
-              <SelectTrigger
-                className="w-full min-w-0 max-w-full"
-                aria-label="Compare column source"
+            <div className="flex min-w-0 items-center gap-1">
+              <Select
+                value={key}
+                items={meta.options}
+                onValueChange={(v) => {
+                  if (v) meta.setSlot(slotIndex, v)
+                }}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {meta.options.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className="min-w-0 flex-1"
+                  aria-label="Compare column source"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {meta.options.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {canRemove ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => meta.onRemoveColumn(slotIndex)}
+                  aria-label={`Remove compare column ${slotIndex + 1}`}
+                >
+                  <X className="size-4" aria-hidden />
+                </Button>
+              ) : null}
+            </div>
           )
         }
 
@@ -161,8 +201,6 @@ function compareColumns(): ColumnDef<CompareTableRow>[] {
   return [labelCol, ...slots]
 }
 
-const compareColumnDefs = compareColumns()
-
 export function PortfolioCompareDataTable({
   slotKeys,
   setSlot,
@@ -170,6 +208,8 @@ export function PortfolioCompareDataTable({
   modificationsOn,
   setModificationsOnAt,
   baseColumns,
+  onAddColumn,
+  onRemoveColumn,
 }: {
   slotKeys: string[]
   setSlot: (index: number, value: string) => void
@@ -177,8 +217,20 @@ export function PortfolioCompareDataTable({
   modificationsOn: boolean[]
   setModificationsOnAt: (index: number, on: boolean) => void
   baseColumns: CompareColumn[]
+  onAddColumn: () => void
+  onRemoveColumn: (index: number) => void
 }) {
-  const gridTemplateColumns = compareGridTemplateColumns()
+  const slotCount = slotKeys.length
+
+  const gridTemplateColumns = React.useMemo(
+    () => compareGridTemplateColumns(slotCount),
+    [slotCount]
+  )
+
+  const columnDefs = React.useMemo(
+    () => createCompareColumns(slotCount),
+    [slotCount]
+  )
 
   const meta = React.useMemo<PortfolioCompareTableMeta>(
     () => ({
@@ -188,6 +240,8 @@ export function PortfolioCompareDataTable({
       modificationsOn,
       setModificationsOnAt,
       baseColumns,
+      onAddColumn,
+      onRemoveColumn,
     }),
     [
       slotKeys,
@@ -196,12 +250,14 @@ export function PortfolioCompareDataTable({
       modificationsOn,
       setModificationsOnAt,
       baseColumns,
+      onAddColumn,
+      onRemoveColumn,
     ]
   )
 
   const table = useReactTable({
     data: COMPARE_ROWS,
-    columns: compareColumnDefs,
+    columns: columnDefs,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta,
@@ -209,11 +265,16 @@ export function PortfolioCompareDataTable({
 
   const rows = table.getRowModel().rows
 
+  const tableMinWidth = COMPARE_ROW_LABEL_COL_PX + slotCount * 160
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
       <table
-        className="grid w-full min-w-[720px] px-0 caption-bottom text-sm"
-        style={{ gridTemplateColumns }}
+        className="grid w-full px-0 caption-bottom text-sm"
+        style={{
+          gridTemplateColumns,
+          minWidth: Math.max(tableMinWidth, 360),
+        }}
       >
         <TableBody className="contents [&_tr:last-child]:border-b-0">
           {rows.map((row) => {
