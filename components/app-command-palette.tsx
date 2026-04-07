@@ -6,6 +6,7 @@ import {
   Briefcase,
   Building2,
   CalendarDays,
+  GitCompareArrows,
   Search,
   TextSearch,
 } from "lucide-react"
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils"
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
   { title: "Property search", href: "/search", icon: Search },
+  { title: "Compare", href: "/compare", icon: GitCompareArrows },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 

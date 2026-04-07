@@ -66,6 +66,7 @@ const TITLES: Record<string, string> = {
   "/": "Portfolio",
   "/portfolio": "Portfolio",
   "/search": "Property search",
+  "/compare": "Compare",
   "/benchmarks": "Benchmarks",
 }
 
