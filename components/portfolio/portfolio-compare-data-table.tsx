@@ -22,10 +22,14 @@ import { TableBody, TableCell, TableRow } from "@/components/ui/table"
 import {
   compareGridTemplateColumns,
   COMPARE_ROW_LABEL_COL_PX,
+  effectiveCompareDisplay,
+  effectiveCompareNumeric,
+  formatCompareMetricDelta,
   KPI_TABLE_ROWS,
   MAX_COMPARE_COLUMNS,
   METRIC_KEYS_AFFECTED_BY_MODS,
   MIN_COMPARE_COLUMNS,
+  numericForMetricKey,
   PORTFOLIO_KPIS_BASELINE,
   type CompareColumn,
   type HeaderKpiMetrics,
@@ -177,21 +181,47 @@ function createCompareColumns(
 
         const baseCol = meta.baseColumns[slotIndex]!
         const modsOn = meta.modificationsOn[slotIndex] === true
-        const displayMetrics = modsOn ? baseCol.metrics : PORTFOLIO_KPIS_BASELINE
-        const value = r.get(displayMetrics)
+        const refCol = meta.baseColumns[0]!
+        const refModsOn = meta.modificationsOn[0] === true
+
+        const displayCur = effectiveCompareDisplay(baseCol, modsOn)
+        const absolute = r.get(displayCur)
+        const deltaStr =
+          slotIndex > 0
+            ? formatCompareMetricDelta(
+                r.metricKey,
+                numericForMetricKey(
+                  effectiveCompareNumeric(baseCol, modsOn),
+                  r.metricKey
+                ) -
+                  numericForMetricKey(
+                    effectiveCompareNumeric(refCol, refModsOn),
+                    r.metricKey
+                  )
+              )
+            : null
+        const showDeltaAfter = deltaStr != null && deltaStr !== "—"
+
         const affectedByMods =
           modsOn &&
           METRIC_KEYS_AFFECTED_BY_MODS.has(r.metricKey) &&
           baseCol.metrics[r.metricKey] !== PORTFOLIO_KPIS_BASELINE[r.metricKey]
 
         return (
-          <span
-            className={cn(
-              affectedByMods &&
-                "font-semibold text-violet-800 dark:text-violet-200"
-            )}
-          >
-            {value}
+          <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
+            <span
+              className={cn(
+                affectedByMods &&
+                  "font-semibold text-violet-800 dark:text-violet-200"
+              )}
+            >
+              {absolute}
+            </span>
+            {showDeltaAfter ? (
+              <span className="text-muted-foreground tabular-nums">
+                {deltaStr}
+              </span>
+            ) : null}
           </span>
         )
       },

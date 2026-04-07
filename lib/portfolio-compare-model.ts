@@ -27,6 +27,18 @@ export type HeaderKpiMetrics = {
   wale: string
 }
 
+/** Canonical numbers for delta compare (aligned with `HeaderKpiMetrics` presets). */
+export type HeaderKpiNumeric = {
+  estValueBillions: number
+  estValuePerSfUsd: number
+  occupancyPct: number
+  vacancyPct: number
+  noiMillionsPerYr: number
+  noiPerSfUsd: number
+  capRatePct: number
+  waleYears: number
+}
+
 export type CompareColumn = {
   id: string
   kind: CompareKind
@@ -35,6 +47,7 @@ export type CompareColumn = {
   address: string
   image: string
   metrics: HeaderKpiMetrics
+  numeric: HeaderKpiNumeric
 }
 
 /** Baseline matches `KPIS` in `portfolio-dashboard.tsx`. */
@@ -49,27 +62,70 @@ export const PORTFOLIO_KPIS_BASELINE: HeaderKpiMetrics = {
   wale: "5.8 yrs",
 }
 
-const KPI_METRIC_PRESETS: HeaderKpiMetrics[] = [
-  PORTFOLIO_KPIS_BASELINE,
+export const PORTFOLIO_KPIS_NUMERIC_BASELINE: HeaderKpiNumeric = {
+  estValueBillions: 1.24,
+  estValuePerSfUsd: 485,
+  occupancyPct: 91.6,
+  vacancyPct: 8.4,
+  noiMillionsPerYr: 74.2,
+  noiPerSfUsd: 29.1,
+  capRatePct: 6.0,
+  waleYears: 5.8,
+}
+
+type KpiPresetBundle = {
+  display: HeaderKpiMetrics
+  numeric: HeaderKpiNumeric
+}
+
+const KPI_PRESET_BUNDLES: KpiPresetBundle[] = [
   {
-    estValue: "$1.27B",
-    estValuePerSf: "$498 / SF",
-    occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
-    vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
-    noi: "$76.1M / yr",
-    noiPerSf: "$29.85 / SF",
-    capRate: "5.95%",
-    wale: PORTFOLIO_KPIS_BASELINE.wale,
+    display: PORTFOLIO_KPIS_BASELINE,
+    numeric: PORTFOLIO_KPIS_NUMERIC_BASELINE,
   },
   {
-    estValue: "$1.21B",
-    estValuePerSf: "$472 / SF",
-    occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
-    vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
-    noi: "$72.8M / yr",
-    noiPerSf: "$28.40 / SF",
-    capRate: "6.08%",
-    wale: PORTFOLIO_KPIS_BASELINE.wale,
+    display: {
+      estValue: "$1.27B",
+      estValuePerSf: "$498 / SF",
+      occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
+      vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
+      noi: "$76.1M / yr",
+      noiPerSf: "$29.85 / SF",
+      capRate: "5.95%",
+      wale: PORTFOLIO_KPIS_BASELINE.wale,
+    },
+    numeric: {
+      estValueBillions: 1.27,
+      estValuePerSfUsd: 498,
+      occupancyPct: 91.6,
+      vacancyPct: 8.4,
+      noiMillionsPerYr: 76.1,
+      noiPerSfUsd: 29.85,
+      capRatePct: 5.95,
+      waleYears: 5.8,
+    },
+  },
+  {
+    display: {
+      estValue: "$1.21B",
+      estValuePerSf: "$472 / SF",
+      occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
+      vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
+      noi: "$72.8M / yr",
+      noiPerSf: "$28.40 / SF",
+      capRate: "6.08%",
+      wale: PORTFOLIO_KPIS_BASELINE.wale,
+    },
+    numeric: {
+      estValueBillions: 1.21,
+      estValuePerSfUsd: 472,
+      occupancyPct: 91.6,
+      vacancyPct: 8.4,
+      noiMillionsPerYr: 72.8,
+      noiPerSfUsd: 28.4,
+      capRatePct: 6.08,
+      waleYears: 5.8,
+    },
   },
 ]
 
@@ -101,12 +157,13 @@ export const KPI_TABLE_ROWS: {
   { label: "WALE / WALT", metricKey: "wale", get: (m) => m.wale },
 ]
 
-function metricsPresetAt(index: number): HeaderKpiMetrics {
-  return { ...KPI_METRIC_PRESETS[index % KPI_METRIC_PRESETS.length]! }
+function presetBundleAt(index: number): KpiPresetBundle {
+  return KPI_PRESET_BUNDLES[index % KPI_PRESET_BUNDLES.length]!
 }
 
 function portfolioColumn(): CompareColumn {
   const flagship = ASSETS[0]
+  const b = presetBundleAt(0)
   return {
     id: "portfolio",
     kind: "portfolio",
@@ -115,11 +172,13 @@ function portfolioColumn(): CompareColumn {
     image:
       flagship?.imageUrl ??
       "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop",
-    metrics: metricsPresetAt(0),
+    metrics: { ...b.display },
+    numeric: { ...b.numeric },
   }
 }
 
 function builtinScenarioColumn(): CompareColumn {
+  const b = presetBundleAt(1)
   return {
     id: `scenario-${BUILTIN_SCENARIO.slug}`,
     kind: "scenario",
@@ -128,11 +187,13 @@ function builtinScenarioColumn(): CompareColumn {
     address: "Scenario workspace · capital planning",
     image:
       "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop",
-    metrics: metricsPresetAt(1),
+    metrics: { ...b.display },
+    numeric: { ...b.numeric },
   }
 }
 
 function userScenarioColumn(s: UserScenario, index: number): CompareColumn {
+  const b = presetBundleAt(2 + index)
   return {
     id: `scenario-${s.slug}`,
     kind: "scenario",
@@ -141,7 +202,8 @@ function userScenarioColumn(s: UserScenario, index: number): CompareColumn {
     address: `User scenario · ${s.slug.replace(/-/g, " ")}`,
     image:
       "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop",
-    metrics: metricsPresetAt(2 + index),
+    metrics: { ...b.display },
+    numeric: { ...b.numeric },
   }
 }
 
@@ -185,4 +247,70 @@ export function defaultCompareSlotKeys(
   const third =
     userScenarios[0] != null ? scenarioKey(userScenarios[0].slug) : built
   return [PORTFOLIO_KEY, built, third]
+}
+
+export function numericForMetricKey(
+  n: HeaderKpiNumeric,
+  key: keyof HeaderKpiMetrics
+): number {
+  switch (key) {
+    case "estValue":
+      return n.estValueBillions
+    case "estValuePerSf":
+      return n.estValuePerSfUsd
+    case "occupancy":
+      return n.occupancyPct
+    case "vacancy":
+      return n.vacancyPct
+    case "noi":
+      return n.noiMillionsPerYr
+    case "noiPerSf":
+      return n.noiPerSfUsd
+    case "capRate":
+      return n.capRatePct
+    case "wale":
+      return n.waleYears
+  }
+}
+
+/** Signed delta string for columns after the reference column; "—" when unchanged. */
+export function formatCompareMetricDelta(
+  metricKey: keyof HeaderKpiMetrics,
+  delta: number
+): string {
+  const eps = 1e-6
+  if (Math.abs(delta) < eps) return "—"
+  const s = delta > 0 ? "+" : "−"
+  const a = Math.abs(delta)
+  switch (metricKey) {
+    case "estValue":
+      return `${s}$${a.toFixed(2)}B`
+    case "estValuePerSf":
+      return `${s}$${Math.round(a)} / SF`
+    case "occupancy":
+    case "vacancy":
+      return `${s}${a.toFixed(2)} pts`
+    case "noi":
+      return `${s}$${a.toFixed(1)}M`
+    case "noiPerSf":
+      return `${s}$${a.toFixed(2)} / SF`
+    case "capRate":
+      return `${s}${a.toFixed(2)} pts`
+    case "wale":
+      return `${s}${a.toFixed(1)} yrs`
+  }
+}
+
+export function effectiveCompareNumeric(
+  col: CompareColumn,
+  modsOn: boolean
+): HeaderKpiNumeric {
+  return modsOn ? col.numeric : PORTFOLIO_KPIS_NUMERIC_BASELINE
+}
+
+export function effectiveCompareDisplay(
+  col: CompareColumn,
+  modsOn: boolean
+): HeaderKpiMetrics {
+  return modsOn ? col.metrics : PORTFOLIO_KPIS_BASELINE
 }
