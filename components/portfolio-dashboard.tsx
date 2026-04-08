@@ -53,6 +53,7 @@ import {
   formatUsdPerSf,
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
+import { portfolioKpiStripFromRows } from "@/lib/portfolio-kpi-aggregate"
 import { computeScenarioPortfolioAggregate } from "@/lib/scenario-portfolio-aggregate"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
@@ -119,7 +120,7 @@ function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
 }
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
-const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
+const ALL_PORTFOLIO_GROUPS_LABEL = "All assets"
 
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
 function toCssPercent(n: number): string {
@@ -228,21 +229,6 @@ function PortfolioDashboardInner({
         a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
     )
   }, [assetGroupOverrideSnap])
-
-  const liftPctExtent = React.useMemo(() => {
-    const ps = portfolioAssetRows.map((r) => r.liftPercent)
-    return { min: Math.min(...ps), max: Math.max(...ps) }
-  }, [portfolioAssetRows])
-
-  const liftStrengthForRow = React.useCallback(
-    (liftPercent: number) =>
-      normalizedLiftStrength(
-        liftPercent,
-        liftPctExtent.min,
-        liftPctExtent.max
-      ),
-    [liftPctExtent]
-  )
 
   const portfolioGroupSelectItems = React.useMemo(() => {
     void assetGroupOverrideSnap
@@ -452,6 +438,27 @@ function PortfolioDashboardInner({
     scenarioIncludedAssetIds,
     scenarioMembershipMode,
   ])
+
+  const liftPctExtent = React.useMemo(() => {
+    const ps = visibleAssetRows.map((r) => r.liftPercent)
+    if (ps.length === 0) return { min: 0, max: 100 }
+    return { min: Math.min(...ps), max: Math.max(...ps) }
+  }, [visibleAssetRows])
+
+  const liftStrengthForRow = React.useCallback(
+    (liftPercent: number) =>
+      normalizedLiftStrength(
+        liftPercent,
+        liftPctExtent.min,
+        liftPctExtent.max
+      ),
+    [liftPctExtent]
+  )
+
+  const portfolioKpiStrip = React.useMemo(() => {
+    if (assetsTableVariant !== "portfolio") return null
+    return portfolioKpiStripFromRows(visibleAssetRows)
+  }, [assetsTableVariant, visibleAssetRows])
 
   const visibleMapPins = React.useMemo(
     () => mapPinsForRows(visibleAssetRows),
@@ -759,6 +766,23 @@ function PortfolioDashboardInner({
               </MetricStripValueRow>
             </MetricStripCell>
           </>
+        ) : portfolioKpiStrip != null ? (
+          portfolioKpiStrip.map((kpi) => (
+            <MetricStripCell key={kpi.label}>
+              <MetricStripLabel>{kpi.label}</MetricStripLabel>
+              <MetricStripValueRow>
+                <span className="text-foreground">{kpi.value}</span>
+              </MetricStripValueRow>
+              {kpi.subLabel != null && kpi.subValue != null ? (
+                <MetricStripSubStack>
+                  <MetricStripSubRow
+                    label={kpi.subLabel}
+                    value={kpi.subValue}
+                  />
+                </MetricStripSubStack>
+              ) : null}
+            </MetricStripCell>
+          ))
         ) : (
           KPIS.map((kpi) => (
             <MetricStripCell key={kpi.label}>
@@ -841,7 +865,7 @@ function PortfolioDashboardInner({
             >
               <SelectTrigger
                 className="h-8 w-full min-w-0 shrink-0 sm:min-w-[13rem] sm:w-auto sm:max-w-[16rem]"
-                aria-label="Filter assets by portfolio group"
+                aria-label="Filter by fund or all assets"
               >
                 <SelectValue placeholder={ALL_PORTFOLIO_GROUPS_LABEL} />
               </SelectTrigger>
