@@ -109,10 +109,12 @@ export function AssetForecastsTable({
   periods,
   rows,
   revenueBreakdown,
+  topAccessory,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
   revenueBreakdown: ForecastRevenueFloorRow[]
+  topAccessory?: React.ReactNode
 }) {
   const [revenueExpanded, setRevenueExpanded] = React.useState(false)
   const [expandedFloors, setExpandedFloors] = React.useState<Record<string, boolean>>({})
@@ -131,7 +133,12 @@ export function AssetForecastsTable({
   }, [revenueExpanded])
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="overflow-hidden">
+      {topAccessory != null ? (
+        <div className="border-b border-border/60 px-4 py-3">
+          {topAccessory}
+        </div>
+      ) : null}
       <Table className="min-w-[1040px]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
