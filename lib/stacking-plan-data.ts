@@ -1,3 +1,5 @@
+import { getAssetById } from "@/lib/assets"
+
 export type StackingViewMode = "detailed" | "simplified"
 
 export type StackingLegendItem = {
@@ -91,84 +93,6 @@ export const STACKING_EXPIRATION_LEGEND: readonly StackingLegendItem[] = [
   { label: "2030+", color: "#22c55e" },
 ] as const
 
-const BASE_FLOORS: readonly FloorSeed[] = [
-  {
-    floor: 18,
-    totalSqft: 19850,
-    tenants: [
-      { name: "Northstar Capital", space: "18A", sqft: 8425, expiration: "2029-09-30" },
-      { name: "Vacant", space: "18B", sqft: 3150, note: "Available direct", isVacant: true },
-      { name: "Aperture Legal", space: "18C", sqft: 5125, expiration: "2026-06-30" },
-      { name: "Kepler Ventures", space: "18D", sqft: 3150, expiration: "2028-12-31" },
-    ],
-  },
-  {
-    floor: 17,
-    totalSqft: 20120,
-    tenants: [
-      { name: "Atlas Financial", space: "17A", sqft: 10320, expiration: "2027-05-31" },
-      { name: "Harbor Advisory", space: "17B", sqft: 4280, expiration: "2031-03-31" },
-      { name: "Vacant", space: "17C", sqft: 5520, note: "Prebuilt suite", isVacant: true },
-    ],
-  },
-  {
-    floor: 16,
-    totalSqft: 19440,
-    tenants: [
-      { name: "Meridian Insurance", space: "16A", sqft: 6240, expiration: "2025-11-30" },
-      { name: "Bluebridge Tech", space: "16B", sqft: 3920, expiration: "2028-08-31" },
-      { name: "Sable Partners", space: "16C", sqft: 5020, expiration: "2030-01-31" },
-      { name: "Quill Health", space: "16D", sqft: 4260, expiration: "2026-09-30" },
-    ],
-  },
-  {
-    floor: 15,
-    totalSqft: 18810,
-    tenants: [
-      { name: "Vacant", space: "15A", sqft: 6210, note: "Built office", isVacant: true },
-      { name: "Beacon Media", space: "15B", sqft: 8310, expiration: "2029-04-30" },
-      { name: "Stone & Rowe", space: "15C", sqft: 4290, expiration: "2027-10-31" },
-    ],
-  },
-  {
-    floor: 14,
-    totalSqft: 20550,
-    tenants: [
-      { name: "Orbit Dynamics", space: "14A", sqft: 9620, expiration: "2032-02-29" },
-      { name: "Eastpoint Labs", space: "14B", sqft: 5180, expiration: "2028-05-31" },
-      { name: "Vacant", space: "14C", sqft: 5750, note: "Plug-and-play", isVacant: true },
-    ],
-  },
-  {
-    floor: 13,
-    totalSqft: 19780,
-    tenants: [
-      { name: "Lattice Systems", space: "13A", sqft: 7250, expiration: "2026-12-31" },
-      { name: "West Harbor Bank", space: "13B", sqft: 6860, expiration: "2029-06-30" },
-      { name: "Summit Private Equity", space: "13C", sqft: 5670, expiration: "2030-07-31" },
-    ],
-  },
-  {
-    floor: 12,
-    totalSqft: 19040,
-    tenants: [
-      { name: "Vacant", space: "12A", sqft: 3820, note: "Contiguous opportunity", isVacant: true },
-      { name: "Avondale Counsel", space: "12B", sqft: 4910, expiration: "2025-08-31" },
-      { name: "Glassline Studio", space: "12C", sqft: 3880, expiration: "2027-02-28" },
-      { name: "Pinnacle Tax", space: "12D", sqft: 6430, expiration: "2028-11-30" },
-    ],
-  },
-  {
-    floor: 11,
-    totalSqft: 18690,
-    tenants: [
-      { name: "Union Square Capital", space: "11A", sqft: 8340, expiration: "2029-01-31" },
-      { name: "Vacant", space: "11B", sqft: 2410, note: "Spec suite", isVacant: true },
-      { name: "Nexa Data", space: "11C", sqft: 7940, expiration: "2026-03-31" },
-    ],
-  },
-] as const
-
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "numeric",
@@ -201,12 +125,100 @@ const TENANT_CONTACT_NAMES = [
   { name: "Martin Lowe", title: "Operations Director" },
 ] as const
 
-const BUILDING_ADDRESSES = [
-  "200 Park Avenue, New York, NY",
-  "181 West Madison Street, Chicago, IL",
-  "600 Congress Avenue, Austin, TX",
-  "101 California Street, San Francisco, CA",
+const TENANT_PREFIXES = [
+  "Atlas",
+  "Northstar",
+  "Harbor",
+  "Bluebridge",
+  "Aperture",
+  "Kepler",
+  "Meridian",
+  "Beacon",
+  "Orbit",
+  "Eastpoint",
+  "Lattice",
+  "Summit",
+  "Pinnacle",
+  "Union Square",
+  "Nexa",
+  "Crescent",
+  "Hudson",
+  "Stonegate",
+  "Silverline",
+  "Parkview",
+  "Ridgeway",
+  "Westport",
+  "Greenline",
+  "Broadleaf",
+  "Crosswind",
+  "Ironwood",
+  "Lakefront",
+  "Metro",
+  "Skyline",
+  "Catalyst",
 ] as const
+
+const TENANT_SUFFIXES_BY_GROUP = {
+  office: [
+    "Capital",
+    "Advisory",
+    "Partners",
+    "Legal",
+    "Ventures",
+    "Analytics",
+    "Media",
+    "Systems",
+    "Labs",
+    "Counsel",
+    "Consulting",
+    "Studio",
+  ],
+  industrial: [
+    "Logistics",
+    "Distribution",
+    "Manufacturing",
+    "Fulfillment",
+    "Packaging",
+    "Freight",
+    "Cold Storage",
+    "Supply",
+    "Operations",
+    "Materials",
+    "Foods",
+    "Works",
+  ],
+  retail: [
+    "Collective",
+    "Outfitters",
+    "Mercantile",
+    "Market",
+    "Home",
+    "Goods",
+    "Kitchen",
+    "Studio",
+    "Exchange",
+    "Retail",
+    "Gallery",
+    "Supply",
+  ],
+} as const
+
+const VACANCY_NOTES = [
+  "Plug-and-play suite",
+  "Prebuilt spec suite",
+  "Available direct",
+  "Built office opportunity",
+  "Contiguous expansion space",
+  "Marketing ready",
+] as const
+
+const PROPERTY_TYPE_BY_GROUP = {
+  office: "Office",
+  industrial: "Industrial",
+  retail: "Retail",
+} as const
+
+type RandomFn = () => number
 
 function hashText(input: string): number {
   let hash = 0
@@ -214,6 +226,33 @@ function hashText(input: string): number {
     hash = (hash * 31 + input.charCodeAt(i)) >>> 0
   }
   return hash
+}
+
+function createPrng(seed: number): RandomFn {
+  let state = seed === 0 ? 0x9e3779b9 : seed >>> 0
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 0x1_0000_0000
+  }
+}
+
+function randomInt(random: RandomFn, min: number, max: number) {
+  return Math.floor(random() * (max - min + 1)) + min
+}
+
+function pickOne<T>(random: RandomFn, values: readonly T[]): T {
+  return values[randomInt(random, 0, values.length - 1)]!
+}
+
+function shuffle<T>(random: RandomFn, values: T[]): T[] {
+  const next = [...values]
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(random, 0, index)
+    const current = next[index]
+    next[index] = next[swapIndex]!
+    next[swapIndex] = current!
+  }
+  return next
 }
 
 function formatSqft(value: number): string {
@@ -329,15 +368,146 @@ function buildContacts(
   return contacts
 }
 
-function rotateFloors(assetId: string): readonly FloorSeed[] {
-  const shift = hashText(assetId) % BASE_FLOORS.length
-  return BASE_FLOORS.map((_, index) => BASE_FLOORS[(index + shift) % BASE_FLOORS.length]!)
+function buildQuarterEndDate(random: RandomFn): string {
+  const year = 2025 + randomInt(random, 0, 9)
+  const month = [3, 6, 9, 12][randomInt(random, 0, 3)]!
+  const day = month === 3 ? 31 : month === 12 ? 31 : 30
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+function buildTenantName(
+  assetGroupId: string,
+  random: RandomFn,
+  usedNames: Set<string>
+): string {
+  const suffixes =
+    TENANT_SUFFIXES_BY_GROUP[
+      assetGroupId === "industrial" || assetGroupId === "retail" ? assetGroupId : "office"
+    ]
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const candidate = `${pickOne(random, TENANT_PREFIXES)} ${pickOne(random, suffixes)}`
+    const key = candidate.toLowerCase()
+    if (!usedNames.has(key)) {
+      usedNames.add(key)
+      return candidate
+    }
+  }
+
+  const fallback = `${pickOne(random, TENANT_PREFIXES)} ${pickOne(
+    random,
+    suffixes
+  )} ${usedNames.size + 1}`
+  usedNames.add(fallback.toLowerCase())
+  return fallback
+}
+
+function buildSuiteSqfts(totalSqft: number, suiteCount: number, random: RandomFn): number[] {
+  const sizes: number[] = []
+  let remainingSqft = totalSqft
+
+  for (let index = 0; index < suiteCount; index += 1) {
+    if (index === suiteCount - 1) {
+      sizes.push(remainingSqft)
+      break
+    }
+
+    const remainingSuites = suiteCount - index - 1
+    const minRemainingSqft = remainingSuites * 1800
+    const averageSqft = remainingSqft / (remainingSuites + 1)
+    const minCurrentSqft = Math.max(1800, Math.floor(averageSqft * 0.55))
+    const maxCurrentSqft = Math.max(
+      minCurrentSqft,
+      Math.min(remainingSqft - minRemainingSqft, Math.floor(averageSqft * 1.45))
+    )
+
+    let nextSqft = randomInt(random, minCurrentSqft, maxCurrentSqft)
+    nextSqft = Math.round(nextSqft / 10) * 10
+    nextSqft = Math.min(nextSqft, remainingSqft - minRemainingSqft)
+    nextSqft = Math.max(nextSqft, 1800)
+
+    sizes.push(nextSqft)
+    remainingSqft -= nextSqft
+  }
+
+  return sizes.sort((left, right) => right - left)
+}
+
+function buildFloorSeedsForAsset(assetId: string): FloorSeed[] {
+  const asset = getAssetById(assetId)
+  const seed = hashText(`stacking:${assetId}`)
+  const random = createPrng(seed)
+  const floorCount = 12 + (seed % 17)
+  const targetOccupancyPct = asset?.occupiedPercent ?? (68 + (seed % 24))
+  const targetOccupiedShare = Math.max(0.58, Math.min(0.96, targetOccupancyPct / 100))
+  const usedTenantNames = new Set<string>()
+
+  const floors: FloorSeed[] = []
+
+  for (let floor = floorCount; floor >= 1; floor -= 1) {
+    const totalSqft = 14500 + randomInt(random, 0, 8500)
+    const suiteCount = randomInt(random, 2, 5)
+    const suiteSqfts = buildSuiteSqfts(totalSqft, suiteCount, random)
+    const vacancyOrder = shuffle(
+      random,
+      Array.from({ length: suiteCount }, (_, index) => index)
+    )
+    const targetVacancySqft = Math.round(
+      totalSqft * (1 - targetOccupiedShare) * (0.78 + random() * 0.5)
+    )
+    const vacantIndices = new Set<number>()
+    let remainingVacancySqft = targetVacancySqft
+
+    for (const suiteIndex of vacancyOrder) {
+      if (vacantIndices.size >= suiteCount - 1) break
+
+      const suiteSqft = suiteSqfts[suiteIndex] ?? 0
+      const shouldVacate =
+        remainingVacancySqft > totalSqft * 0.08 &&
+        (random() < 0.72 || remainingVacancySqft > totalSqft * 0.18)
+
+      if (!shouldVacate) continue
+
+      vacantIndices.add(suiteIndex)
+      remainingVacancySqft -= suiteSqft
+    }
+
+    const tenants = suiteSqfts.map((sqft, suiteIndex) => {
+      const suiteLabel = `${floor}${String.fromCharCode(65 + suiteIndex)}`
+      const isVacant = vacantIndices.has(suiteIndex)
+
+      return {
+        name: isVacant
+          ? "Vacant"
+          : buildTenantName(asset?.groupId ?? "office", random, usedTenantNames),
+        space: suiteLabel,
+        sqft,
+        expiration: isVacant ? undefined : buildQuarterEndDate(random),
+        note: isVacant ? pickOne(random, VACANCY_NOTES) : undefined,
+        isVacant,
+      }
+    })
+
+    floors.push({
+      floor,
+      totalSqft: suiteSqfts.reduce((sum, sqft) => sum + sqft, 0),
+      tenants,
+    })
+  }
+
+  return floors
 }
 
 export function getSampleStackingPlanData(assetId: string): StackingPlanDataset {
-  const rotated = rotateFloors(assetId)
+  const asset = getAssetById(assetId)
+  const floorSeeds = buildFloorSeedsForAsset(assetId)
+  const propertyType =
+    PROPERTY_TYPE_BY_GROUP[
+      asset?.groupId === "industrial" || asset?.groupId === "retail" ? asset.groupId : "office"
+    ]
+  const address = asset?.address ?? "Address unavailable"
 
-  const floors = rotated
+  const floors = floorSeeds
     .map((floorSeed) => {
       const occupiedSqft = floorSeed.tenants.reduce(
         (sum, tenant) => sum + (tenant.isVacant ? 0 : tenant.sqft),
@@ -360,7 +530,6 @@ export function getSampleStackingPlanData(assetId: string): StackingPlanDataset 
         const sunScore = Math.min(98, 24 + ((tenantSeed >> 4) % 42) + (floorLift * 2))
         const viewScore = Math.min(99, 20 + ((tenantSeed >> 7) % 44) + Math.round(floorLift * 2.4))
         const owner = OWNER_NAMES[tenantSeed % OWNER_NAMES.length]!
-        const address = BUILDING_ADDRESSES[hashText(assetId) % BUILDING_ADDRESSES.length]!
         const isVacant = tenant.isVacant === true
         const lastUpdatedDate = deriveLastUpdatedDate(tenantSeed)
 
@@ -377,7 +546,7 @@ export function getSampleStackingPlanData(assetId: string): StackingPlanDataset 
           address,
           floorLabel: `Floor ${floorSeed.floor}`,
           owner,
-          propertyType: "Office",
+          propertyType,
           verificationStatus: isVacant ? "Marketing ready" : "Lease abstract verified",
           availabilityStatus: isVacant ? "Available now" : "Occupied",
           leaseType: isVacant ? undefined : tenantSeed % 2 === 0 ? "Modified Gross" : "NNN",

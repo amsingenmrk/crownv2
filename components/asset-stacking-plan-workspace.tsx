@@ -639,16 +639,18 @@ export function AssetStackingPlanWorkspace({
           </>
         ) : (
           <div className="bg-background">
-            {displayedFloors.map((floor) => (
-              <SimplifiedFloorRow
-                key={floor.floor}
-                floor={floor}
-                vizMode={vizMode}
-                averagePredictedRentPsf={averagePredictedRentPsf}
-                onTenantSelect={handleTenantSelect}
-                selectedTenantId={selectedTenant?.id ?? null}
-              />
-            ))}
+            <div className="mx-auto w-full max-w-[800px]">
+              {displayedFloors.map((floor) => (
+                <SimplifiedFloorRow
+                  key={floor.floor}
+                  floor={floor}
+                  vizMode={vizMode}
+                  averagePredictedRentPsf={averagePredictedRentPsf}
+                  onTenantSelect={handleTenantSelect}
+                  selectedTenantId={selectedTenant?.id ?? null}
+                />
+              ))}
+            </div>
           </div>
         )}
       </section>

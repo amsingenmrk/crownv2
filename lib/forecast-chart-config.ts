@@ -1,6 +1,6 @@
 import type Highcharts from "highcharts"
 
-import type { AssetForecastModel } from "@/lib/forecast-data"
+import type { AssetForecastModel, ForecastStatementRow } from "@/lib/forecast-data"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 
 const TOOLTIP_FONT = "var(--font-sans), system-ui, sans-serif"
@@ -25,7 +25,46 @@ export type ForecastChartPalette = {
   tooltipBackground: string
 }
 
-export type ForecastChartTab = "noi" | "lease" | "walt"
+export type ForecastChartTab =
+  | "grossRevenue"
+  | "opex"
+  | "noi"
+  | "salePrice"
+  | "capRate"
+
+type ForecastStatementChartMeta = {
+  title: string
+  description: string
+  yAxisTitle: string
+}
+
+const FORECAST_STATEMENT_CHART_META: Record<ForecastChartTab, ForecastStatementChartMeta> = {
+  grossRevenue: {
+    title: "Gross Revenue Projection",
+    description: "Quarterly gross revenue compared across the selected outlooks.",
+    yAxisTitle: "$M",
+  },
+  opex: {
+    title: "OpEx Projection",
+    description: "Quarterly operating expenses compared across the selected outlooks.",
+    yAxisTitle: "$M",
+  },
+  noi: {
+    title: "NOI Projection",
+    description: "Quarterly net operating income compared across the selected outlooks.",
+    yAxisTitle: "$M",
+  },
+  salePrice: {
+    title: "Asset Value Projection",
+    description: "Quarterly asset value implied by each selected outlook.",
+    yAxisTitle: "$M",
+  },
+  capRate: {
+    title: "Cap Rate Projection",
+    description: "Quarterly exit cap rate compared across the selected outlooks.",
+    yAxisTitle: "%",
+  },
+}
 
 function toMillions(value: number) {
   return Number((value / 1_000_000).toFixed(2))
@@ -95,20 +134,58 @@ export function getForecastLeaseWaltYears(assetId: string) {
   return computeWaltYears(getLeaseRows(assetId), new Date())
 }
 
-export function buildForecastNoiHighchartsConfig(
-  model: AssetForecastModel,
+export function getForecastStatementChartMeta(rowId: ForecastChartTab) {
+  return FORECAST_STATEMENT_CHART_META[rowId]
+}
+
+function buildCurrencyStatementSeries(row: ForecastStatementRow) {
+  return row.values.map((value) => toMillions(Math.abs(value)))
+}
+
+export function buildForecastStatementHighchartsConfig(
+  models: AssetForecastModel[],
+  rowId: ForecastChartTab,
   palette: ForecastChartPalette
 ): Highcharts.Options {
-  const noiRow = model.statementRows.find((row) => row.id === "noi")
-  const categories = model.periods.map((period) => period.label)
-  const annualizedNoi = categories.map((_, index) =>
-    toMillions((noiRow?.values[index] ?? 0) * 4)
-  )
-  const runRate = toMillions(model.summary.currentAnnualNoi)
+  const baseModel = models[0]
+  const baseRow =
+    baseModel?.statementRows.find((statementRow) => statementRow.id === rowId) ??
+    baseModel?.statementRows[0]
+  const categories = baseModel?.periods.map((period) => period.label) ?? []
+  const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
+  const meta = getForecastStatementChartMeta(resolvedRowId)
+  const isPercent = baseRow?.kind === "percent"
+  const colors = [
+    palette.primary,
+    palette.secondary,
+    palette.tertiary,
+    palette.quaternary,
+    palette.accent,
+    palette.neutral,
+  ]
+  const series = models.map((model, index) => {
+    const row =
+      model.statementRows.find((statementRow) => statementRow.id === resolvedRowId) ??
+      model.statementRows[0] ?? {
+        id: resolvedRowId,
+        label: meta.title,
+        kind: "currency" as const,
+        values: Array(categories.length).fill(0),
+      }
+
+    return {
+      type: "line" as const,
+      name: model.scenario.name,
+      data: isPercent
+        ? row.values.map((value) => Number(value.toFixed(2)))
+        : buildCurrencyStatementSeries(row),
+      color: colors[index % colors.length],
+    }
+  })
 
   return {
     chart: {
-      type: "column",
+      type: "line",
       backgroundColor: "transparent",
       plotBackgroundColor: "transparent",
       style: { fontFamily: TOOLTIP_FONT },
@@ -117,8 +194,19 @@ export function buildForecastNoiHighchartsConfig(
     title: { text: undefined },
     xAxis: {
       categories,
-      lineWidth: 0,
-      tickWidth: 0,
+      title: {
+        text: "Quarter",
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+          fontWeight: "500",
+        },
+      },
+      lineColor: palette.border,
+      lineWidth: 1,
+      tickColor: palette.border,
+      tickLength: 6,
+      tickWidth: 1,
       labels: {
         style: {
           color: palette.mutedText,
@@ -128,7 +216,7 @@ export function buildForecastNoiHighchartsConfig(
     },
     yAxis: {
       title: {
-        text: "$M / yr",
+        text: meta.yAxisTitle,
         style: {
           color: palette.mutedText,
           fontSize: "11px",
@@ -140,6 +228,9 @@ export function buildForecastNoiHighchartsConfig(
       tickWidth: 0,
       labels: {
         formatter: function () {
+          if (isPercent) {
+            return `${Number(this.value).toFixed(1)}%`
+          }
           return `$${Number(this.value).toFixed(1)}M`
         },
         style: {
@@ -149,6 +240,7 @@ export function buildForecastNoiHighchartsConfig(
       },
     },
     legend: {
+      enabled: true,
       align: "center",
       verticalAlign: "bottom",
       margin: 12,
@@ -159,37 +251,17 @@ export function buildForecastNoiHighchartsConfig(
       },
     },
     plotOptions: {
-      column: {
-        borderRadius: 6,
-        pointPadding: 0.08,
-        groupPadding: 0.14,
-        borderWidth: 0,
-      },
       series: {
         animation: false,
       },
       line: {
+        lineWidth: 2.5,
         marker: {
           enabled: false,
         },
       },
     },
-    series: [
-      {
-        type: "column",
-        name: `${model.scenario.name} NOI`,
-        data: annualizedNoi,
-        color: palette.primary,
-      },
-      {
-        type: "line",
-        name: "Current run rate",
-        data: categories.map(() => runRate),
-        color: palette.accent,
-        dashStyle: "ShortDash",
-        lineWidth: 2,
-      },
-    ],
+    series,
     credits: { enabled: false },
     tooltip: {
       shared: true,
@@ -210,7 +282,9 @@ export function buildForecastNoiHighchartsConfig(
           `<b>${this.x ?? ""}</b>`,
           ...points.map(
             (point) =>
-              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> $${Number(point.y).toFixed(2)}M`
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${
+                isPercent ? `${Number(point.y).toFixed(2)}%` : `$${Number(point.y).toFixed(2)}M`
+              }`
           ),
         ].join("<br/>")
       },

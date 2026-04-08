@@ -4,8 +4,14 @@ import * as React from "react"
 import { MoreVertical, Pencil, Plus, RefreshCw, Save, Trash2, X } from "lucide-react"
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
+import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
-import { AssetStatCards } from "@/components/asset-stat-cards"
+import {
+  INITIAL_MOD_VALUES,
+  parseStoredSets,
+  storageKeyForAsset,
+  type ModificationSetRecord,
+} from "@/components/building-modifications-sidebar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -38,14 +44,18 @@ import {
   defaultForecastAssumptionsForAsset,
   type ForecastAssumptions,
   type ForecastEconomicOutlookScenario,
+  type ForecastStatementRow,
   type ForecastScenarioId,
 } from "@/lib/forecast-data"
+import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { cn } from "@/lib/utils"
 
 const macroAverageFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 })
+
+const BASELINE_BUILDING_VERSION_ID = "__baseline_building_version__"
 
 const MACRO_FIELDS = [
   { key: "inflationPct", label: "Inflation", suffix: "%", min: 0, max: 8, step: 0.1 },
@@ -69,6 +79,12 @@ type ForecastOutlookSet = {
   includedOutlookIds: ForecastScenarioId[]
   activeOutlookId: ForecastScenarioId
   savedAt: number
+}
+
+type ForecastBuildingVersion = {
+  id: string
+  name: string
+  values: ModificationSetRecord["values"]
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -285,6 +301,16 @@ function formatScenarioMacroAverage(value: number, suffix: string) {
   return `${macroAverageFormatter.format(value)}${suffix}`
 }
 
+function averageSeries(values: number[]) {
+  if (values.length === 0) return 0
+  const total = values.reduce((sum, value) => sum + value, 0)
+  return total / values.length
+}
+
+function getStatementRowAverage(rows: ForecastStatementRow[], rowId: string) {
+  return averageSeries(rows.find((row) => row.id === rowId)?.values ?? [])
+}
+
 function normalizeOutlooksForSetComparison(
   outlooks: ForecastEconomicOutlookScenario[]
 ): ForecastEconomicOutlookScenario[] {
@@ -361,6 +387,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
   const scenarioStorageKey = React.useMemo(() => forecastScenarioStorageKey(assetId), [assetId])
   const setStorageKey = React.useMemo(() => forecastOutlookSetStorageKey(assetId), [assetId])
+  const buildingVersionStorageKey = React.useMemo(() => storageKeyForAsset(assetId), [assetId])
 
   const [outlooks, setOutlooks] = React.useState<ForecastEconomicOutlookScenario[]>(
     defaultOutlooks
@@ -378,6 +405,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     defaultAssumptions
   )
   const [outlookSets, setOutlookSets] = React.useState<ForecastOutlookSet[]>([])
+  const [savedModificationSets, setSavedModificationSets] = React.useState<ModificationSetRecord[]>(
+    []
+  )
+  const [activeBuildingVersionId, setActiveBuildingVersionId] = React.useState(
+    BASELINE_BUILDING_VERSION_ID
+  )
   const [activeOutlookSetId, setActiveOutlookSetId] = React.useState<string>("")
   const [saveSetDialogOpen, setSaveSetDialogOpen] = React.useState(false)
   const [saveSetDialogMode, setSaveSetDialogMode] = React.useState<"save" | "saveAs">("save")
@@ -403,8 +436,22 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setOriginalEditingOutlook(null)
     setAssumptions(defaultAssumptions)
     setOutlookSets(nextOutlookSets)
+    setSavedModificationSets(
+      typeof localStorage !== "undefined"
+        ? parseStoredSets(localStorage.getItem(buildingVersionStorageKey))
+        : []
+    )
+    setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
     setActiveOutlookSetId("")
-  }, [defaultAssumptions, defaultOutlooks, scenarioStorageKey, setStorageKey])
+  }, [buildingVersionStorageKey, defaultAssumptions, defaultOutlooks, scenarioStorageKey, setStorageKey])
+
+  const reloadSavedModificationSets = React.useCallback(() => {
+    if (typeof localStorage === "undefined") {
+      setSavedModificationSets([])
+      return
+    }
+    setSavedModificationSets(parseStoredSets(localStorage.getItem(buildingVersionStorageKey)))
+  }, [buildingVersionStorageKey])
 
   const persistOutlooks = React.useCallback(
     (nextOutlooks: ForecastEconomicOutlookScenario[]) => {
@@ -434,6 +481,23 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     const fallbackId = outlooks[0]?.id ?? defaultOutlooks[0]?.id ?? "baseline"
     setActiveOutlookId(fallbackId)
   }, [activeOutlookId, defaultOutlooks, outlooks])
+
+  React.useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key != null && event.key !== buildingVersionStorageKey) return
+      reloadSavedModificationSets()
+    }
+    const handleLocalChange = () => {
+      reloadSavedModificationSets()
+    }
+
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("glassbox:modification-sets-changed", handleLocalChange)
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("glassbox:modification-sets-changed", handleLocalChange)
+    }
+  }, [buildingVersionStorageKey, reloadSavedModificationSets])
 
   React.useEffect(() => {
     const filteredIncluded = includedOutlookIds.filter((outlookId) =>
@@ -467,6 +531,36 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [includedOutlookIds, outlooks]
   )
 
+  const buildingVersions = React.useMemo<ForecastBuildingVersion[]>(
+    () => [
+      {
+        id: BASELINE_BUILDING_VERSION_ID,
+        name: "Baseline building",
+        values: INITIAL_MOD_VALUES,
+      },
+      ...[...savedModificationSets]
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((set) => ({
+          id: set.id,
+          name: set.name,
+          values: set.values,
+        })),
+    ],
+    [savedModificationSets]
+  )
+
+  const activeBuildingVersion =
+    buildingVersions.find((version) => version.id === activeBuildingVersionId) ?? buildingVersions[0]
+
+  const buildingVersionLabels = React.useMemo(
+    () =>
+      Object.fromEntries(buildingVersions.map((version) => [version.id, version.name])) as Record<
+        string,
+        string
+      >,
+    [buildingVersions]
+  )
+
   const model = React.useMemo(
     () =>
       activeOutlook != null
@@ -474,10 +568,55 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             assetId,
             scenario: activeOutlook,
             assumptions,
+            modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
           })
         : null,
-    [activeOutlook, assetId, assumptions]
+    [activeBuildingVersion, activeOutlook, assetId, assumptions]
   )
+
+  const includedModels = React.useMemo(
+    () =>
+      includedOutlooks.map((outlook) =>
+        buildAssetForecastModel({
+          assetId,
+          scenario: outlook,
+          assumptions,
+          modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
+        })
+      ),
+    [activeBuildingVersion, assetId, assumptions, includedOutlooks]
+  )
+
+  const forecastSummaryItems = React.useMemo(() => {
+    if (model == null) return []
+
+    const averageGrossRevenue = getStatementRowAverage(model.statementRows, "grossRevenue") * 4
+    const averageOpex = getStatementRowAverage(model.statementRows, "opex") * 4
+    const averageNoi = getStatementRowAverage(model.statementRows, "noi") * 4
+    const averageAssetValue = getStatementRowAverage(model.statementRows, "salePrice")
+
+    return [
+      {
+        label: "Gross Revenue",
+        value: formatUsdPortfolioCompact(averageGrossRevenue),
+        valueSuffix: "/ yr",
+      },
+      {
+        label: "OpEx",
+        value: formatUsdPortfolioCompact(Math.abs(averageOpex)),
+        valueSuffix: "/ yr",
+      },
+      {
+        label: "NOI",
+        value: formatUsdPortfolioCompact(averageNoi),
+        valueSuffix: "/ yr",
+      },
+      {
+        label: "Asset Value",
+        value: formatUsdPortfolioCompact(averageAssetValue),
+      },
+    ]
+  }, [model])
 
   const outlookSetLabels = React.useMemo(
     () =>
@@ -531,6 +670,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     if (activeOutlookSetMatchesCurrentState) return
     setActiveOutlookSetId("")
   }, [activeOutlookSetId, activeOutlookSetMatchesCurrentState])
+
+  React.useEffect(() => {
+    if (activeBuildingVersionId === BASELINE_BUILDING_VERSION_ID) return
+    if (savedModificationSets.some((set) => set.id === activeBuildingVersionId)) return
+    setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
+  }, [activeBuildingVersionId, savedModificationSets])
 
   React.useEffect(() => {
     if (deleteSetDialogOpen) return
@@ -802,8 +947,20 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setOriginalEditingOutlook(null)
     setAssumptions(defaultAssumptions)
     setOutlookSets(nextOutlookSets)
+    setSavedModificationSets(
+      typeof localStorage !== "undefined"
+        ? parseStoredSets(localStorage.getItem(buildingVersionStorageKey))
+        : []
+    )
+    setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
     setActiveOutlookSetId("")
-  }, [defaultAssumptions, defaultOutlooks, scenarioStorageKey, setStorageKey])
+  }, [
+    buildingVersionStorageKey,
+    defaultAssumptions,
+    defaultOutlooks,
+    scenarioStorageKey,
+    setStorageKey,
+  ])
 
   if (activeOutlook == null || model == null) {
     return null
@@ -813,9 +970,38 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <aside
         className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-80 xl:w-[22rem]"
-        aria-label="Assumptions"
+        aria-label="Forecast inputs"
       >
-        <h2 className="text-sm font-semibold text-foreground">Assumptions</h2>
+        <h2 className="text-sm font-semibold text-foreground">Forecast Inputs</h2>
+
+        <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Building Version
+          </p>
+          <Select
+            items={buildingVersionLabels}
+            value={activeBuildingVersion?.id ?? BASELINE_BUILDING_VERSION_ID}
+            onValueChange={(value) =>
+              setActiveBuildingVersionId(value ?? BASELINE_BUILDING_VERSION_ID)
+            }
+            onOpenChange={(open) => {
+              if (open) {
+                reloadSavedModificationSets()
+              }
+            }}
+          >
+            <SelectTrigger size="sm" className="w-full text-[0.8rem]" aria-label="Building version">
+              <SelectValue placeholder="Baseline building" />
+            </SelectTrigger>
+            <SelectContent>
+              {buildingVersions.map((version) => (
+                <SelectItem key={version.id} value={version.id}>
+                  {version.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </section>
 
         <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
           <div className="flex items-center gap-3">
@@ -1163,49 +1349,50 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <AssetStatCards variant="forecasts" />
+        <AssetForecastCharts models={includedModels} />
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
           aria-label="Forecast statement"
         >
+          <div className="space-y-4 border-b border-border/60 px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-semibold text-foreground">Forecast Statement</h2>
+              {includedOutlooks.length > 1 ? (
+                <ToggleGroup
+                  value={[activeOutlookId]}
+                  onValueChange={(values) => {
+                    const next = values[0]
+                    if (typeof next === "string" && next !== "") {
+                      setActiveOutlookId(next)
+                    }
+                  }}
+                  aria-label="Switch compared outlook in forecast summary"
+                  className="w-fit"
+                >
+                  {includedOutlooks.map((outlook) => (
+                    <ToggleGroupItem key={outlook.id} value={outlook.id}>
+                      {outlook.name}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              ) : (
+                <div className="w-fit rounded-full border border-border/60 bg-muted/10 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {activeOutlook.name}
+                </div>
+              )}
+            </div>
+
+            <AssetForecastSummaryStrip items={forecastSummaryItems} />
+          </div>
+
           <AssetForecastsTable
             key={activeOutlookId}
             periods={model.periods}
             rows={model.statementRows}
             revenueBreakdown={model.revenueBreakdown}
-            topAccessory={
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-sm font-semibold text-foreground">Forecast Statement</h2>
-                {includedOutlooks.length > 1 ? (
-                  <ToggleGroup
-                    value={[activeOutlookId]}
-                    onValueChange={(values) => {
-                      const next = values[0]
-                      if (typeof next === "string" && next !== "") {
-                        setActiveOutlookId(next)
-                      }
-                    }}
-                    aria-label="Switch compared outlook in forecast table"
-                    className="w-fit"
-                  >
-                    {includedOutlooks.map((outlook) => (
-                      <ToggleGroupItem key={outlook.id} value={outlook.id}>
-                        {outlook.name}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                ) : (
-                  <div className="w-fit rounded-full border border-border/60 bg-muted/10 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                    {activeOutlook.name}
-                  </div>
-                )}
-              </div>
-            }
           />
         </section>
-
-        <AssetForecastCharts model={model} />
       </div>
 
       <Dialog open={saveSetDialogOpen} onOpenChange={setSaveSetDialogOpen}>

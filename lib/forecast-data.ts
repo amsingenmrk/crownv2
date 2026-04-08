@@ -1,5 +1,10 @@
 import { getAssetById } from "@/lib/assets"
+import {
+  INITIAL_MOD_VALUES,
+  type ModValues,
+} from "@/components/building-modifications-sidebar"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import {
   getSampleStackingPlanData,
   type StackingPlanTenant,
@@ -246,6 +251,10 @@ function sumSeries(seriesList: number[][]) {
   )
 }
 
+function scaleSeries(values: number[], factors: number[]) {
+  return values.map((value, index) => value * (factors[index] ?? 1))
+}
+
 function deriveLeaseUpShare(currentOccupancyPct: number, targetOccupancyPct: number) {
   const currentOccupancy = currentOccupancyPct / 100
   const currentVacancy = Math.max(0.01, 1 - currentOccupancy)
@@ -420,10 +429,12 @@ export function buildAssetForecastModel({
   assetId,
   scenario,
   assumptions,
+  modValues = INITIAL_MOD_VALUES,
 }: {
   assetId: string
   scenario: ForecastEconomicOutlookScenario
   assumptions: ForecastAssumptions
+  modValues?: ModValues
 }): AssetForecastModel {
   const asset = getAssetById(assetId)
   const dataset = getSampleStackingPlanData(assetId)
@@ -441,7 +452,7 @@ export function buildAssetForecastModel({
     exitCapRatePct: clamp(Number(assumptions.exitCapRatePct.toFixed(2)), 4, 8),
   }
 
-  const revenueBreakdown: ForecastRevenueFloorRow[] = dataset.floors.map((floor) => {
+  const baseRevenueBreakdown: ForecastRevenueFloorRow[] = dataset.floors.map((floor) => {
     const spaces = floor.tenants.map((tenant) => ({
       id: tenant.id,
       suite: tenant.space,
@@ -469,9 +480,34 @@ export function buildAssetForecastModel({
     }
   })
 
-  const grossRevenue = sumSeries(revenueBreakdown.map((floor) => floor.values))
+  const baseGrossRevenue = sumSeries(baseRevenueBreakdown.map((floor) => floor.values))
+  const baseCurrentAnnualRevenue = (baseGrossRevenue[0] ?? 0) * 4
+  const { valueMult, noiMult } = upliftFromModValues(modValues)
+  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseCurrentAnnualRevenue)
+  const baseOpex = buildQuarterlyOpex({
+    periods,
+    grossRevenue: baseGrossRevenue,
+    baseAnnualOpex,
+    targetOccupancyPct: normalizedAssumptions.occupancyTargetPct,
+    scenario,
+  })
+  const baseNoi = baseGrossRevenue.map((value, index) => value - (baseOpex[index] ?? 0))
+
+  const grossRevenue = baseGrossRevenue.map(
+    (value, index) => value + Math.max(0, baseNoi[index] ?? 0) * (noiMult - 1)
+  )
+  const revenueScaleFactors = baseGrossRevenue.map((value, index) =>
+    value > 0 ? (grossRevenue[index] ?? value) / value : 1
+  )
+  const revenueBreakdown = baseRevenueBreakdown.map((floor) => ({
+    ...floor,
+    values: scaleSeries(floor.values, revenueScaleFactors),
+    spaces: floor.spaces.map((space) => ({
+      ...space,
+      values: scaleSeries(space.values, revenueScaleFactors),
+    })),
+  }))
   const currentAnnualRevenue = (grossRevenue[0] ?? 0) * 4
-  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, currentAnnualRevenue)
   const opex = buildQuarterlyOpex({
     periods,
     grossRevenue,
@@ -490,9 +526,10 @@ export function buildAssetForecastModel({
       8
     )
   })
-  const salePrice = noi.map((value, index) =>
+  const baseSalePrice = baseNoi.map((value, index) =>
     Math.max(0, (value * 4) / ((capRate[index] ?? normalizedAssumptions.exitCapRatePct) / 100))
   )
+  const salePrice = baseSalePrice.map((value) => value * valueMult)
 
   return {
     assetId,
@@ -504,7 +541,7 @@ export function buildAssetForecastModel({
       { id: "grossRevenue", label: "Gross Revenue", kind: "currency", values: grossRevenue },
       { id: "opex", label: "OpEx", kind: "expense", values: opex },
       { id: "noi", label: "NOI", kind: "currency", values: noi },
-      { id: "salePrice", label: "Sale Price", kind: "currency", values: salePrice },
+      { id: "salePrice", label: "Asset Value", kind: "currency", values: salePrice },
       { id: "capRate", label: "Cap Rate", kind: "percent", values: capRate },
     ],
     revenueBreakdown,
@@ -513,7 +550,7 @@ export function buildAssetForecastModel({
       targetOccupancyPct: normalizedAssumptions.occupancyTargetPct,
       currentAnnualRevenue,
       currentAnnualOpex: baseAnnualOpex,
-      currentAnnualNoi: currentAnnualRevenue - baseAnnualOpex,
+      currentAnnualNoi: (noi[0] ?? 0) * 4,
       exitCapRatePct: capRate[capRate.length - 1] ?? normalizedAssumptions.exitCapRatePct,
     },
   }

@@ -5,10 +5,8 @@ import Highcharts from "highcharts"
 import HighchartsReact from "highcharts-react-official"
 
 import {
-  buildForecastLeaseHighchartsConfig,
-  buildForecastNoiHighchartsConfig,
-  buildForecastWaltHighchartsConfig,
-  getForecastLeaseWaltYears,
+  buildForecastStatementHighchartsConfig,
+  getForecastStatementChartMeta,
   type ForecastChartPalette,
   type ForecastChartTab,
 } from "@/lib/forecast-chart-config"
@@ -34,31 +32,6 @@ const DEFAULT_PALETTE: ForecastChartPalette = {
   accent: "#1f2937",
   neutral: "rgba(148, 163, 184, 0.7)",
   tooltipBackground: "#ffffff",
-}
-
-const CHART_META: Record<
-  ForecastChartTab,
-  {
-    label: string
-    title: string
-    description: string
-  }
-> = {
-  noi: {
-    label: "NOI",
-    title: "NOI Projection",
-    description: "Quarterly forecast NOI annualized to a run-rate basis.",
-  },
-  lease: {
-    label: "Lease Expiration",
-    title: "Lease Expiration Schedule",
-    description: "Current occupied square footage stacked by expiration year.",
-  },
-  walt: {
-    label: "WALT",
-    title: "WALT Projection",
-    description: "Weighted average lease term as current leases roll off over time.",
-  },
 }
 
 function readCssVariable(styles: CSSStyleDeclaration, variableName: string, fallback: string) {
@@ -139,21 +112,33 @@ function ForecastHighchart({ options }: { options: Highcharts.Options }) {
   )
 }
 
-export function AssetForecastCharts({ model }: { model: AssetForecastModel }) {
+export function AssetForecastCharts({ models }: { models: AssetForecastModel[] }) {
   const palette = useForecastChartPalette()
-  const [activeTab, setActiveTab] = React.useState<ForecastChartTab>("noi")
-
-  const chartOptions = React.useMemo<Record<ForecastChartTab, Highcharts.Options>>(
-    () => ({
-      noi: buildForecastNoiHighchartsConfig(model, palette),
-      lease: buildForecastLeaseHighchartsConfig(model.assetId, palette),
-      walt: buildForecastWaltHighchartsConfig(model.assetId, palette),
-    }),
-    [model, palette]
+  const chartRows = React.useMemo(
+    () =>
+      (models[0]?.statementRows ?? []).filter((row): row is typeof row & { id: ForecastChartTab } =>
+        ["grossRevenue", "opex", "noi", "salePrice", "capRate"].includes(row.id)
+      ),
+    [models]
   )
 
-  const currentWalt = React.useMemo(() => getForecastLeaseWaltYears(model.assetId), [model.assetId])
-  const activeChartMeta = CHART_META[activeTab]
+  const [activeTab, setActiveTab] = React.useState<ForecastChartTab>("grossRevenue")
+
+  React.useEffect(() => {
+    if (chartRows.some((row) => row.id === activeTab)) return
+    const fallbackTab = chartRows[0]?.id
+    if (fallbackTab != null) {
+      setActiveTab(fallbackTab)
+    }
+  }, [activeTab, chartRows])
+
+  const activeChartMeta = getForecastStatementChartMeta(activeTab)
+  const chartOptions = React.useMemo(
+    () => buildForecastStatementHighchartsConfig(models, activeTab, palette),
+    [activeTab, models, palette]
+  )
+  const selectedOutlookLabel =
+    models.length === 1 ? models[0]?.scenario.name ?? "1 outlook" : `${models.length} outlooks`
 
   return (
     <section
@@ -168,35 +153,27 @@ export function AssetForecastCharts({ model }: { model: AssetForecastModel }) {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-semibold text-foreground">{activeChartMeta.title}</h2>
-              {activeTab === "lease" ? (
-                <span className="rounded-full border border-border/70 bg-muted/10 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  WALT {currentWalt.toFixed(1)} yrs
-                </span>
-              ) : null}
-              {activeTab === "noi" ? (
-                <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] font-medium text-primary">
-                  {model.scenario.name}
-                </span>
-              ) : null}
+              <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] font-medium text-primary">
+                {selectedOutlookLabel}
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground">{activeChartMeta.description}</p>
           </div>
 
           <div className="flex w-fit items-center rounded-lg border border-border bg-muted/20 p-1">
-            {(Object.keys(CHART_META) as ForecastChartTab[]).map((tab) => (
+            {chartRows.map((row) => (
               <button
-                key={tab}
+                key={row.id}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(row.id)}
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  activeTab === tab
+                  activeTab === row.id
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                aria-pressed={activeTab === tab}
+                aria-pressed={activeTab === row.id}
               >
-                {CHART_META[tab].label}
+                {row.label}
               </button>
             ))}
           </div>
@@ -204,7 +181,7 @@ export function AssetForecastCharts({ model }: { model: AssetForecastModel }) {
       </div>
 
       <div className="px-4 py-4">
-        <ForecastHighchart options={chartOptions[activeTab]} />
+        <ForecastHighchart options={chartOptions} />
       </div>
     </section>
   )

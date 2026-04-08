@@ -63,7 +63,7 @@ const FORECASTS_KPIS: AssetStatKpi[] = [
   { label: "Gross Revenue", value: "$9.8M / yr" },
   { label: "OpEx", value: "$3.1M / yr" },
   { label: "NOI", value: "$6.7M / yr" },
-  { label: "Sale Price", value: "$122.0M" },
+  { label: "Asset Value", value: "$122.0M" },
 ]
 
 const VARIANT_KPIS: Record<AssetStatCardsVariant, AssetStatKpi[]> = {
