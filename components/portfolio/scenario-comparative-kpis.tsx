@@ -43,17 +43,17 @@ export function ScenarioMetricInlinePair({
 
   return (
     <>
-      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+      <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-lg font-semibold leading-snug tracking-tight text-foreground tabular-nums">
           {baseFormatted}
         </span>
         {showScenario ? (
           <>
             <ArrowRight
-              className="size-5 shrink-0 text-muted-foreground/60"
+              className="size-4 shrink-0 text-muted-foreground/60"
               aria-hidden
             />
-            <span className="text-2xl font-semibold tracking-tight tabular-nums text-violet-800 dark:text-violet-200">
+            <span className="text-lg font-semibold leading-snug tracking-tight tabular-nums text-violet-800 dark:text-violet-200">
               {scenarioFormatted}
             </span>
           </>

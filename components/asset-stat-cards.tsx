@@ -1,3 +1,12 @@
+import {
+  MetricStripCell,
+  MetricStripLabel,
+  MetricStripSubRow,
+  MetricStripSubStack,
+  MetricStripValueRow,
+  MetricStripValueSuffix,
+  metricStripSectionClassName,
+} from "@/components/metric-strip"
 import { cn } from "@/lib/utils"
 
 export type AssetStatKpi = {
@@ -8,6 +17,9 @@ export type AssetStatKpi = {
   subLabel?: string
   subValue?: string
 }
+
+// Re-export for callers that need the section class name
+export { metricStripSectionClassName as METRIC_STRIP_SECTION_CLASS }
 
 export type AssetStatCardsVariant =
   | "stacking-plan"
@@ -84,40 +96,24 @@ export function AssetStatCards({
 
   return (
     <section
-      className={cn(
-        "overflow-hidden rounded-xl border border-border bg-border shadow-sm",
-        "grid gap-px",
-        VARIANT_GRID_CLASS[variant]
-      )}
+      className={cn(metricStripSectionClassName, VARIANT_GRID_CLASS[variant])}
       aria-label={VARIANT_ARIA_LABEL[variant]}
     >
       {kpis.map((kpi) => (
-        <div
-          key={kpi.label}
-          className="min-w-0 bg-card px-3 py-3 sm:px-4 sm:py-3.5 xl:px-3.5 xl:py-3"
-        >
-          <p className="text-sm font-medium leading-snug text-muted-foreground">
-            {kpi.label}
-          </p>
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-lg font-semibold leading-snug tracking-tight tabular-nums">
+        <MetricStripCell key={kpi.label}>
+          <MetricStripLabel>{kpi.label}</MetricStripLabel>
+          <MetricStripValueRow>
             <span className="text-foreground">{kpi.value}</span>
             {kpi.valueSuffix != null && kpi.valueSuffix !== "" ? (
-              <span className="text-sm font-semibold text-muted-foreground">
-                {kpi.valueSuffix}
-              </span>
+              <MetricStripValueSuffix>{kpi.valueSuffix}</MetricStripValueSuffix>
             ) : null}
-          </p>
+          </MetricStripValueRow>
           {kpi.subLabel != null && kpi.subValue != null ? (
-            <div className="mt-2 border-t border-border/70 pt-2">
-              <p className="text-xs leading-snug text-muted-foreground">
-                {kpi.subLabel}
-              </p>
-              <p className="mt-0.5 text-sm font-medium leading-snug tabular-nums text-foreground">
-                {kpi.subValue}
-              </p>
-            </div>
+            <MetricStripSubStack>
+              <MetricStripSubRow label={kpi.subLabel} value={kpi.subValue} />
+            </MetricStripSubStack>
           ) : null}
-        </div>
+        </MetricStripCell>
       ))}
     </section>
   )

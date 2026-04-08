@@ -303,8 +303,8 @@ export function AppTopbar() {
   }, [assetMenuOpen])
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
-      <div className="flex min-w-0 flex-1 items-center gap-2 px-4">
+    <header className="grid h-12 min-w-0 w-full max-w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden px-4">
         <SidebarTrigger className="-ml-1 shrink-0" />
         <Separator
           orientation="vertical"
@@ -429,7 +429,7 @@ export function AppTopbar() {
           </span>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2 pr-4">
+      <div className="flex min-w-0 items-center justify-end gap-1.5 pr-2 sm:gap-2 sm:pr-4">
         {showAssetBreadcrumb && asset != null ? (
           <>
             <Select
@@ -443,7 +443,7 @@ export function AppTopbar() {
             >
               <SelectTrigger
                 size="sm"
-                className="w-[min(100%,11rem)] shrink-0 text-[0.8rem]"
+                className="w-[min(100%,11rem)] max-w-[min(11rem,42vw)] shrink-0 text-[0.8rem]"
                 aria-label="Asset group"
               >
                 <SelectValue placeholder="Group" />
@@ -569,9 +569,15 @@ export function AppTopbar() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button type="button" variant="outline" size="sm" className="shrink-0">
-              <FileUp className="size-3.5" aria-hidden />
-              Import Documents
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              aria-label="Import documents"
+            >
+              <FileUp className="size-3.5 shrink-0" aria-hidden />
+              <span className="hidden lg:inline">Import Documents</span>
             </Button>
           </>
         ) : null}

@@ -14,6 +14,14 @@ import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/components/building-modifications-sidebar"
+import {
+  MetricStripCell,
+  MetricStripLabel,
+  MetricStripSubRow,
+  MetricStripSubStack,
+  MetricStripValueRow,
+  metricStripSectionClassName,
+} from "@/components/metric-strip"
 import { ScenarioMetricInlinePair } from "@/components/portfolio/scenario-comparative-kpis"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
 import {
@@ -571,17 +579,19 @@ function PortfolioDashboardInner({
     scenarioModSetsTick,
   ])
 
-  const kpiCardClass =
-    "rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
-
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-[24px]">
-      {/* KPI row */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      {/* KPI row — same strip pattern as asset stat cards */}
+      <section
+        className={cn(
+          metricStripSectionClassName,
+          "grid-cols-1 sm:grid-cols-2 xl:grid-cols-5"
+        )}
+      >
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
           <>
-            <div className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">Est. Value</p>
+            <MetricStripCell>
+              <MetricStripLabel>Est. Value</MetricStripLabel>
               <ScenarioMetricInlinePair
                 baseFormatted={formatUsdPortfolioCompact(
                   scenarioAggregate.baseValueUsd
@@ -616,54 +626,43 @@ function PortfolioDashboardInner({
                 }
               />
               {scenarioAggregate.totalRsfSqft > 0 ? (
-                <div className="mt-3 space-y-2 border-t border-border pt-3">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      Est. Value / SF
-                    </p>
-                    <p className="text-sm font-medium tabular-nums text-foreground">
-                      {formatUsdPerSf(
-                        scenarioAggregate.baseValueUsd,
+                <MetricStripSubStack>
+                  <MetricStripSubRow
+                    label="Est. Value / SF"
+                    value={formatUsdPerSf(
+                      scenarioAggregate.baseValueUsd,
+                      scenarioAggregate.totalRsfSqft
+                    )}
+                  />
+                  {scenarioAggregate.hasTableSelection ? (
+                    <MetricStripSubRow
+                      label="Scenario est. value / SF"
+                      value={formatUsdPerSf(
+                        scenarioAggregate.scenarioValueUsd,
                         scenarioAggregate.totalRsfSqft
                       )}
-                    </p>
-                  </div>
-                  {scenarioAggregate.hasTableSelection ? (
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
-                        Scenario est. value / SF
-                      </p>
-                      <p className="text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
-                        {formatUsdPerSf(
-                          scenarioAggregate.scenarioValueUsd,
-                          scenarioAggregate.totalRsfSqft
-                        )}
-                      </p>
-                    </div>
+                      variant="violet"
+                    />
                   ) : null}
-                </div>
+                </MetricStripSubStack>
               ) : null}
-            </div>
-            <div className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">
-                {KPIS[1]!.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {KPIS[1]!.value}
-              </p>
+            </MetricStripCell>
+            <MetricStripCell>
+              <MetricStripLabel>{KPIS[1]!.label}</MetricStripLabel>
+              <MetricStripValueRow>
+                <span className="text-foreground">{KPIS[1]!.value}</span>
+              </MetricStripValueRow>
               {KPIS[1]!.subLabel != null && KPIS[1]!.subValue != null ? (
-                <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
-                  <p className="text-xs text-muted-foreground">
-                    {KPIS[1]!.subLabel}
-                  </p>
-                  <p className="text-sm font-medium tabular-nums text-foreground">
-                    {KPIS[1]!.subValue}
-                  </p>
-                </div>
+                <MetricStripSubStack>
+                  <MetricStripSubRow
+                    label={KPIS[1]!.subLabel}
+                    value={KPIS[1]!.subValue}
+                  />
+                </MetricStripSubStack>
               ) : null}
-            </div>
-            <div className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">{KPIS[2]!.label}</p>
+            </MetricStripCell>
+            <MetricStripCell>
+              <MetricStripLabel>{KPIS[2]!.label}</MetricStripLabel>
               <ScenarioMetricInlinePair
                 baseFormatted={formatUsdPortfolioCompact(
                   scenarioAggregate.baseNoiUsd
@@ -698,34 +697,29 @@ function PortfolioDashboardInner({
                 }
               />
               {scenarioAggregate.totalRsfSqft > 0 ? (
-                <div className="mt-3 space-y-2 border-t border-border pt-3">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">NOI / SF</p>
-                    <p className="text-sm font-medium tabular-nums text-foreground">
-                      {formatUsdPerSf(
-                        scenarioAggregate.baseNoiUsd,
+                <MetricStripSubStack>
+                  <MetricStripSubRow
+                    label="NOI / SF"
+                    value={formatUsdPerSf(
+                      scenarioAggregate.baseNoiUsd,
+                      scenarioAggregate.totalRsfSqft
+                    )}
+                  />
+                  {scenarioAggregate.hasTableSelection ? (
+                    <MetricStripSubRow
+                      label="Scenario NOI / SF"
+                      value={formatUsdPerSf(
+                        scenarioAggregate.scenarioNoiUsd,
                         scenarioAggregate.totalRsfSqft
                       )}
-                    </p>
-                  </div>
-                  {scenarioAggregate.hasTableSelection ? (
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
-                        Scenario NOI / SF
-                      </p>
-                      <p className="text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
-                        {formatUsdPerSf(
-                          scenarioAggregate.scenarioNoiUsd,
-                          scenarioAggregate.totalRsfSqft
-                        )}
-                      </p>
-                    </div>
+                      variant="violet"
+                    />
                   ) : null}
-                </div>
+                </MetricStripSubStack>
               ) : null}
-            </div>
-            <div className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">{KPIS[3]!.label}</p>
+            </MetricStripCell>
+            <MetricStripCell>
+              <MetricStripLabel>{KPIS[3]!.label}</MetricStripLabel>
               <ScenarioMetricInlinePair
                 baseFormatted={`${scenarioAggregate.baseCapPct.toFixed(2)}%`}
                 scenarioFormatted={`${scenarioAggregate.scenarioCapPct.toFixed(2)}%`}
@@ -755,32 +749,30 @@ function PortfolioDashboardInner({
                     : undefined
                 }
               />
-            </div>
-            <div className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">
-                {KPIS[4]!.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {KPIS[4]!.value}
-              </p>
-            </div>
+            </MetricStripCell>
+            <MetricStripCell>
+              <MetricStripLabel>{KPIS[4]!.label}</MetricStripLabel>
+              <MetricStripValueRow>
+                <span className="text-foreground">{KPIS[4]!.value}</span>
+              </MetricStripValueRow>
+            </MetricStripCell>
           </>
         ) : (
           KPIS.map((kpi) => (
-            <div key={kpi.label} className={kpiCardClass}>
-              <p className="text-sm text-muted-foreground">{kpi.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {kpi.value}
-              </p>
+            <MetricStripCell key={kpi.label}>
+              <MetricStripLabel>{kpi.label}</MetricStripLabel>
+              <MetricStripValueRow>
+                <span className="text-foreground">{kpi.value}</span>
+              </MetricStripValueRow>
               {kpi.subLabel != null && kpi.subValue != null ? (
-                <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
-                  <p className="text-xs text-muted-foreground">{kpi.subLabel}</p>
-                  <p className="text-sm font-medium tabular-nums text-foreground">
-                    {kpi.subValue}
-                  </p>
-                </div>
+                <MetricStripSubStack>
+                  <MetricStripSubRow
+                    label={kpi.subLabel}
+                    value={kpi.subValue}
+                  />
+                </MetricStripSubStack>
               ) : null}
-            </div>
+            </MetricStripCell>
           ))
         )}
       </section>

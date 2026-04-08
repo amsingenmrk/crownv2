@@ -50,8 +50,8 @@ export function AssetDetailHeader() {
   return (
     <>
       <div className="border-b border-border bg-background px-6 py-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-          <div className="flex items-start gap-4 min-w-0">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
             <div className="h-12 w-[70px] shrink-0 overflow-hidden rounded-[8px] bg-muted">
               {asset.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -71,7 +71,7 @@ export function AssetDetailHeader() {
               <p className="text-sm text-muted-foreground truncate">{addressLabel}</p>
             </div>
           </div>
-          <div className="flex flex-col items-stretch sm:items-end justify-center shrink-0">
+          <div className="flex min-w-0 flex-col items-stretch justify-center sm:items-end">
             <OccupancyBar occupiedPercent={asset.occupiedPercent} />
           </div>
         </div>
