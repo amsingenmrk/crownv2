@@ -927,16 +927,12 @@ function PortfolioDashboardInner({
               )}
             </div>
           ) : (
-            <div className="min-w-0 w-full max-w-full rounded-xl border border-border bg-card p-0 shadow-sm">
-              <div className="min-w-0 w-full overflow-x-auto overscroll-x-contain">
-                <div className="portfolio-assets-table-scroll-inner">
-                  <PortfolioAssetsDataTable
-                    table={portfolioTable}
-                    variant={assetsTableVariant}
-                    liftExtent={liftPctExtent}
-                  />
-                </div>
-              </div>
+            <div className="min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
+              <PortfolioAssetsDataTable
+                table={portfolioTable}
+                variant={assetsTableVariant}
+                liftExtent={liftPctExtent}
+              />
             </div>
           )}
         </div>

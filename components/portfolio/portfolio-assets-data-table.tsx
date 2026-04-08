@@ -157,8 +157,8 @@ export function PortfolioAssetsDataTable({
 
   return (
     <>
-      <div className="flex flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex w-full min-w-0 flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+        <p className="min-w-0 text-sm text-muted-foreground">
           {selectedCount === 0 ? (
             <>
               <span className="tabular-nums">{data.length}</span>{" "}
@@ -173,7 +173,7 @@ export function PortfolioAssetsDataTable({
             </>
           )}
         </p>
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 sm:ml-auto">
           {variant === "portfolio" ? (
             <>
               <DropdownMenu>
@@ -263,6 +263,8 @@ export function PortfolioAssetsDataTable({
           )}
         </div>
       </div>
+      <div className="min-w-0 w-full overflow-x-auto overscroll-x-contain">
+        <div className="portfolio-assets-table-scroll-inner">
       <table
         className="hidden w-full min-w-max px-0 caption-bottom text-sm max-lg:hidden lg:grid"
         style={{ gridTemplateColumns }}
@@ -440,6 +442,8 @@ export function PortfolioAssetsDataTable({
           })
         )}
       </ul>
+        </div>
+      </div>
     </>
   )
 }
