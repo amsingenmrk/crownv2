@@ -246,12 +246,14 @@ function SearchListingPreviewCard({
               <span className="truncate">{liftBadgeText}</span>
             </span>
             <div className="flex max-w-full flex-row flex-wrap items-center justify-end gap-1.5">
-              <span
-                className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-[7px] py-0.5 text-[11px] font-medium leading-tight text-muted-foreground"
-                aria-label={isMarket ? "Market listing" : "Portfolio asset"}
-              >
-                {isMarket ? "Market" : "Asset"}
-              </span>
+              {!isMarket ? (
+                <span
+                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-[7px] py-0.5 text-[11px] font-medium leading-tight text-muted-foreground"
+                  aria-label="Portfolio asset"
+                >
+                  Asset
+                </span>
+              ) : null}
               {scenariosIncludingCount > 0 ? (
                 <span
                   className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-[7px] py-0.5 text-[11px] font-medium leading-tight text-muted-foreground"

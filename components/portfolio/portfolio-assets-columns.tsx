@@ -196,11 +196,14 @@ export function createPortfolioAssetColumns(
       meta: { columnLabel: "Ownership" },
       header: () => <div className="font-medium">Ownership</div>,
       enableSorting: false,
-      cell: ({ row }) => (
-        <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
-          {row.original.ownership}
-        </span>
-      ),
+      cell: ({ row }) =>
+        isMarketListingRowId(row.original.id) ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
+            {row.original.ownership}
+          </span>
+        ),
     },
     {
       accessorKey: "typeLabel",
