@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 export type AssetStatKpi = {
   label: string
   value: string
-  /** Appended on the same line as `value` (e.g. vs in-place % change). */
+  /** Appended on the same line as `value`; shown smaller and muted (e.g. % delta). */
   valueSuffix?: string
   subLabel?: string
   subValue?: string
@@ -30,9 +30,17 @@ const ASSET_STACKING_PLAN_KPIS: AssetStatKpi[] = [
 
 /** Modifications workspace — scenario / lift vs baseline. */
 const MODIFICATIONS_KPIS: AssetStatKpi[] = [
-  { label: "Average Rent Lift", value: "+$2.10 / SF (+4.8%)" },
+  {
+    label: "Average Rent Lift",
+    value: "+$2.10 / SF",
+    valueSuffix: "(+4.8%)",
+  },
   { label: "New Avg Rent", value: "$45.30 / SF" },
-  { label: "Building Value Lift", value: "+$9.4M (+8.4%)" },
+  {
+    label: "Building Value Lift",
+    value: "+$9.4M",
+    valueSuffix: "(+8.4%)",
+  },
   { label: "New Value", value: "$121.4M" },
   { label: "Opex Impact", value: "+$180K / yr" },
   { label: "NOI Impact", value: "+$620K / yr" },
