@@ -47,7 +47,11 @@ export function portfolioAssetRowForAsset(
       ? "Office"
       : asset.groupId === "industrial"
         ? "Industrial"
-        : "Retail"
+        : asset.groupId === "retail"
+          ? "Retail"
+          : asset.groupLabel.length > 18
+            ? `${asset.groupLabel.slice(0, 16)}…`
+            : asset.groupLabel
 
   const value =
     fin.valueMills >= 1000

@@ -26,11 +26,17 @@ import {
   type PortfolioAssetsTableVariant,
 } from "@/components/portfolio/portfolio-assets-columns"
 import {
+  getAssetGroupOverridesSnapshot,
+  readCustomAssetGroups,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
+  BUILT_IN_ASSET_GROUP_IDS,
   assetHref,
   getAssetById,
-  type AssetGroupId,
+  resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
   formatCapRatePts,
@@ -40,7 +46,6 @@ import {
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
 import { computeScenarioPortfolioAggregate } from "@/lib/scenario-portfolio-aggregate"
-import { seedForAsset } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   getMarketListingPinById,
@@ -99,27 +104,6 @@ const KPIS: PortfolioKpi[] = [
   { label: "WALE / WALT", value: "5.8 yrs" },
 ]
 
-const PORTFOLIO_ASSET_ROWS: PortfolioAssetRow[] = ASSETS.map(
-  portfolioAssetRowForAsset
-).sort(
-  (a, b) =>
-    b.liftPercent - a.liftPercent ||
-    a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
-)
-
-const LIFT_PCT_EXTENT = (() => {
-  const ps = PORTFOLIO_ASSET_ROWS.map((r) => r.liftPercent)
-  return { min: Math.min(...ps), max: Math.max(...ps) }
-})()
-
-function liftStrengthForRow(liftPercent: number) {
-  return normalizedLiftStrength(
-    liftPercent,
-    LIFT_PCT_EXTENT.min,
-    LIFT_PCT_EXTENT.max
-  )
-}
-
 function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
   if (d > 1e-6) return "up"
   if (d < -1e-6) return "down"
@@ -128,13 +112,6 @@ function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
 const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
-
-const PORTFOLIO_GROUP_SELECT_LABELS: Record<string, React.ReactNode> = {
-  [ALL_PORTFOLIO_GROUPS_VALUE]: ALL_PORTFOLIO_GROUPS_LABEL,
-  office: ASSET_GROUP_SIDEBAR_LABELS.office,
-  industrial: ASSET_GROUP_SIDEBAR_LABELS.industrial,
-  retail: ASSET_GROUP_SIDEBAR_LABELS.retail,
-}
 
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
 function toCssPercent(n: number): string {
@@ -224,13 +201,62 @@ function PortfolioDashboardInner({
   )
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
   const [portfolioGroupFilter, setPortfolioGroupFilter] = React.useState<
-    typeof ALL_PORTFOLIO_GROUPS_VALUE | AssetGroupId
+    string
   >(ALL_PORTFOLIO_GROUPS_VALUE)
+
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+
+  const portfolioAssetRows = React.useMemo(() => {
+    void assetGroupOverrideSnap
+    return ASSETS.map((asset, index) =>
+      portfolioAssetRowForAsset(getAssetById(asset.id) ?? asset, index)
+    ).sort(
+      (a, b) =>
+        b.liftPercent - a.liftPercent ||
+        a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
+    )
+  }, [assetGroupOverrideSnap])
+
+  const liftPctExtent = React.useMemo(() => {
+    const ps = portfolioAssetRows.map((r) => r.liftPercent)
+    return { min: Math.min(...ps), max: Math.max(...ps) }
+  }, [portfolioAssetRows])
+
+  const liftStrengthForRow = React.useCallback(
+    (liftPercent: number) =>
+      normalizedLiftStrength(
+        liftPercent,
+        liftPctExtent.min,
+        liftPctExtent.max
+      ),
+    [liftPctExtent]
+  )
+
+  const portfolioGroupSelectItems = React.useMemo(() => {
+    void assetGroupOverrideSnap
+    const custom = readCustomAssetGroups()
+    const items: Record<string, React.ReactNode> = {
+      [ALL_PORTFOLIO_GROUPS_VALUE]: ALL_PORTFOLIO_GROUPS_LABEL,
+    }
+    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+      items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
+    }
+    for (const [id, label] of Object.entries(custom).sort((a, b) =>
+      a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
+    )) {
+      items[id] = label
+    }
+    return items
+  }, [assetGroupOverrideSnap])
 
   const assetsTableHeading =
     portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
       ? "All assets"
-      : ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]
+      : resolveAssetGroupLabel(portfolioGroupFilter)
 
   /**
    * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.
@@ -259,7 +285,7 @@ function PortfolioDashboardInner({
 
     function computeEligibleIds(): Set<string> {
       const ids = new Set<string>()
-      for (const row of PORTFOLIO_ASSET_ROWS) {
+      for (const row of portfolioAssetRows) {
         if (assetHasSavedModificationSets(row.id)) ids.add(row.id)
       }
       return ids
@@ -290,13 +316,18 @@ function PortfolioDashboardInner({
       window.removeEventListener("storage", onStorage)
       window.removeEventListener("glassbox:modification-sets-changed", refresh)
     }
-  }, [assetsTableVariant, scenarioMembershipMode, scenarioRelaxedAssetFilter])
+  }, [
+    assetsTableVariant,
+    scenarioMembershipMode,
+    scenarioRelaxedAssetFilter,
+    portfolioAssetRows,
+  ])
 
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
       portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
-        ? PORTFOLIO_ASSET_ROWS
-        : PORTFOLIO_ASSET_ROWS.filter((r) => r.groupId === portfolioGroupFilter)
+        ? portfolioAssetRows
+        : portfolioAssetRows.filter((r) => r.groupId === portfolioGroupFilter)
 
     const q = assetTableSearch.trim().toLowerCase()
     let rows =
@@ -406,6 +437,7 @@ function PortfolioDashboardInner({
   }, [
     assetTableSearch,
     portfolioGroupFilter,
+    portfolioAssetRows,
     assetsTableVariant,
     scenarioEligibleAssetIds,
     scenarioExcludedAssetIds,
@@ -468,13 +500,13 @@ function PortfolioDashboardInner({
       }
     })
     return spreadPortfolioMapPinsForDisplay(raw)
-  }, [visibleAssetRows, mapGeocodeCoordinates])
+  }, [visibleAssetRows, mapGeocodeCoordinates, liftStrengthForRow])
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   const portfolioColumns = React.useMemo(
-    () => createPortfolioAssetColumns(assetsTableVariant, LIFT_PCT_EXTENT),
-    [assetsTableVariant]
+    () => createPortfolioAssetColumns(assetsTableVariant, liftPctExtent),
+    [assetsTableVariant, liftPctExtent]
   )
 
   const [sorting, setSorting] = React.useState<SortingState>(() =>
@@ -774,7 +806,7 @@ function PortfolioDashboardInner({
               aria-label={
                 portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
                   ? `${visibleAssetRows.length} assets in list`
-                  : `${visibleAssetRows.length} assets in ${ASSET_GROUP_SIDEBAR_LABELS[portfolioGroupFilter]}`
+                  : `${visibleAssetRows.length} assets in ${resolveAssetGroupLabel(portfolioGroupFilter)}`
               }
             >
               {visibleAssetRows.length}
@@ -804,16 +836,11 @@ function PortfolioDashboardInner({
               className="min-w-0 w-full flex-1 sm:max-w-xs sm:w-auto"
             />
             <Select
-              items={PORTFOLIO_GROUP_SELECT_LABELS}
+              items={portfolioGroupSelectItems}
               value={portfolioGroupFilter}
               onValueChange={(v) => {
                 if (v == null) return
-                if (
-                  v === ALL_PORTFOLIO_GROUPS_VALUE ||
-                  v === "office" ||
-                  v === "industrial" ||
-                  v === "retail"
-                ) {
+                if (Object.hasOwn(portfolioGroupSelectItems, v)) {
                   setPortfolioGroupFilter(v)
                 }
               }}
@@ -828,15 +855,22 @@ function PortfolioDashboardInner({
                 <SelectItem value={ALL_PORTFOLIO_GROUPS_VALUE}>
                   {ALL_PORTFOLIO_GROUPS_LABEL}
                 </SelectItem>
-                <SelectItem value="office">
-                  {ASSET_GROUP_SIDEBAR_LABELS.office}
-                </SelectItem>
-                <SelectItem value="industrial">
-                  {ASSET_GROUP_SIDEBAR_LABELS.industrial}
-                </SelectItem>
-                <SelectItem value="retail">
-                  {ASSET_GROUP_SIDEBAR_LABELS.retail}
-                </SelectItem>
+                {BUILT_IN_ASSET_GROUP_IDS.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {ASSET_GROUP_SIDEBAR_LABELS[id]}
+                  </SelectItem>
+                ))}
+                {Object.entries(readCustomAssetGroups())
+                  .sort((a, b) =>
+                    a[1].localeCompare(b[1], undefined, {
+                      sensitivity: "base",
+                    })
+                  )
+                  .map(([id, label]) => (
+                    <SelectItem key={id} value={id}>
+                      {label}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <PortfolioAssetsViewOptions
@@ -905,7 +939,7 @@ function PortfolioDashboardInner({
                   <PortfolioAssetsDataTable
                     table={portfolioTable}
                     variant={assetsTableVariant}
-                    liftExtent={LIFT_PCT_EXTENT}
+                    liftExtent={liftPctExtent}
                   />
                 </div>
               </div>

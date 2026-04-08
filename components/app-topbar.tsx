@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react"
 import {
   Check,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   FileUp,
   MoreVertical,
+  Plus,
 } from "lucide-react"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -33,6 +35,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -44,7 +54,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAppToast } from "@/components/app-toast"
-import { ASSETS, getAssetById } from "@/lib/assets"
+import {
+  addCustomAssetGroup,
+  getAssetGroupOverridesSnapshot,
+  readCustomAssetGroups,
+  setAssetGroupOverride,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import {
+  ASSETS,
+  ASSET_GROUP_SIDEBAR_LABELS,
+  BUILT_IN_ASSET_GROUP_IDS,
+  getAssetById,
+} from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
   BUILTIN_SCENARIO,
@@ -210,11 +232,23 @@ export function AppTopbar() {
     getUserScenariosStoreSnapshot,
     () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
+  const assetGroupOverrideSnap = useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
+  const [assetGroupSelectOpen, setAssetGroupSelectOpen] = useState(false)
+  const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
+  const [newAssetGroupName, setNewAssetGroupName] = useState("")
+  const newAssetGroupInputId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
-  const asset = assetId ? getAssetById(assetId) : null
+  const asset = useMemo(() => {
+    void assetGroupOverrideSnap
+    return assetId ? getAssetById(assetId) : null
+  }, [assetId, assetGroupOverrideSnap])
   const showAssetBreadcrumb =
     pathname?.startsWith("/assets/") === true && asset != null
   const showScenarioBreadcrumb =
@@ -232,15 +266,32 @@ export function AppTopbar() {
   const pageTitle = titleForPathname(pathname ?? null, userScenarios)
 
   const filteredAssets = useMemo(() => {
+    void assetGroupOverrideSnap
+    const merged = ASSETS.map((a) => getAssetById(a.id) ?? a)
     const q = assetSearch.trim().toLowerCase()
-    if (!q) return ASSETS
-    return ASSETS.filter(
+    if (!q) return merged
+    return merged.filter(
       (a) =>
         a.name.toLowerCase().includes(q) ||
         a.address.toLowerCase().includes(q) ||
         a.groupLabel.toLowerCase().includes(q)
     )
-  }, [assetSearch])
+  }, [assetSearch, assetGroupOverrideSnap])
+
+  const assetGroupSelectItems = useMemo(() => {
+    void assetGroupOverrideSnap
+    const custom = readCustomAssetGroups()
+    const items: Record<string, ReactNode> = {}
+    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+      items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
+    }
+    for (const [id, label] of Object.entries(custom).sort((a, b) =>
+      a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
+    )) {
+      items[id] = label
+    }
+    return items
+  }, [assetGroupOverrideSnap])
 
   useEffect(() => {
     if (!assetMenuOpen) return
@@ -379,11 +430,150 @@ export function AppTopbar() {
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2 pr-4">
-        {showAssetBreadcrumb ? (
-          <Button type="button" variant="outline" size="sm" className="shrink-0">
-            <FileUp className="size-3.5" aria-hidden />
-            Import Documents
-          </Button>
+        {showAssetBreadcrumb && asset != null ? (
+          <>
+            <Select
+              open={assetGroupSelectOpen}
+              onOpenChange={setAssetGroupSelectOpen}
+              items={assetGroupSelectItems}
+              value={asset.groupId}
+              onValueChange={(v) => {
+                if (v != null) setAssetGroupOverride(asset.id, v)
+              }}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-[min(100%,11rem)] shrink-0 text-[0.8rem]"
+                aria-label="Asset group"
+              >
+                <SelectValue placeholder="Group" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {BUILT_IN_ASSET_GROUP_IDS.map((gid) => (
+                  <SelectItem key={gid} value={gid}>
+                    {ASSET_GROUP_SIDEBAR_LABELS[gid]}
+                  </SelectItem>
+                ))}
+                {Object.entries(readCustomAssetGroups())
+                  .sort((a, b) =>
+                    a[1].localeCompare(b[1], undefined, {
+                      sensitivity: "base",
+                    })
+                  )
+                  .map(([gid, label]) => (
+                    <SelectItem key={gid} value={gid}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                <SelectSeparator />
+                <div
+                  className="p-1"
+                  onPointerDown={(e) => e.preventDefault()}
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      "relative flex w-full min-w-0 cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm outline-hidden select-none",
+                      "focus:bg-accent focus:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground",
+                      "[&_svg]:pointer-events-none [&_svg]:shrink-0"
+                    )}
+                    onClick={() => {
+                      setAssetGroupSelectOpen(false)
+                      setNewAssetGroupName("")
+                      setCreateAssetGroupOpen(true)
+                    }}
+                  >
+                    <Plus
+                      className="size-4 shrink-0 opacity-80"
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      Create new group
+                    </span>
+                  </button>
+                </div>
+              </SelectContent>
+            </Select>
+            <Dialog
+              open={createAssetGroupOpen}
+              onOpenChange={(open) => {
+                setCreateAssetGroupOpen(open)
+                if (!open) setNewAssetGroupName("")
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>New asset group</DialogTitle>
+                  <DialogDescription>
+                    Name this group. The current property will be moved into it.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 py-1">
+                  <label
+                    htmlFor={newAssetGroupInputId}
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Group name
+                  </label>
+                  <Input
+                    id={newAssetGroupInputId}
+                    value={newAssetGroupName}
+                    onChange={(e) => setNewAssetGroupName(e.target.value)}
+                    placeholder="e.g. West Coast logistics"
+                    autoComplete="off"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const created = addCustomAssetGroup(newAssetGroupName)
+                        if (created != null && asset != null) {
+                          setAssetGroupOverride(asset.id, created.id)
+                          showToast(`Group “${created.label}” created.`)
+                          setCreateAssetGroupOpen(false)
+                          setNewAssetGroupName("")
+                        } else if (newAssetGroupName.trim() === "") {
+                          showToast("Enter a group name.")
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setCreateAssetGroupOpen(false)
+                      setNewAssetGroupName("")
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const created = addCustomAssetGroup(newAssetGroupName)
+                      if (created == null) {
+                        showToast("Enter a group name.")
+                        return
+                      }
+                      if (asset != null) {
+                        setAssetGroupOverride(asset.id, created.id)
+                        showToast(`Group “${created.label}” created.`)
+                      }
+                      setCreateAssetGroupOpen(false)
+                      setNewAssetGroupName("")
+                    }}
+                  >
+                    Create group
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button type="button" variant="outline" size="sm" className="shrink-0">
+              <FileUp className="size-3.5" aria-hidden />
+              Import Documents
+            </Button>
+          </>
         ) : null}
         {showScenarioMoreMenu ? (
           <>

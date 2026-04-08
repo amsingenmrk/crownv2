@@ -1,12 +1,14 @@
-import type { AssetGroupId } from "@/lib/assets"
-
 /** Regional centers for synthetic coordinates when geocoding misses an asset. */
-const FALLBACK_REGION_CENTER: Record<AssetGroupId, readonly [number, number]> =
-  {
-    office: [-73.985_7, 40.748_4],
-    industrial: [-87.629_8, 41.878_1],
-    retail: [-118.243_7, 34.052_2],
-  }
+const FALLBACK_REGION_CENTER: Record<
+  "office" | "industrial" | "retail",
+  readonly [number, number]
+> = {
+  office: [-73.985_7, 40.748_4],
+  industrial: [-87.629_8, 41.878_1],
+  retail: [-118.243_7, 34.052_2],
+}
+
+const BUILT_IN_REGION_ORDER = ["office", "industrial", "retail"] as const
 
 function fnv1a32(input: string): number {
   let h = 0x811c9dc5
@@ -21,11 +23,19 @@ function fnv1a32(input: string): number {
  * Stable lat/lng near the asset’s group region when Mapbox geocoding has no result.
  * Keeps one pin per portfolio row without stacking every missing asset on one point.
  */
+function fallbackCenterForGroupId(groupId: string): readonly [number, number] {
+  const direct = FALLBACK_REGION_CENTER[groupId as keyof typeof FALLBACK_REGION_CENTER]
+  if (direct) return direct
+  const h = fnv1a32(groupId)
+  const pick = BUILT_IN_REGION_ORDER[h % BUILT_IN_REGION_ORDER.length]!
+  return FALLBACK_REGION_CENTER[pick]
+}
+
 export function fallbackLngLatForPortfolioAsset(
   assetId: string,
-  groupId: AssetGroupId
+  groupId: string
 ): [number, number] {
-  const [lng0, lat0] = FALLBACK_REGION_CENTER[groupId]
+  const [lng0, lat0] = fallbackCenterForGroupId(groupId)
   const h = fnv1a32(assetId)
   const u1 = h / 0xffff_ffff
   const u2 = fnv1a32(`${assetId}:lat`) / 0xffff_ffff
@@ -39,7 +49,7 @@ export function fallbackLngLatForPortfolioAsset(
 
 export function lngLatForPortfolioAsset(
   assetId: string,
-  groupId: AssetGroupId,
+  groupId: string,
   geocoded: Record<string, readonly [number, number]>
 ): [number, number] {
   const g = geocoded[assetId]

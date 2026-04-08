@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import {
   BarChart3,
   Briefcase,
@@ -27,6 +27,10 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
+import {
+  getAssetGroupOverridesSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
 import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
 import { getRecentAssetIds, recordRecentAsset } from "@/lib/recent-assets"
 import { BUILTIN_SCENARIO, readUserScenarios } from "@/lib/user-scenarios"
@@ -80,23 +84,31 @@ export function AppCommandPalette({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const assetGroupOverrideSnap = useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
 
   const recentAssets = useMemo(() => {
     if (!open) return []
+    void assetGroupOverrideSnap
     return getRecentAssetIds()
       .map((id) => getAssetById(id))
       .filter((a): a is NonNullable<typeof a> => a != null)
-  }, [open])
+  }, [open, assetGroupOverrideSnap])
 
   const recentIds = useMemo(
     () => new Set(recentAssets.map((a) => a.id)),
     [recentAssets]
   )
 
-  const otherAssets = useMemo(
-    () => ASSETS.filter((a) => !recentIds.has(a.id)),
-    [recentIds]
-  )
+  const otherAssets = useMemo(() => {
+    void assetGroupOverrideSnap
+    return ASSETS.filter((a) => !recentIds.has(a.id)).map(
+      (a) => getAssetById(a.id) ?? a
+    )
+  }, [recentIds, assetGroupOverrideSnap])
 
   const commandScenarios = useMemo(() => {
     if (!open) return []

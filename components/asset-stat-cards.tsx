@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils"
+
 export type AssetStatKpi = {
   label: string
   value: string
@@ -55,10 +57,11 @@ const VARIANT_KPIS: Record<AssetStatCardsVariant, AssetStatKpi[]> = {
   forecasts: FORECASTS_KPIS,
 }
 
-const VARIANT_SECTION_CLASS: Record<AssetStatCardsVariant, string> = {
-  "stacking-plan": "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
-  modifications: "grid gap-4 sm:grid-cols-2 xl:grid-cols-3",
-  forecasts: "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
+/** Mobile → tablet grid; `xl` = one horizontal strip (all stats in one row). */
+const VARIANT_GRID_CLASS: Record<AssetStatCardsVariant, string> = {
+  "stacking-plan": "grid-cols-1 sm:grid-cols-2 xl:grid-cols-7",
+  modifications: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6",
+  forecasts: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
 }
 
 const VARIANT_ARIA_LABEL: Record<AssetStatCardsVariant, string> = {
@@ -78,22 +81,30 @@ export function AssetStatCards({
 
   return (
     <section
-      className={VARIANT_SECTION_CLASS[variant]}
+      className={cn(
+        "overflow-hidden rounded-xl border border-border bg-border shadow-sm",
+        "grid gap-px",
+        VARIANT_GRID_CLASS[variant]
+      )}
       aria-label={VARIANT_ARIA_LABEL[variant]}
     >
       {kpis.map((kpi) => (
         <div
           key={kpi.label}
-          className="min-w-0 rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
+          className="min-w-0 bg-card px-3 py-2.5 sm:px-3.5 sm:py-3 xl:px-3 xl:py-2.5"
         >
-          <p className="text-sm text-muted-foreground">{kpi.label}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+          <p className="text-[11px] font-medium leading-tight text-muted-foreground">
+            {kpi.label}
+          </p>
+          <p className="mt-0.5 text-base font-semibold leading-tight tracking-tight text-foreground tabular-nums xl:text-[0.95rem]">
             {kpi.value}
           </p>
           {kpi.subLabel != null && kpi.subValue != null ? (
-            <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
-              <p className="text-xs text-muted-foreground">{kpi.subLabel}</p>
-              <p className="text-sm font-medium tabular-nums text-foreground">
+            <div className="mt-1.5 border-t border-border/70 pt-1.5">
+              <p className="text-[10px] leading-tight text-muted-foreground">
+                {kpi.subLabel}
+              </p>
+              <p className="mt-0.5 text-xs font-medium leading-tight tabular-nums text-foreground">
                 {kpi.subValue}
               </p>
             </div>

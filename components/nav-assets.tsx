@@ -4,7 +4,13 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
-import { Building2, ChevronRight, Factory, Store } from "lucide-react"
+import {
+  Building2,
+  ChevronRight,
+  Factory,
+  Layers,
+  Store,
+} from "lucide-react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,8 +27,14 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import {
+  getAssetGroupOverridesSnapshot,
+  readCustomAssetGroups,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
+  getAssetById,
   type AssetGroupId,
   assetHref,
 } from "@/lib/assets"
@@ -49,7 +61,7 @@ const ASSET_GROUPS: {
   },
 ]
 
-const INITIAL_GROUP_OPEN: Record<AssetGroupId, boolean> = {
+const INITIAL_GROUP_OPEN: Record<string, boolean> = {
   office: false,
   industrial: false,
   retail: false,
@@ -58,19 +70,40 @@ const INITIAL_GROUP_OPEN: Record<AssetGroupId, boolean> = {
 export function NavAssets() {
   const pathname = usePathname()
   const [openByGroup, setOpenByGroup] =
-    React.useState<Record<AssetGroupId, boolean>>(INITIAL_GROUP_OPEN)
+    React.useState<Record<string, boolean>>(INITIAL_GROUP_OPEN)
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+
+  const navAssetSections = React.useMemo(() => {
+    void assetGroupOverrideSnap
+    const custom = Object.entries(readCustomAssetGroups())
+      .map(([groupId, label]) => ({
+        label,
+        groupId,
+        icon: Layers,
+      }))
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+      )
+    return [...ASSET_GROUPS, ...custom]
+  }, [assetGroupOverrideSnap])
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Assets</SidebarGroupLabel>
       <SidebarMenu className="gap-0">
-        {ASSET_GROUPS.map((group) => {
+        {navAssetSections.map((group) => {
           const GroupIcon = group.icon
-          const assets = ASSETS.filter((a) => a.groupId === group.groupId)
+          const assets = ASSETS.filter(
+            (a) => getAssetById(a.id)?.groupId === group.groupId
+          )
           return (
             <Collapsible
               key={group.groupId}
-              open={openByGroup[group.groupId]}
+              open={openByGroup[group.groupId] ?? false}
               onOpenChange={(open) =>
                 setOpenByGroup((s) => ({ ...s, [group.groupId]: open }))
               }

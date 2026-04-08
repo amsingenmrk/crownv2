@@ -2,6 +2,11 @@
  * Demo assets for sidebar navigation and asset detail pages.
  */
 
+import {
+  readAssetGroupOverrides,
+  readCustomAssetGroups,
+} from "@/lib/asset-group-overrides"
+
 const BUILDING_IMAGES = [
   "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop",
   "https://images.unsplash.com/photo-1516344301847-92e6c9ff876f?w=400&h=300&fit=crop",
@@ -13,6 +18,12 @@ const BUILDING_IMAGES = [
 
 export type AssetGroupId = "office" | "industrial" | "retail"
 
+export const BUILT_IN_ASSET_GROUP_IDS: readonly AssetGroupId[] = [
+  "office",
+  "industrial",
+  "retail",
+]
+
 /** Labels used in the sidebar asset groups and portfolio group filter. */
 export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
   office: "Office Buildings",
@@ -23,7 +34,7 @@ export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
 export interface Asset {
   id: string
   name: string
-  groupId: AssetGroupId
+  groupId: string
   groupLabel: string
   address: string
   imageUrl: string
@@ -191,8 +202,29 @@ export const ASSETS: Asset[] = [
   ...buildList(RETAIL_RAW, 12),
 ]
 
+export function resolveAssetGroupLabel(groupId: string): string {
+  if (
+    groupId === "office" ||
+    groupId === "industrial" ||
+    groupId === "retail"
+  ) {
+    return ASSET_GROUP_SIDEBAR_LABELS[groupId]
+  }
+  if (typeof window === "undefined") return groupId
+  return readCustomAssetGroups()[groupId] ?? groupId
+}
+
 export function getAssetById(id: string): Asset | undefined {
-  return ASSETS.find((a) => a.id === id)
+  const base = ASSETS.find((a) => a.id === id)
+  if (!base) return undefined
+  if (typeof window === "undefined") return base
+  const o = readAssetGroupOverrides()[id]
+  if (!o || o === base.groupId) return base
+  return {
+    ...base,
+    groupId: o,
+    groupLabel: resolveAssetGroupLabel(o),
+  }
 }
 
 export function assetHref(id: string): string {

@@ -30,7 +30,11 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
-import { ASSETS, assetHref } from "@/lib/assets"
+import {
+  getAssetGroupOverridesSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { useScenariosIncludingAssetCount } from "@/hooks/use-scenarios-including-asset-count"
@@ -69,18 +73,15 @@ const PortfolioMapbox = dynamic(
   { ssr: false }
 )
 
-/** Same column labels as the portfolio assets table (RSF … WALE). */
+/** Search card metrics (subset of portfolio table columns). */
 const SEARCH_CARD_PORTFOLIO_METRICS: {
   label: string
   get: (row: PortfolioAssetRow) => string
 }[] = [
   { label: "RSF", get: (r) => r.rsf },
   { label: "Occ%", get: (r) => r.occPct },
-  { label: "$/SF", get: (r) => r.pricePerSf },
-  { label: "NOI", get: (r) => r.noi },
   { label: "Value", get: (r) => r.value },
   { label: "Cap", get: (r) => r.capRate },
-  { label: "WALE", get: (r) => r.wale },
 ]
 
 const DEFAULT_SEARCH_LISTING_FILTERS = {
@@ -129,7 +130,7 @@ function SearchListingCardActions({
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="font-normal text-muted-foreground">
-            Scenarios
+            Add to scenario
           </DropdownMenuLabel>
           {scenariosForMenu.map((s) => (
             <DropdownMenuItem
@@ -166,6 +167,12 @@ function SearchListingPreviewCard({
 }) {
   const isMarket = pin.listingScope === "market"
   const scenariosIncludingCount = useScenariosIncludingAssetCount(pin.id)
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+
   const portfolioRow = React.useMemo(() => {
     if (isMarket) {
       const marketPin = getMarketListingPinById(pin.id)
@@ -173,8 +180,10 @@ function SearchListingPreviewCard({
     }
     const index = ASSETS.findIndex((a) => a.id === pin.id)
     if (index < 0) return null
-    return portfolioAssetRowForAsset(ASSETS[index]!, index)
-  }, [isMarket, pin.id])
+    void assetGroupOverrideSnap
+    const a = getAssetById(pin.id) ?? ASSETS[index]!
+    return portfolioAssetRowForAsset(a, index)
+  }, [isMarket, pin.id, assetGroupOverrideSnap])
   const liftText =
     pin.lift.trim() !== ""
       ? pin.lift
@@ -267,7 +276,7 @@ function SearchListingPreviewCard({
     <div className="flex items-end justify-between gap-3 border-t border-border bg-muted/25 px-3 py-2.5">
       {portfolioRow ? (
         <dl
-          className="grid min-w-0 flex-1 grid-cols-4 gap-x-2 gap-y-2.5 sm:grid-cols-7"
+          className="grid min-w-0 flex-1 grid-cols-2 gap-x-2 gap-y-2.5 sm:grid-cols-4"
           aria-label="Listing metrics"
         >
           {SEARCH_CARD_PORTFOLIO_METRICS.map(({ label, get }) => (
@@ -364,6 +373,11 @@ function MapRegionSkeleton({
 
 export function SearchComingSoon() {
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
   const filterTitleId = React.useId()
   const portfolioCbId = React.useId()
   const marketCbId = React.useId()
@@ -378,6 +392,7 @@ export function SearchComingSoon() {
   const [mapSearchQuery, setMapSearchQuery] = React.useState("")
 
   const { listingPins, portfolioPins, marketPins } = React.useMemo(() => {
+    void assetGroupOverrideSnap
     const liftPcts = ASSETS.map(
       (a, i) => 3 + (seedForAsset(a, i) % 15)
     )
@@ -385,9 +400,10 @@ export function SearchComingSoon() {
     const maxLift = Math.max(...liftPcts)
     const portfolioRaw = ASSETS.map((a, index) => {
       const liftPct = liftPcts[index]!
+      const effective = getAssetById(a.id) ?? a
       const [longitude, latitude] = lngLatForPortfolioAsset(
         a.id,
-        a.groupId,
+        effective.groupId,
         coordinates
       )
       return {
@@ -427,7 +443,7 @@ export function SearchComingSoon() {
       portfolioPins: pf,
       marketPins: mk,
     }
-  }, [coordinates])
+  }, [coordinates, assetGroupOverrideSnap])
 
   const displayedPortfolioPins = appliedFilters.showPortfolio
     ? portfolioPins
