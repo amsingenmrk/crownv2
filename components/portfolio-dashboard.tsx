@@ -585,7 +585,9 @@ function PortfolioDashboardInner({
       <section
         className={cn(
           metricStripSectionClassName,
-          "grid-cols-1 sm:grid-cols-2 xl:grid-cols-5"
+          "grid-cols-1 sm:grid-cols-2 xl:grid-cols-5",
+          /* Don’t let flex-1 parents shrink this row; overflow-hidden would clip metrics. */
+          "h-fit shrink-0"
         )}
       >
         {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
