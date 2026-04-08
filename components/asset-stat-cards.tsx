@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils"
 export type AssetStatKpi = {
   label: string
   value: string
+  /** Appended on the same line as `value` (e.g. vs in-place % change). */
+  valueSuffix?: string
   subLabel?: string
   subValue?: string
 }
@@ -14,18 +16,11 @@ export type AssetStatCardsVariant =
 
 /** Stacking plan header metrics (per asset view). */
 const ASSET_STACKING_PLAN_KPIS: AssetStatKpi[] = [
-  {
-    label: "Occupancy",
-    value: "87.00%",
-    subLabel: "Vacancy",
-    subValue: "13.00%",
-  },
   { label: "In-Place Rent", value: "$42.50 / SF" },
   {
     label: "Predicted Rent",
     value: "$46.00 / SF",
-    subLabel: "Predicted vs In-Place",
-    subValue: "+$3.50 / SF (+8.2%)",
+    valueSuffix: "(+8.2%)",
   },
   { label: "NOI", value: "$6.8M / yr" },
   { label: "Est. Value", value: "$112.0M" },
@@ -59,7 +54,7 @@ const VARIANT_KPIS: Record<AssetStatCardsVariant, AssetStatKpi[]> = {
 
 /** Mobile → tablet grid; `xl` = one horizontal strip (all stats in one row). */
 const VARIANT_GRID_CLASS: Record<AssetStatCardsVariant, string> = {
-  "stacking-plan": "grid-cols-1 sm:grid-cols-2 xl:grid-cols-7",
+  "stacking-plan": "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6",
   modifications: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6",
   forecasts: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
 }
@@ -91,20 +86,25 @@ export function AssetStatCards({
       {kpis.map((kpi) => (
         <div
           key={kpi.label}
-          className="min-w-0 bg-card px-3 py-2.5 sm:px-3.5 sm:py-3 xl:px-3 xl:py-2.5"
+          className="min-w-0 bg-card px-3 py-3 sm:px-4 sm:py-3.5 xl:px-3.5 xl:py-3"
         >
-          <p className="text-[11px] font-medium leading-tight text-muted-foreground">
+          <p className="text-sm font-medium leading-snug text-muted-foreground">
             {kpi.label}
           </p>
-          <p className="mt-0.5 text-base font-semibold leading-tight tracking-tight text-foreground tabular-nums xl:text-[0.95rem]">
-            {kpi.value}
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-lg font-semibold leading-snug tracking-tight tabular-nums">
+            <span className="text-foreground">{kpi.value}</span>
+            {kpi.valueSuffix != null && kpi.valueSuffix !== "" ? (
+              <span className="text-sm font-semibold text-muted-foreground">
+                {kpi.valueSuffix}
+              </span>
+            ) : null}
           </p>
           {kpi.subLabel != null && kpi.subValue != null ? (
-            <div className="mt-1.5 border-t border-border/70 pt-1.5">
-              <p className="text-[10px] leading-tight text-muted-foreground">
+            <div className="mt-2 border-t border-border/70 pt-2">
+              <p className="text-xs leading-snug text-muted-foreground">
                 {kpi.subLabel}
               </p>
-              <p className="mt-0.5 text-xs font-medium leading-tight tabular-nums text-foreground">
+              <p className="mt-0.5 text-sm font-medium leading-snug tabular-nums text-foreground">
                 {kpi.subValue}
               </p>
             </div>
