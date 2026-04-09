@@ -36,18 +36,8 @@ function parseOverrides(raw: string): Record<string, string> {
   }
 }
 
-export function readAssetGroupOverrides(): Record<string, string> {
-  if (typeof window === "undefined") return {}
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (raw == null || raw === "") return {}
-  return parseOverrides(raw)
-}
-
-export function readCustomAssetGroups(): Record<string, string> {
-  if (typeof window === "undefined") return {}
+export function parseCustomAssetGroups(raw: string): Record<string, string> {
   try {
-    const raw = localStorage.getItem(CUSTOM_GROUPS_KEY)
-    if (raw == null || raw === "") return {}
     const parsed: unknown = JSON.parse(raw)
     if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {}
@@ -68,6 +58,36 @@ export function readCustomAssetGroups(): Record<string, string> {
     return out
   } catch {
     return {}
+  }
+}
+
+export function readAssetGroupOverrides(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (raw == null || raw === "") return {}
+  return parseOverrides(raw)
+}
+
+export function readCustomAssetGroups(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(CUSTOM_GROUPS_KEY)
+  if (raw == null || raw === "") return {}
+  return parseCustomAssetGroups(raw)
+}
+
+export function parseAssetGroupOverrideSnapshot(snapshot: string): {
+  overrides: Record<string, string>
+  customGroups: Record<string, string>
+} {
+  const separatorIndex = snapshot.indexOf("\0")
+  const overridesRaw =
+    separatorIndex === -1 ? snapshot : snapshot.slice(0, separatorIndex)
+  const customGroupsRaw =
+    separatorIndex === -1 ? "" : snapshot.slice(separatorIndex + 1)
+
+  return {
+    overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
+    customGroups: customGroupsRaw ? parseCustomAssetGroups(customGroupsRaw) : {},
   }
 }
 

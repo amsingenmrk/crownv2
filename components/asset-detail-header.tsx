@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname, useParams } from "next/navigation"
-import { Building, Layers, Wrench, LineChart } from "lucide-react"
+import { Layers, Wrench, LineChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getAssetById } from "@/lib/assets"
 
@@ -51,21 +51,7 @@ export function AssetDetailHeader() {
     <>
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <div className="h-12 w-[70px] shrink-0 overflow-hidden rounded-[8px] bg-muted">
-              {asset.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={asset.imageUrl}
-                  alt={buildingLabel}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <Building className="w-6 h-6" />
-                </div>
-              )}
-            </div>
+          <div className="flex min-w-0 items-start">
             <div className="h-fit self-center min-w-0">
               <h2 className="text-xl font-semibold truncate">{buildingLabel}</h2>
               <p className="text-sm text-muted-foreground truncate">{addressLabel}</p>
@@ -77,8 +63,8 @@ export function AssetDetailHeader() {
         </div>
       </div>
 
-      <nav className="px-6 border-b border-border bg-background overflow-x-auto">
-        <div className="flex items-center gap-1 -mb-px min-w-min">
+      <nav className="overflow-x-auto overflow-y-hidden border-b border-border bg-background px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-fit items-center gap-1 -mb-px">
           {ASSET_TAB_PATHS.map((tab) => {
             const Icon = tab.icon
             const tabPath = `${basePath}/${tab.pathSegment}`

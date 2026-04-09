@@ -57,7 +57,7 @@ import { useAppToast } from "@/components/app-toast"
 import {
   addCustomAssetGroup,
   getAssetGroupOverridesSnapshot,
-  readCustomAssetGroups,
+  parseAssetGroupOverrideSnapshot,
   setAssetGroupOverride,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
@@ -66,6 +66,7 @@ import {
   ASSET_GROUP_SIDEBAR_LABELS,
   BUILT_IN_ASSET_GROUP_IDS,
   getAssetById,
+  portfolioScopeIdFromRouteParam,
 } from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
@@ -101,13 +102,24 @@ function scenarioSlugFromPathname(pathname: string | null): string | null {
   return slug || null
 }
 
+function portfolioScopeIdFromPathname(pathname: string | null): string | null {
+  if (pathname == null || !pathname.startsWith("/portfolio/scopes/")) return null
+  const scopeId = pathname.slice("/portfolio/scopes/".length).split("/")[0]
+  return scopeId ? portfolioScopeIdFromRouteParam(scopeId) : null
+}
+
 function titleForPathname(
   pathname: string | null,
-  userScenarios: readonly { name: string; slug: string }[]
+  userScenarios: readonly { name: string; slug: string }[],
+  portfolioScopeLabels: Record<string, string>
 ): string {
   if (!pathname) return "Glassbox"
   const explicit = TITLES[pathname]
   if (explicit) return explicit
+  const scopeId = portfolioScopeIdFromPathname(pathname)
+  if (scopeId != null) {
+    return portfolioScopeLabels[scopeId] ?? scopeId
+  }
   if (pathname.startsWith("/scenarios/")) {
     const slug = pathname.slice("/scenarios/".length).split("/")[0]
     if (slug) {
@@ -237,6 +249,10 @@ export function AppTopbar() {
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
   const [assetGroupSelectOpen, setAssetGroupSelectOpen] = useState(false)
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
@@ -245,10 +261,10 @@ export function AppTopbar() {
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
-  const asset = useMemo(() => {
-    void assetGroupOverrideSnap
-    return assetId ? getAssetById(assetId) : null
-  }, [assetId, assetGroupOverrideSnap])
+  const asset = useMemo(
+    () => (assetId ? getAssetById(assetId, assetGroupData) : null),
+    [assetGroupData, assetId]
+  )
   const showAssetBreadcrumb =
     pathname?.startsWith("/assets/") === true && asset != null
   const showScenarioBreadcrumb =
@@ -263,11 +279,8 @@ export function AppTopbar() {
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
   const canRenameScenarioInline = canDeleteCurrentScenario
 
-  const pageTitle = titleForPathname(pathname ?? null, userScenarios)
-
   const filteredAssets = useMemo(() => {
-    void assetGroupOverrideSnap
-    const merged = ASSETS.map((a) => getAssetById(a.id) ?? a)
+    const merged = ASSETS.map((a) => getAssetById(a.id, assetGroupData) ?? a)
     const q = assetSearch.trim().toLowerCase()
     if (!q) return merged
     return merged.filter(
@@ -276,11 +289,10 @@ export function AppTopbar() {
         a.address.toLowerCase().includes(q) ||
         a.groupLabel.toLowerCase().includes(q)
     )
-  }, [assetSearch, assetGroupOverrideSnap])
+  }, [assetGroupData, assetSearch])
 
   const assetGroupSelectItems = useMemo(() => {
-    void assetGroupOverrideSnap
-    const custom = readCustomAssetGroups()
+    const custom = assetGroupData.customGroups
     const items: Record<string, ReactNode> = {}
     for (const id of BUILT_IN_ASSET_GROUP_IDS) {
       items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
@@ -291,7 +303,25 @@ export function AppTopbar() {
       items[id] = label
     }
     return items
-  }, [assetGroupOverrideSnap])
+  }, [assetGroupData])
+
+  const portfolioScopeLabels = useMemo(() => {
+    const custom = assetGroupData.customGroups
+    const labels: Record<string, string> = {}
+    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+      labels[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
+    }
+    for (const [id, label] of Object.entries(custom)) {
+      labels[id] = label
+    }
+    return labels
+  }, [assetGroupData])
+
+  const pageTitle = titleForPathname(
+    pathname ?? null,
+    userScenarios,
+    portfolioScopeLabels
+  )
 
   useEffect(() => {
     if (!assetMenuOpen) return
@@ -454,7 +484,7 @@ export function AppTopbar() {
                     {ASSET_GROUP_SIDEBAR_LABELS[gid]}
                   </SelectItem>
                 ))}
-                {Object.entries(readCustomAssetGroups())
+                {Object.entries(assetGroupData.customGroups)
                   .sort((a, b) =>
                     a[1].localeCompare(b[1], undefined, {
                       sensitivity: "base",

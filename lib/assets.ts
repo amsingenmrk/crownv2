@@ -24,6 +24,24 @@ export const BUILT_IN_ASSET_GROUP_IDS: readonly AssetGroupId[] = [
   "retail",
 ]
 
+const BUILT_IN_PORTFOLIO_SCOPE_SLUGS: Record<AssetGroupId, string> = {
+  office: "fund-i",
+  industrial: "fund-ii",
+  retail: "fund-iii",
+}
+
+const BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
+  "fund-i": "office",
+  "fund-ii": "industrial",
+  "fund-iii": "retail",
+  // Preserve legacy scope URLs in case any old links still exist.
+  office: "office",
+  industrial: "industrial",
+  retail: "retail",
+}
+
+export const PORTFOLIO_OVERVIEW_LABEL = "Portfolio overview"
+
 /** Labels used in the sidebar asset groups and portfolio group filter. */
 export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
   office: "Fund I",
@@ -40,6 +58,11 @@ export interface Asset {
   imageUrl: string
   /** 0–100 */
   occupiedPercent: number
+}
+
+type AssetGroupResolutionOptions = {
+  overrides?: Record<string, string>
+  customGroups?: Record<string, string>
 }
 
 function slugify(text: string): string {
@@ -202,7 +225,10 @@ export const ASSETS: Asset[] = [
   ...buildList(RETAIL_RAW, 12),
 ]
 
-export function resolveAssetGroupLabel(groupId: string): string {
+export function resolveAssetGroupLabel(
+  groupId: string,
+  customGroups?: Record<string, string>
+): string {
   if (
     groupId === "office" ||
     groupId === "industrial" ||
@@ -210,13 +236,26 @@ export function resolveAssetGroupLabel(groupId: string): string {
   ) {
     return ASSET_GROUP_SIDEBAR_LABELS[groupId]
   }
+  if (customGroups != null) return customGroups[groupId] ?? groupId
   if (typeof window === "undefined") return groupId
   return readCustomAssetGroups()[groupId] ?? groupId
 }
 
-export function getAssetById(id: string): Asset | undefined {
+export function getAssetById(
+  id: string,
+  options?: AssetGroupResolutionOptions
+): Asset | undefined {
   const base = ASSETS.find((a) => a.id === id)
   if (!base) return undefined
+  if (options != null) {
+    const override = options.overrides?.[id]
+    if (!override || override === base.groupId) return base
+    return {
+      ...base,
+      groupId: override,
+      groupLabel: resolveAssetGroupLabel(override, options.customGroups),
+    }
+  }
   if (typeof window === "undefined") return base
   const o = readAssetGroupOverrides()[id]
   if (!o || o === base.groupId) return base
@@ -229,4 +268,24 @@ export function getAssetById(id: string): Asset | undefined {
 
 export function assetHref(id: string): string {
   return `/assets/${id}/stacking-plan`
+}
+
+export function portfolioScopeSlug(scopeId: string): string {
+  if (
+    scopeId === "office" ||
+    scopeId === "industrial" ||
+    scopeId === "retail"
+  ) {
+    return BUILT_IN_PORTFOLIO_SCOPE_SLUGS[scopeId]
+  }
+  return scopeId
+}
+
+export function portfolioScopeIdFromRouteParam(scopeParam: string): string {
+  const decoded = decodeURIComponent(scopeParam)
+  return BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG[decoded] ?? decoded
+}
+
+export function portfolioScopeHref(scopeId: string): string {
+  return `/portfolio/scopes/${encodeURIComponent(portfolioScopeSlug(scopeId))}`
 }

@@ -12,6 +12,7 @@ import {
 import {
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarMenuAction,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -21,15 +22,18 @@ import {
 } from "@/components/ui/sidebar"
 import {
   getAssetGroupOverridesSnapshot,
-  readCustomAssetGroups,
+  parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
   getAssetById,
+  PORTFOLIO_OVERVIEW_LABEL,
   type AssetGroupId,
   assetHref,
+  portfolioScopeIdFromRouteParam,
+  portfolioScopeHref,
 } from "@/lib/assets"
 
 const ASSET_GROUPS: { label: string; groupId: AssetGroupId }[] = [
@@ -53,19 +57,51 @@ export function NavAssets() {
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
 
   const navAssetSections = React.useMemo(() => {
-    void assetGroupOverrideSnap
-    const custom = Object.entries(readCustomAssetGroups())
+    const custom = Object.entries(assetGroupData.customGroups)
       .map(([groupId, label]) => ({ label, groupId }))
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       )
     return [...ASSET_GROUPS, ...custom]
-  }, [assetGroupOverrideSnap])
+  }, [assetGroupData])
 
-  const portfoliosActive =
-    pathname === "/portfolio" || pathname.startsWith("/portfolio/")
+  const activeScopeId = React.useMemo(() => {
+    if (pathname === "/portfolio") return "all"
+    const match = pathname.match(/^\/portfolio\/scopes\/([^/]+)/)
+    return match?.[1] ? portfolioScopeIdFromRouteParam(match[1]) : null
+  }, [pathname])
+
+  const activeAssetGroupId = React.useMemo(() => {
+    const match = pathname.match(/^\/assets\/([^/]+)/)
+    if (!match?.[1]) return null
+    return (
+      getAssetById(decodeURIComponent(match[1]), assetGroupData)?.groupId ?? null
+    )
+  }, [assetGroupData, pathname])
+
+  React.useEffect(() => {
+    const nextOpenIds = [activeScopeId, activeAssetGroupId].filter(
+      (value): value is string => value != null && value !== "all"
+    )
+    if (nextOpenIds.length === 0) return
+    setOpenByGroup((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const groupId of nextOpenIds) {
+        if (next[groupId] !== true) {
+          next[groupId] = true
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [activeAssetGroupId, activeScopeId])
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -73,19 +109,19 @@ export function NavAssets() {
       <SidebarMenu className="gap-0">
         <SidebarMenuItem>
           <SidebarMenuButton
-            tooltip="All assets"
-            isActive={portfoliosActive}
+            tooltip={PORTFOLIO_OVERVIEW_LABEL}
+            isActive={pathname === "/portfolio"}
             render={<Link href="/portfolio" />}
           >
             <Briefcase />
-            <span>All assets</span>
+            <span>{PORTFOLIO_OVERVIEW_LABEL}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
         <li className="list-none group-data-[collapsible=icon]:hidden">
           <SidebarMenuSub className="gap-0 py-0.5">
             {navAssetSections.map((group) => {
               const assets = ASSETS.filter(
-                (a) => getAssetById(a.id)?.groupId === group.groupId
+                (a) => getAssetById(a.id, assetGroupData)?.groupId === group.groupId
               )
               return (
                 <Collapsible
@@ -97,19 +133,33 @@ export function NavAssets() {
                   className="group/collapsible"
                   render={<SidebarMenuItem />}
                 >
-                  <CollapsibleTrigger
-                    render={
-                      <SidebarMenuButton
-                        tooltip={group.label}
-                        className="h-8 data-[panel-open]:[&_svg:last-child]:rotate-90"
+                  <div className="relative">
+                    <SidebarMenuButton
+                      tooltip={group.label}
+                      className="h-8 pr-8"
+                      isActive={
+                        activeScopeId === group.groupId ||
+                        activeAssetGroupId === group.groupId
+                      }
+                      render={<Link href={portfolioScopeHref(group.groupId)} />}
+                    >
+                      <span className="truncate">{group.label}</span>
+                    </SidebarMenuButton>
+                    <CollapsibleTrigger
+                      render={
+                        <SidebarMenuAction
+                          aria-label={`${openByGroup[group.groupId] ? "Collapse" : "Expand"} ${group.label}`}
+                        />
+                      }
+                    >
+                      <ChevronRight
+                        className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                        aria-hidden
                       />
-                    }
-                  >
-                    <span className="truncate">{group.label}</span>
-                    <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200" />
-                  </CollapsibleTrigger>
+                    </CollapsibleTrigger>
+                  </div>
                   <CollapsibleContent>
-                    <SidebarMenuSub className="mx-0 translate-x-0 gap-0 border-0 px-0 py-0.5">
+                    <SidebarMenuSub className="mt-0.5 gap-0 py-0.5">
                       {assets.map((asset) => {
                         const href = assetHref(asset.id)
                         const active =
@@ -119,7 +169,7 @@ export function NavAssets() {
                           <SidebarMenuSubItem key={asset.id}>
                             <SidebarMenuSubButton
                               size="sm"
-                              className="h-auto min-h-6 translate-x-0 py-1 leading-snug"
+                              className="h-auto min-h-6 py-1 leading-snug"
                               isActive={active}
                               render={<Link href={href} />}
                             >

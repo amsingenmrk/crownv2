@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -35,15 +36,17 @@ import {
 } from "@/components/portfolio/portfolio-assets-columns"
 import {
   getAssetGroupOverridesSnapshot,
-  readCustomAssetGroups,
+  parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
   BUILT_IN_ASSET_GROUP_IDS,
+  PORTFOLIO_OVERVIEW_LABEL,
   assetHref,
   getAssetById,
+  portfolioScopeHref,
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
@@ -193,6 +196,7 @@ const PortfolioMapbox = dynamic(
 function PortfolioDashboardInner({
   assetsTableVariant,
   scenarioRelaxedAssetFilter = true,
+  portfolioScopeId,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   /**
@@ -203,8 +207,10 @@ function PortfolioDashboardInner({
    * an explicit inclusion list instead of this flag.
    */
   scenarioRelaxedAssetFilter?: boolean
+  portfolioScopeId?: string
 }) {
   const assetsHeadingId = React.useId()
+  const router = useRouter()
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
     "table"
   )
@@ -212,29 +218,42 @@ function PortfolioDashboardInner({
   const [portfolioGroupFilter, setPortfolioGroupFilter] = React.useState<
     string
   >(ALL_PORTFOLIO_GROUPS_VALUE)
+  const effectivePortfolioGroupFilter =
+    assetsTableVariant === "portfolio" && portfolioScopeId != null
+      ? portfolioScopeId
+      : portfolioGroupFilter
+  const allPortfolioGroupsLabel =
+    assetsTableVariant === "portfolio"
+      ? PORTFOLIO_OVERVIEW_LABEL
+      : ALL_PORTFOLIO_GROUPS_LABEL
 
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
 
   const portfolioAssetRows = React.useMemo(() => {
-    void assetGroupOverrideSnap
     return ASSETS.map((asset, index) =>
-      portfolioAssetRowForAsset(getAssetById(asset.id) ?? asset, index)
+      portfolioAssetRowForAsset(
+        getAssetById(asset.id, assetGroupData) ?? asset,
+        index
+      )
     ).sort(
       (a, b) =>
         b.liftPercent - a.liftPercent ||
         a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
     )
-  }, [assetGroupOverrideSnap])
+  }, [assetGroupData])
 
   const portfolioGroupSelectItems = React.useMemo(() => {
-    void assetGroupOverrideSnap
-    const custom = readCustomAssetGroups()
+    const custom = assetGroupData.customGroups
     const items: Record<string, React.ReactNode> = {
-      [ALL_PORTFOLIO_GROUPS_VALUE]: ALL_PORTFOLIO_GROUPS_LABEL,
+      [ALL_PORTFOLIO_GROUPS_VALUE]: allPortfolioGroupsLabel,
     }
     for (const id of BUILT_IN_ASSET_GROUP_IDS) {
       items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
@@ -245,12 +264,37 @@ function PortfolioDashboardInner({
       items[id] = label
     }
     return items
-  }, [assetGroupOverrideSnap])
+  }, [allPortfolioGroupsLabel, assetGroupData])
 
-  const assetsTableHeading =
-    portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
-      ? "All assets"
-      : resolveAssetGroupLabel(portfolioGroupFilter)
+  const handlePortfolioGroupFilterChange = React.useCallback(
+    (nextValue: string) => {
+      if (!Object.hasOwn(portfolioGroupSelectItems, nextValue)) return
+      if (assetsTableVariant === "portfolio") {
+        router.push(
+          nextValue === ALL_PORTFOLIO_GROUPS_VALUE
+            ? "/portfolio"
+            : portfolioScopeHref(nextValue)
+        )
+        return
+      }
+      setPortfolioGroupFilter(nextValue)
+    },
+    [assetsTableVariant, portfolioGroupSelectItems, router]
+  )
+
+  const effectivePortfolioGroupLabel =
+    effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+      ? allPortfolioGroupsLabel
+      : resolveAssetGroupLabel(
+          effectivePortfolioGroupFilter,
+          assetGroupData.customGroups
+        )
+
+  const showCurrentScopeFallbackOption =
+    effectivePortfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
+    !Object.hasOwn(portfolioGroupSelectItems, effectivePortfolioGroupFilter)
+
+  const assetsTableHeading = effectivePortfolioGroupLabel
 
   /**
    * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.
@@ -319,9 +363,11 @@ function PortfolioDashboardInner({
 
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
-      portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+      effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
         ? portfolioAssetRows
-        : portfolioAssetRows.filter((r) => r.groupId === portfolioGroupFilter)
+        : portfolioAssetRows.filter(
+            (r) => r.groupId === effectivePortfolioGroupFilter
+          )
 
     const q = assetTableSearch.trim().toLowerCase()
     let rows =
@@ -391,8 +437,8 @@ function PortfolioDashboardInner({
         if (!pin) return
         const r = portfolioAssetRowForMarketPin(pin)
         if (
-          portfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
-          r.groupId !== portfolioGroupFilter
+          effectivePortfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
+          r.groupId !== effectivePortfolioGroupFilter
         ) {
           return
         }
@@ -430,7 +476,7 @@ function PortfolioDashboardInner({
     return rows
   }, [
     assetTableSearch,
-    portfolioGroupFilter,
+    effectivePortfolioGroupFilter,
     portfolioAssetRows,
     assetsTableVariant,
     scenarioEligibleAssetIds,
@@ -822,9 +868,9 @@ function PortfolioDashboardInner({
             <span
               className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium tabular-nums text-muted-foreground ring-1 ring-border/60"
               aria-label={
-                portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+                effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
                   ? `${visibleAssetRows.length} assets in list`
-                  : `${visibleAssetRows.length} assets in ${resolveAssetGroupLabel(portfolioGroupFilter)}`
+                  : `${visibleAssetRows.length} assets in ${effectivePortfolioGroupLabel}`
               }
             >
               {visibleAssetRows.length}
@@ -855,30 +901,33 @@ function PortfolioDashboardInner({
             />
             <Select
               items={portfolioGroupSelectItems}
-              value={portfolioGroupFilter}
+              value={effectivePortfolioGroupFilter}
               onValueChange={(v) => {
                 if (v == null) return
-                if (Object.hasOwn(portfolioGroupSelectItems, v)) {
-                  setPortfolioGroupFilter(v)
-                }
+                handlePortfolioGroupFilterChange(v)
               }}
             >
               <SelectTrigger
                 className="h-8 w-full min-w-0 shrink-0 sm:min-w-[13rem] sm:w-auto sm:max-w-[16rem]"
                 aria-label="Filter by fund or all assets"
               >
-                <SelectValue placeholder={ALL_PORTFOLIO_GROUPS_LABEL} />
+                <SelectValue placeholder={allPortfolioGroupsLabel} />
               </SelectTrigger>
               <SelectContent>
+                {showCurrentScopeFallbackOption ? (
+                  <SelectItem value={effectivePortfolioGroupFilter}>
+                    {effectivePortfolioGroupLabel}
+                  </SelectItem>
+                ) : null}
                 <SelectItem value={ALL_PORTFOLIO_GROUPS_VALUE}>
-                  {ALL_PORTFOLIO_GROUPS_LABEL}
+                  {allPortfolioGroupsLabel}
                 </SelectItem>
                 {BUILT_IN_ASSET_GROUP_IDS.map((id) => (
                   <SelectItem key={id} value={id}>
                     {ASSET_GROUP_SIDEBAR_LABELS[id]}
                   </SelectItem>
                 ))}
-                {Object.entries(readCustomAssetGroups())
+                {Object.entries(assetGroupData.customGroups)
                   .sort((a, b) =>
                     a[1].localeCompare(b[1], undefined, {
                       sensitivity: "base",
@@ -968,15 +1017,18 @@ function PortfolioDashboardInner({
 export function PortfolioDashboard({
   assetsTableVariant,
   scenarioRelaxedAssetFilter,
+  portfolioScopeId,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   scenarioRelaxedAssetFilter?: boolean
+  portfolioScopeId?: string
 }) {
   return (
     <ScenarioModificationSelectionsProvider>
       <PortfolioDashboardInner
         assetsTableVariant={assetsTableVariant}
         scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
+        portfolioScopeId={portfolioScopeId}
       />
     </ScenarioModificationSelectionsProvider>
   )
