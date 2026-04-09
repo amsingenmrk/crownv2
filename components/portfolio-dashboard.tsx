@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -44,12 +43,9 @@ import {
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
-  ASSET_GROUP_SIDEBAR_LABELS,
-  BUILT_IN_ASSET_GROUP_IDS,
   PORTFOLIO_OVERVIEW_LABEL,
   assetHref,
   getAssetById,
-  portfolioScopeHref,
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
@@ -81,13 +77,6 @@ import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 type PortfolioKpi = {
@@ -214,22 +203,15 @@ function PortfolioDashboardInner({
   portfolioScopeId?: string
 }) {
   const assetsHeadingId = React.useId()
-  const router = useRouter()
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
     "table"
   )
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
-  const [portfolioGroupFilter, setPortfolioGroupFilter] = React.useState<
-    string
-  >(ALL_PORTFOLIO_GROUPS_VALUE)
+  /** Portfolio: driven by route (`/portfolio` vs `/portfolio/scopes/...`). Scenarios: always entire portfolio. */
   const effectivePortfolioGroupFilter =
     assetsTableVariant === "portfolio" && portfolioScopeId != null
       ? portfolioScopeId
-      : portfolioGroupFilter
-  const allPortfolioGroupsLabel =
-    assetsTableVariant === "portfolio"
-      ? PORTFOLIO_OVERVIEW_LABEL
-      : ALL_PORTFOLIO_GROUPS_LABEL
+      : ALL_PORTFOLIO_GROUPS_VALUE
 
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
@@ -254,49 +236,15 @@ function PortfolioDashboardInner({
     )
   }, [assetGroupData])
 
-  const portfolioGroupSelectItems = React.useMemo(() => {
-    const custom = assetGroupData.customGroups
-    const items: Record<string, React.ReactNode> = {
-      [ALL_PORTFOLIO_GROUPS_VALUE]: allPortfolioGroupsLabel,
-    }
-    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
-      items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
-    }
-    for (const [id, label] of Object.entries(custom).sort((a, b) =>
-      a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
-    )) {
-      items[id] = label
-    }
-    return items
-  }, [allPortfolioGroupsLabel, assetGroupData])
-
-  const handlePortfolioGroupFilterChange = React.useCallback(
-    (nextValue: string) => {
-      if (!Object.hasOwn(portfolioGroupSelectItems, nextValue)) return
-      if (assetsTableVariant === "portfolio") {
-        router.push(
-          nextValue === ALL_PORTFOLIO_GROUPS_VALUE
-            ? "/portfolio"
-            : portfolioScopeHref(nextValue)
-        )
-        return
-      }
-      setPortfolioGroupFilter(nextValue)
-    },
-    [assetsTableVariant, portfolioGroupSelectItems, router]
-  )
-
   const effectivePortfolioGroupLabel =
     effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
-      ? allPortfolioGroupsLabel
+      ? assetsTableVariant === "portfolio"
+        ? PORTFOLIO_OVERVIEW_LABEL
+        : ALL_PORTFOLIO_GROUPS_LABEL
       : resolveAssetGroupLabel(
           effectivePortfolioGroupFilter,
           assetGroupData.customGroups
         )
-
-  const showCurrentScopeFallbackOption =
-    effectivePortfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
-    !Object.hasOwn(portfolioGroupSelectItems, effectivePortfolioGroupFilter)
 
   const assetsTableHeading = effectivePortfolioGroupLabel
 
@@ -927,47 +875,6 @@ function PortfolioDashboardInner({
               aria-label="Search assets in table"
               className="min-w-0 w-full flex-1 sm:max-w-xs sm:w-auto"
             />
-            <Select
-              items={portfolioGroupSelectItems}
-              value={effectivePortfolioGroupFilter}
-              onValueChange={(v) => {
-                if (v == null) return
-                handlePortfolioGroupFilterChange(v)
-              }}
-            >
-              <SelectTrigger
-                className="h-8 w-full min-w-0 shrink-0 sm:min-w-[13rem] sm:w-auto sm:max-w-[16rem]"
-                aria-label="Filter by fund or entire portfolio"
-              >
-                <SelectValue placeholder={allPortfolioGroupsLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                {showCurrentScopeFallbackOption ? (
-                  <SelectItem value={effectivePortfolioGroupFilter}>
-                    {effectivePortfolioGroupLabel}
-                  </SelectItem>
-                ) : null}
-                <SelectItem value={ALL_PORTFOLIO_GROUPS_VALUE}>
-                  {allPortfolioGroupsLabel}
-                </SelectItem>
-                {BUILT_IN_ASSET_GROUP_IDS.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {ASSET_GROUP_SIDEBAR_LABELS[id]}
-                  </SelectItem>
-                ))}
-                {Object.entries(assetGroupData.customGroups)
-                  .sort((a, b) =>
-                    a[1].localeCompare(b[1], undefined, {
-                      sensitivity: "base",
-                    })
-                  )
-                  .map(([id, label]) => (
-                    <SelectItem key={id} value={id}>
-                      {label}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
             <PortfolioAssetsViewOptions
               table={portfolioTable}
               className="hidden lg:flex"

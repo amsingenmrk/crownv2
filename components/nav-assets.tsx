@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Briefcase, ChevronRight } from "lucide-react"
+import { Briefcase, ChevronDown, ChevronRight } from "lucide-react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -71,6 +71,20 @@ export function NavAssets() {
     return [...ASSET_GROUPS, ...custom]
   }, [assetGroupData])
 
+  /** Accordion: only one property group expanded at a time. */
+  const openOnlyGroup = React.useCallback(
+    (groupId: string) => {
+      setOpenByGroup(() => {
+        const next: Record<string, boolean> = {}
+        for (const g of navAssetSections) {
+          next[g.groupId] = g.groupId === groupId
+        }
+        return next
+      })
+    },
+    [navAssetSections]
+  )
+
   const activeScopeId = React.useMemo(() => {
     if (pathname === "/portfolio") return "all"
     const match = pathname.match(/^\/portfolio\/scopes\/([^/]+)/)
@@ -91,17 +105,21 @@ export function NavAssets() {
     )
     if (nextOpenIds.length === 0) return
     setOpenByGroup((current) => {
+      const next: Record<string, boolean> = {}
+      for (const g of navAssetSections) {
+        next[g.groupId] = nextOpenIds.includes(g.groupId)
+      }
+      const keys = new Set([...Object.keys(current), ...Object.keys(next)])
       let changed = false
-      const next = { ...current }
-      for (const groupId of nextOpenIds) {
-        if (next[groupId] !== true) {
-          next[groupId] = true
+      for (const k of keys) {
+        if ((current[k] ?? false) !== (next[k] ?? false)) {
           changed = true
+          break
         }
       }
       return changed ? next : current
     })
-  }, [activeAssetGroupId, activeScopeId])
+  }, [activeAssetGroupId, activeScopeId, navAssetSections])
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -127,9 +145,13 @@ export function NavAssets() {
                 <Collapsible
                   key={group.groupId}
                   open={openByGroup[group.groupId] ?? false}
-                  onOpenChange={(open) =>
-                    setOpenByGroup((s) => ({ ...s, [group.groupId]: open }))
-                  }
+                  onOpenChange={(open) => {
+                    if (open) {
+                      openOnlyGroup(group.groupId)
+                    } else {
+                      setOpenByGroup((s) => ({ ...s, [group.groupId]: false }))
+                    }
+                  }}
                   className="group/collapsible"
                   render={<SidebarMenuItem />}
                 >
@@ -141,7 +163,23 @@ export function NavAssets() {
                         activeScopeId === group.groupId ||
                         activeAssetGroupId === group.groupId
                       }
-                      render={<Link href={portfolioScopeHref(group.groupId)} />}
+                      render={
+                        <Link
+                          href={portfolioScopeHref(group.groupId)}
+                          onClick={(e) => {
+                            const isOpen = openByGroup[group.groupId] ?? false
+                            if (isOpen) {
+                              e.preventDefault()
+                              setOpenByGroup((s) => ({
+                                ...s,
+                                [group.groupId]: false,
+                              }))
+                              return
+                            }
+                            openOnlyGroup(group.groupId)
+                          }}
+                        />
+                      }
                     >
                       <span className="truncate">{group.label}</span>
                     </SidebarMenuButton>
@@ -152,10 +190,17 @@ export function NavAssets() {
                         />
                       }
                     >
-                      <ChevronRight
-                        className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-                        aria-hidden
-                      />
+                      {openByGroup[group.groupId] ? (
+                        <ChevronDown
+                          className="size-4 shrink-0 transition-transform duration-200"
+                          aria-hidden
+                        />
+                      ) : (
+                        <ChevronRight
+                          className="size-4 shrink-0 transition-transform duration-200"
+                          aria-hidden
+                        />
+                      )}
                     </CollapsibleTrigger>
                   </div>
                   <CollapsibleContent>
