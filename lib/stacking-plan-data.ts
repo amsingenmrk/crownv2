@@ -884,7 +884,11 @@ function formatCurrencyPerSf(value: number): string {
   return `$${value.toFixed(2)} / SF`
 }
 
-function expirationColor(expiration?: string, isVacant?: boolean): string {
+/** ISO `YYYY-MM-DD` (or any string starting with year); drives legend + segment hex. */
+export function stackingPlanExpirationColor(
+  expiration?: string,
+  isVacant?: boolean
+): string {
   if (isVacant || expiration == null || expiration === "") return "#64748b"
   const year = Number(expiration.slice(0, 4))
   if (Number.isNaN(year)) return "#64748b"
@@ -1178,7 +1182,7 @@ export function getSampleStackingPlanData(
           sqft: tenant.sqft,
           sqftLabel: formatSqft(tenant.sqft),
           expiration: formatExpiration(tenant.expiration, tenant.isVacant),
-          color: expirationColor(tenant.expiration, tenant.isVacant),
+          color: stackingPlanExpirationColor(tenant.expiration, tenant.isVacant),
           widthPercent: Number(
             ((tenant.sqft / floorSeed.totalSqft) * 100).toFixed(2)
           ),

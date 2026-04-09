@@ -42,9 +42,9 @@ const DEFAULT_PALETTE: WaterfallChartPalette = {
   grid: "rgba(148,163,184,0.18)",
   surface: "rgba(255,255,255,0.72)",
   tooltipBackground: "#ffffff",
-  baseline: "#94a3b8",
-  positive: "#0f766e",
-  negative: "#c2410c",
+  baseline: "#64748b",
+  positive: "#0d9488",
+  negative: "#dc2626",
   result: "#4f46e5",
 }
 
@@ -80,9 +80,21 @@ function useWaterfallChartPalette() {
           "--card",
           DEFAULT_PALETTE.tooltipBackground
         ),
-        baseline: DEFAULT_PALETTE.baseline,
-        positive: DEFAULT_PALETTE.positive,
-        negative: DEFAULT_PALETTE.negative,
+        baseline: readCssVariable(
+          styles,
+          "--muted-foreground",
+          DEFAULT_PALETTE.baseline
+        ),
+        positive: readCssVariable(
+          styles,
+          "--chart-2",
+          DEFAULT_PALETTE.positive
+        ),
+        negative: readCssVariable(
+          styles,
+          "--destructive",
+          DEFAULT_PALETTE.negative
+        ),
         result: readCssVariable(styles, "--primary", DEFAULT_PALETTE.result),
       })
     }
@@ -529,8 +541,8 @@ export function StackingValueDriversWaterfall({
           value={formatSignedRate(valueDrivers.summary.deltaFromMarketPsf)}
           valueClassName={
             valueDrivers.summary.deltaFromMarketPsf >= 0
-              ? "text-emerald-700"
-              : "text-orange-700"
+              ? "text-chart-2"
+              : "text-destructive"
           }
         />
       </div>
@@ -580,8 +592,8 @@ export function StackingValueDriversWaterfall({
                       className={cn(
                         "shrink-0 font-medium tabular-nums",
                         factor.impact >= 0
-                          ? "text-emerald-700"
-                          : "text-orange-700"
+                          ? "text-chart-2"
+                          : "text-destructive"
                       )}
                     >
                       {formatSignedRate(factor.impact)}

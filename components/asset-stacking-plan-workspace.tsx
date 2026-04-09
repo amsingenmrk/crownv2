@@ -19,11 +19,20 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   getSampleStackingPlanData,
   STACKING_EXPIRATION_LEGEND,
+  stackingPlanExpirationColor,
   type StackingPlanFloor,
   type StackingLegendItem,
   type StackingPlanTenant,
   type StackingViewMode,
 } from "@/lib/stacking-plan-data"
+import {
+  neutralStackingSegmentTone,
+  occupancyMetricTextClass,
+  qualityScoreValueClass,
+  stackingLegendSwatchClass,
+  stackingSegmentToneFromHex,
+  type StackingSegmentToneClasses,
+} from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
 
 type AssetStackingPlanWorkspaceProps = {
@@ -54,6 +63,7 @@ type StackSummaryMetric = {
   label: string
   value: string
   valueStyle?: React.CSSProperties
+  valueClassName?: string
 }
 
 type FloorMetricId = "occ" | "vac" | "pred" | "contract" | "sun" | "view"
@@ -126,18 +136,6 @@ function formatCurrencyRounded(value: number) {
     currency: "USD",
     maximumFractionDigits: 0,
   })
-}
-
-function getExpirationColorForDate(expiration?: string, isVacant?: boolean) {
-  if (isVacant || expiration == null || expiration === "") return "#64748b"
-  const year = Number(expiration.slice(0, 4))
-  if (Number.isNaN(year)) return "#64748b"
-  if (year <= 2025) return "#ef4444"
-  if (year === 2026) return "#f97316"
-  if (year === 2027) return "#a855f7"
-  if (year === 2028) return "#14b8a6"
-  if (year === 2029) return "#3b82f6"
-  return "#22c55e"
 }
 
 function formatExpirationForDate(expiration?: string, isVacant?: boolean) {
@@ -263,28 +261,6 @@ function summarizeFloors(floors: readonly StackingPlanFloor[]) {
   }
 }
 
-function getOccupancyColors(occupancyPercent: number) {
-  if (occupancyPercent >= 80) {
-    return {
-      text: "text-emerald-700",
-      bar: "#22c55e",
-      track: "#dcfce7",
-    }
-  }
-  if (occupancyPercent >= 50) {
-    return {
-      text: "text-amber-700",
-      bar: "#f59e0b",
-      track: "#fef3c7",
-    }
-  }
-  return {
-    text: "text-rose-700",
-    bar: "#ef4444",
-    track: "#ffe4e6",
-  }
-}
-
 function getOccupancyBandData(occupancyPercent: number) {
   if (occupancyPercent >= 80) {
     return { label: "80%+", color: "#22c55e" }
@@ -332,71 +308,6 @@ function getPredictedRentBandData(
   return { label: "Within +/-5%", color: "#3b82f6" }
 }
 
-function getTenantTone(color: string) {
-  const colorMap: Record<
-    string,
-    {
-      textColor: string
-      metaColor: string
-      borderColor: string
-      accentColor: string
-      backgroundColor: string
-    }
-  > = {
-    "#22c55e": {
-      textColor: "#14532d",
-      metaColor: "#166534",
-      borderColor: "rgba(34,197,94,0.28)",
-      accentColor: "#22c55e",
-      backgroundColor: "rgba(240,253,244,0.92)",
-    },
-    "#a855f7": {
-      textColor: "#581c87",
-      metaColor: "#6b21a8",
-      borderColor: "rgba(168,85,247,0.28)",
-      accentColor: "#a855f7",
-      backgroundColor: "rgba(250,245,255,0.92)",
-    },
-    "#3b82f6": {
-      textColor: "#1e3a8a",
-      metaColor: "#1d4ed8",
-      borderColor: "rgba(59,130,246,0.28)",
-      accentColor: "#3b82f6",
-      backgroundColor: "rgba(239,246,255,0.92)",
-    },
-    "#f97316": {
-      textColor: "#7c2d12",
-      metaColor: "#c2410c",
-      borderColor: "rgba(249,115,22,0.28)",
-      accentColor: "#f97316",
-      backgroundColor: "rgba(255,247,237,0.92)",
-    },
-    "#ef4444": {
-      textColor: "#7f1d1d",
-      metaColor: "#b91c1c",
-      borderColor: "rgba(239,68,68,0.28)",
-      accentColor: "#ef4444",
-      backgroundColor: "rgba(254,242,242,0.92)",
-    },
-    "#14b8a6": {
-      textColor: "#134e4a",
-      metaColor: "#0f766e",
-      borderColor: "rgba(20,184,166,0.28)",
-      accentColor: "#14b8a6",
-      backgroundColor: "rgba(240,253,250,0.92)",
-    },
-    "#64748b": {
-      textColor: "#0f172a",
-      metaColor: "#475569",
-      borderColor: "rgba(148,163,184,0.35)",
-      accentColor: "#64748b",
-      backgroundColor: "rgba(248,250,252,0.92)",
-    },
-  }
-
-  return colorMap[color.toLowerCase()] ?? colorMap["#22c55e"]!
-}
-
 function getLegendItemsForMode(
   mode: StackingVizMode
 ): readonly StackingLegendItem[] {
@@ -421,19 +332,6 @@ function formatSqftValue(value: number) {
   return `${value.toLocaleString()} SF`
 }
 
-function getMatrixQualityScoreColor(value: number | null) {
-  if (value == null) {
-    return "#94a3b8"
-  }
-  if (value >= 67) {
-    return "#86efac"
-  }
-  if (value >= 34) {
-    return "#fde68a"
-  }
-  return "#fda4af"
-}
-
 function getTenantAbbreviation(name: string) {
   const parts = name.split(/\s+/).filter(Boolean)
 
@@ -447,26 +345,6 @@ function getTenantAbbreviation(name: string) {
   return name.slice(0, 3).toUpperCase()
 }
 
-function getNeutralStackBandTone(isVacant: boolean) {
-  if (isVacant) {
-    return {
-      textColor: "#f8fafc",
-      metaColor: "#e2e8f0",
-      borderColor: "rgba(148,163,184,0.32)",
-      accentColor: "rgba(226,232,240,0.26)",
-      backgroundColor: "rgba(100,116,139,0.38)",
-    }
-  }
-
-  return {
-    textColor: "#e2e8f0",
-    metaColor: "#cbd5e1",
-    borderColor: "rgba(148,163,184,0.18)",
-    accentColor: "rgba(148,163,184,0.34)",
-    backgroundColor: "rgba(71,85,105,0.28)",
-  }
-}
-
 function getMatrixSegmentTone({
   tenant,
   floor,
@@ -477,26 +355,30 @@ function getMatrixSegmentTone({
   floor: StackingPlanFloor
   mode: StackingVizMode
   averagePredictedRentPsf: number | null
-}) {
+}): StackingSegmentToneClasses {
   if (mode === "leaseExpiration") {
-    return getTenantTone(tenant.color)
+    return stackingSegmentToneFromHex(tenant.color)
   }
 
   if (mode === "predictedRent") {
-    return getTenantTone(
+    return stackingSegmentToneFromHex(
       getPredictedRentBandData(tenant, averagePredictedRentPsf).color
     )
   }
 
   if (mode === "occupancy") {
-    return getTenantTone(getOccupancyBandData(floor.occupancyPercent).color)
+    return stackingSegmentToneFromHex(
+      getOccupancyBandData(floor.occupancyPercent).color
+    )
   }
 
   if (mode === "vacancy") {
-    return getTenantTone(getVacancyBandData(floor.vacancyPercent).color)
+    return stackingSegmentToneFromHex(
+      getVacancyBandData(floor.vacancyPercent).color
+    )
   }
 
-  return getNeutralStackBandTone(tenant.isVacant)
+  return neutralStackingSegmentTone(tenant.isVacant)
 }
 
 function getFocusedMetricId(vizMode: StackingVizMode): FloorMetricId | null {
@@ -521,60 +403,56 @@ function getFloorMetricPairTone(
   vizMode: StackingVizMode
 ) {
   if (metricId === "occ" && vizMode === "occupancy") {
-    const band = getOccupancyBandData(floor.occupancyPercent)
-
-    if (band.color === "#22c55e") {
+    const p = floor.occupancyPercent
+    if (p >= 80) {
       return {
-        containerClassName: "bg-emerald-500/12 ring-emerald-400/25",
-        labelClassName: "text-emerald-100/80",
-        valueClassName: "text-emerald-200",
+        containerClassName: "bg-chart-2/12 ring-1 ring-chart-2/25",
+        labelClassName: "text-muted-foreground",
+        valueClassName: "text-foreground",
       }
     }
-    if (band.color === "#f59e0b") {
+    if (p >= 50) {
       return {
-        containerClassName: "bg-amber-500/12 ring-amber-400/25",
-        labelClassName: "text-amber-100/80",
-        valueClassName: "text-amber-200",
+        containerClassName: "bg-chart-4/12 ring-1 ring-chart-4/25",
+        labelClassName: "text-muted-foreground",
+        valueClassName: "text-foreground",
       }
     }
-
     return {
-      containerClassName: "bg-rose-500/12 ring-rose-400/25",
-      labelClassName: "text-rose-100/80",
-      valueClassName: "text-rose-200",
+      containerClassName: "bg-destructive/10 ring-1 ring-destructive/25",
+      labelClassName: "text-muted-foreground",
+      valueClassName: "text-foreground",
     }
   }
 
   if (metricId === "vac" && vizMode === "vacancy") {
-    const band = getVacancyBandData(floor.vacancyPercent)
-
-    if (band.color === "#22c55e") {
+    const v = floor.vacancyPercent
+    if (v < 20) {
       return {
-        containerClassName: "bg-emerald-500/12 ring-emerald-400/25",
-        labelClassName: "text-emerald-100/80",
-        valueClassName: "text-emerald-200",
+        containerClassName: "bg-chart-2/12 ring-1 ring-chart-2/25",
+        labelClassName: "text-muted-foreground",
+        valueClassName: "text-foreground",
       }
     }
-    if (band.color === "#f59e0b") {
+    if (v < 50) {
       return {
-        containerClassName: "bg-amber-500/12 ring-amber-400/25",
-        labelClassName: "text-amber-100/80",
-        valueClassName: "text-amber-200",
+        containerClassName: "bg-chart-4/12 ring-1 ring-chart-4/25",
+        labelClassName: "text-muted-foreground",
+        valueClassName: "text-foreground",
       }
     }
-
     return {
-      containerClassName: "bg-rose-500/12 ring-rose-400/25",
-      labelClassName: "text-rose-100/80",
-      valueClassName: "text-rose-200",
+      containerClassName: "bg-destructive/10 ring-1 ring-destructive/25",
+      labelClassName: "text-muted-foreground",
+      valueClassName: "text-foreground",
     }
   }
 
   if (metricId === "pred" && vizMode === "predictedRent") {
     return {
-      containerClassName: "bg-sky-500/12 ring-sky-400/25",
-      labelClassName: "text-sky-100/80",
-      valueClassName: "text-sky-200",
+      containerClassName: "bg-primary/10 ring-1 ring-primary/25",
+      labelClassName: "text-muted-foreground",
+      valueClassName: "text-foreground",
     }
   }
 
@@ -648,19 +526,6 @@ function formatCompactScore(value: number | null) {
   }
 
   return `${Math.round(value)}`
-}
-
-function getQualityScoreColor(value: number | null) {
-  if (value == null) {
-    return "#64748b"
-  }
-  if (value >= 67) {
-    return "#15803d"
-  }
-  if (value >= 34) {
-    return "#b45309"
-  }
-  return "#be123c"
 }
 
 function InlineMetricItem({
@@ -986,13 +851,13 @@ export function AssetStackingPlanWorkspace({
         id: "sun",
         label: "Sun",
         value: formatCompactScore(averageSunScore),
-        valueStyle: { color: getMatrixQualityScoreColor(averageSunScore) },
+        valueClassName: qualityScoreValueClass(averageSunScore),
       },
       {
         id: "view",
         label: "View",
         value: formatCompactScore(averageViewScore),
-        valueStyle: { color: getMatrixQualityScoreColor(averageViewScore) },
+        valueClassName: qualityScoreValueClass(averageViewScore),
       },
     ]
   }, [
@@ -1180,7 +1045,7 @@ export function AssetStackingPlanWorkspace({
             leaseCommencementDate: tenantEditorDraft.commencement || undefined,
             leaseExpirationDate,
             expiration: formatExpirationForDate(leaseExpirationDate, false),
-            color: getExpirationColorForDate(leaseExpirationDate, false),
+            color: stackingPlanExpirationColor(leaseExpirationDate, false),
             contractRatePsfValue,
             contractRate:
               contractRatePsfValue != null
@@ -1519,8 +1384,10 @@ function StackingPlanLegend({ mode }: { mode: StackingVizMode }) {
         {legendItems.map((item) => (
           <div key={item.label} className="flex items-center gap-1">
             <span
-              className="h-2 w-2 rounded-full ring-1 ring-black/5"
-              style={{ backgroundColor: item.color }}
+              className={cn(
+                "h-2 w-2 shrink-0 rounded-full ring-1 ring-border/60",
+                stackingLegendSwatchClass(item)
+              )}
               aria-hidden
             />
             <span className="text-[10px] font-medium text-foreground/75">
@@ -1603,7 +1470,6 @@ function DetailedFloorRow({
   onTenantSelect: (tenant: StackingPlanTenant) => void
   selectedTenantId: string | null
 }) {
-  const occupancyTone = getOccupancyColors(floor.occupancyPercent)
   const averagePredictedRate = getWeightedFloorAverageRate(
     floor,
     "predictedRentPsfValue"
@@ -1640,7 +1506,7 @@ function DetailedFloorRow({
             <InlineMetricItem
               label="Occ"
               value={`${floor.occupancyPercent}%`}
-              valueClassName={occupancyTone.text}
+              valueClassName={occupancyMetricTextClass(floor.occupancyPercent)}
               className="bg-background/70"
             />
             <InlineMetricItem
@@ -1654,12 +1520,12 @@ function DetailedFloorRow({
             <InlineMetricItem
               label="Sun"
               value={formatCompactScore(averageSunScore)}
-              valueStyle={{ color: getQualityScoreColor(averageSunScore) }}
+              valueClassName={qualityScoreValueClass(averageSunScore)}
             />
             <InlineMetricItem
               label="View"
               value={formatCompactScore(averageViewScore)}
-              valueStyle={{ color: getQualityScoreColor(averageViewScore) }}
+              valueClassName={qualityScoreValueClass(averageViewScore)}
             />
           </div>
           <div className="flex min-h-[60px] min-w-0 flex-1 overflow-hidden">
@@ -1706,13 +1572,13 @@ function TenantSegment({
   isSelected: boolean
   onOpenTenant: (tenant: StackingPlanTenant) => void
 }) {
-  const tone = getTenantTone(visualColor)
+  const tone = stackingSegmentToneFromHex(visualColor)
   const isCompact = tenant.widthPercent < 14
   const isSemiCompact = tenant.widthPercent < 18
   const isVeryCompact = tenant.widthPercent < 7
   const hoverInteractionClass = isVeryCompact
     ? "hover:ring-1 hover:ring-inset hover:ring-foreground/15"
-    : "hover:-translate-y-px hover:shadow-[0_2px_6px_rgba(15,23,42,0.18)] hover:ring-1 hover:ring-inset hover:ring-foreground/15"
+    : "hover:-translate-y-px hover:shadow-sm hover:shadow-foreground/8 hover:ring-1 hover:ring-inset hover:ring-foreground/15"
 
   return (
     <button
@@ -1727,6 +1593,8 @@ function TenantSegment({
       }. Open details.`}
       className={cn(
         "relative flex h-full min-h-[60px] cursor-pointer flex-col justify-center gap-1 px-2 py-1.5 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+        tone.fillClass,
+        !isLastTenant && "border-r border-border/30",
         isSelected
           ? "z-10 ring-2 ring-primary/70 ring-inset"
           : hoverInteractionClass
@@ -1734,31 +1602,25 @@ function TenantSegment({
       style={{
         width: `${tenant.widthPercent}%`,
         minWidth: isVeryCompact ? "12px" : "28px",
-        borderRight: isLastTenant ? "none" : "1px solid rgba(148,163,184,0.18)",
-        backgroundColor: tone.backgroundColor,
       }}
       title={title}
     >
       <div
-        className="self-stretch truncate text-center text-[10.5px] leading-4 font-semibold"
-        style={{ color: tone.textColor }}
+        className={cn(
+          "self-stretch truncate text-center text-[10.5px] leading-4 font-semibold",
+          tone.textClass
+        )}
       >
         {tenant.name}
       </div>
 
       {!isCompact ? (
         <div className="flex items-start justify-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
-          <div className="truncate" style={{ color: tone.metaColor }}>
-            {tenant.space}
-          </div>
+          <div className={cn("truncate", tone.metaClass)}>{tenant.space}</div>
           {!isSemiCompact ? (
-            <div className="truncate" style={{ color: tone.metaColor }}>
-              {tenant.sqftLabel}
-            </div>
+            <div className={cn("truncate", tone.metaClass)}>{tenant.sqftLabel}</div>
           ) : null}
-          <div className="truncate" style={{ color: tone.metaColor }}>
-            {tenant.expiration}
-          </div>
+          <div className={cn("truncate", tone.metaClass)}>{tenant.expiration}</div>
         </div>
       ) : null}
     </button>
@@ -1845,6 +1707,7 @@ function StackSummaryRow({
                     floor={summaryToneFloor}
                     vizMode={vizMode}
                     valueStyle={focusedMetric.valueStyle}
+                    valueClassName={focusedMetric.valueClassName}
                     emphasis={footerMetricEmphasis}
                   />
                 </div>
@@ -1859,6 +1722,7 @@ function StackSummaryRow({
                     floor={summaryToneFloor}
                     vizMode={vizMode}
                     valueStyle={item.valueStyle}
+                    valueClassName={item.valueClassName}
                     emphasis={footerMetricEmphasis}
                   />
                 ))}
@@ -2107,6 +1971,7 @@ function FloorMetricRibbon({
     activeLabel: string
     value: string
     valueStyle?: React.CSSProperties
+    valueClassName?: string
   }> = [
     {
       id: "occ",
@@ -2137,14 +2002,14 @@ function FloorMetricRibbon({
       label: "Sun",
       activeLabel: "Sun Score",
       value: formatCompactScore(averageSunScore),
-      valueStyle: { color: getMatrixQualityScoreColor(averageSunScore) },
+      valueClassName: qualityScoreValueClass(averageSunScore),
     },
     {
       id: "view",
       label: "View",
       activeLabel: "View Score",
       value: formatCompactScore(averageViewScore),
-      valueStyle: { color: getMatrixQualityScoreColor(averageViewScore) },
+      valueClassName: qualityScoreValueClass(averageViewScore),
     },
   ]
   const focusedMetric = focusedMetricId
@@ -2172,6 +2037,7 @@ function FloorMetricRibbon({
             floor={floor}
             vizMode={vizMode}
             valueStyle={focusedMetric.valueStyle}
+            valueClassName={focusedMetric.valueClassName}
             emphasis="active"
           />
         </div>
@@ -2186,6 +2052,7 @@ function FloorMetricRibbon({
             floor={floor}
             vizMode={vizMode}
             valueStyle={item.valueStyle}
+            valueClassName={item.valueClassName}
             emphasis="subtle"
           />
         ))}
@@ -2201,6 +2068,7 @@ function FloorMetricPair({
   floor,
   vizMode,
   valueStyle,
+  valueClassName,
   emphasis = "default",
 }: {
   metricId: FloorMetricId
@@ -2209,6 +2077,7 @@ function FloorMetricPair({
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   valueStyle?: React.CSSProperties
+  valueClassName?: string
   emphasis?: "default" | "subtle" | "active"
 }) {
   const tone = getFloorMetricPairTone(metricId, floor, vizMode)
@@ -2219,7 +2088,7 @@ function FloorMetricPair({
       value={value}
       className={emphasis === "subtle" ? undefined : tone.containerClassName}
       labelClassName={tone.labelClassName}
-      valueClassName={tone.valueClassName}
+      valueClassName={cn(tone.valueClassName, valueClassName)}
       valueStyle={valueStyle}
       emphasis={emphasis}
     />
@@ -2247,9 +2116,8 @@ function StackBand({
   return (
     <div
       className={cn(
-        "isolate flex h-[78px] w-full overflow-hidden rounded-lg border border-border/50 bg-muted/10 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]",
-        isMetricDrivenView &&
-          "border-border/60 bg-background/55 shadow-[inset_0_1px_0_rgba(148,163,184,0.12)]"
+        "isolate flex h-[78px] w-full overflow-hidden rounded-lg border border-border/50 bg-muted/10 ring-1 ring-inset ring-border/30",
+        isMetricDrivenView && "border-border/60 bg-background/55 ring-border/40"
       )}
     >
       {floor.tenants.map((tenant, index) => (
@@ -2300,7 +2168,7 @@ function StackBandSegment({
   const isVeryCompact = tenant.widthPercent < 7
   const hoverInteractionClass = isVeryCompact
     ? "hover:ring-1 hover:ring-inset hover:ring-foreground/15"
-    : "hover:-translate-y-px hover:shadow-[0_2px_6px_rgba(15,23,42,0.18)] hover:ring-1 hover:ring-inset hover:ring-foreground/15"
+    : "hover:-translate-y-px hover:shadow-sm hover:shadow-foreground/8 hover:ring-1 hover:ring-inset hover:ring-foreground/15"
   const nameLabel = showFullLabel
     ? tenant.name
     : showAbbreviation
@@ -2327,6 +2195,8 @@ function StackBandSegment({
       }. Edit inline.`}
       className={cn(
         "relative flex h-full min-h-[78px] cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+        tone.fillClass,
+        !isLastTenant && "border-r border-border/30",
         isSelected
           ? "z-10 ring-2 ring-primary/80 ring-inset"
           : hoverInteractionClass
@@ -2334,8 +2204,6 @@ function StackBandSegment({
       style={{
         width: `${tenant.widthPercent}%`,
         minWidth: isVeryCompact ? "18px" : "40px",
-        borderRight: isLastTenant ? "none" : `1px solid ${tone.borderColor}`,
-        backgroundColor: tone.backgroundColor,
       }}
       title={getTenantVisualizationTitle({
         tenant,
@@ -2346,36 +2214,34 @@ function StackBandSegment({
     >
       {titleLabel ? (
         <div
-          className="w-full truncate text-left text-[10.5px] leading-4 font-semibold"
-          style={{ color: tone.textColor }}
+          className={cn(
+            "w-full truncate text-left text-[10.5px] leading-4 font-semibold",
+            tone.textClass
+          )}
         >
           {titleLabel}
         </div>
       ) : null}
       {showSupportingDetails ? (
         <div className="flex w-full items-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
-          <div className="truncate" style={{ color: tone.metaColor }}>
-            {tenant.sqftLabel}
-          </div>
-          <div aria-hidden style={{ color: tone.metaColor }}>
+          <div className={cn("truncate", tone.metaClass)}>{tenant.sqftLabel}</div>
+          <div aria-hidden className={tone.metaClass}>
             •
           </div>
-          <div className="truncate" style={{ color: tone.metaColor }}>
-            {metaLabel}
-          </div>
+          <div className={cn("truncate", tone.metaClass)}>{metaLabel}</div>
         </div>
       ) : null}
       {showFullRateRow &&
       contractRateValue != null &&
       predictedRateValue != null ? (
         <div className="flex w-full items-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
-          <div className="truncate" style={{ color: tone.metaColor }}>
+          <div className={cn("truncate", tone.metaClass)}>
             Contract {formatCompactRate(contractRateValue)}
           </div>
-          <div aria-hidden style={{ color: tone.metaColor }}>
+          <div aria-hidden className={tone.metaClass}>
             •
           </div>
-          <div className="truncate" style={{ color: tone.metaColor }}>
+          <div className={cn("truncate", tone.metaClass)}>
             Predicted {formatCompactRate(predictedRateValue)}
           </div>
         </div>
@@ -2383,8 +2249,10 @@ function StackBandSegment({
         contractRateValue != null &&
         predictedRateValue != null ? (
         <div
-          className="w-full truncate text-[9px] font-medium whitespace-nowrap"
-          style={{ color: tone.metaColor }}
+          className={cn(
+            "w-full truncate text-[9px] font-medium whitespace-nowrap",
+            tone.metaClass
+          )}
         >
           Contract {formatCompactRate(contractRateValue)} • Predicted{" "}
           {formatCompactRate(predictedRateValue)}
@@ -2688,14 +2556,17 @@ function SimplifiedFloorRow({
           <div className="flex h-5 w-full overflow-hidden rounded-sm border border-border/70 bg-muted/20 shadow-sm">
             {floor.tenants.map((tenant, index) => {
               const visualOverride = tenantVisualOverrides?.[tenant.id]
-              const backgroundColor =
-                visualOverride?.backgroundColor ??
-                getTenantVisualColor({
-                  tenant,
-                  floor,
-                  mode: vizMode,
-                  averagePredictedRentPsf,
-                })
+              const overrideBg = visualOverride?.backgroundColor
+              const themeHex = getTenantVisualColor({
+                tenant,
+                floor,
+                mode: vizMode,
+                averagePredictedRentPsf,
+              })
+              const themeFillClass =
+                overrideBg == null
+                  ? stackingSegmentToneFromHex(themeHex).fillClass
+                  : undefined
               const title =
                 visualOverride?.title ??
                 getTenantVisualizationTitle({
@@ -2712,22 +2583,19 @@ function SimplifiedFloorRow({
                 style: {
                   width: `${tenant.widthPercent}%`,
                   minWidth: "10px",
-                  backgroundColor,
+                  ...(overrideBg != null ? { backgroundColor: overrideBg } : {}),
                   opacity: visualOverride?.muted ? 0.35 : 1,
-                  boxShadow: isSelected
-                    ? "inset 0 0 0 2px rgba(255,255,255,0.72)"
-                    : undefined,
-                  borderRight:
-                    index === floor.tenants.length - 1
-                      ? "none"
-                      : "1px solid rgba(255,255,255,0.55)",
                 } satisfies React.CSSProperties,
                 className: cn(
                   "h-full",
+                  themeFillClass,
+                  index < floor.tenants.length - 1 && "border-r border-border/40",
                   interactionMode === "drawer"
                     ? "focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset"
                     : "cursor-default",
-                  isSelected ? "z-10 brightness-95" : "hover:brightness-95"
+                  isSelected
+                    ? "z-10 ring-2 ring-inset ring-primary/55"
+                    : "hover:opacity-90"
                 ),
               }
 
@@ -2803,12 +2671,12 @@ function SummaryFooter({
           <InlineMetricItem
             label="Sun"
             value={formatCompactScore(averageSunScore)}
-            valueStyle={{ color: getQualityScoreColor(averageSunScore) }}
+            valueClassName={qualityScoreValueClass(averageSunScore)}
           />
           <InlineMetricItem
             label="View"
             value={formatCompactScore(averageViewScore)}
-            valueStyle={{ color: getQualityScoreColor(averageViewScore) }}
+            valueClassName={qualityScoreValueClass(averageViewScore)}
           />
         </div>
         <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm">
