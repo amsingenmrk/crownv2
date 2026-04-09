@@ -1,22 +1,10 @@
 "use client"
 
 import * as React from "react"
-import {
-  Coffee,
-  Dumbbell,
-  Leaf,
-  Mic,
-  Trash2,
-  UtensilsCrossed,
-} from "lucide-react"
+import { CircleHelp, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-} from "@/components/ui/field"
+import { Field, FieldContent, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -26,204 +14,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  INITIAL_MOD_VALUES,
+  MOD_CONFIGS,
+  MOD_IDS,
+  type ModValues,
+} from "@/lib/building-modifications"
 import { cn } from "@/lib/utils"
 
-export type ModId =
-  | "gym"
-  | "bar"
-  | "cafe"
-  | "restaurant"
-  | "leed"
-
-export type ModValues = Record<ModId, string>
-
-/** Sub-options — copy from `planning/modifications.md`. */
-const GYM_OPTIONS: { value: string; title: string; description: string }[] = [
-  {
-    value: "training-gym",
-    title: "Training gym",
-    description:
-      "Martial arts, boxing, or class-led training concept.",
-  },
-  {
-    value: "weight-room",
-    title: "Weight room",
-    description:
-      "Strength-focused tenant gym with moderate staffing needs.",
-  },
-  {
-    value: "yoga-pilates",
-    title: "Yoga / Pilates studio",
-    description:
-      "Wellness-forward studio centered on classes, stretching, and recovery.",
-  },
-  {
-    value: "full-service",
-    title: "Full-service",
-    description:
-      "Equinox-style amenity with full staffing, broader programming, and the largest gym footprint.",
-  },
-]
-
-/** Sub-options for “Add Cafe” — copy from `planning/modifications.md`. */
-const CAFE_OPTIONS: { value: string; title: string; description: string }[] = [
-  {
-    value: "grab-and-go",
-    title: "Grab-and-go coffee / tea",
-    description:
-      "Small counter service focused on speed and convenience.",
-  },
-  {
-    value: "social-work-friendly-cafe",
-    title: "Social / work-friendly cafe",
-    description:
-      "Longer dwell-time cafe with seating and informal work zones.",
-  },
-  {
-    value: "health-drinks",
-    title: "Health drinks",
-    description:
-      "Smoothies, juices, and wellness-oriented grab-and-go service.",
-  },
-]
-
-/** Sub-options for “Add Restaurant” — copy from `planning/modifications.md`. */
-const RESTAURANT_OPTIONS: { value: string; title: string; description: string }[] =
-  [
-    {
-      value: "white-cloth",
-      title: "White Cloth",
-      description:
-        "Destination dining concept with the broadest operating scope and uplift case.",
-    },
-    {
-      value: "takeout",
-      title: "Takeout",
-      description:
-        "Compact service footprint optimized for speed and low staffing.",
-    },
-    {
-      value: "fast-casual",
-      title: "Fast Casual (fast food)",
-      description:
-        "Mid-range buildout with good reach and efficient operations.",
-    },
-    {
-      value: "family-friendly",
-      title: "Family-friendly",
-      description:
-        "Broader-appeal dining concept with a larger seating footprint.",
-    },
-    {
-      value: "deli",
-      title: "Deli",
-      description:
-        "Efficient daytime F&B offer with a modest but durable premium.",
-    },
-  ]
-
-/** Sub-options for “LEED certification” — copy from `planning/modifications.md`. */
-const LEED_OPTIONS: { value: string; title: string; description: string }[] = [
-  {
-    value: "leed-certified",
-    title: "Certified",
-    description:
-      "Entry-level sustainability upgrade with the lightest retrofit scope.",
-  },
-  {
-    value: "leed-silver",
-    title: "Silver",
-    description:
-      "Moderate efficiency and materials upgrade with broader marketability.",
-  },
-  {
-    value: "leed-gold",
-    title: "Gold",
-    description:
-      "Stronger certification target with clearer rent and leasing upside.",
-  },
-  {
-    value: "leed-platinum",
-    title: "Platinum",
-    description:
-      "Highest certification ambition with the strongest premium assumptions.",
-  },
-]
-
-/** Sub-options for “Add Bar” — copy from `planning/modifications.md`. */
-const BAR_OPTIONS: { value: string; title: string; description: string }[] = [
-  {
-    value: "sports-bar",
-    title: "Sports bar",
-    description:
-      "Game-day destination with AV buildout and heavier operations.",
-  },
-  {
-    value: "traditional-pubs",
-    title: "Traditional bars/ pubs",
-    description:
-      "Steady neighborhood-style hospitality with balanced cost profile.",
-  },
-  {
-    value: "cocktail-bar",
-    title: "Cocktail bar",
-    description:
-      "Evening-focused hospitality concept targeting stronger rent lift.",
-  },
-  {
-    value: "beer-garden",
-    title: "Beer garden",
-    description:
-      "Indoor-outdoor style concept with lighter build cost but broader reach.",
-  },
-]
-
-type ModOption = { value: string; title: string; description: string }
-
-type ModConfig = {
-  id: ModId
-  checkboxLabel: string
-  icon: React.ComponentType<{ className?: string }>
-  options: ModOption[]
-}
-
-const MOD_CONFIGS: ModConfig[] = [
-  { id: "gym", checkboxLabel: "Add Gym", icon: Dumbbell, options: GYM_OPTIONS },
-  {
-    id: "bar",
-    checkboxLabel: "Add Bar",
-    icon: Mic,
-    options: BAR_OPTIONS,
-  },
-  {
-    id: "cafe",
-    checkboxLabel: "Add Cafe",
-    icon: Coffee,
-    options: CAFE_OPTIONS,
-  },
-  {
-    id: "restaurant",
-    checkboxLabel: "Add Restaurant",
-    icon: UtensilsCrossed,
-    options: RESTAURANT_OPTIONS,
-  },
-  {
-    id: "leed",
-    checkboxLabel: "LEED certification",
-    icon: Leaf,
-    options: LEED_OPTIONS,
-  },
-]
-
-export const INITIAL_MOD_VALUES: ModValues = {
-  gym: "",
-  bar: "",
-  cafe: "",
-  restaurant: "",
-  leed: "",
-}
-
-const MOD_IDS: ModId[] = ["gym", "bar", "cafe", "restaurant", "leed"]
+export {
+  INITIAL_MOD_VALUES,
+  type ModId,
+  type ModValues,
+} from "@/lib/building-modifications"
 
 const NO_SAVED_PRESET_VALUE = "__no_saved_preset__"
 
@@ -262,8 +71,7 @@ export function parseStoredSets(raw: string | null): ModificationSetRecord[] {
       if (typeof row.id !== "string" || typeof row.name !== "string") continue
       const rowValues = parseModValues(row.values)
       if (!rowValues) continue
-      const savedAt =
-        typeof row.savedAt === "number" ? row.savedAt : Date.now()
+      const savedAt = typeof row.savedAt === "number" ? row.savedAt : Date.now()
       out.push({
         id: row.id,
         name: row.name.trim() || "Untitled",
@@ -328,11 +136,14 @@ export function BuildingModificationsSidebar({
     [persistKey]
   )
 
-  const applyPreset = React.useCallback((record: ModificationSetRecord) => {
-    setValues({ ...record.values })
-    setActivePresetId(record.id)
-    setPresetName(record.name)
-  }, [setValues])
+  const applyPreset = React.useCallback(
+    (record: ModificationSetRecord) => {
+      setValues({ ...record.values })
+      setActivePresetId(record.id)
+      setPresetName(record.name)
+    },
+    [setValues]
+  )
 
   const saveCurrentAsPreset = () => {
     const name = presetName.trim()
@@ -545,11 +356,9 @@ export function BuildingModificationsSidebar({
                 aria-expanded={enabled}
                 aria-controls={regionId}
                 className={cn(
-                  "box-content flex w-full items-center gap-2.5 px-3 py-2 text-left outline-none transition-colors",
+                  "box-content flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors outline-none",
                   "hover:bg-muted/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  enabled
-                    ? "rounded-t-lg rounded-b-none"
-                    : "rounded-lg"
+                  enabled ? "rounded-t-lg rounded-b-none" : "rounded-lg"
                 )}
               >
                 <span
@@ -569,7 +378,7 @@ export function BuildingModificationsSidebar({
                 </span>
                 <span
                   className={cn(
-                    "min-w-0 flex-1 text-sm font-medium leading-snug",
+                    "min-w-0 flex-1 text-sm leading-snug font-medium",
                     enabled ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
@@ -578,52 +387,73 @@ export function BuildingModificationsSidebar({
               </button>
 
               {enabled ? (
-                <div className="px-3 pb-3 pt-1">
-                  <RadioGroup
-                    id={regionId}
-                    aria-label={`${checkboxLabel} options`}
-                    name={`${baseId}-mod-${id}`}
-                    value={value}
-                    onValueChange={(next) =>
-                      setValues((s) => ({
-                        ...s,
-                        [id]: typeof next === "string" ? next : String(next),
-                      }))
-                    }
-                    className="gap-2"
-                  >
-                    {options.map((opt) => {
-                      const itemId = `${baseId}-${id}-${opt.value}`
-                      return (
-                        <Field
-                          key={opt.value}
-                          orientation="horizontal"
-                          className={cn(
-                            "cursor-pointer rounded-md p-2 transition-colors",
-                            value === opt.value
-                              ? "bg-primary/10"
-                              : "hover:bg-muted/40"
-                          )}
-                          onClick={() =>
-                            setValues((s) => ({
-                              ...s,
-                              [id]: opt.value,
-                            }))
-                          }
-                        >
-                          <RadioGroupItem value={opt.value} id={itemId} />
-                          <FieldContent>
-                            <FieldLabel htmlFor={itemId}>
-                              {opt.title}
-                            </FieldLabel>
-                            <FieldDescription>
-                              {opt.description}
-                            </FieldDescription>
-                          </FieldContent>
-                        </Field>
-                      )
-                    })}
-                  </RadioGroup>
+                <div className="px-3 pt-1 pb-3">
+                  <TooltipProvider delay={120}>
+                    <RadioGroup
+                      id={regionId}
+                      aria-label={`${checkboxLabel} options`}
+                      name={`${baseId}-mod-${id}`}
+                      value={value}
+                      onValueChange={(next) =>
+                        setValues((s) => ({
+                          ...s,
+                          [id]: typeof next === "string" ? next : String(next),
+                        }))
+                      }
+                      className="gap-2"
+                    >
+                      {options.map((opt) => {
+                        const itemId = `${baseId}-${id}-${opt.value}`
+                        return (
+                          <Field
+                            key={opt.value}
+                            orientation="horizontal"
+                            className={cn(
+                              "cursor-pointer rounded-md p-2 transition-colors",
+                              value === opt.value
+                                ? "bg-primary/10"
+                                : "hover:bg-muted/40"
+                            )}
+                            onClick={() =>
+                              setValues((s) => ({
+                                ...s,
+                                [id]: opt.value,
+                              }))
+                            }
+                          >
+                            <RadioGroupItem value={opt.value} id={itemId} />
+                            <FieldContent>
+                              <div className="flex items-center gap-1.5">
+                                <FieldLabel htmlFor={itemId}>
+                                  {opt.title}
+                                </FieldLabel>
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    render={
+                                      <button
+                                        type="button"
+                                        className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                                        aria-label={`About ${opt.title}`}
+                                      />
+                                    }
+                                    onClick={(event) => event.stopPropagation()}
+                                    onMouseDown={(event) =>
+                                      event.stopPropagation()
+                                    }
+                                  >
+                                    <CircleHelp className="size-3.5" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-[220px] text-pretty">
+                                    {opt.description}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </FieldContent>
+                          </Field>
+                        )
+                      })}
+                    </RadioGroup>
+                  </TooltipProvider>
                 </div>
               ) : null}
             </div>

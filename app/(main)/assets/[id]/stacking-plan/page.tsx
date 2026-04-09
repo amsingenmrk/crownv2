@@ -11,7 +11,12 @@ export default async function AssetStackingPlanPage({
   return (
     <div className="flex flex-col gap-6">
       <AssetStatCards />
-      <AssetStackingPlanWorkspace assetId={id} />
+      <AssetStackingPlanWorkspace
+        assetId={id}
+        lockedViewMode="matrix"
+        showViewToggle={false}
+        showSortControl={false}
+      />
     </div>
   )
 }

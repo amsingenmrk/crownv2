@@ -43,7 +43,9 @@ export function AssetStackingPlanDrawer({
 
   const isVacant = tenant.isVacant
   const headerTitle =
-    tenant.name && !tenant.isVacant ? `${tenant.name} / ${tenant.space}` : tenant.space
+    tenant.name && !tenant.isVacant
+      ? `${tenant.name} / ${tenant.space}`
+      : tenant.space
 
   const metrics = isVacant
     ? [
@@ -66,7 +68,7 @@ export function AssetStackingPlanDrawer({
     ? [
         { label: "Space", value: tenant.space },
         { label: "Floor", value: tenant.floorLabel },
-        { label: "Property type", value: tenant.propertyType },
+        { label: "Buildout", value: tenant.buildout },
         { label: "Size", value: tenant.sqftLabel },
         { label: "Availability", value: tenant.availabilityStatus },
         {
@@ -81,7 +83,7 @@ export function AssetStackingPlanDrawer({
         { label: "Suite", value: tenant.space },
         { label: "Floor", value: tenant.floorLabel },
         { label: "Lease type", value: tenant.leaseType ?? "N/A" },
-        { label: "Property type", value: tenant.propertyType },
+        { label: "Buildout", value: tenant.buildout },
         {
           label: "Commencement",
           value: formatLongDate(tenant.leaseCommencementDate),
@@ -91,7 +93,10 @@ export function AssetStackingPlanDrawer({
           value: formatLongDate(tenant.leaseExpirationDate),
         },
         { label: "Annual rent", value: tenant.annualRent ?? "N/A" },
-        { label: "Contract rate", value: tenant.contractRate ?? tenant.rentPerSf ?? "N/A" },
+        {
+          label: "Contract rate",
+          value: tenant.contractRate ?? tenant.rentPerSf ?? "N/A",
+        },
         {
           label: "Predicted rent",
           value: tenant.predictedRent ?? "N/A",
@@ -139,8 +144,8 @@ export function AssetStackingPlanDrawer({
                   icon={MapPin}
                 />
                 <SummaryCell
-                  label="Property"
-                  value={tenant.propertyType}
+                  label="Buildout"
+                  value={tenant.buildout}
                   icon={Building2}
                   withLeadingBorder
                 />
@@ -152,7 +157,7 @@ export function AssetStackingPlanDrawer({
                 />
                 <SummaryCell
                   label={isVacant ? "Owner" : "Lease type"}
-                  value={isVacant ? tenant.owner : tenant.leaseType ?? "N/A"}
+                  value={isVacant ? tenant.owner : (tenant.leaseType ?? "N/A")}
                   icon={isVacant ? BadgeCheck : CalendarClock}
                   withLeadingBorder
                   withTopBorder
@@ -202,15 +207,15 @@ function MetricGrid({
           key={item.label}
           className="rounded-lg border border-border bg-card px-4 py-3"
         >
-          <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
             {item.label}
           </div>
-          <div className="mt-1 text-base font-semibold tracking-tight tabular-nums text-foreground">
+          <div className="mt-1 text-base font-semibold tracking-tight text-foreground tabular-nums">
             {item.value}
           </div>
           {item.subValue ? (
             <div
-              className={`mt-1 text-xs font-medium tabular-nums text-muted-foreground ${
+              className={`mt-1 text-xs font-medium text-muted-foreground tabular-nums ${
                 item.subValueClassName ?? ""
               }`}
             >
@@ -237,7 +242,9 @@ function SectionCard({
       <div className="border-b border-border px-4 py-3.5">
         <div className="text-sm font-semibold text-foreground">{title}</div>
         {description ? (
-          <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {description}
+          </div>
         ) : null}
       </div>
       <div className="p-4">{children}</div>
@@ -264,7 +271,7 @@ function DetailList({ rows }: { rows: DetailRow[] }) {
             <div>{row.value}</div>
             {row.subValue ? (
               <div
-                className={`mt-1 text-xs font-medium tabular-nums text-muted-foreground ${
+                className={`mt-1 text-xs font-medium text-muted-foreground tabular-nums ${
                   row.subValueClassName ?? ""
                 }`}
               >
@@ -297,7 +304,7 @@ function SummaryCell({
         withTopBorder ? "border-t border-border" : ""
       }`}
     >
-      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
         <Icon className="h-3.5 w-3.5" />
         <span>{label}</span>
       </div>
