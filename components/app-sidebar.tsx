@@ -22,7 +22,7 @@ import {
 
 const user = {
   name: "Hans Jackson",
-  email: "hans.jackson@nmkr.com",
+  email: "hans.jackson@nmrk.com",
   avatar: "",
 }
 
