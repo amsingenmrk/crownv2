@@ -4,14 +4,6 @@ import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioValueNoiCapFromSeed } from "@/lib/portfolio-asset-financials"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
 
-const RECOMMENDATIONS = [
-  "Renovate Lobby",
-  "Upgrade Amenities",
-  "New Leasing Strategy",
-  "Refresh Units",
-  "Re-Tenant Space",
-] as const
-
 const ASSET_STATUS_LABELS = [
   "Stabilized",
   "Lease-up",
@@ -72,7 +64,6 @@ export function portfolioAssetRowForMarketPin(
     status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
     lift: pin.lift,
     liftPercent: pin.liftPercent,
-    recommendation: RECOMMENDATIONS[seed % RECOMMENDATIONS.length]!,
   }
 }
 

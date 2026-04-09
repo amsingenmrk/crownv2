@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -79,10 +78,6 @@ export function NewScenarioDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New scenario</DialogTitle>
-          <DialogDescription>
-            Choose a name for this scenario. You can open it from the sidebar
-            anytime.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
           <label htmlFor={inputId} className="sr-only">

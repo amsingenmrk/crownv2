@@ -5,14 +5,6 @@ import {
 } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 
-const RECOMMENDATIONS = [
-  "Renovate Lobby",
-  "Upgrade Amenities",
-  "New Leasing Strategy",
-  "Refresh Units",
-  "Re-Tenant Space",
-] as const
-
 const ASSET_STATUS_LABELS = [
   "Stabilized",
   "Lease-up",
@@ -78,6 +70,5 @@ export function portfolioAssetRowForAsset(
     status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
     lift: `+${liftPct}%`,
     liftPercent: liftPct,
-    recommendation: RECOMMENDATIONS[seed % RECOMMENDATIONS.length]!,
   }
 }

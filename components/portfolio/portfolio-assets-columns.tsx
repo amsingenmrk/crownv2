@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { AssetForecastSelect } from "@/components/portfolio/asset-forecast-select"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
@@ -358,15 +359,17 @@ export function createPortfolioAssetColumns(
       ),
     })
     columns.push({
-      accessorKey: "recommendation",
+      id: "forecast",
       enableHiding: true,
-      meta: { columnLabel: "Recommendations" },
-      header: ({ column }) => (
-        <SortableHeader column={column}>Recommendations</SortableHeader>
-      ),
-      cell: ({ row }) => (
-        <span className="text-left text-xs">{row.original.recommendation}</span>
-      ),
+      meta: { columnLabel: "Forecast" },
+      header: () => <div className="font-medium">Forecast</div>,
+      enableSorting: false,
+      cell: ({ row }) =>
+        isMarketListingRowId(row.original.id) ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <AssetForecastSelect building={row.original.building} />
+        ),
     })
   } else {
     columns.push({

@@ -150,7 +150,6 @@ function portfolioRowMatchesAssetTableSearch(
     row.wale,
     row.status,
     row.lift,
-    row.recommendation,
   ]
     .join(" ")
     .toLowerCase()
@@ -340,7 +339,6 @@ function PortfolioDashboardInner({
               row.wale,
               row.status,
               row.lift,
-              row.recommendation,
             ]
               .join(" ")
               .toLowerCase()

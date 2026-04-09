@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
+import { AssetForecastSelect } from "@/components/portfolio/asset-forecast-select"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import {
   ScenarioRemoveFromScenarioCell,
@@ -429,10 +430,14 @@ export function PortfolioAssetsDataTable({
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span>Recommendations</span>
-                        <span className="text-left text-foreground">
-                          {row.recommendation}
-                        </span>
+                        <span>Forecast</span>
+                        <div className="min-w-0 text-left">
+                          {isMarketListingRowId(row.id) ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <AssetForecastSelect building={row.building} />
+                          )}
+                        </div>
                       </div>
                     </>
                   )}

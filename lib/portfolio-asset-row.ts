@@ -16,5 +16,4 @@ export type PortfolioAssetRow = {
   status: string
   lift: string
   liftPercent: number
-  recommendation: string
 }

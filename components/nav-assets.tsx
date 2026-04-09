@@ -99,15 +99,33 @@ export function NavAssets() {
     )
   }, [assetGroupData, pathname])
 
+  const closeAllPortfolioGroups = React.useCallback(() => {
+    setOpenByGroup((current) => {
+      const next: Record<string, boolean> = {}
+      for (const g of navAssetSections) {
+        next[g.groupId] = false
+      }
+      const keys = new Set([...Object.keys(current), ...Object.keys(next)])
+      let changed = false
+      for (const k of keys) {
+        if ((current[k] ?? false) !== (next[k] ?? false)) {
+          changed = true
+          break
+        }
+      }
+      return changed ? next : current
+    })
+  }, [navAssetSections])
+
   React.useEffect(() => {
     const nextOpenIds = [activeScopeId, activeAssetGroupId].filter(
       (value): value is string => value != null && value !== "all"
     )
-    if (nextOpenIds.length === 0) return
     setOpenByGroup((current) => {
       const next: Record<string, boolean> = {}
       for (const g of navAssetSections) {
-        next[g.groupId] = nextOpenIds.includes(g.groupId)
+        next[g.groupId] =
+          nextOpenIds.length > 0 && nextOpenIds.includes(g.groupId)
       }
       const keys = new Set([...Object.keys(current), ...Object.keys(next)])
       let changed = false
@@ -129,7 +147,12 @@ export function NavAssets() {
           <SidebarMenuButton
             tooltip={PORTFOLIO_OVERVIEW_LABEL}
             isActive={pathname === "/portfolio"}
-            render={<Link href="/portfolio" />}
+            render={
+              <Link
+                href="/portfolio"
+                onClick={() => closeAllPortfolioGroups()}
+              />
+            }
           >
             <Briefcase />
             <span>{PORTFOLIO_OVERVIEW_LABEL}</span>
