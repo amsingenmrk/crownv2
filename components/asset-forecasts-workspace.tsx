@@ -969,7 +969,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   return (
     <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <aside
-        className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-80 xl:w-[22rem]"
+        className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-72 xl:w-80"
         aria-label="Forecast inputs"
       >
         <h2 className="text-sm font-semibold text-foreground">Forecast Inputs</h2>

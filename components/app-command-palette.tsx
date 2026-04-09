@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/command"
 import {
   getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
@@ -90,14 +91,17 @@ export function AppCommandPalette({
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
 
   const recentAssets = useMemo(() => {
     if (!open) return []
-    void assetGroupOverrideSnap
     return getRecentAssetIds()
-      .map((id) => getAssetById(id))
+      .map((id) => getAssetById(id, assetGroupData))
       .filter((a): a is NonNullable<typeof a> => a != null)
-  }, [open, assetGroupOverrideSnap])
+  }, [assetGroupData, open])
 
   const recentIds = useMemo(
     () => new Set(recentAssets.map((a) => a.id)),
@@ -105,11 +109,10 @@ export function AppCommandPalette({
   )
 
   const otherAssets = useMemo(() => {
-    void assetGroupOverrideSnap
     return ASSETS.filter((a) => !recentIds.has(a.id)).map(
-      (a) => getAssetById(a.id) ?? a
+      (a) => getAssetById(a.id, assetGroupData) ?? a
     )
-  }, [recentIds, assetGroupOverrideSnap])
+  }, [assetGroupData, recentIds])
 
   const commandScenarios = useMemo(() => {
     if (!open) return []

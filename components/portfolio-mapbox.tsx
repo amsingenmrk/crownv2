@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Image as LandscapeImageIcon } from "lucide-react"
 
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
@@ -19,7 +18,6 @@ import {
   listingPreviewBodyClassName,
   listingPreviewCardInnerLayoutClassName,
   listingPreviewCardMaxWidthClass,
-  listingPreviewThumbClassName,
 } from "@/lib/listing-preview-card-layout"
 import { cn } from "@/lib/utils"
 
@@ -102,27 +100,7 @@ function PortfolioMapPinSummaryCard({ pin }: { pin: PortfolioMapboxPin }) {
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={listingPreviewThumbClassName}>
-          {pin.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={pin.imageUrl}
-              alt={pin.building}
-              className="size-full object-cover"
-            />
-          ) : (
-            <div
-              className="flex size-full items-center justify-center text-muted-foreground"
-              aria-hidden
-            >
-              <LandscapeImageIcon
-                className="size-6 opacity-50"
-                strokeWidth={1.25}
-              />
-            </div>
-          )}
-        </div>
-        <div className={listingPreviewBodyClassName}>
+        <div className={cn(listingPreviewBodyClassName, "py-0")}>
           <p className="line-clamp-2 text-sm font-semibold leading-4 text-foreground">
             {pin.building}
           </p>

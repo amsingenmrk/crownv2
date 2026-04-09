@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"
 import {
   Diff,
   Filter,
-  Image as LandscapeImageIcon,
   Plus,
   Search,
   X,
@@ -32,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
 import {
   getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
@@ -41,7 +41,6 @@ import { useScenariosIncludingAssetCount } from "@/hooks/use-scenarios-including
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import {
   listingPreviewBodyClassName,
-  listingPreviewThumbClassName,
 } from "@/lib/listing-preview-card-layout"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
@@ -172,6 +171,10 @@ function SearchListingPreviewCard({
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
 
   const portfolioRow = React.useMemo(() => {
     if (isMarket) {
@@ -180,10 +183,9 @@ function SearchListingPreviewCard({
     }
     const index = ASSETS.findIndex((a) => a.id === pin.id)
     if (index < 0) return null
-    void assetGroupOverrideSnap
-    const a = getAssetById(pin.id) ?? ASSETS[index]!
+    const a = getAssetById(pin.id, assetGroupData) ?? ASSETS[index]!
     return portfolioAssetRowForAsset(a, index)
-  }, [isMarket, pin.id, assetGroupOverrideSnap])
+  }, [assetGroupData, isMarket, pin.id])
   const liftText =
     pin.lift.trim() !== ""
       ? pin.lift
@@ -198,28 +200,8 @@ function SearchListingPreviewCard({
     : liftPillClassFromStrength(pin.liftStrength)
 
   const cardTop = (
-    <div className="flex gap-3 p-3">
-      <div className={listingPreviewThumbClassName}>
-        {pin.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pin.imageUrl}
-            alt={pin.building}
-            className="size-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex size-full items-center justify-center text-muted-foreground"
-            aria-hidden
-          >
-            <LandscapeImageIcon
-              className="size-6 opacity-50"
-              strokeWidth={1.25}
-            />
-          </div>
-        )}
-      </div>
-      <div className={cn(listingPreviewBodyClassName, "justify-start")}>
+    <div className="p-3">
+      <div className={cn(listingPreviewBodyClassName, "justify-start py-0")}>
         <div className="flex min-w-0 flex-1 items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
@@ -380,6 +362,10 @@ export function SearchComingSoon() {
     getAssetGroupOverridesSnapshot,
     () => ""
   )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
   const filterTitleId = React.useId()
   const portfolioCbId = React.useId()
   const marketCbId = React.useId()
@@ -394,7 +380,6 @@ export function SearchComingSoon() {
   const [mapSearchQuery, setMapSearchQuery] = React.useState("")
 
   const { listingPins, portfolioPins, marketPins } = React.useMemo(() => {
-    void assetGroupOverrideSnap
     const liftPcts = ASSETS.map(
       (a, i) => 3 + (seedForAsset(a, i) % 15)
     )
@@ -402,7 +387,7 @@ export function SearchComingSoon() {
     const maxLift = Math.max(...liftPcts)
     const portfolioRaw = ASSETS.map((a, index) => {
       const liftPct = liftPcts[index]!
-      const effective = getAssetById(a.id) ?? a
+      const effective = getAssetById(a.id, assetGroupData) ?? a
       const [longitude, latitude] = lngLatForPortfolioAsset(
         a.id,
         effective.groupId,
@@ -445,7 +430,7 @@ export function SearchComingSoon() {
       portfolioPins: pf,
       marketPins: mk,
     }
-  }, [coordinates, assetGroupOverrideSnap])
+  }, [assetGroupData, coordinates])
 
   const displayedPortfolioPins = appliedFilters.showPortfolio
     ? portfolioPins
@@ -585,7 +570,7 @@ export function SearchComingSoon() {
         </div>
 
         {/* Listings skeleton */}
-        <aside className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden border-t border-border bg-muted/15 p-4 lg:h-full lg:max-h-full lg:w-[min(100%,456px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[504px]">
+        <aside className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden border-t border-border bg-muted/15 p-4 lg:h-full lg:max-h-full lg:w-[min(100%,416px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[448px]">
           <div className="flex shrink-0 min-w-0 items-center justify-between gap-3">
             <p className="min-w-0 truncate text-sm font-medium text-foreground">
               {propertyCount === 1
