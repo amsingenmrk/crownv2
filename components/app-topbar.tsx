@@ -9,12 +9,11 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from "react"
 import {
+  Briefcase,
   Check,
   ChevronDown,
-  ChevronRight,
   FileUp,
   MoreVertical,
   Plus,
@@ -26,6 +25,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -37,14 +40,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -68,6 +63,7 @@ import {
   ASSET_GROUP_SIDEBAR_LABELS,
   BUILT_IN_ASSET_GROUP_IDS,
   getAssetById,
+  portfolioScopeHref,
   portfolioScopeIdFromRouteParam,
 } from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
@@ -291,7 +287,6 @@ export function AppTopbar() {
   const [compareRenameOpen, setCompareRenameOpen] = useState(false)
   const [compareDeleteOpen, setCompareDeleteOpen] = useState(false)
   const [compareRenameDraft, setCompareRenameDraft] = useState("")
-  const [assetGroupSelectOpen, setAssetGroupSelectOpen] = useState(false)
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
   const [newAssetGroupName, setNewAssetGroupName] = useState("")
   const newAssetGroupInputId = useId()
@@ -309,6 +304,9 @@ export function AppTopbar() {
   const scenarioSlug = scenarioSlugFromPathname(pathname ?? null)
   const showScenarioMoreMenu = showScenarioBreadcrumb && scenarioSlug != null
   const compareSavedId = compareSavedIdFromPathname(pathname ?? null)
+  const portfolioScopeBreadcrumbId =
+    portfolioScopeIdFromPathname(pathname ?? null)
+  const showPortfolioScopeBreadcrumb = portfolioScopeBreadcrumbId != null
   const showCompareSavedBreadcrumb = compareSavedId != null
   const showCompareMoreMenu = showCompareSavedBreadcrumb
   const showCompareNewBreadcrumb = pathname === "/compare/new"
@@ -332,20 +330,6 @@ export function AppTopbar() {
         a.groupLabel.toLowerCase().includes(q)
     )
   }, [assetGroupData, assetSearch])
-
-  const assetGroupSelectItems = useMemo(() => {
-    const custom = assetGroupData.customGroups
-    const items: Record<string, ReactNode> = {}
-    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
-      items[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
-    }
-    for (const [id, label] of Object.entries(custom).sort((a, b) =>
-      a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
-    )) {
-      items[id] = label
-    }
-    return items
-  }, [assetGroupData])
 
   const portfolioScopeLabels = useMemo(() => {
     const custom = assetGroupData.customGroups
@@ -401,101 +385,126 @@ export function AppTopbar() {
           orientation="vertical"
           className="mr-2 shrink-0 data-vertical:h-4 data-vertical:self-auto"
         />
-        {showAssetBreadcrumb ? (
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => router.push("/portfolio")}
-              className="shrink-0 transition-colors hover:text-foreground"
-            >
-              Assets
-            </button>
-            <ChevronRight className="size-4 shrink-0" aria-hidden />
-            <DropdownMenu
-              open={assetMenuOpen}
-              onOpenChange={(open) => {
-                setAssetMenuOpen(open)
-                if (!open) setAssetSearch("")
-              }}
-            >
-              <DropdownMenuTrigger
-                render={
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex min-w-0 max-w-[min(100%,18rem)] items-center gap-1 rounded-md py-0.5 pr-1 pl-0.5 text-left text-sm font-medium text-foreground outline-none",
-                      "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                  />
-                }
-              >
-                <span className="min-w-0 truncate">{asset.name}</span>
-                <ChevronDown
-                  className="size-4 shrink-0 opacity-60"
-                  aria-hidden
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[min(22rem,calc(100vw-2rem))] min-w-[var(--anchor-width)] p-0"
-                align="start"
-                sideOffset={6}
-              >
-                <div
-                  className="border-b border-border p-2"
-                  onPointerDown={(e) => e.preventDefault()}
+        {showAssetBreadcrumb && asset != null ? (
+          <Breadcrumb className="min-w-0 flex-1">
+            <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/portfolio"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
                 >
-                  <Input
-                    ref={assetSearchInputRef}
-                    type="search"
-                    placeholder="Search assets…"
-                    value={assetSearch}
-                    onChange={(e) => setAssetSearch(e.target.value)}
-                    autoComplete="off"
-                    aria-label="Search assets"
-                    className="h-9"
-                  />
-                </div>
-                <div className="max-h-[min(50vh,18rem)] overflow-y-auto p-1">
-                  {filteredAssets.map((a) => {
-                    const selected = a.id === asset.id
-                    const href = hrefForAssetSwitch(pathname, a.id)
-                    return (
-                      <DropdownMenuItem
-                        key={a.id}
-                        className="flex cursor-pointer items-start gap-2 py-2"
-                        onClick={() => {
-                          router.push(href)
-                          setAssetMenuOpen(false)
-                        }}
-                      >
-                        <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-                          {selected ? (
-                            <Check
-                              className="size-4 text-foreground"
-                              aria-hidden
-                            />
-                          ) : null}
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                          <span className="truncate font-medium leading-tight">
-                            {a.name}
-                          </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {a.groupLabel}
-                          </span>
-                        </span>
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </div>
-                {filteredAssets.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    No assets match your search.
-                  </div>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  Portfolio
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0 max-w-[min(12rem,32vw)] shrink">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href={portfolioScopeHref(asset.groupId)}
+                      className="block truncate font-medium text-muted-foreground"
+                    />
+                  }
+                  title={
+                    portfolioScopeLabels[asset.groupId] ?? asset.groupLabel
+                  }
+                >
+                  {portfolioScopeLabels[asset.groupId] ?? asset.groupLabel}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0 max-w-[min(100%,18rem)]">
+                <DropdownMenu
+                  open={assetMenuOpen}
+                  onOpenChange={(open) => {
+                    setAssetMenuOpen(open)
+                    if (!open) setAssetSearch("")
+                  }}
+                >
+                  <DropdownMenuTrigger
+                    render={
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex min-w-0 max-w-full items-center gap-1 rounded-md py-0.5 pr-1 pl-0.5 text-left text-sm font-medium text-foreground outline-none",
+                          "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        )}
+                      />
+                    }
+                  >
+                    <span className="min-w-0 truncate">{asset.name}</span>
+                    <ChevronDown
+                      className="size-4 shrink-0 opacity-60"
+                      aria-hidden
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[min(22rem,calc(100vw-2rem))] min-w-[var(--anchor-width)] p-0"
+                    align="start"
+                    sideOffset={6}
+                  >
+                    <div
+                      className="border-b border-border p-2"
+                      onPointerDown={(e) => e.preventDefault()}
+                    >
+                      <Input
+                        ref={assetSearchInputRef}
+                        type="search"
+                        placeholder="Search assets…"
+                        value={assetSearch}
+                        onChange={(e) => setAssetSearch(e.target.value)}
+                        autoComplete="off"
+                        aria-label="Search assets"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="max-h-[min(50vh,18rem)] overflow-y-auto p-1">
+                      {filteredAssets.map((a) => {
+                        const selected = a.id === asset.id
+                        const href = hrefForAssetSwitch(pathname, a.id)
+                        return (
+                          <DropdownMenuItem
+                            key={a.id}
+                            className="flex cursor-pointer items-start gap-2 py-2"
+                            onClick={() => {
+                              router.push(href)
+                              setAssetMenuOpen(false)
+                            }}
+                          >
+                            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                              {selected ? (
+                                <Check
+                                  className="size-4 text-foreground"
+                                  aria-hidden
+                                />
+                              ) : null}
+                            </span>
+                            <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                              <span className="truncate font-medium leading-tight">
+                                {a.name}
+                              </span>
+                              <span className="truncate text-xs text-muted-foreground">
+                                {a.groupLabel}
+                              </span>
+                            </span>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </div>
+                    {filteredAssets.length === 0 ? (
+                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        No assets match your search.
+                      </div>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         ) : showScenarioBreadcrumb && scenarioSlug != null ? (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
@@ -560,6 +569,30 @@ export function AppTopbar() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+        ) : showPortfolioScopeBreadcrumb && portfolioScopeBreadcrumbId != null ? (
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/portfolio"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
+                >
+                  Portfolio
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate font-medium">
+                  {portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                    portfolioScopeBreadcrumbId}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         ) : (
           <span className="text-sm font-medium text-muted-foreground">
             {pageTitle}
@@ -579,68 +612,17 @@ export function AppTopbar() {
         ) : null}
         {showAssetBreadcrumb && asset != null ? (
           <>
-            <Select
-              open={assetGroupSelectOpen}
-              onOpenChange={setAssetGroupSelectOpen}
-              items={assetGroupSelectItems}
-              value={asset.groupId}
-              onValueChange={(v) => {
-                if (v != null) setAssetGroupOverride(asset.id, v)
-              }}
+            <div
+              className="inline-flex max-w-[min(100%,12rem)] shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2.5 py-1 text-xs font-medium text-foreground"
+              title={`Portfolio: ${asset.groupLabel}`}
+              aria-label={`Current portfolio: ${asset.groupLabel}`}
             >
-              <SelectTrigger
-                size="sm"
-                className="w-[min(100%,11rem)] max-w-[min(11rem,42vw)] shrink-0 text-[0.8rem]"
-                aria-label="Asset group"
-              >
-                <SelectValue placeholder="Group" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                {BUILT_IN_ASSET_GROUP_IDS.map((gid) => (
-                  <SelectItem key={gid} value={gid}>
-                    {ASSET_GROUP_SIDEBAR_LABELS[gid]}
-                  </SelectItem>
-                ))}
-                {Object.entries(assetGroupData.customGroups)
-                  .sort((a, b) =>
-                    a[1].localeCompare(b[1], undefined, {
-                      sensitivity: "base",
-                    })
-                  )
-                  .map(([gid, label]) => (
-                    <SelectItem key={gid} value={gid}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                <SelectSeparator />
-                <div
-                  className="p-1"
-                  onPointerDown={(e) => e.preventDefault()}
-                >
-                  <button
-                    type="button"
-                    className={cn(
-                      "relative flex w-full min-w-0 cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm outline-hidden select-none",
-                      "focus:bg-accent focus:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground",
-                      "[&_svg]:pointer-events-none [&_svg]:shrink-0"
-                    )}
-                    onClick={() => {
-                      setAssetGroupSelectOpen(false)
-                      setNewAssetGroupName("")
-                      setCreateAssetGroupOpen(true)
-                    }}
-                  >
-                    <Plus
-                      className="size-4 shrink-0 opacity-80"
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      Create new group
-                    </span>
-                  </button>
-                </div>
-              </SelectContent>
-            </Select>
+              <Briefcase
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <span className="min-w-0 truncate">{asset.groupLabel}</span>
+            </div>
             <Dialog
               open={createAssetGroupOpen}
               onOpenChange={(open) => {
@@ -726,6 +708,92 @@ export function AppTopbar() {
               <FileUp className="size-3.5 shrink-0" aria-hidden />
               <span className="hidden lg:inline">Import Documents</span>
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label="Property actions"
+                  />
+                }
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6}>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Move</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-[10rem]">
+                    {BUILT_IN_ASSET_GROUP_IDS.map((gid) => {
+                      const label = ASSET_GROUP_SIDEBAR_LABELS[gid]
+                      const selected = asset.groupId === gid
+                      return (
+                        <DropdownMenuItem
+                          key={gid}
+                          className="gap-2"
+                          disabled={selected}
+                          onClick={() => {
+                            if (selected) return
+                            setAssetGroupOverride(asset.id, gid)
+                          }}
+                        >
+                          <span className="flex size-4 shrink-0 items-center justify-center">
+                            {selected ? (
+                              <Check className="size-4" aria-hidden />
+                            ) : null}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{label}</span>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                    {Object.entries(assetGroupData.customGroups)
+                      .sort((a, b) =>
+                        a[1].localeCompare(b[1], undefined, {
+                          sensitivity: "base",
+                        })
+                      )
+                      .map(([gid, label]) => {
+                        const selected = asset.groupId === gid
+                        return (
+                          <DropdownMenuItem
+                            key={gid}
+                            className="gap-2"
+                            disabled={selected}
+                            onClick={() => {
+                              if (selected) return
+                              setAssetGroupOverride(asset.id, gid)
+                            }}
+                          >
+                            <span className="flex size-4 shrink-0 items-center justify-center">
+                              {selected ? (
+                                <Check className="size-4" aria-hidden />
+                              ) : null}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {label}
+                            </span>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="gap-2"
+                      onClick={() => {
+                        setNewAssetGroupName("")
+                        setCreateAssetGroupOpen(true)
+                      }}
+                    >
+                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">
+                        Create new group
+                      </span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         ) : null}
         {showScenarioMoreMenu ? (
