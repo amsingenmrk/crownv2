@@ -75,3 +75,57 @@ export function ScenarioMetricInlinePair({
     </>
   )
 }
+
+/**
+ * Stacked “/ SF” line under a headline: muted label, then base → arrow → scenario (no extra scenario label).
+ */
+export function ScenarioMetricSubInlinePair({
+  label,
+  baseFormatted,
+  scenarioFormatted,
+  showScenario,
+  deltaLine,
+  deltaDirection,
+}: {
+  label: string
+  baseFormatted: string
+  scenarioFormatted: string
+  showScenario: boolean
+  deltaLine?: string
+  deltaDirection?: "up" | "down" | "neutral"
+}) {
+  const showDelta =
+    showScenario && deltaLine != null && deltaLine.length > 0
+
+  return (
+    <div>
+      <p className="text-xs leading-snug text-muted-foreground">{label}</p>
+      <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <span className="text-sm font-medium leading-snug tabular-nums text-foreground">
+          {baseFormatted}
+        </span>
+        {showScenario ? (
+          <>
+            <ArrowRight
+              className="size-3.5 shrink-0 text-muted-foreground/60"
+              aria-hidden
+            />
+            <span className="text-sm font-semibold leading-snug tabular-nums text-violet-800 dark:text-violet-200">
+              {scenarioFormatted}
+            </span>
+          </>
+        ) : null}
+      </div>
+      {showDelta ? (
+        <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px] leading-snug">
+          <DeltaDirectionIcon
+            direction={deltaDirection ?? "neutral"}
+          />
+          <span className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+            {deltaLine}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  )
+}

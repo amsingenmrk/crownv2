@@ -19,6 +19,7 @@ import {
   MoreVertical,
   Plus,
 } from "lucide-react"
+import Link from "next/link"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input"
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
@@ -69,6 +71,13 @@ import {
 } from "@/lib/assets"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
+  getSavedComparisonsStoreSnapshot,
+  removeSavedComparison,
+  SAVED_COMPARISONS_SERVER_SNAPSHOT,
+  subscribeSavedComparisons,
+  updateSavedComparison,
+} from "@/lib/saved-comparisons"
+import {
   BUILTIN_SCENARIO,
   duplicateScenarioFromSourceSlug,
   getUserScenariosStoreSnapshot,
@@ -77,6 +86,7 @@ import {
   updateUserScenarioNameBySlug,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
+import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridge"
 import { cn } from "@/lib/utils"
 
 function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string {
@@ -92,6 +102,7 @@ const TITLES: Record<string, string> = {
   "/portfolio": "Portfolio",
   "/search": "Property search",
   "/compare": "Compare",
+  "/compare/new": "New comparison",
   "/benchmarks": "Benchmarks",
 }
 
@@ -101,9 +112,17 @@ function scenarioSlugFromPathname(pathname: string | null): string | null {
   return slug || null
 }
 
+function compareSavedIdFromPathname(pathname: string | null): string | null {
+  if (pathname == null || !pathname.startsWith("/compare/")) return null
+  const segment = pathname.slice("/compare/".length).split("/")[0]
+  if (!segment || segment === "new") return null
+  return segment
+}
+
 function titleForPathname(
   pathname: string | null,
-  userScenarios: readonly { name: string; slug: string }[]
+  userScenarios: readonly { name: string; slug: string }[],
+  savedComparisons: readonly { id: string; name: string }[]
 ): string {
   if (!pathname) return "Glassbox"
   const explicit = TITLES[pathname]
@@ -114,6 +133,14 @@ function titleForPathname(
       const user = userScenarios.find((s) => s.slug === slug)
       if (user) return user.name
       return humanizeScenarioSlug(slug)
+    }
+  }
+  if (pathname.startsWith("/compare/")) {
+    const rest = pathname.slice("/compare/".length).split("/")[0]
+    if (rest && rest !== "new") {
+      const row = savedComparisons.find((c) => c.id === rest)
+      if (row) return row.name
+      return "Comparison"
     }
   }
   return "Glassbox"
@@ -232,12 +259,22 @@ export function AppTopbar() {
     getUserScenariosStoreSnapshot,
     () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
+  const savedComparisons = useSyncExternalStore(
+    subscribeSavedComparisons,
+    getSavedComparisonsStoreSnapshot,
+    () => SAVED_COMPARISONS_SERVER_SNAPSHOT
+  )
   const assetGroupOverrideSnap = useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
     () => ""
   )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
+  const [scenarioRenameOpen, setScenarioRenameOpen] = useState(false)
+  const [scenarioRenameDraft, setScenarioRenameDraft] = useState("")
+  const [compareRenameOpen, setCompareRenameOpen] = useState(false)
+  const [compareDeleteOpen, setCompareDeleteOpen] = useState(false)
+  const [compareRenameDraft, setCompareRenameDraft] = useState("")
   const [assetGroupSelectOpen, setAssetGroupSelectOpen] = useState(false)
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
   const [newAssetGroupName, setNewAssetGroupName] = useState("")
@@ -255,6 +292,11 @@ export function AppTopbar() {
     pathname != null && pathname.startsWith("/scenarios/")
   const scenarioSlug = scenarioSlugFromPathname(pathname ?? null)
   const showScenarioMoreMenu = showScenarioBreadcrumb && scenarioSlug != null
+  const compareSavedId = compareSavedIdFromPathname(pathname ?? null)
+  const showCompareSavedBreadcrumb = compareSavedId != null
+  const showCompareMoreMenu = showCompareSavedBreadcrumb
+  const showCompareNewBreadcrumb = pathname === "/compare/new"
+  const compareNewHeaderBridge = useCompareNewHeaderBridge()
   const userScenarioSlugs = useMemo(
     () => userScenarios.map((s) => s.slug),
     [userScenarios]
@@ -263,7 +305,11 @@ export function AppTopbar() {
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
   const canRenameScenarioInline = canDeleteCurrentScenario
 
-  const pageTitle = titleForPathname(pathname ?? null, userScenarios)
+  const pageTitle = titleForPathname(
+    pathname ?? null,
+    userScenarios,
+    savedComparisons
+  )
 
   const filteredAssets = useMemo(() => {
     void assetGroupOverrideSnap
@@ -301,6 +347,24 @@ export function AppTopbar() {
     })
     return () => cancelAnimationFrame(id)
   }, [assetMenuOpen])
+
+  useEffect(() => {
+    if (!showCompareSavedBreadcrumb) {
+      queueMicrotask(() => {
+        setCompareRenameOpen(false)
+        setCompareDeleteOpen(false)
+      })
+    }
+  }, [showCompareSavedBreadcrumb])
+
+  useEffect(() => {
+    if (!showScenarioBreadcrumb || scenarioSlug == null) {
+      queueMicrotask(() => {
+        setScenarioRenameOpen(false)
+        setDeleteScenarioOpen(false)
+      })
+    }
+  }, [showScenarioBreadcrumb, scenarioSlug])
 
   return (
     <header className="grid h-12 min-w-0 w-full max-w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
@@ -423,6 +487,52 @@ export function AppTopbar() {
               />
             </BreadcrumbList>
           </Breadcrumb>
+        ) : showCompareSavedBreadcrumb && compareSavedId != null ? (
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/compare"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
+                >
+                  Compare
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate font-medium">
+                  {pageTitle}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        ) : showCompareNewBreadcrumb ? (
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/compare"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
+                >
+                  Compare
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate font-medium">
+                  New comparison
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         ) : (
           <span className="text-sm font-medium text-muted-foreground">
             {pageTitle}
@@ -430,6 +540,16 @@ export function AppTopbar() {
         )}
       </div>
       <div className="flex min-w-0 items-center justify-end gap-1.5 pr-2 sm:gap-2 sm:pr-4">
+        {showCompareNewBreadcrumb ? (
+          <Button
+            type="button"
+            size="sm"
+            className="shrink-0"
+            onClick={() => compareNewHeaderBridge?.requestSave()}
+          >
+            Save comparison
+          </Button>
+        ) : null}
         {showAssetBreadcrumb && asset != null ? (
           <>
             <Select
@@ -591,7 +711,7 @@ export function AppTopbar() {
                     variant="ghost"
                     size="icon"
                     className="shrink-0"
-                    aria-label="Duplicate or delete scenario"
+                    aria-label="Scenario actions"
                   />
                 }
               >
@@ -599,17 +719,31 @@ export function AppTopbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={6}>
                 <DropdownMenuItem
+                  disabled={!canRenameScenarioInline}
+                  title={
+                    canRenameScenarioInline
+                      ? undefined
+                      : "Built-in scenarios cannot be renamed"
+                  }
+                  onClick={() => {
+                    if (!canRenameScenarioInline || scenarioSlug == null) return
+                    setScenarioRenameDraft(pageTitle)
+                    setScenarioRenameOpen(true)
+                  }}
+                >
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   disabled={scenarioSlug == null}
                   onClick={() => {
                     if (scenarioSlug == null) return
                     const created = duplicateScenarioFromSourceSlug(scenarioSlug)
                     if (created != null) {
                       router.push(`/scenarios/${created.slug}`)
-                      showToast(`Scenario “${created.name}” created.`)
                     }
                   }}
                 >
-                  Duplicate Scenario
+                  Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
@@ -624,14 +758,76 @@ export function AppTopbar() {
                     setDeleteScenarioOpen(true)
                   }}
                 >
-                  Delete Scenario
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Dialog
+              open={scenarioRenameOpen}
+              onOpenChange={setScenarioRenameOpen}
+            >
+              <DialogContent showCloseButton className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename scenario</DialogTitle>
+                </DialogHeader>
+                <Input
+                  value={scenarioRenameDraft}
+                  onChange={(e) => setScenarioRenameDraft(e.target.value)}
+                  placeholder="Name"
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      const name = scenarioRenameDraft.trim()
+                      if (!name || scenarioSlug == null) return
+                      if (name === pageTitle) {
+                        setScenarioRenameOpen(false)
+                        return
+                      }
+                      if (
+                        updateUserScenarioNameBySlug(scenarioSlug, name) != null
+                      ) {
+                        setScenarioRenameOpen(false)
+                        showToast(`Renamed to “${name}”.`)
+                      }
+                    }
+                  }}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setScenarioRenameOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!scenarioRenameDraft.trim()}
+                    onClick={() => {
+                      const name = scenarioRenameDraft.trim()
+                      if (!name || scenarioSlug == null) return
+                      if (name === pageTitle) {
+                        setScenarioRenameOpen(false)
+                        return
+                      }
+                      if (
+                        updateUserScenarioNameBySlug(scenarioSlug, name) != null
+                      ) {
+                        setScenarioRenameOpen(false)
+                        showToast(`Renamed to “${name}”.`)
+                      }
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={deleteScenarioOpen} onOpenChange={setDeleteScenarioOpen}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Delete Scenario</DialogTitle>
+                  <DialogTitle>Delete scenario</DialogTitle>
                   <DialogDescription>
                     This removes “{pageTitle}” and clears its saved table
                     selections for this scenario. This cannot be undone.
@@ -654,7 +850,127 @@ export function AppTopbar() {
                       setDeleteScenarioOpen(false)
                       if (next != null) {
                         router.push(`/scenarios/${BUILTIN_SCENARIO.slug}`)
+                        showToast("Scenario deleted.")
                       }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : null}
+        {showCompareMoreMenu && compareSavedId != null ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label="Comparison actions"
+                  />
+                }
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCompareRenameDraft(pageTitle)
+                    setCompareRenameOpen(true)
+                  }}
+                >
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    router.push(`/compare/new?from=${compareSavedId}`)
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setCompareDeleteOpen(true)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog open={compareRenameOpen} onOpenChange={setCompareRenameOpen}>
+              <DialogContent showCloseButton className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename comparison</DialogTitle>
+                </DialogHeader>
+                <Input
+                  value={compareRenameDraft}
+                  onChange={(e) => setCompareRenameDraft(e.target.value)}
+                  placeholder="Name"
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      const name = compareRenameDraft.trim()
+                      if (!name) return
+                      updateSavedComparison(compareSavedId, { name })
+                      setCompareRenameOpen(false)
+                      showToast(`Renamed to “${name}”.`)
+                    }
+                  }}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCompareRenameOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!compareRenameDraft.trim()}
+                    onClick={() => {
+                      const name = compareRenameDraft.trim()
+                      if (!name) return
+                      updateSavedComparison(compareSavedId, { name })
+                      setCompareRenameOpen(false)
+                      showToast(`Renamed to “${name}”.`)
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={compareDeleteOpen} onOpenChange={setCompareDeleteOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Delete comparison</DialogTitle>
+                  <DialogDescription>
+                    This removes “{pageTitle}” and its saved column layout. This
+                    cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCompareDeleteOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      removeSavedComparison(compareSavedId)
+                      setCompareDeleteOpen(false)
+                      router.push("/compare")
+                      showToast("Comparison deleted.")
                     }}
                   >
                     Delete

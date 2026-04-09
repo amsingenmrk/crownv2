@@ -30,3 +30,17 @@ export function formatUsdPerSf(usd: number, sqft: number): string {
   const v = usd / sqft
   return `$${Math.round(v).toLocaleString()} / SF`
 }
+
+/** Signed change in $/SF between two portfolio-level USD totals over the same RSF. */
+export function formatUsdPerSfDelta(
+  baseUsd: number,
+  scenarioUsd: number,
+  sqft: number
+): string {
+  if (sqft <= 0) return ""
+  const d = (scenarioUsd - baseUsd) / sqft
+  const rounded = Math.round(Math.abs(d))
+  if (d === 0) return "$0 / SF"
+  const sign = d > 0 ? "+" : "−"
+  return `${sign}$${rounded.toLocaleString()} / SF`
+}

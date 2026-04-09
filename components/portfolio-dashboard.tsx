@@ -22,7 +22,10 @@ import {
   MetricStripValueRow,
   metricStripSectionClassName,
 } from "@/components/metric-strip"
-import { ScenarioMetricInlinePair } from "@/components/portfolio/scenario-comparative-kpis"
+import {
+  ScenarioMetricInlinePair,
+  ScenarioMetricSubInlinePair,
+} from "@/components/portfolio/scenario-comparative-kpis"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
 import {
   ScenarioModificationSelectionsProvider,
@@ -51,6 +54,7 @@ import {
   formatPctChange,
   formatUsdDeltaCompact,
   formatUsdPerSf,
+  formatUsdPerSfDelta,
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
 import { portfolioKpiStripFromRows } from "@/lib/portfolio-kpi-aggregate"
@@ -120,7 +124,7 @@ function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
 }
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
-const ALL_PORTFOLIO_GROUPS_LABEL = "All assets"
+const ALL_PORTFOLIO_GROUPS_LABEL = "Entire Portfolio"
 
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
 function toCssPercent(n: number): string {
@@ -249,7 +253,7 @@ function PortfolioDashboardInner({
 
   const assetsTableHeading =
     portfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
-      ? "All assets"
+      ? "Entire Portfolio"
       : resolveAssetGroupLabel(portfolioGroupFilter)
 
   /**
@@ -636,23 +640,35 @@ function PortfolioDashboardInner({
               />
               {scenarioAggregate.totalRsfSqft > 0 ? (
                 <MetricStripSubStack>
-                  <MetricStripSubRow
+                  <ScenarioMetricSubInlinePair
                     label="Est. Value / SF"
-                    value={formatUsdPerSf(
+                    baseFormatted={formatUsdPerSf(
                       scenarioAggregate.baseValueUsd,
                       scenarioAggregate.totalRsfSqft
                     )}
+                    scenarioFormatted={formatUsdPerSf(
+                      scenarioAggregate.scenarioValueUsd,
+                      scenarioAggregate.totalRsfSqft
+                    )}
+                    showScenario={scenarioAggregate.hasTableSelection}
+                    deltaLine={
+                      scenarioAggregate.hasTableSelection
+                        ? formatUsdPerSfDelta(
+                            scenarioAggregate.baseValueUsd,
+                            scenarioAggregate.scenarioValueUsd,
+                            scenarioAggregate.totalRsfSqft
+                          )
+                        : undefined
+                    }
+                    deltaDirection={
+                      scenarioAggregate.hasTableSelection
+                        ? scenarioDeltaDirection(
+                            scenarioAggregate.scenarioValueUsd -
+                              scenarioAggregate.baseValueUsd
+                          )
+                        : undefined
+                    }
                   />
-                  {scenarioAggregate.hasTableSelection ? (
-                    <MetricStripSubRow
-                      label="Scenario est. value / SF"
-                      value={formatUsdPerSf(
-                        scenarioAggregate.scenarioValueUsd,
-                        scenarioAggregate.totalRsfSqft
-                      )}
-                      variant="violet"
-                    />
-                  ) : null}
                 </MetricStripSubStack>
               ) : null}
             </MetricStripCell>
@@ -707,23 +723,35 @@ function PortfolioDashboardInner({
               />
               {scenarioAggregate.totalRsfSqft > 0 ? (
                 <MetricStripSubStack>
-                  <MetricStripSubRow
+                  <ScenarioMetricSubInlinePair
                     label="NOI / SF"
-                    value={formatUsdPerSf(
+                    baseFormatted={formatUsdPerSf(
                       scenarioAggregate.baseNoiUsd,
                       scenarioAggregate.totalRsfSqft
                     )}
+                    scenarioFormatted={formatUsdPerSf(
+                      scenarioAggregate.scenarioNoiUsd,
+                      scenarioAggregate.totalRsfSqft
+                    )}
+                    showScenario={scenarioAggregate.hasTableSelection}
+                    deltaLine={
+                      scenarioAggregate.hasTableSelection
+                        ? formatUsdPerSfDelta(
+                            scenarioAggregate.baseNoiUsd,
+                            scenarioAggregate.scenarioNoiUsd,
+                            scenarioAggregate.totalRsfSqft
+                          )
+                        : undefined
+                    }
+                    deltaDirection={
+                      scenarioAggregate.hasTableSelection
+                        ? scenarioDeltaDirection(
+                            scenarioAggregate.scenarioNoiUsd -
+                              scenarioAggregate.baseNoiUsd
+                          )
+                        : undefined
+                    }
                   />
-                  {scenarioAggregate.hasTableSelection ? (
-                    <MetricStripSubRow
-                      label="Scenario NOI / SF"
-                      value={formatUsdPerSf(
-                        scenarioAggregate.scenarioNoiUsd,
-                        scenarioAggregate.totalRsfSqft
-                      )}
-                      variant="violet"
-                    />
-                  ) : null}
                 </MetricStripSubStack>
               ) : null}
             </MetricStripCell>
@@ -865,7 +893,7 @@ function PortfolioDashboardInner({
             >
               <SelectTrigger
                 className="h-8 w-full min-w-0 shrink-0 sm:min-w-[13rem] sm:w-auto sm:max-w-[16rem]"
-                aria-label="Filter by fund or all assets"
+                aria-label="Filter by fund or entire portfolio"
               >
                 <SelectValue placeholder={ALL_PORTFOLIO_GROUPS_LABEL} />
               </SelectTrigger>

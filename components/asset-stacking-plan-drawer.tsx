@@ -15,12 +15,14 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { TrackSuiteInScenarioMenu } from "@/components/track-suite-in-scenario-menu"
 import {
   formatLongDate,
   type StackingPlanTenant,
 } from "@/lib/stacking-plan-data"
 
 type AssetStackingPlanDrawerProps = {
+  assetId: string
   open: boolean
   tenant: StackingPlanTenant | null
   onOpenChange: (open: boolean) => void
@@ -35,6 +37,7 @@ type DetailRow = {
 }
 
 export function AssetStackingPlanDrawer({
+  assetId,
   open,
   tenant,
   onOpenChange,
@@ -125,6 +128,9 @@ export function AssetStackingPlanDrawer({
               <SheetDescription className="text-sm leading-5 text-muted-foreground">
                 Last updated {formatLongDate(tenant.lastUpdatedDate)}
               </SheetDescription>
+            </div>
+            <div className="mt-3 pr-10">
+              <TrackSuiteInScenarioMenu assetId={assetId} tenant={tenant} />
             </div>
           </div>
 

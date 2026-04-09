@@ -56,8 +56,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <AppCommandPalette />
         <NavAssets />
-        <NavRoutes />
         <NavScenarios />
+        <NavRoutes />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

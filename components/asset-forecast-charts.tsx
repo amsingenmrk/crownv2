@@ -112,7 +112,14 @@ function ForecastHighchart({ options }: { options: Highcharts.Options }) {
   )
 }
 
-export function AssetForecastCharts({ models }: { models: AssetForecastModel[] }) {
+export function AssetForecastCharts({
+  models,
+  variant = "default",
+}: {
+  models: AssetForecastModel[]
+  /** `compare`: badge text refers to compare columns (lines), not economic outlooks. */
+  variant?: "default" | "compare"
+}) {
   const palette = useForecastChartPalette()
   const chartRows = React.useMemo(
     () =>
@@ -137,8 +144,6 @@ export function AssetForecastCharts({ models }: { models: AssetForecastModel[] }
     () => buildForecastStatementHighchartsConfig(models, activeTab, palette),
     [activeTab, models, palette]
   )
-  const selectedOutlookLabel =
-    models.length === 1 ? models[0]?.scenario.name ?? "1 outlook" : `${models.length} outlooks`
 
   return (
     <section
@@ -148,15 +153,15 @@ export function AssetForecastCharts({ models }: { models: AssetForecastModel[] }
       <div className="flex flex-col gap-4 border-b border-border/60 px-4 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Charts
-            </p>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-semibold text-foreground">{activeChartMeta.title}</h2>
-              <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] font-medium text-primary">
-                {selectedOutlookLabel}
-              </span>
             </div>
+            {variant === "compare" ? (
+              <p className="max-w-2xl text-xs text-muted-foreground">
+                One line per compare column — Baseline outlook, quarterly values summed across
+                that column&apos;s assets.
+              </p>
+            ) : null}
           </div>
 
           <div className="flex w-fit items-center rounded-lg border border-border bg-muted/20 p-1">

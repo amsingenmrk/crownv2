@@ -73,12 +73,12 @@ export function NavAssets() {
       <SidebarMenu className="gap-0">
         <SidebarMenuItem>
           <SidebarMenuButton
-            tooltip="All assets"
+            tooltip="Entire Portfolio"
             isActive={portfoliosActive}
             render={<Link href="/portfolio" />}
           >
             <Briefcase />
-            <span>All assets</span>
+            <span>Entire Portfolio</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
         <li className="list-none group-data-[collapsible=icon]:hidden">

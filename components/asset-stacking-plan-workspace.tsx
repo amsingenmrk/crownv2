@@ -4,6 +4,7 @@ import * as React from "react"
 import { ArrowUpDown, ChevronDown, ChevronRight, Download } from "lucide-react"
 
 import { AssetStackingPlanDrawer } from "@/components/asset-stacking-plan-drawer"
+import { TrackSuiteInScenarioMenu } from "@/components/track-suite-in-scenario-menu"
 import { StackingValueDriversWaterfall } from "@/components/stacking-value-drivers-waterfall"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1325,6 +1326,7 @@ export function AssetStackingPlanWorkspace({
         {effectiveViewMode === "matrix" ? (
           <div className="space-y-4">
             <DetailedStackingMatrix
+              assetId={assetId}
               floors={floors}
               vizMode={vizMode}
               averagePredictedRentPsf={averagePredictedRentPsf}
@@ -1494,6 +1496,7 @@ export function AssetStackingPlanWorkspace({
       {effectiveViewMode !== "matrix" &&
       simplifiedTenantInteraction === "drawer" ? (
         <AssetStackingPlanDrawer
+          assetId={assetId}
           open={isDrawerOpen}
           tenant={selectedTenant}
           onOpenChange={handleDrawerOpenChange}
@@ -1869,6 +1872,7 @@ function StackSummaryRow({
 }
 
 function DetailedStackingMatrix({
+  assetId,
   floors,
   vizMode,
   averagePredictedRentPsf,
@@ -1887,6 +1891,7 @@ function DetailedStackingMatrix({
   onTenantEditClose,
   onTenantEditSave,
 }: {
+  assetId: string
   floors: readonly StackingPlanFloor[]
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
@@ -1912,6 +1917,7 @@ function DetailedStackingMatrix({
         {floors.map((floor) => (
           <StackFirstRow
             key={floor.floor}
+            assetId={assetId}
             floor={floor}
             vizMode={vizMode}
             averagePredictedRentPsf={averagePredictedRentPsf}
@@ -1951,6 +1957,7 @@ function StackFirstHeaderRow({
 }
 
 function StackFirstRow({
+  assetId,
   floor,
   vizMode,
   averagePredictedRentPsf,
@@ -1965,6 +1972,7 @@ function StackFirstRow({
   onTenantEditClose,
   onTenantEditSave,
 }: {
+  assetId: string
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
@@ -2058,6 +2066,7 @@ function StackFirstRow({
       </div>
       {activeTenant != null && tenantEditorDraft != null ? (
         <SelectedTenantEditorRow
+          assetId={assetId}
           floor={floor}
           tenant={activeTenant}
           draft={tenantEditorDraft}
@@ -2585,6 +2594,7 @@ function CompactTenantEditor({
 }
 
 function SelectedTenantEditorRow({
+  assetId,
   floor,
   tenant,
   draft,
@@ -2593,6 +2603,7 @@ function SelectedTenantEditorRow({
   onClose,
   onSave,
 }: {
+  assetId: string
   floor: StackingPlanFloor
   tenant: StackingPlanTenant
   draft: TenantEditorDraft
@@ -2610,6 +2621,7 @@ function SelectedTenantEditorRow({
             <p className="text-sm font-semibold text-foreground">
               Suite Editor • Floor {floor.floor} • {tenant.space}
             </p>
+            <TrackSuiteInScenarioMenu assetId={assetId} tenant={tenant} />
           </div>
           <CompactTenantEditor
             tenant={tenant}

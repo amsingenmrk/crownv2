@@ -40,6 +40,7 @@ const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
   { title: "Property search", href: "/search", icon: Search },
   { title: "Compare", href: "/compare", icon: GitCompareArrows },
+  { title: "New comparison", href: "/compare/new", icon: GitCompareArrows },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 

@@ -112,7 +112,7 @@ function toIsoDate(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function buildForecastPeriods(
+export function buildForecastPeriods(
   count = FORECAST_QUARTER_COUNT
 ): ForecastPeriod[] {
   return Array.from({ length: count }, (_, index) => {

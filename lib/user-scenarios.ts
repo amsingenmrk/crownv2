@@ -10,6 +10,7 @@ import {
   SCENARIO_INCLUDED_CHANGED_EVENT,
   type ScenarioIncludedChangedDetail,
 } from "@/lib/scenario-included-assets-storage"
+import { scenarioPropertiesStorageKey } from "@/lib/scenario-included-properties-storage"
 import {
   humanizeScenarioSlug,
   slugifyScenarioName,
@@ -57,6 +58,7 @@ function clearScenarioRouteLocalStorage(slug: string) {
   localStorage.removeItem(`${EXCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_MIGRATED_PREFIX}${path}`)
+  localStorage.removeItem(scenarioPropertiesStorageKey(path))
 }
 
 function copyScenarioRouteLocalStorage(
@@ -74,6 +76,10 @@ function copyScenarioRouteLocalStorage(
     [
       `${INCLUDED_MIGRATED_PREFIX}${sourcePath}`,
       `${INCLUDED_MIGRATED_PREFIX}${destPath}`,
+    ],
+    [
+      scenarioPropertiesStorageKey(sourcePath),
+      scenarioPropertiesStorageKey(destPath),
     ],
   ]
   for (const [srcKey, destKey] of pairs) {

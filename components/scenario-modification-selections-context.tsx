@@ -2,7 +2,12 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
-import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
+import { scenarioMembershipModeFromPathname } from "@/lib/scenario-membership"
+import {
+  parseScenarioTableSelectionsRaw,
+  readScenarioTableSelections,
+  scenarioTableSelectionsKey,
+} from "@/lib/scenario-table-selections-storage"
 import {
   excludedStorageKeyForScenarioPathname,
   parseScenarioExcludedAssetIds,
@@ -23,15 +28,6 @@ export type ScenarioTableSelections = Record<string, string>
 
 export type ScenarioMembershipMode = "off" | "builtin" | "explicit-inclusion"
 
-function scenarioMembershipModeFromPathname(
-  pathname: string | null
-): ScenarioMembershipMode {
-  if (pathname == null || !pathname.startsWith("/scenarios/")) return "off"
-  const base = `/scenarios/${BUILTIN_SCENARIO.slug}`
-  if (pathname === base || pathname.startsWith(`${base}/`)) return "builtin"
-  return "explicit-inclusion"
-}
-
 type Ctx = {
   scenarioMembershipMode: ScenarioMembershipMode
   selections: ScenarioTableSelections
@@ -48,28 +44,9 @@ const ScenarioModificationSelectionsContext = React.createContext<Ctx | null>(
   null
 )
 
-const SELECTIONS_PREFIX = "glassbox:scenario-table-selections:" as const
-
 function storageKeySelections(pathname: string | null): string | null {
   if (pathname == null || !pathname.startsWith("/scenarios/")) return null
-  return `${SELECTIONS_PREFIX}${pathname}`
-}
-
-function parseStoredSelections(raw: string | null): ScenarioTableSelections {
-  if (raw == null || raw === "") return {}
-  try {
-    const data = JSON.parse(raw) as unknown
-    if (data == null || typeof data !== "object" || Array.isArray(data)) {
-      return {}
-    }
-    const out: ScenarioTableSelections = {}
-    for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
-      if (typeof v === "string" && v.length > 0) out[k] = v
-    }
-    return out
-  } catch {
-    return {}
-  }
+  return scenarioTableSelectionsKey(pathname)
 }
 
 function persistJson(key: string | null, value: unknown) {
@@ -120,7 +97,7 @@ export function ScenarioModificationSelectionsProvider({
       setIncluded(new Set())
       return
     }
-    setSelections(parseStoredSelections(localStorage.getItem(selKey)))
+    setSelections(readScenarioTableSelections(pathname))
     setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
     if (inKey != null && membershipMode === "explicit-inclusion") {
       setIncluded(readIncludedAssetIdsWithV1Migration(pathname))
@@ -270,7 +247,7 @@ export function ScenarioModificationSelectionsProvider({
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === selKey) {
-        setSelections(parseStoredSelections(e.newValue))
+        setSelections(parseScenarioTableSelectionsRaw(e.newValue))
       }
       if (e.key === exKey) {
         setExcluded(parseScenarioExcludedAssetIds(e.newValue))

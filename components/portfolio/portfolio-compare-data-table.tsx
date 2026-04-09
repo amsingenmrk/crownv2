@@ -7,16 +7,22 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { Plus, X } from "lucide-react"
+import { Check, ChevronDown, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { TableBody, TableCell, TableRow } from "@/components/ui/table"
 import {
   compareGridTemplateColumns,
@@ -24,11 +30,10 @@ import {
   formatCompareMetricDelta,
   KPI_TABLE_ROWS,
   MAX_COMPARE_COLUMNS,
-  METRIC_KEYS_AFFECTED_BY_MODS,
   MIN_COMPARE_COLUMNS,
   numericForMetricKey,
-  PORTFOLIO_KPIS_BASELINE,
   type CompareColumn,
+  type ComparePickerOption,
   type HeaderKpiMetrics,
 } from "@/lib/portfolio-compare-model"
 import { cn } from "@/lib/utils"
@@ -46,7 +51,8 @@ export type CompareTableRow =
 export type PortfolioCompareTableMeta = {
   slotKeys: string[]
   setSlot: (index: number, value: string) => void
-  options: { value: string; label: string }[]
+  pickerOptionsGrouped: { group: string; items: ComparePickerOption[] }[]
+  optionLabelByValue: Map<string, string>
   baseColumns: CompareColumn[]
   onAddColumn: () => void
   onRemoveColumn: (index: number) => void
@@ -68,6 +74,93 @@ const gridRowStyle = {
   gridTemplateColumns: "subgrid",
   columnGap: "0.75rem",
 } as const
+
+function groupPickerOptions(
+  options: ComparePickerOption[]
+): { group: string; items: ComparePickerOption[] }[] {
+  const order: string[] = []
+  const map = new Map<string, ComparePickerOption[]>()
+  for (const o of options) {
+    if (!map.has(o.group)) {
+      order.push(o.group)
+      map.set(o.group, [])
+    }
+    map.get(o.group)!.push(o)
+  }
+  return order.map((group) => ({ group, items: map.get(group)! }))
+}
+
+function CompareSlotPicker({
+  value,
+  triggerLabel,
+  groupedOptions,
+  onSelect,
+  ariaLabel,
+}: {
+  value: string
+  triggerLabel: string
+  groupedOptions: { group: string; items: ComparePickerOption[] }[]
+  onSelect: (v: string) => void
+  ariaLabel: string
+}) {
+  const [open, setOpen] = React.useState(false)
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="min-w-0 flex-1 justify-between gap-1 font-normal"
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
+        <span className="truncate text-left">{triggerLabel}</span>
+        <ChevronDown className="size-4 shrink-0 opacity-50" aria-hidden />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="gap-0 overflow-hidden p-0 sm:max-w-lg"
+          showCloseButton
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>Compare source</DialogTitle>
+          </DialogHeader>
+          <Command className="rounded-none border-0 shadow-none">
+            <CommandInput placeholder="Search…" />
+            <CommandList>
+              <CommandEmpty>No match.</CommandEmpty>
+              {groupedOptions.map(({ group, items }) => (
+                <CommandGroup key={group} heading={group}>
+                  {items.map((opt) => (
+                    <CommandItem
+                      key={opt.value}
+                      value={`${opt.label} ${opt.keywords ?? ""} ${opt.value}`}
+                      onSelect={() => {
+                        onSelect(opt.value)
+                        setOpen(false)
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "size-4 shrink-0",
+                          value === opt.value ? "opacity-100" : "opacity-0"
+                        )}
+                        aria-hidden
+                      />
+                      <span className="truncate">{opt.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
 
 function createCompareColumns(
   slotCount: number
@@ -114,31 +207,17 @@ function createCompareColumns(
         if (r.kind === "header-select") {
           const key = meta.slotKeys[slotIndex]!
           const canRemove = meta.slotKeys.length > MIN_COMPARE_COLUMNS
+          const triggerLabel =
+            meta.optionLabelByValue.get(key) ?? "Select source"
           return (
             <div className="flex min-w-0 items-center gap-1">
-              <Select
+              <CompareSlotPicker
                 value={key}
-                items={meta.options}
-                onValueChange={(v) => {
-                  if (v) meta.setSlot(slotIndex, v)
-                }}
-              >
-                <SelectTrigger
-                  className="min-w-0 flex-1"
-                  aria-label="Compare column source"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {meta.options.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                triggerLabel={triggerLabel}
+                groupedOptions={meta.pickerOptionsGrouped}
+                onSelect={(v) => meta.setSlot(slotIndex, v)}
+                ariaLabel="Compare column source"
+              />
               {canRemove ? (
                 <Button
                   type="button"
@@ -159,34 +238,30 @@ function createCompareColumns(
         const refCol = meta.baseColumns[0]!
 
         const absolute = r.get(baseCol.metrics)
-        const deltaStr =
+        const deltaNumeric =
           slotIndex > 0
-            ? formatCompareMetricDelta(
-                r.metricKey,
-                numericForMetricKey(baseCol.numeric, r.metricKey) -
-                  numericForMetricKey(refCol.numeric, r.metricKey)
-              )
+            ? numericForMetricKey(baseCol.numeric, r.metricKey) -
+              numericForMetricKey(refCol.numeric, r.metricKey)
+            : null
+        const deltaStr =
+          deltaNumeric != null
+            ? formatCompareMetricDelta(r.metricKey, deltaNumeric)
             : null
         const showDeltaAfter = deltaStr != null && deltaStr !== "—"
 
-        const affectedByMods =
-          METRIC_KEYS_AFFECTED_BY_MODS.has(r.metricKey) &&
-          baseCol.metrics[r.metricKey] !== PORTFOLIO_KPIS_BASELINE[r.metricKey]
+        const deltaEps = 1e-6
+        const deltaClass =
+          deltaNumeric == null || Math.abs(deltaNumeric) < deltaEps
+            ? "text-muted-foreground tabular-nums"
+            : deltaNumeric > 0
+              ? "tabular-nums text-emerald-600 dark:text-emerald-400"
+              : "tabular-nums text-rose-600 dark:text-rose-400"
 
         return (
           <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
-            <span
-              className={cn(
-                affectedByMods &&
-                  "font-semibold text-violet-800 dark:text-violet-200"
-              )}
-            >
-              {absolute}
-            </span>
+            <span>{absolute}</span>
             {showDeltaAfter ? (
-              <span className="text-muted-foreground tabular-nums">
-                {deltaStr}
-              </span>
+              <span className={deltaClass}>{deltaStr}</span>
             ) : null}
           </span>
         )
@@ -200,19 +275,32 @@ function createCompareColumns(
 export function PortfolioCompareDataTable({
   slotKeys,
   setSlot,
-  options,
+  pickerOptions,
   baseColumns,
   onAddColumn,
   onRemoveColumn,
 }: {
   slotKeys: string[]
   setSlot: (index: number, value: string) => void
-  options: { value: string; label: string }[]
+  pickerOptions: ComparePickerOption[]
   baseColumns: CompareColumn[]
   onAddColumn: () => void
   onRemoveColumn: (index: number) => void
 }) {
   const slotCount = slotKeys.length
+
+  const pickerOptionsGrouped = React.useMemo(
+    () => groupPickerOptions(pickerOptions),
+    [pickerOptions]
+  )
+
+  const optionLabelByValue = React.useMemo(() => {
+    const m = new Map<string, string>()
+    for (const o of pickerOptions) {
+      m.set(o.value, o.label)
+    }
+    return m
+  }, [pickerOptions])
 
   const gridTemplateColumns = React.useMemo(
     () => compareGridTemplateColumns(slotCount),
@@ -228,7 +316,8 @@ export function PortfolioCompareDataTable({
     () => ({
       slotKeys,
       setSlot,
-      options,
+      pickerOptionsGrouped,
+      optionLabelByValue,
       baseColumns,
       onAddColumn,
       onRemoveColumn,
@@ -236,7 +325,8 @@ export function PortfolioCompareDataTable({
     [
       slotKeys,
       setSlot,
-      options,
+      pickerOptionsGrouped,
+      optionLabelByValue,
       baseColumns,
       onAddColumn,
       onRemoveColumn,

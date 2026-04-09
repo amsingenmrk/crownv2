@@ -104,25 +104,16 @@ export function MetricStripSubStack({
 export function MetricStripSubRow({
   label,
   value,
-  variant = "default",
 }: {
   label: string
   value: string
-  variant?: "default" | "violet"
 }) {
-  const labelCls =
-    variant === "violet"
-      ? "text-xs font-medium leading-snug text-violet-700 dark:text-violet-300"
-      : "text-xs leading-snug text-muted-foreground"
-  const valueCls =
-    variant === "violet"
-      ? "text-sm font-semibold leading-snug tabular-nums text-violet-700 dark:text-violet-300"
-      : "text-sm font-medium leading-snug tabular-nums text-foreground"
-
   return (
     <div>
-      <p className={labelCls}>{label}</p>
-      <p className={cn("mt-0.5", valueCls)}>{value}</p>
+      <p className="text-xs leading-snug text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-medium leading-snug tabular-nums text-foreground">
+        {value}
+      </p>
     </div>
   )
 }

@@ -1,6 +1,10 @@
 import { getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import type {
+  HeaderKpiMetrics,
+  HeaderKpiNumeric,
+} from "@/lib/portfolio-compare-model"
 import {
   formatUsdPerSf,
   formatUsdPortfolioCompact,
@@ -132,4 +136,60 @@ export function portfolioKpiStripFromRows(
       value: `${agg.avgWaleYears.toFixed(1)} yrs`,
     },
   ]
+}
+
+const EMPTY_HEADER_METRICS: HeaderKpiMetrics = {
+  estValue: "—",
+  estValuePerSf: "—",
+  occupancy: "—",
+  vacancy: "—",
+  noi: "—",
+  noiPerSf: "—",
+  capRate: "—",
+  wale: "—",
+}
+
+const EMPTY_HEADER_NUMERIC: HeaderKpiNumeric = {
+  estValueBillions: 0,
+  estValuePerSfUsd: 0,
+  occupancyPct: 0,
+  vacancyPct: 0,
+  noiMillionsPerYr: 0,
+  noiPerSfUsd: 0,
+  capRatePct: 0,
+  waleYears: 0,
+}
+
+/** Compare / shared headline KPIs from portfolio table rows (same math as the dashboard strip). */
+export function headerKpiFromPortfolioRows(rows: PortfolioAssetRow[]): {
+  metrics: HeaderKpiMetrics
+  numeric: HeaderKpiNumeric
+} {
+  const agg = aggregateFromRows(rows)
+  if (!agg) {
+    return { metrics: { ...EMPTY_HEADER_METRICS }, numeric: { ...EMPTY_HEADER_NUMERIC } }
+  }
+  const vac = 100 - agg.weightedOccPct
+  const metrics: HeaderKpiMetrics = {
+    estValue: formatUsdPortfolioCompact(agg.totalValueUsd),
+    estValuePerSf: formatUsdPerSf(agg.totalValueUsd, agg.totalRsfSqft),
+    occupancy: `${agg.weightedOccPct.toFixed(2)}%`,
+    vacancy: `${vac.toFixed(2)}%`,
+    noi: `${formatUsdPortfolioCompact(agg.totalNoiUsd)} / yr`,
+    noiPerSf: formatUsdPerSf(agg.totalNoiUsd, agg.totalRsfSqft),
+    capRate: `${agg.portfolioCapPct.toFixed(2)}%`,
+    wale: `${agg.avgWaleYears.toFixed(1)} yrs`,
+  }
+  const numeric: HeaderKpiNumeric = {
+    estValueBillions: agg.totalValueUsd / 1_000_000_000,
+    estValuePerSfUsd:
+      agg.totalRsfSqft > 0 ? agg.totalValueUsd / agg.totalRsfSqft : 0,
+    occupancyPct: agg.weightedOccPct,
+    vacancyPct: vac,
+    noiMillionsPerYr: agg.totalNoiUsd / 1_000_000,
+    noiPerSfUsd: agg.totalRsfSqft > 0 ? agg.totalNoiUsd / agg.totalRsfSqft : 0,
+    capRatePct: agg.portfolioCapPct,
+    waleYears: agg.avgWaleYears,
+  }
+  return { metrics, numeric }
 }
