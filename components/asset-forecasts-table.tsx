@@ -48,10 +48,13 @@ function RevenueFloorRow({
   expanded: boolean
   onToggle: () => void
 }) {
+  const floorRowTone = "bg-muted/25 hover:bg-muted/30"
+  const suiteRowTone = "bg-background/80 hover:bg-muted/15"
+
   return (
     <>
-      <TableRow className="bg-muted/20 hover:bg-muted/25">
-        <TableCell className="sticky left-0 z-10 bg-muted/20 px-4">
+      <TableRow className={floorRowTone}>
+        <TableCell className={cn("sticky left-0 z-10 px-4", floorRowTone)}>
           <button
             type="button"
             onClick={onToggle}
@@ -80,9 +83,9 @@ function RevenueFloorRow({
       </TableRow>
       {expanded
         ? floor.spaces.map((space) => (
-            <TableRow key={space.id} className="bg-background/70 hover:bg-muted/20">
-              <TableCell className="sticky left-0 z-10 bg-background/70 px-4">
-                <div className="flex flex-col pl-11">
+            <TableRow key={space.id} className={suiteRowTone}>
+              <TableCell className={cn("sticky left-0 z-10 px-4", suiteRowTone)}>
+                <div className="flex flex-col pl-12">
                   <span className="font-medium text-foreground">{space.suite}</span>
                   <span className="text-xs text-muted-foreground">
                     {space.tenantName}
@@ -93,7 +96,7 @@ function RevenueFloorRow({
               {periods.map((period, index) => (
                 <TableCell
                   key={`${space.id}-${period.label}`}
-                  className="text-right tabular-nums text-muted-foreground"
+                  className="text-right tabular-nums text-foreground/80"
                 >
                   {compactCurrencyFormatter.format(space.values[index] ?? 0)}
                 </TableCell>
@@ -158,10 +161,29 @@ export function AssetForecastsTable({
         <TableBody>
           {rows.map((row) => {
             const isRevenueRow = row.id === "grossRevenue"
+            const isTintedRow = row.id === "noi"
+            const isHighlightedLabelRow = row.id === "noi" || row.id === "salePrice"
+            const isHighlightedValueRow = row.id === "salePrice"
+            const startsValuationSection = row.id === "salePrice"
+            const cellTone = isTintedRow ? "bg-primary/[0.05]" : "bg-background"
+
             return (
               <React.Fragment key={row.id}>
-                <TableRow className={cn(isRevenueRow ? "bg-background" : "")}>
-                  <TableCell className="sticky left-0 z-10 bg-background px-4">
+                <TableRow
+                  className={cn(
+                    "group",
+                    "hover:bg-transparent",
+                    startsValuationSection ? "border-t border-border/80" : ""
+                  )}
+                >
+                  <TableCell
+                    className={cn(
+                      "sticky left-0 z-10 px-4",
+                      cellTone,
+                      isRevenueRow ? "group-hover:bg-muted/12" : "",
+                      startsValuationSection ? "border-t border-border/80" : ""
+                    )}
+                  >
                     {isRevenueRow ? (
                       <button
                         type="button"
@@ -177,7 +199,14 @@ export function AssetForecastsTable({
                         <span className="font-medium text-foreground">{row.label}</span>
                       </button>
                     ) : (
-                      <span className="font-medium text-foreground">{row.label}</span>
+                      <span
+                        className={cn(
+                          "font-medium text-foreground",
+                          isHighlightedLabelRow ? "font-semibold" : ""
+                        )}
+                      >
+                        {row.label}
+                      </span>
                     )}
                   </TableCell>
                   {periods.map((period, index) => (
@@ -185,7 +214,10 @@ export function AssetForecastsTable({
                       key={`${row.id}-${period.label}`}
                       className={cn(
                         "text-right tabular-nums font-medium",
-                        row.kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                        cellTone,
+                        isRevenueRow ? "group-hover:bg-muted/12" : "",
+                        row.kind === "expense" ? "text-muted-foreground" : "text-foreground",
+                        isHighlightedValueRow ? "font-semibold" : ""
                       )}
                     >
                       {formatStatementValue(row.kind, row.values[index] ?? 0)}
