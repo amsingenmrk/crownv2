@@ -435,7 +435,10 @@ export function PortfolioAssetsDataTable({
                           {isMarketListingRowId(row.id) ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            <AssetForecastSelect building={row.building} />
+                            <AssetForecastSelect
+                              assetId={row.id}
+                              building={row.building}
+                            />
                           )}
                         </div>
                       </div>

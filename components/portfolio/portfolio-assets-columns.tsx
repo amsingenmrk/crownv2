@@ -368,7 +368,10 @@ export function createPortfolioAssetColumns(
         isMarketListingRowId(row.original.id) ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : (
-          <AssetForecastSelect building={row.original.building} />
+          <AssetForecastSelect
+            assetId={row.original.id}
+            building={row.original.building}
+          />
         ),
     })
   } else {
