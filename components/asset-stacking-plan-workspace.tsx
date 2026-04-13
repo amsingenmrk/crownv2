@@ -26,6 +26,17 @@ import {
   type StackingViewMode,
 } from "@/lib/stacking-plan-data"
 import {
+  applyStackingPlanTenantForecastOverrides,
+  getStackingPlanTenantForecastOverrideSnapshot,
+  parseStackingPlanTenantForecastOverrideSnapshot,
+  setStackingPlanTenantForecastOverride,
+  subscribeStackingPlanTenantForecastOverrides,
+  TENANT_RENEWAL_PROBABILITY_MAX_PCT,
+  TENANT_RENEWAL_PROBABILITY_MIN_PCT,
+  TENANT_TIME_TO_LEASE_MAX_MONTHS,
+  TENANT_TIME_TO_LEASE_MIN_MONTHS,
+} from "@/lib/stacking-plan-tenant-forecast-overrides"
+import {
   neutralStackingSegmentTone,
   occupancyMetricTextClass,
   qualityScoreValueClass,
@@ -78,11 +89,14 @@ type TenantEditorDraft = {
   expiration: string
   contractRate: string
   availabilityStatus: string
+  renewalProbabilityPct: string
+  timeToLeaseMonths: string
 }
 
 type StackingVizMode =
   | "leaseExpiration"
   | "predictedRent"
+  | "contractRate"
   | "occupancy"
   | "vacancy"
 
@@ -92,12 +106,17 @@ const STACKING_VIZ_MODE_OPTIONS: Array<{
 }> = [
   { value: "leaseExpiration", label: "Lease Expiration" },
   { value: "predictedRent", label: "Predicted Rent" },
-  { value: "occupancy", label: "Occupancy" },
-  { value: "vacancy", label: "Vacancy" },
+  { value: "contractRate", label: "Contract Rate" },
 ]
 const BUILDOUT_OPTIONS = ["Shell", "White Box", "Fully Built-Out"] as const
 
 const PREDICTED_RENT_LEGEND: readonly StackingLegendItem[] = [
+  { label: "Below Avg", color: "#f97316" },
+  { label: "Within +/-5%", color: "#3b82f6" },
+  { label: "Above Avg", color: "#22c55e" },
+] as const
+
+const CONTRACT_RATE_LEGEND: readonly StackingLegendItem[] = [
   { label: "Below Avg", color: "#f97316" },
   { label: "Within +/-5%", color: "#3b82f6" },
   { label: "Above Avg", color: "#22c55e" },
@@ -153,6 +172,13 @@ function parseNumericInput(value: string) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function parseOptionalIntegerInput(value: string, min: number, max: number) {
+  if (value.trim() === "") return undefined
+  const parsed = parseNumericInput(value)
+  if (parsed == null) return undefined
+  return Math.min(max, Math.max(min, Math.round(parsed)))
+}
+
 function stripSuitePrefix(space: string) {
   return space.replace(/^ste\s+/i, "")
 }
@@ -177,6 +203,12 @@ function buildTenantEditorDraft(tenant: StackingPlanTenant): TenantEditorDraft {
         ? tenant.contractRatePsfValue.toFixed(2)
         : "",
     availabilityStatus: tenant.availabilityStatus,
+    renewalProbabilityPct:
+      tenant.renewalProbabilityPct != null
+        ? String(tenant.renewalProbabilityPct)
+        : "",
+    timeToLeaseMonths:
+      tenant.timeToLeaseMonths != null ? String(tenant.timeToLeaseMonths) : "",
   }
 }
 
@@ -197,7 +229,9 @@ function areTenantEditorDraftsEqual(
     left.commencement === right.commencement &&
     left.expiration === right.expiration &&
     left.contractRate === right.contractRate &&
-    left.availabilityStatus === right.availabilityStatus
+    left.availabilityStatus === right.availabilityStatus &&
+    left.renewalProbabilityPct === right.renewalProbabilityPct &&
+    left.timeToLeaseMonths === right.timeToLeaseMonths
   )
 }
 
@@ -286,12 +320,11 @@ function getPredictedRentBandData(
   averagePredictedRentPsf: number | null
 ) {
   if (
-    tenant.isVacant ||
     tenant.predictedRentPsfValue == null ||
     averagePredictedRentPsf == null ||
     averagePredictedRentPsf <= 0
   ) {
-    return { label: "Available", color: "#64748b" }
+    return { label: "Within +/-5%", color: "#3b82f6" }
   }
 
   const deltaPct =
@@ -308,10 +341,38 @@ function getPredictedRentBandData(
   return { label: "Within +/-5%", color: "#3b82f6" }
 }
 
+function getContractRateBandData(
+  tenant: StackingPlanTenant,
+  averageContractRatePsf: number | null
+) {
+  if (
+    tenant.isVacant ||
+    tenant.contractRatePsfValue == null ||
+    averageContractRatePsf == null ||
+    averageContractRatePsf <= 0
+  ) {
+    return { label: "Available", color: "#64748b" }
+  }
+
+  const deltaPct =
+    ((tenant.contractRatePsfValue - averageContractRatePsf) /
+      averageContractRatePsf) *
+    100
+
+  if (deltaPct >= 5) {
+    return { label: "Above Avg", color: "#22c55e" }
+  }
+  if (deltaPct <= -5) {
+    return { label: "Below Avg", color: "#f97316" }
+  }
+  return { label: "Within +/-5%", color: "#3b82f6" }
+}
+
 function getLegendItemsForMode(
   mode: StackingVizMode
 ): readonly StackingLegendItem[] {
   if (mode === "predictedRent") return PREDICTED_RENT_LEGEND
+  if (mode === "contractRate") return CONTRACT_RATE_LEGEND
   if (mode === "occupancy") return OCCUPANCY_LEGEND
   if (mode === "vacancy") return VACANCY_LEGEND
   return STACKING_EXPIRATION_LEGEND
@@ -366,6 +427,15 @@ function getMatrixSegmentTone({
     )
   }
 
+  if (mode === "contractRate") {
+    return stackingSegmentToneFromHex(
+      getContractRateBandData(
+        tenant,
+        getWeightedFloorAverageRate(floor, "contractRatePsfValue")
+      ).color
+    )
+  }
+
   if (mode === "occupancy") {
     return stackingSegmentToneFromHex(
       getOccupancyBandData(floor.occupancyPercent).color
@@ -383,6 +453,7 @@ function getMatrixSegmentTone({
 
 function getFocusedMetricId(vizMode: StackingVizMode): FloorMetricId | null {
   if (vizMode === "predictedRent") return "pred"
+  if (vizMode === "contractRate") return "contract"
   if (vizMode === "occupancy") return "occ"
   if (vizMode === "vacancy") return "vac"
   return null
@@ -456,6 +527,14 @@ function getFloorMetricPairTone(
     }
   }
 
+  if (metricId === "contract" && vizMode === "contractRate") {
+    return {
+      containerClassName: "bg-primary/10 ring-1 ring-primary/25",
+      labelClassName: "text-muted-foreground",
+      valueClassName: "text-foreground",
+    }
+  }
+
   return {
     containerClassName: "",
     labelClassName: "text-muted-foreground/80",
@@ -476,6 +555,12 @@ function getTenantVisualColor({
 }) {
   if (mode === "predictedRent") {
     return getPredictedRentBandData(tenant, averagePredictedRentPsf).color
+  }
+  if (mode === "contractRate") {
+    return getContractRateBandData(
+      tenant,
+      getWeightedFloorAverageRate(floor, "contractRatePsfValue")
+    ).color
   }
   if (mode === "occupancy") {
     return getOccupancyBandData(floor.occupancyPercent).color
@@ -502,6 +587,13 @@ function getTenantVisualizationTitle({
   if (mode === "predictedRent") {
     const band = getPredictedRentBandData(tenant, averagePredictedRentPsf)
     return `${base} • ${tenant.predictedRent ?? "N/A"} • ${band.label}`
+  }
+  if (mode === "contractRate") {
+    const band = getContractRateBandData(
+      tenant,
+      getWeightedFloorAverageRate(floor, "contractRatePsfValue")
+    )
+    return `${base} • ${tenant.contractRate ?? "N/A"} • ${band.label}`
   }
   if (mode === "occupancy") {
     return `${base} • Floor occupancy ${floor.occupancyPercent}%`
@@ -585,21 +677,26 @@ function InlineMetricItem({
 
 function getWeightedFloorAverageRate(
   floor: StackingPlanFloor,
-  metric: "predictedRentPsfValue" | "contractRatePsfValue"
+  metric: "predictedRentPsfValue" | "contractRatePsfValue",
+  options?: {
+    includeVacant?: boolean
+  }
 ) {
-  const occupiedTenants = floor.tenants.filter(
-    (tenant) => !tenant.isVacant && tenant[metric] != null
+  const relevantTenants = floor.tenants.filter(
+    (tenant) =>
+      (options?.includeVacant === true || !tenant.isVacant) &&
+      tenant[metric] != null
   )
 
-  if (occupiedTenants.length === 0) {
+  if (relevantTenants.length === 0) {
     return null
   }
 
-  const weightedTotal = occupiedTenants.reduce(
+  const weightedTotal = relevantTenants.reduce(
     (sum, tenant) => sum + tenant.sqft * (tenant[metric] ?? 0),
     0
   )
-  const totalSqft = occupiedTenants.reduce(
+  const totalSqft = relevantTenants.reduce(
     (sum, tenant) => sum + tenant.sqft,
     0
   )
@@ -682,9 +779,32 @@ export function AssetStackingPlanWorkspace({
   simplifiedTenantInteraction = "drawer",
   simplifiedTenantVisualOverrides,
 }: AssetStackingPlanWorkspaceProps) {
+  const tenantForecastOverrideSnapshot = React.useSyncExternalStore(
+    React.useCallback(
+      (onStoreChange) =>
+        subscribeStackingPlanTenantForecastOverrides(assetId, onStoreChange),
+      [assetId]
+    ),
+    React.useCallback(
+      () => getStackingPlanTenantForecastOverrideSnapshot(assetId),
+      [assetId]
+    ),
+    () => ""
+  )
+  const tenantForecastOverrides = React.useMemo(
+    () =>
+      parseStackingPlanTenantForecastOverrideSnapshot(
+        tenantForecastOverrideSnapshot
+      ),
+    [tenantForecastOverrideSnapshot]
+  )
   const baseDataset = React.useMemo(
-    () => getSampleStackingPlanData(assetId),
-    [assetId]
+    () =>
+      applyStackingPlanTenantForecastOverrides(
+        getSampleStackingPlanData(assetId),
+        tenantForecastOverrides
+      ),
+    [assetId, tenantForecastOverrides]
   )
   const [viewMode, setViewMode] =
     React.useState<StackingWorkspaceViewMode>("matrix")
@@ -720,21 +840,19 @@ export function AssetStackingPlanWorkspace({
     [selectedTenantDraft, tenantEditorDraft]
   )
   const averagePredictedRentPsf = React.useMemo(() => {
-    const occupiedTenants = floors
+    const predictedTenants = floors
       .flatMap((floor) => floor.tenants)
-      .filter(
-        (tenant) => !tenant.isVacant && tenant.predictedRentPsfValue != null
-      )
+      .filter((tenant) => tenant.predictedRentPsfValue != null)
 
-    if (occupiedTenants.length === 0) {
+    if (predictedTenants.length === 0) {
       return null
     }
 
-    const weightedTotal = occupiedTenants.reduce(
+    const weightedTotal = predictedTenants.reduce(
       (sum, tenant) => sum + tenant.sqft * (tenant.predictedRentPsfValue ?? 0),
       0
     )
-    const totalSqft = occupiedTenants.reduce(
+    const totalSqft = predictedTenants.reduce(
       (sum, tenant) => sum + tenant.sqft,
       0
     )
@@ -969,6 +1087,19 @@ export function AssetStackingPlanWorkspace({
   const handleTenantEditSave = React.useCallback(() => {
     if (selectedTenant == null || tenantEditorDraft == null) return
 
+    const timeToLeaseMonths = parseOptionalIntegerInput(
+      tenantEditorDraft.timeToLeaseMonths,
+      TENANT_TIME_TO_LEASE_MIN_MONTHS,
+      TENANT_TIME_TO_LEASE_MAX_MONTHS
+    )
+    const renewalProbabilityPct = selectedTenant.isVacant
+      ? undefined
+      : parseOptionalIntegerInput(
+          tenantEditorDraft.renewalProbabilityPct,
+          TENANT_RENEWAL_PROBABILITY_MIN_PCT,
+          TENANT_RENEWAL_PROBABILITY_MAX_PCT
+        )
+
     let updatedTenant: StackingPlanTenant | null = null
 
     setFloors((currentFloors) =>
@@ -1001,6 +1132,8 @@ export function AssetStackingPlanWorkspace({
               expiration:
                 tenantEditorDraft.availabilityStatus.trim() ||
                 tenant.expiration,
+              timeToLeaseMonths,
+              renewalProbabilityPct: undefined,
             }
             return updatedTenant
           }
@@ -1073,6 +1206,8 @@ export function AssetStackingPlanWorkspace({
                     1
                   )}%)`
                 : tenant.rentPremium,
+            renewalProbabilityPct,
+            timeToLeaseMonths,
           }
           return updatedTenant
         })
@@ -1081,10 +1216,15 @@ export function AssetStackingPlanWorkspace({
       })
     )
 
+    setStackingPlanTenantForecastOverride(assetId, selectedTenant.id, {
+      renewalProbabilityPct,
+      timeToLeaseMonths,
+    })
+
     if (updatedTenant != null) {
       setTenantEditorDraft(buildTenantEditorDraft(updatedTenant))
     }
-  }, [selectedTenant, tenantEditorDraft])
+  }, [assetId, selectedTenant, tenantEditorDraft])
 
   React.useEffect(() => {
     setFloors(baseDataset.floors)
@@ -1149,8 +1289,7 @@ export function AssetStackingPlanWorkspace({
                   if (
                     value === "leaseExpiration" ||
                     value === "predictedRent" ||
-                    value === "occupancy" ||
-                    value === "vacancy"
+                    value === "contractRate"
                   ) {
                     setVizMode(value)
                   }
@@ -1233,8 +1372,7 @@ export function AssetStackingPlanWorkspace({
                               if (
                                 value === "leaseExpiration" ||
                                 value === "predictedRent" ||
-                                value === "occupancy" ||
-                                value === "vacancy"
+                                value === "contractRate"
                               ) {
                                 setVizMode(value)
                               }
@@ -1280,8 +1418,7 @@ export function AssetStackingPlanWorkspace({
                               if (
                                 value === "leaseExpiration" ||
                                 value === "predictedRent" ||
-                                value === "occupancy" ||
-                                value === "vacancy"
+                                value === "contractRate"
                               ) {
                                 setVizMode(value)
                               }
@@ -1472,7 +1609,8 @@ function DetailedFloorRow({
 }) {
   const averagePredictedRate = getWeightedFloorAverageRate(
     floor,
-    "predictedRentPsfValue"
+    "predictedRentPsfValue",
+    { includeVacant: true }
   )
   const averageContractRate = getWeightedFloorAverageRate(
     floor,
@@ -1955,7 +2093,8 @@ function FloorMetricRibbon({
 }) {
   const averagePredictedRate = getWeightedFloorAverageRate(
     floor,
-    "predictedRentPsfValue"
+    "predictedRentPsfValue",
+    { includeVacant: true }
   )
   const averageContractRate = getWeightedFloorAverageRate(
     floor,
@@ -2110,6 +2249,7 @@ function StackBand({
 }) {
   const isMetricDrivenView =
     vizMode === "predictedRent" ||
+    vizMode === "contractRate" ||
     vizMode === "occupancy" ||
     vizMode === "vacancy"
 
@@ -2127,8 +2267,14 @@ function StackBand({
           floor={floor}
           vizMode={vizMode}
           averagePredictedRentPsf={averagePredictedRentPsf}
+          isFirstTenant={index === 0}
           isLastTenant={index === floor.tenants.length - 1}
           isSelected={selectedTenantId === tenant.id}
+          showTrailingDivider={
+            index !== floor.tenants.length - 1 &&
+            selectedTenantId !== tenant.id &&
+            selectedTenantId !== floor.tenants[index + 1]?.id
+          }
           onTenantSelect={onTenantSelect}
         />
       ))}
@@ -2141,16 +2287,20 @@ function StackBandSegment({
   floor,
   vizMode,
   averagePredictedRentPsf,
+  isFirstTenant,
   isLastTenant,
   isSelected,
+  showTrailingDivider,
   onTenantSelect,
 }: {
   tenant: StackingPlanTenant
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
+  isFirstTenant: boolean
   isLastTenant: boolean
   isSelected: boolean
+  showTrailingDivider: boolean
   onTenantSelect: (tenant: StackingPlanTenant) => void
 }) {
   const tone = getMatrixSegmentTone({
@@ -2182,6 +2332,8 @@ function StackBandSegment({
     : nameLabel
   const contractRateValue = tenant.contractRatePsfValue
   const predictedRateValue = tenant.predictedRentPsfValue
+  const showVacantPredictedRow =
+    tenant.isVacant && predictedRateValue != null && tenant.widthPercent >= 10
 
   return (
     <button
@@ -2194,11 +2346,13 @@ function StackBandSegment({
           : `expires ${tenant.expiration}`
       }. Edit inline.`}
       className={cn(
-        "relative flex h-full min-h-[78px] cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+        "relative flex h-full min-h-0 cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
         tone.fillClass,
-        !isLastTenant && "border-r border-border/30",
+        isFirstTenant && "rounded-l-[7px]",
+        isLastTenant && "rounded-r-[7px]",
+        showTrailingDivider && "border-r border-border/30",
         isSelected
-          ? "z-10 ring-2 ring-primary/80 ring-inset"
+          ? "z-10 ring-2 ring-inset ring-primary/80"
           : hoverInteractionClass
       )}
       style={{
@@ -2256,6 +2410,15 @@ function StackBandSegment({
         >
           Contract {formatCompactRate(contractRateValue)} • Predicted{" "}
           {formatCompactRate(predictedRateValue)}
+        </div>
+      ) : showVacantPredictedRow ? (
+        <div
+          className={cn(
+            "w-full truncate text-[9px] font-medium whitespace-nowrap",
+            tone.metaClass
+          )}
+        >
+          Predicted {formatCompactRate(predictedRateValue)}
         </div>
       ) : null}
     </button>
@@ -2430,6 +2593,44 @@ function CompactTenantEditor({
               />
             </label>
           </>
+        )}
+
+        <label className="space-y-1.5">
+          <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+            Time to Lease
+          </span>
+          <Input
+            type="number"
+            min={String(TENANT_TIME_TO_LEASE_MIN_MONTHS)}
+            max={String(TENANT_TIME_TO_LEASE_MAX_MONTHS)}
+            step="1"
+            value={draft.timeToLeaseMonths}
+            onChange={(event) =>
+              onDraftChange("timeToLeaseMonths", event.target.value)
+            }
+            placeholder="Building default"
+          />
+        </label>
+
+        {!tenant.isVacant ? (
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+              Renewal Probability
+            </span>
+            <Input
+              type="number"
+              min={String(TENANT_RENEWAL_PROBABILITY_MIN_PCT)}
+              max={String(TENANT_RENEWAL_PROBABILITY_MAX_PCT)}
+              step="1"
+              value={draft.renewalProbabilityPct}
+              onChange={(event) =>
+                onDraftChange("renewalProbabilityPct", event.target.value)
+              }
+              placeholder="Building default"
+            />
+          </label>
+        ) : (
+          null
         )}
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-3">

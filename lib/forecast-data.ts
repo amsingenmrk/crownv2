@@ -7,6 +7,7 @@ import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import {
   getSampleStackingPlanData,
+  type StackingPlanDataset,
   type StackingPlanTenant,
 } from "@/lib/stacking-plan-data"
 
@@ -342,13 +343,13 @@ function buildQuarterlySpaceRevenue({
     tenant.contractRatePsfValue ?? defaultContractRateForVacancy(tenant)
   const predictedRate = tenant.predictedRentPsfValue ?? contractRate * 1.08
   const renewalProbability = clamp(
-    assumptions.defaultRenewalProbabilityPct / 100,
+    (tenant.renewalProbabilityPct ?? assumptions.defaultRenewalProbabilityPct) / 100,
     0,
     1
   )
   const timeToLeaseQuarters = Math.max(
     1,
-    Math.ceil(assumptions.timeToLeaseMonths / 3)
+    Math.ceil((tenant.timeToLeaseMonths ?? assumptions.timeToLeaseMonths) / 3)
   )
   const expiryQuarter = expirationQuarterIndex(tenant.leaseExpirationDate)
 
@@ -470,14 +471,16 @@ export function buildAssetForecastModel({
   scenario,
   assumptions,
   modValues = INITIAL_MOD_VALUES,
+  stackingPlanData,
 }: {
   assetId: string
   scenario: ForecastEconomicOutlookScenario
   assumptions: ForecastAssumptions
   modValues?: ModValues
+  stackingPlanData?: StackingPlanDataset
 }): AssetForecastModel {
   const asset = getAssetById(assetId)
-  const dataset = getSampleStackingPlanData(assetId)
+  const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
   const periods = buildForecastPeriods()
 
   const normalizedAssumptions: ForecastAssumptions = {

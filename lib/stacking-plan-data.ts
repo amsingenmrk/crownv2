@@ -39,6 +39,8 @@ export type StackingPlanTenant = {
   rentPerSf?: string
   contractRatePsfValue?: number
   predictedRentPsfValue?: number
+  timeToLeaseMonths?: number
+  renewalProbabilityPct?: number
   rentPremiumPctValue?: number
   sunScore?: number
   viewScore?: number
@@ -1210,16 +1212,14 @@ export function getSampleStackingPlanData(
             ? undefined
             : formatCurrencyPerSf(contractRatePerSfValue),
           contractRatePsfValue: isVacant ? undefined : contractRatePerSfValue,
-          predictedRentPsfValue: isVacant ? undefined : predictedRentPerSfValue,
+          predictedRentPsfValue: predictedRentPerSfValue,
           rentPremiumPctValue: isVacant ? undefined : rentPremiumPct,
           sunScore,
           viewScore,
           contractRate: isVacant
             ? undefined
             : formatCurrencyPerSf(contractRatePerSfValue),
-          predictedRent: isVacant
-            ? undefined
-            : formatCurrencyPerSf(predictedRentPerSfValue),
+          predictedRent: formatCurrencyPerSf(predictedRentPerSfValue),
           rentPremium: isVacant
             ? undefined
             : `+$${rentPremiumPerSfValue.toFixed(2)} / SF (${rentPremiumPct.toFixed(1)}%)`,

@@ -20,24 +20,8 @@ export type PortfolioKpiDisplay = {
 function emptyKpiStrip(): PortfolioKpiDisplay[] {
   const dash = "—"
   return [
-    {
-      label: "Est. Value",
-      value: dash,
-      subLabel: "Est. Value / SF",
-      subValue: dash,
-    },
-    {
-      label: "Occupancy",
-      value: dash,
-      subLabel: "Vacancy",
-      subValue: dash,
-    },
-    {
-      label: "NOI",
-      value: dash,
-      subLabel: "NOI / SF",
-      subValue: dash,
-    },
+    { label: "Est. Value", value: dash },
+    { label: "NOI", value: dash },
     { label: "Cap Rate", value: dash },
     { label: "WALE / WALT", value: dash },
   ]
@@ -106,27 +90,9 @@ export function portfolioKpiStripFromRows(
   const agg = aggregateFromRows(rows)
   if (!agg) return emptyKpiStrip()
 
-  const vac = 100 - agg.weightedOccPct
-
   return [
-    {
-      label: "Est. Value",
-      value: formatUsdPortfolioCompact(agg.totalValueUsd),
-      subLabel: "Est. Value / SF",
-      subValue: formatUsdPerSf(agg.totalValueUsd, agg.totalRsfSqft),
-    },
-    {
-      label: "Occupancy",
-      value: `${agg.weightedOccPct.toFixed(2)}%`,
-      subLabel: "Vacancy",
-      subValue: `${vac.toFixed(2)}%`,
-    },
-    {
-      label: "NOI",
-      value: `${formatUsdPortfolioCompact(agg.totalNoiUsd)} / yr`,
-      subLabel: "NOI / SF",
-      subValue: formatUsdPerSf(agg.totalNoiUsd, agg.totalRsfSqft),
-    },
+    { label: "Est. Value", value: formatUsdPortfolioCompact(agg.totalValueUsd) },
+    { label: "NOI", value: `${formatUsdPortfolioCompact(agg.totalNoiUsd)} / yr` },
     {
       label: "Cap Rate",
       value: `${agg.portfolioCapPct.toFixed(2)}%`,

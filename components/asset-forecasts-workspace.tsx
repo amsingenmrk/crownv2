@@ -57,6 +57,13 @@ import {
   type ForecastOutlookSet,
 } from "@/lib/forecast-scenario-storage"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
+import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  applyStackingPlanTenantForecastOverrides,
+  getStackingPlanTenantForecastOverrideSnapshot,
+  parseStackingPlanTenantForecastOverrideSnapshot,
+  subscribeStackingPlanTenantForecastOverrides,
+} from "@/lib/stacking-plan-tenant-forecast-overrides"
 import { cn } from "@/lib/utils"
 
 const macroAverageFormatter = new Intl.NumberFormat("en-US", {
@@ -194,6 +201,33 @@ function AssumptionField({
 }
 
 export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
+  const tenantForecastOverrideSnapshot = React.useSyncExternalStore(
+    React.useCallback(
+      (onStoreChange) =>
+        subscribeStackingPlanTenantForecastOverrides(assetId, onStoreChange),
+      [assetId]
+    ),
+    React.useCallback(
+      () => getStackingPlanTenantForecastOverrideSnapshot(assetId),
+      [assetId]
+    ),
+    () => ""
+  )
+  const tenantForecastOverrides = React.useMemo(
+    () =>
+      parseStackingPlanTenantForecastOverrideSnapshot(
+        tenantForecastOverrideSnapshot
+      ),
+    [tenantForecastOverrideSnapshot]
+  )
+  const forecastDataset = React.useMemo(
+    () =>
+      applyStackingPlanTenantForecastOverrides(
+        getSampleStackingPlanData(assetId),
+        tenantForecastOverrides
+      ),
+    [assetId, tenantForecastOverrides]
+  )
   const defaultAssumptions = React.useMemo(
     () => defaultForecastAssumptionsForAsset(assetId),
     [assetId]
@@ -383,9 +417,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             scenario: activeOutlook,
             assumptions,
             modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
+            stackingPlanData: forecastDataset,
           })
         : null,
-    [activeBuildingVersion, activeOutlook, assetId, assumptions]
+    [activeBuildingVersion, activeOutlook, assetId, assumptions, forecastDataset]
   )
 
   const includedModels = React.useMemo(
@@ -396,9 +431,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
           scenario: outlook,
           assumptions,
           modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
+          stackingPlanData: forecastDataset,
         })
       ),
-    [activeBuildingVersion, assetId, assumptions, includedOutlooks]
+    [activeBuildingVersion, assetId, assumptions, forecastDataset, includedOutlooks]
   )
 
   const forecastSummaryItems = React.useMemo(() => {
