@@ -33,19 +33,23 @@ type WaterfallChartPalette = {
   positive: string
   negative: string
   result: string
+  /** Bar outline on pastel fills (light mode) */
+  barBorder: string
 }
 
+/** SSR / pre-paint fallbacks — same oklch as Tailwind default `@theme` (`tailwindcss/index.css`). */
 const DEFAULT_PALETTE: WaterfallChartPalette = {
-  text: "#0f172a",
-  mutedText: "#64748b",
-  border: "rgba(148,163,184,0.24)",
-  grid: "rgba(148,163,184,0.18)",
-  surface: "rgba(255,255,255,0.72)",
-  tooltipBackground: "#ffffff",
-  baseline: "#64748b",
-  positive: "#0d9488",
-  negative: "#dc2626",
-  result: "#4f46e5",
+  text: "oklch(14.5% 0 0)",
+  mutedText: "oklch(55.6% 0 0)",
+  border: "oklch(92.2% 0 0)",
+  grid: "oklch(70.8% 0 0 / 0.22)",
+  surface: "oklch(98.5% 0 0)",
+  tooltipBackground: "oklch(98.5% 0 0)",
+  baseline: "oklch(92.9% 0.013 255.508)",
+  positive: "oklch(95% 0.052 163.051)",
+  negative: "oklch(93.6% 0.032 17.717)",
+  result: "oklch(93.2% 0.032 255.585)",
+  barBorder: "oklch(14.5% 0 0 / 0.12)",
 }
 
 function readCssVariable(
@@ -82,20 +86,29 @@ function useWaterfallChartPalette() {
         ),
         baseline: readCssVariable(
           styles,
-          "--muted-foreground",
+          "--waterfall-baseline",
           DEFAULT_PALETTE.baseline
         ),
         positive: readCssVariable(
           styles,
-          "--chart-2",
+          "--waterfall-positive",
           DEFAULT_PALETTE.positive
         ),
         negative: readCssVariable(
           styles,
-          "--destructive",
+          "--waterfall-negative",
           DEFAULT_PALETTE.negative
         ),
-        result: readCssVariable(styles, "--primary", DEFAULT_PALETTE.result),
+        result: readCssVariable(
+          styles,
+          "--waterfall-result",
+          DEFAULT_PALETTE.result
+        ),
+        barBorder: readCssVariable(
+          styles,
+          "--waterfall-bar-border",
+          DEFAULT_PALETTE.barBorder
+        ),
       })
     }
 
@@ -328,7 +341,7 @@ export function StackingValueDriversWaterfall({
         name: "Market Baseline",
         y: valueDrivers.marketBaselineRentPsf,
         color: palette.baseline,
-        borderColor: palette.border,
+        borderColor: palette.barBorder,
         custom: {
           labelText: formatRate(valueDrivers.marketBaselineRentPsf),
         },
@@ -337,7 +350,7 @@ export function StackingValueDriversWaterfall({
         name: factor.factor,
         y: factor.impact,
         color: factor.impact >= 0 ? palette.positive : palette.negative,
-        borderColor: factor.impact >= 0 ? palette.positive : palette.negative,
+        borderColor: palette.barBorder,
         custom: {
           labelText: formatSignedRate(factor.impact),
         },
@@ -352,11 +365,7 @@ export function StackingValueDriversWaterfall({
                 0
                   ? palette.positive
                   : palette.negative,
-              borderColor:
-                otherFactors.reduce((sum, factor) => sum + factor.impact, 0) >=
-                0
-                  ? palette.positive
-                  : palette.negative,
+              borderColor: palette.barBorder,
               custom: {
                 labelText: formatSignedRate(
                   otherFactors.reduce((sum, factor) => sum + factor.impact, 0)
@@ -369,7 +378,7 @@ export function StackingValueDriversWaterfall({
         name: "Predicted Rent",
         isSum: true,
         color: palette.result,
-        borderColor: palette.result,
+        borderColor: palette.barBorder,
         custom: {
           labelText: formatRate(valueDrivers.predictedRentPsf),
         },
@@ -531,17 +540,19 @@ export function StackingValueDriversWaterfall({
         <SummaryMetric
           label="Market"
           value={formatRate(valueDrivers.marketBaselineRentPsf)}
+          valueClassName="text-muted-foreground"
         />
         <SummaryMetric
           label="Predicted"
           value={formatRate(valueDrivers.predictedRentPsf)}
+          valueClassName="text-primary"
         />
         <SummaryMetric
           label="Delta"
           value={formatSignedRate(valueDrivers.summary.deltaFromMarketPsf)}
           valueClassName={
             valueDrivers.summary.deltaFromMarketPsf >= 0
-              ? "text-chart-2"
+              ? "text-emerald-600 dark:text-emerald-400"
               : "text-destructive"
           }
         />
@@ -566,7 +577,14 @@ export function StackingValueDriversWaterfall({
               <span className="text-sm font-medium text-foreground">
                 {otherFactors.length} hidden drivers
               </span>
-              <span className="text-xs font-medium text-muted-foreground tabular-nums">
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  otherFactorsTotal >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-destructive"
+                )}
+              >
                 {formatSignedRate(otherFactorsTotal)}
               </span>
             </div>
@@ -592,7 +610,7 @@ export function StackingValueDriversWaterfall({
                       className={cn(
                         "shrink-0 font-medium tabular-nums",
                         factor.impact >= 0
-                          ? "text-chart-2"
+                          ? "text-emerald-600 dark:text-emerald-400"
                           : "text-destructive"
                       )}
                     >
