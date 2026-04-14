@@ -27,12 +27,41 @@ import type {
 } from "@/lib/forecast-data"
 import { cn } from "@/lib/utils"
 
-const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  notation: "compact",
-  maximumFractionDigits: 1,
-})
+/** Compact USD without `Intl` compact notation — Node and browsers disagree on e.g. `$1.0M` vs `$1M`. */
+function formatUsdAbsPositive(abs: number): string {
+  if (abs >= 1_000_000_000) {
+    const x = abs / 1_000_000_000
+    return `$${compactUnitPart(x)}B`
+  }
+  if (abs >= 1_000_000) {
+    const x = abs / 1_000_000
+    return `$${compactUnitPart(x)}M`
+  }
+  if (abs >= 1_000) {
+    const x = abs / 1_000
+    return `$${compactUnitPart(x)}K`
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(abs)
+}
+
+function compactUnitPart(x: number): string {
+  const rounded = Math.round(x * 10) / 10
+  const whole = Math.round(rounded)
+  if (Math.abs(rounded - whole) < 1e-9) {
+    return String(whole)
+  }
+  return rounded.toFixed(1)
+}
+
+function formatUsdSigned(value: number): string {
+  const core = formatUsdAbsPositive(Math.abs(value))
+  if (value < 0) return `-${core}`
+  return core
+}
 
 const FIRST_COLUMN_WIDTH_PX = 180
 const PERIOD_COLUMN_WIDTH_PX = 108
@@ -66,10 +95,10 @@ function formatStatementValue(kind: ForecastStatementRow["kind"], value: number)
   }
 
   if (kind === "expense") {
-    return `(${compactCurrencyFormatter.format(Math.abs(value))})`
+    return `(${formatUsdAbsPositive(Math.abs(value))})`
   }
 
-  return compactCurrencyFormatter.format(value)
+  return formatUsdSigned(value)
 }
 
 function suiteMetaText(space: ForecastRevenueSpaceRow) {
@@ -85,7 +114,7 @@ function buildRevenueFloorRows(
     label: floor.label,
     kind: "currency",
     values: floor.values,
-    metaText: `${floor.sqft.toLocaleString()} SF`,
+    metaText: `${floor.sqft.toLocaleString("en-US")} SF`,
     subRows: floor.spaces.map((space) => ({
       id: space.id,
       rowType: "suite",

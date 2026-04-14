@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MoreVertical, Pencil, Plus, RefreshCw, Save, Trash2, X } from "lucide-react"
+import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
 import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
@@ -1124,7 +1124,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                             size="sm"
                             onClick={() => saveEditingOutlook(outlook.id)}
                           >
-                            <Save className="size-3.5" />
                             Save
                           </Button>
                         </div>
