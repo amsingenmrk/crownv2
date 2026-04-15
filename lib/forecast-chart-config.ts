@@ -278,8 +278,20 @@ export function buildForecastStatementHighchartsConfig(
         const points = (this.points ?? []).filter((point) => point.y != null)
         if (points.length === 0) return false
 
+        // Shared tooltip: `this.x` is often the category *index* (0, 1, 2…), not the label.
+        const rawX = this.x
+        const index = typeof rawX === "number" && Number.isFinite(rawX) ? Math.round(rawX) : NaN
+        const fromCategories =
+          !Number.isNaN(index) && index >= 0 && index < categories.length ? categories[index] : null
+        const fromPoint = points[0]?.category
+        const xLabel =
+          (typeof fromPoint === "string" && fromPoint !== "" ? fromPoint : null) ??
+          fromCategories ??
+          (typeof rawX === "string" ? rawX : null) ??
+          String(rawX ?? "")
+
         return [
-          `<b>${this.x ?? ""}</b>`,
+          `<b>${xLabel}</b>`,
           ...points.map(
             (point) =>
               `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${
@@ -431,8 +443,19 @@ export function buildForecastLeaseHighchartsConfig(
         const points = (this.points ?? []).filter((point) => point.y != null && point.y > 0)
         if (points.length === 0) return false
 
+        const rawX = this.x
+        const index = typeof rawX === "number" && Number.isFinite(rawX) ? Math.round(rawX) : NaN
+        const fromCategories =
+          !Number.isNaN(index) && index >= 0 && index < years.length ? years[index] : null
+        const fromPoint = points[0]?.category
+        const xLabel =
+          (typeof fromPoint === "string" && fromPoint !== "" ? fromPoint : null) ??
+          fromCategories ??
+          (typeof rawX === "string" ? rawX : null) ??
+          String(rawX ?? "")
+
         return [
-          `<b>${this.x ?? ""}</b>`,
+          `<b>${xLabel}</b>`,
           ...points.map(
             (point) =>
               `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${Number(point.y).toFixed(1)}k SF`

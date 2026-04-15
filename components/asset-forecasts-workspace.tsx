@@ -129,7 +129,7 @@ function OutlookMacroFieldInput({
         inputMode="decimal"
         autoComplete="off"
         disabled={disabled}
-        className="h-8 pr-8 text-[0.8rem] tabular-nums md:text-[0.8rem]"
+        className="h-7 min-h-7 px-2 py-0 pr-[1.125rem] text-[0.8rem] leading-none tabular-nums md:text-[0.8rem]"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => {
@@ -147,7 +147,7 @@ function OutlookMacroFieldInput({
           }
         }}
       />
-      <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
+      <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[10px] leading-none text-muted-foreground">
         {suffix}
       </span>
     </div>
@@ -951,7 +951,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="default"
                     size="sm"
                     className="h-7"
                     disabled={outlookSaveName.trim() === "" || editingOutlookId != null}
@@ -1020,10 +1020,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                               key={`${outlook.id}-${field.key}-avg`}
                               className="min-w-0 border-l border-border/40 pl-2 first:border-l-0 first:pl-0"
                             >
-                              <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
+                              <div className="truncate text-[12px] font-medium leading-tight text-muted-foreground">
                                 {field.label}
                               </div>
-                              <div className="mt-0.5 text-[10px] font-semibold tabular-nums leading-tight text-foreground">
+                              <div className="mt-0.5 text-[14px] font-semibold tabular-nums leading-tight text-foreground">
                                 {formatScenarioMacroAverage(
                                   getScenarioMacroAverage(outlook, field.key),
                                   field.suffix
@@ -1103,10 +1103,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                           />
                         </label>
 
-                        <div className="grid grid-cols-[64px_repeat(3,minmax(0,1fr))] gap-2 text-[11px] text-muted-foreground">
-                          <div className="font-medium uppercase tracking-[0.08em]">Quarter</div>
+                        <div className="grid grid-cols-[64px_repeat(3,minmax(0,1fr))] gap-2 pt-3 text-[11px] text-muted-foreground">
+                          <div className="font-medium">Quarter</div>
                           {MACRO_FIELDS.map((field) => (
-                            <div key={field.key} className="font-medium uppercase tracking-[0.08em]">
+                            <div key={field.key} className="font-medium">
                               {field.label}
                             </div>
                           ))}
@@ -1155,7 +1155,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                           </Button>
                           <Button
                             type="button"
-                            variant="secondary"
+                            variant="default"
                             size="sm"
                             onClick={() => saveEditingOutlook(outlook.id)}
                           >

@@ -11,7 +11,7 @@ import {
   type ForecastChartTab,
 } from "@/lib/forecast-chart-config"
 import type { AssetForecastModel } from "@/lib/forecast-data"
-import { cn } from "@/lib/utils"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const CHART_CONTAINER_STYLE: React.CSSProperties = {
   position: "absolute",
@@ -164,24 +164,23 @@ export function AssetForecastCharts({
             ) : null}
           </div>
 
-          <div className="flex w-fit items-center rounded-lg border border-border bg-muted/20 p-1">
+          <ToggleGroup
+            value={[activeTab]}
+            onValueChange={(values) => {
+              const next = values[0]
+              if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
+                setActiveTab(next as ForecastChartTab)
+              }
+            }}
+            aria-label="Forecast chart metric"
+            className="w-fit max-w-full flex-wrap"
+          >
             {chartRows.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => setActiveTab(row.id)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  activeTab === row.id
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                aria-pressed={activeTab === row.id}
-              >
+              <ToggleGroupItem key={row.id} value={row.id}>
                 {row.label}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
       </div>
 
