@@ -13,6 +13,7 @@ import {
   type ModificationSetRecord,
 } from "@/components/building-modifications-sidebar"
 import { Button } from "@/components/ui/button"
+import { Field, FieldLabel } from "@/components/ui/field"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,14 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -36,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SidebarGroupAction } from "@/components/ui/sidebar"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   buildAssetForecastModel,
@@ -73,16 +67,18 @@ const macroAverageFormatter = new Intl.NumberFormat("en-US", {
 
 const BASELINE_BUILDING_VERSION_ID = "__baseline_building_version__"
 
+/** Select sentinel when no saved outlook set is active (same pattern as modification presets). */
+const NO_ACTIVE_OUTLOOK_SET = "__no_outlook_set__"
+
 const MACRO_FIELDS = [
-  { key: "inflationPct", label: "Inflation", suffix: "%", min: 0, max: 8, step: 0.1 },
-  { key: "treasuryRatePct", label: "Treasury", suffix: "%", min: 0, max: 10, step: 0.05 },
+  { key: "inflationPct", label: "Inflation", suffix: "%", min: 0, max: 8 },
+  { key: "treasuryRatePct", label: "Treasury", suffix: "%", min: 0, max: 10 },
   {
     key: "submarketOccupancyPct",
     label: "Occupancy",
     suffix: "%",
     min: 50,
     max: 100,
-    step: 0.1,
   },
 ] as const
 
@@ -96,6 +92,66 @@ type ForecastBuildingVersion = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function formatMacroInputValue(n: number): string {
+  const s = n.toFixed(4)
+  if (!s.includes(".")) return s
+  const trimmed = s.replace(/\.?0+$/, "")
+  return trimmed === "" ? "0" : trimmed
+}
+
+function OutlookMacroFieldInput({
+  value,
+  min,
+  max,
+  suffix,
+  disabled,
+  onCommit,
+}: {
+  value: number
+  min: number
+  max: number
+  suffix: string
+  disabled?: boolean
+  onCommit: (next: number) => void
+}) {
+  const [text, setText] = React.useState(() => formatMacroInputValue(value))
+
+  React.useEffect(() => {
+    setText(formatMacroInputValue(value))
+  }, [value])
+
+  return (
+    <div className="relative">
+      <Input
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        disabled={disabled}
+        className="h-8 pr-8 text-[0.8rem] tabular-nums md:text-[0.8rem]"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => {
+          const cleaned = text.replace(/%/g, "").replace(/,/g, "").trim()
+          const parsed = Number(cleaned)
+          const next = Number.isFinite(parsed) ? clamp(parsed, min, max) : value
+          setText(formatMacroInputValue(next))
+          if (next !== value) {
+            onCommit(next)
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+      />
+      <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
+        {suffix}
+      </span>
+    </div>
+  )
 }
 
 function sanitizeScenario(
@@ -260,12 +316,8 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     BASELINE_BUILDING_VERSION_ID
   )
   const [activeOutlookSetId, setActiveOutlookSetId] = React.useState<string>("")
-  const [saveSetDialogOpen, setSaveSetDialogOpen] = React.useState(false)
-  const [saveSetDialogMode, setSaveSetDialogMode] = React.useState<"save" | "saveAs">("save")
-  const [saveSetDraftName, setSaveSetDraftName] = React.useState("")
-  const [deleteSetDialogOpen, setDeleteSetDialogOpen] = React.useState(false)
-  const [deleteSetCandidateId, setDeleteSetCandidateId] = React.useState<string>("")
-  const saveSetInputId = React.useId()
+  const [outlookSaveName, setOutlookSaveName] = React.useState("")
+  const outlookSaveFieldId = React.useId()
 
   React.useLayoutEffect(() => {
     const nextOutlooks = parseStoredForecastScenarios(
@@ -291,6 +343,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     )
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
     setActiveOutlookSetId("")
+    setOutlookSaveName("")
   }, [buildingVersionStorageKey, defaultAssumptions, defaultOutlooks, scenarioStorageKey, setStorageKey])
 
   const reloadSavedModificationSets = React.useCallback(() => {
@@ -316,6 +369,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     (nextSets: ForecastOutlookSet[]) => {
       try {
         localStorage.setItem(setStorageKey, JSON.stringify(nextSets))
+        window.dispatchEvent(new Event("glassbox:forecast-outlook-sets-changed"))
       } catch {
         /* ignore quota/private mode */
       }
@@ -468,11 +522,20 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     ]
   }, [model])
 
-  const outlookSetLabels = React.useMemo(
-    () =>
-      Object.fromEntries(outlookSets.map((set) => [set.id, set.name])) as Record<string, string>,
+  const sortedOutlookSets = React.useMemo(
+    () => [...outlookSets].sort((a, b) => a.name.localeCompare(b.name)),
     [outlookSets]
   )
+
+  const outlookSetItemLabels = React.useMemo(() => {
+    const labels: Record<string, React.ReactNode> = {
+      [NO_ACTIVE_OUTLOOK_SET]: "Select a saved set…",
+    }
+    for (const s of sortedOutlookSets) {
+      labels[s.id] = s.name
+    }
+    return labels
+  }, [sortedOutlookSets])
 
   const currentOutlookSetStateKey = React.useMemo(
     () =>
@@ -498,27 +561,16 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   }, [activeOutlookSetId, currentOutlookSetStateKey, outlookSets])
 
   React.useEffect(() => {
-    if (!saveSetDialogOpen) return
-    const id = requestAnimationFrame(() => {
-      const el = document.getElementById(saveSetInputId)
-      if (el instanceof HTMLInputElement) {
-        el.focus()
-        el.select()
-      }
-    })
-    return () => cancelAnimationFrame(id)
-  }, [saveSetDialogOpen, saveSetInputId])
-
-  React.useEffect(() => {
-    if (saveSetDialogOpen) return
-    setSaveSetDraftName("")
-    setSaveSetDialogMode("save")
-  }, [saveSetDialogOpen])
+    if (activeOutlookSetId === "") return
+    const active = outlookSets.find((s) => s.id === activeOutlookSetId)
+    setOutlookSaveName(active?.name ?? "")
+  }, [activeOutlookSetId, outlookSets])
 
   React.useEffect(() => {
     if (activeOutlookSetId === "") return
     if (activeOutlookSetMatchesCurrentState) return
     setActiveOutlookSetId("")
+    setOutlookSaveName("")
   }, [activeOutlookSetId, activeOutlookSetMatchesCurrentState])
 
   React.useEffect(() => {
@@ -526,11 +578,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     if (savedModificationSets.some((set) => set.id === activeBuildingVersionId)) return
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
   }, [activeBuildingVersionId, savedModificationSets])
-
-  React.useEffect(() => {
-    if (deleteSetDialogOpen) return
-    setDeleteSetCandidateId("")
-  }, [deleteSetDialogOpen])
 
   const updateAssumption = React.useCallback((updates: Partial<ForecastAssumptions>) => {
     setAssumptions((prev) => ({
@@ -666,77 +713,59 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [activeOutlookId, defaultOutlooks, editingOutlookId, outlooks, persistOutlooks]
   )
 
-  const saveCurrentOutlookSet = React.useCallback(
-    ({
-      nameOverride,
-      forceNew = false,
-    }: {
-      nameOverride?: string
-      forceNew?: boolean
-    } = {}) => {
-      const existingName =
-        !forceNew && activeOutlookSetId !== ""
-          ? outlookSets.find((set) => set.id === activeOutlookSetId)?.name
-          : null
-      const name =
-        nameOverride?.trim() ||
-        existingName ||
-        `Outlook Set ${outlookSets.length + 1}`
-      const snapshotOutlooks = normalizeOutlooksForSetComparison(outlooks)
+  const saveOutlookSetFromField = React.useCallback(() => {
+    const name = outlookSaveName.trim()
+    if (!name) return
 
-      const nextSet: ForecastOutlookSet = {
-        id: forceNew ? crypto.randomUUID() : activeOutlookSetId || crypto.randomUUID(),
-        name,
-        includedOutlookIds: includedOutlookIds.filter((outlookId) =>
-          snapshotOutlooks.some((outlook) => outlook.id === outlookId)
-        ),
-        activeOutlookId,
-        savedAt: Date.now(),
-        outlooks: snapshotOutlooks,
-      }
+    const snapshotOutlooks = normalizeOutlooksForSetComparison(outlooks)
+    const buildSet = (id: string, setName: string): ForecastOutlookSet => ({
+      id,
+      name: setName,
+      includedOutlookIds: includedOutlookIds.filter((outlookId) =>
+        snapshotOutlooks.some((outlook) => outlook.id === outlookId)
+      ),
+      activeOutlookId,
+      savedAt: Date.now(),
+      outlooks: snapshotOutlooks,
+    })
 
-      const existingIndex = outlookSets.findIndex((set) => set.id === nextSet.id)
-      const nextSets =
-        existingIndex >= 0
-          ? outlookSets.map((set, index) => (index === existingIndex ? nextSet : set))
-          : [...outlookSets, nextSet]
-
-      persistOutlookSets(nextSets)
-      setActiveOutlookSetId(nextSet.id)
-    },
-    [activeOutlookId, activeOutlookSetId, includedOutlookIds, outlookSets, outlooks, persistOutlookSets]
-  )
-
-  const openSaveSetDialog = React.useCallback(
-    (mode: "save" | "saveAs") => {
-      const existingName =
-        mode === "save"
-          ? outlookSets.find((set) => set.id === activeOutlookSetId)?.name
-          : null
-      setSaveSetDialogMode(mode)
-      setSaveSetDraftName(existingName ?? `Outlook Set ${outlookSets.length + 1}`)
-      setSaveSetDialogOpen(true)
-    },
-    [activeOutlookSetId, outlookSets]
-  )
-
-  const handleSaveSet = React.useCallback(() => {
     if (activeOutlookSetId !== "") {
-      saveCurrentOutlookSet()
+      const idx = outlookSets.findIndex((s) => s.id === activeOutlookSetId)
+      if (idx < 0) return
+      const nameTakenElsewhere = outlookSets.some(
+        (s, i) => i !== idx && s.name.toLowerCase() === name.toLowerCase()
+      )
+      if (nameTakenElsewhere) return
+      persistOutlookSets(
+        outlookSets.map((s, i) => (i === idx ? buildSet(s.id, name) : s))
+      )
       return
     }
-    openSaveSetDialog("save")
-  }, [activeOutlookSetId, openSaveSetDialog, saveCurrentOutlookSet])
 
-  const submitSaveSetDialog = React.useCallback(() => {
-    const trimmed = saveSetDraftName.trim()
-    if (!trimmed) return
-    saveCurrentOutlookSet({
-      nameOverride: trimmed,
-      forceNew: saveSetDialogMode === "saveAs",
-    })
-    setSaveSetDialogOpen(false)
-  }, [saveCurrentOutlookSet, saveSetDialogMode, saveSetDraftName])
+    const existingIdx = outlookSets.findIndex(
+      (s) => s.name.toLowerCase() === name.toLowerCase()
+    )
+    if (existingIdx >= 0) {
+      const appliedId = outlookSets[existingIdx]!.id
+      persistOutlookSets(
+        outlookSets.map((s, i) => (i === existingIdx ? buildSet(s.id, name) : s))
+      )
+      setActiveOutlookSetId(appliedId)
+      return
+    }
+
+    const appliedId = crypto.randomUUID()
+    persistOutlookSets([...outlookSets, buildSet(appliedId, name)])
+    setActiveOutlookSetId(appliedId)
+  }, [
+    activeOutlookId,
+    activeOutlookSetId,
+    includedOutlookIds,
+    outlookSaveName,
+    outlookSets,
+    outlooks,
+    persistOutlookSets,
+  ])
 
   const applyOutlookSetById = React.useCallback(
     (setId: string) => {
@@ -766,19 +795,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [defaultOutlooks, outlookSets, persistOutlooks]
   )
 
-  const requestDeleteActiveOutlookSet = React.useCallback(() => {
+  const deleteActiveOutlookSet = React.useCallback(() => {
     if (activeOutlookSetId === "") return
-    setDeleteSetCandidateId(activeOutlookSetId)
-    setDeleteSetDialogOpen(true)
-  }, [activeOutlookSetId])
-
-  const confirmDeleteOutlookSet = React.useCallback(() => {
-    if (deleteSetCandidateId === "") return
-    const nextSets = outlookSets.filter((set) => set.id !== deleteSetCandidateId)
-    persistOutlookSets(nextSets)
+    persistOutlookSets(outlookSets.filter((s) => s.id !== activeOutlookSetId))
     setActiveOutlookSetId("")
-    setDeleteSetDialogOpen(false)
-  }, [deleteSetCandidateId, outlookSets, persistOutlookSets])
+    setOutlookSaveName("")
+  }, [activeOutlookSetId, outlookSets, persistOutlookSets])
 
   const resetWorkspace = React.useCallback(() => {
     const nextOutlooks = parseStoredForecastScenarios(
@@ -804,6 +826,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     )
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
     setActiveOutlookSetId("")
+    setOutlookSaveName("")
   }, [
     buildingVersionStorageKey,
     defaultAssumptions,
@@ -819,116 +842,139 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   return (
     <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <aside
-        className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-72 xl:w-80"
+        className="flex w-full shrink-0 flex-col rounded-xl border border-border bg-card p-4 shadow-sm lg:w-72 xl:w-80"
         aria-label="Forecast inputs"
       >
         <h2 className="text-sm font-semibold text-foreground">Forecast Inputs</h2>
 
-        <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            Building Version
-          </p>
-          <Select
-            items={buildingVersionLabels}
-            value={activeBuildingVersion?.id ?? BASELINE_BUILDING_VERSION_ID}
-            onValueChange={(value) =>
-              setActiveBuildingVersionId(value ?? BASELINE_BUILDING_VERSION_ID)
+        <Select
+          items={buildingVersionLabels}
+          value={activeBuildingVersion?.id ?? BASELINE_BUILDING_VERSION_ID}
+          onValueChange={(value) =>
+            setActiveBuildingVersionId(value ?? BASELINE_BUILDING_VERSION_ID)
+          }
+          onOpenChange={(open) => {
+            if (open) {
+              reloadSavedModificationSets()
             }
-            onOpenChange={(open) => {
-              if (open) {
-                reloadSavedModificationSets()
-              }
-            }}
-          >
-            <SelectTrigger size="sm" className="w-full text-[0.8rem]" aria-label="Building version">
-              <SelectValue placeholder="Baseline building" />
-            </SelectTrigger>
-            <SelectContent>
-              {buildingVersions.map((version) => (
-                <SelectItem key={version.id} value={version.id}>
-                  {version.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </section>
+          }}
+        >
+          <SelectTrigger className="mt-4 w-full min-w-0" aria-label="Building modifications">
+            <SelectValue placeholder="Baseline building" />
+          </SelectTrigger>
+          <SelectContent>
+            {buildingVersions.map((version) => (
+              <SelectItem key={version.id} value={version.id}>
+                {version.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-          <div className="flex items-center gap-3">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
               Economic Outlooks
-            </p>
+            </h3>
+            <SidebarGroupAction
+              type="button"
+              title="Add outlook scenario"
+              aria-label="Add outlook scenario"
+              disabled={editingOutlookId != null}
+              onClick={createOutlook}
+              className="static shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <Plus />
+            </SidebarGroupAction>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Saved set
-            </span>
+          <div className="min-w-0">
             <Select
-              items={outlookSetLabels}
-              value={activeOutlookSetId}
+              items={outlookSetItemLabels}
+              value={activeOutlookSetId === "" ? NO_ACTIVE_OUTLOOK_SET : activeOutlookSetId}
               onValueChange={(value) => {
-                const nextValue = value ?? ""
-                if (nextValue === "") return
-                applyOutlookSetById(nextValue)
+                const next = value ?? NO_ACTIVE_OUTLOOK_SET
+                if (next === NO_ACTIVE_OUTLOOK_SET) {
+                  setActiveOutlookSetId("")
+                  setOutlookSaveName("")
+                  return
+                }
+                applyOutlookSetById(next)
               }}
-              disabled={outlookSets.length === 0 || editingOutlookId != null}
+              disabled={sortedOutlookSets.length === 0 || editingOutlookId != null}
             >
               <SelectTrigger
+                id={`${outlookSaveFieldId}-saved-set`}
                 size="sm"
-                className="min-w-0 flex-1 text-[0.8rem]"
+                className="w-full min-w-0 text-[0.8rem]"
                 aria-label="Saved outlook sets"
               >
-                <SelectValue placeholder="Unsaved set" />
+                <SelectValue placeholder="Select a saved set…" />
               </SelectTrigger>
               <SelectContent>
-                {outlookSets.map((set) => (
+                <SelectItem value={NO_ACTIVE_OUTLOOK_SET}>Select a saved set…</SelectItem>
+                {sortedOutlookSets.map((set) => (
                   <SelectItem key={set.id} value={set.id}>
                     {set.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={editingOutlookId != null}
-              onClick={handleSaveSet}
-            >
-              Save
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
+          </div>
+
+          <section
+            aria-label="Save outlook set"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
+          >
+            <Field className="min-w-0 gap-1.5">
+              <FieldLabel
+                htmlFor={`${outlookSaveFieldId}-preset-name`}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Save current as
+              </FieldLabel>
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  id={`${outlookSaveFieldId}-preset-name`}
+                  className="h-7 min-w-0 flex-1 py-0 text-[0.8rem] leading-7 md:text-[0.8rem]"
+                  placeholder="Name this set"
+                  value={outlookSaveName}
+                  disabled={editingOutlookId != null}
+                  onChange={(e) => setOutlookSaveName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && outlookSaveName.trim() !== "" && editingOutlookId == null) {
+                      e.preventDefault()
+                      saveOutlookSetFromField()
+                    }
+                  }}
+                />
+                <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
+                    size="sm"
+                    className="h-7"
+                    disabled={outlookSaveName.trim() === "" || editingOutlookId != null}
+                    onClick={saveOutlookSetFromField}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="icon-sm"
-                    disabled={editingOutlookId != null}
-                    aria-label="Saved outlook set actions"
-                  />
-                }
-              >
-                <MoreVertical className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={6} className="min-w-40">
-                <DropdownMenuItem onClick={() => openSaveSetDialog("saveAs")}>
-                  <Plus className="size-4" />
-                  Save as
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={activeOutlookSetId === ""}
-                  onClick={requestDeleteActiveOutlookSet}
-                >
-                  <Trash2 className="size-4" />
-                  Delete set
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                    className="h-7 text-muted-foreground hover:text-destructive"
+                    disabled={activeOutlookSetId === "" || editingOutlookId != null}
+                    aria-label="Delete saved outlook set"
+                    title="Delete saved outlook set"
+                    onClick={deleteActiveOutlookSet}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </Button>
+                </div>
+              </div>
+            </Field>
+          </section>
 
           <div className="flex flex-col gap-2">
             {outlooks.map((outlook) => {
@@ -947,7 +993,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                       : "border-border bg-card"
                   )}
                 >
-                  <div className="px-3 py-3">
+                  <div className="px-2.5 py-2">
                     <div className="relative min-w-0">
                       <button
                         type="button"
@@ -960,24 +1006,24 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                       >
                         <div
                           className={cn(
-                            "flex min-h-7 min-w-0 items-center gap-2",
+                            "flex min-h-6 min-w-0 items-center gap-1.5",
                             outlook.isPreset ? "pr-10" : "pr-[72px]"
                           )}
                         >
-                          <span className="truncate text-sm font-medium text-foreground">
+                          <span className="truncate text-xs font-medium leading-tight text-foreground">
                             {outlook.name}
                           </span>
                         </div>
-                        <div className="mt-2 grid grid-cols-3 gap-3">
+                        <div className="mt-1.5 grid grid-cols-3 gap-2">
                           {MACRO_FIELDS.map((field) => (
                             <div
                               key={`${outlook.id}-${field.key}-avg`}
-                              className="min-w-0 border-l border-border/40 pl-3 first:border-l-0 first:pl-0"
+                              className="min-w-0 border-l border-border/40 pl-2 first:border-l-0 first:pl-0"
                             >
-                              <div className="truncate text-[10px] font-medium text-muted-foreground">
+                              <div className="truncate text-[10px] font-medium leading-tight text-muted-foreground">
                                 {field.label}
                               </div>
-                              <div className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground">
+                              <div className="mt-0.5 text-[10px] font-semibold tabular-nums leading-tight text-foreground">
                                 {formatScenarioMacroAverage(
                                   getScenarioMacroAverage(outlook, field.key),
                                   field.suffix
@@ -1076,39 +1122,28 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                                 {period.label}
                               </div>
                               {MACRO_FIELDS.map((field) => (
-                                <div key={`${period.label}-${field.key}`} className="relative">
-                                  <Input
-                                    type="number"
-                                    value={period[field.key]}
-                                    min={field.min}
-                                    max={field.max}
-                                    step={field.step}
-                                    className="h-8 pr-8 text-[0.8rem] tabular-nums md:text-[0.8rem]"
-                                    onChange={(event) => {
-                                      const next = Number(event.target.value)
-                                      if (Number.isNaN(next)) return
-                                      updateOutlook(outlook.id, (currentOutlook) => ({
-                                        ...currentOutlook,
-                                        macroPeriods: currentOutlook.macroPeriods.map(
-                                          (macroPeriod, index) =>
-                                            index === periodIndex
-                                              ? {
-                                                  ...macroPeriod,
-                                                  [field.key]: clamp(
-                                                    next,
-                                                    field.min,
-                                                    field.max
-                                                  ),
-                                                }
-                                              : macroPeriod
-                                        ),
-                                      }))
-                                    }}
-                                  />
-                                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
-                                    {field.suffix}
-                                  </span>
-                                </div>
+                                <OutlookMacroFieldInput
+                                  key={`${period.label}-${field.key}`}
+                                  value={period[field.key]}
+                                  min={field.min}
+                                  max={field.max}
+                                  suffix={field.suffix}
+                                  disabled={anotherOutlookIsEditing}
+                                  onCommit={(next) => {
+                                    updateOutlook(outlook.id, (currentOutlook) => ({
+                                      ...currentOutlook,
+                                      macroPeriods: currentOutlook.macroPeriods.map(
+                                        (macroPeriod, index) =>
+                                          index === periodIndex
+                                            ? {
+                                                ...macroPeriod,
+                                                [field.key]: next,
+                                              }
+                                            : macroPeriod
+                                      ),
+                                    }))
+                                  }}
+                                />
                               ))}
                             </div>
                           ))}
@@ -1133,24 +1168,11 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 </div>
               )
             })}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="mt-1 self-center rounded-full"
-              disabled={editingOutlookId != null}
-              onClick={createOutlook}
-              aria-label="Add outlook scenario"
-            >
-              <Plus className="size-3.5" />
-            </Button>
           </div>
-        </section>
+        </div>
 
-        <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            Leasing Assumptions
-          </p>
+        <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
+          <h3 className="text-sm font-semibold text-foreground">Leasing Assumptions</h3>
           <div className="grid gap-3">
             <AssumptionField
               label="Time to Lease"
@@ -1182,19 +1204,21 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
               suffix="%"
             />
           </div>
-        </section>
+        </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full justify-center"
-          disabled={editingOutlookId != null}
-          onClick={resetWorkspace}
-        >
-          <RefreshCw className="size-3.5" />
-          Reset
-        </Button>
+        <div className="mt-4 border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full justify-center"
+            disabled={editingOutlookId != null}
+            onClick={resetWorkspace}
+          >
+            <RefreshCw className="size-3.5" />
+            Reset
+          </Button>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
@@ -1243,64 +1267,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
           />
         </section>
       </div>
-
-      <Dialog open={saveSetDialogOpen} onOpenChange={setSaveSetDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{saveSetDialogMode === "saveAs" ? "Save outlook set as" : "Save outlook set"}</DialogTitle>
-            <DialogDescription>
-              Name this saved set so you can reapply the current economic outlook selection later.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <label htmlFor={saveSetInputId} className="sr-only">
-              Outlook set name
-            </label>
-            <Input
-              id={saveSetInputId}
-              value={saveSetDraftName}
-              onChange={(event) => setSaveSetDraftName(event.target.value)}
-              placeholder="Quarterly outlook set"
-              autoComplete="off"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault()
-                  submitSaveSetDialog()
-                }
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setSaveSetDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={submitSaveSetDialog} disabled={!saveSetDraftName.trim()}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={deleteSetDialogOpen} onOpenChange={setDeleteSetDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete saved set</DialogTitle>
-            <DialogDescription>
-              {deleteSetCandidateId !== ""
-                ? `Delete "${outlookSets.find((set) => set.id === deleteSetCandidateId)?.name ?? "this saved set"}"? Your current outlook cards will stay in place as an unsaved working state.`
-                : "Delete this saved set? Your current outlook cards will stay in place as an unsaved working state."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteSetDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="destructive" onClick={confirmDeleteOutlookSet}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
