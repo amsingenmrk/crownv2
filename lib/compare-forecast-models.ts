@@ -197,6 +197,29 @@ function emptyAggregateModel(
 }
 
 /**
+ * Sums quarterly statement rows for the given assets using the Baseline outlook,
+ * default per-asset assumptions, and no building modifications — same basis as compare
+ * portfolio columns, scoped to the provided asset ids.
+ */
+export function buildAggregateForecastModelForAssetIds(
+  assetIds: readonly string[],
+  displayName: string
+): AssetForecastModel | null {
+  const baseline = buildDefaultForecastScenarios()[0]!
+  const ids = [...new Set(assetIds)]
+  if (ids.length === 0) return null
+  const perAsset = ids.map((assetId) =>
+    buildAssetForecastModel({
+      assetId,
+      scenario: baseline,
+      assumptions: defaultForecastAssumptionsForAsset(assetId),
+      modValues: INITIAL_MOD_VALUES,
+    })
+  )
+  return mergeAssetForecastModels(perAsset, 0, displayName, baseline)
+}
+
+/**
  * One forecast model per compare column: series name = column title.
  * Uses the Baseline economic outlook and sums per-asset {@link buildAssetForecastModel} outputs
  * for all assets in that column’s scope (portfolio, group, scenario membership, single asset, etc.).

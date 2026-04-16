@@ -231,7 +231,7 @@ function AssumptionField({
 }) {
   return (
     <label className="min-w-0 space-y-0.5">
-      <div className="truncate text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="truncate text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </div>
       <div className="relative">
