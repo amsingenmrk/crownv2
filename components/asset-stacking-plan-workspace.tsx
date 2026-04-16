@@ -4,7 +4,6 @@ import * as React from "react"
 import { ArrowUpDown, ChevronDown, ChevronRight, Download } from "lucide-react"
 
 import { AssetStackingPlanDrawer } from "@/components/asset-stacking-plan-drawer"
-import { TrackSuiteInScenarioMenu } from "@/components/track-suite-in-scenario-menu"
 import { StackingValueDriversWaterfall } from "@/components/stacking-value-drivers-waterfall"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1498,7 +1497,6 @@ export function AssetStackingPlanWorkspace({
       {effectiveViewMode !== "matrix" &&
       simplifiedTenantInteraction === "drawer" ? (
         <AssetStackingPlanDrawer
-          assetId={assetId}
           open={isDrawerOpen}
           tenant={selectedTenant}
           onOpenChange={handleDrawerOpenChange}
@@ -2068,7 +2066,6 @@ function StackFirstRow({
       </div>
       {activeTenant != null && tenantEditorDraft != null ? (
         <SelectedTenantEditorRow
-          assetId={assetId}
           floor={floor}
           tenant={activeTenant}
           draft={tenantEditorDraft}
@@ -2663,7 +2660,6 @@ function CompactTenantEditor({
 }
 
 function SelectedTenantEditorRow({
-  assetId,
   floor,
   tenant,
   draft,
@@ -2672,7 +2668,6 @@ function SelectedTenantEditorRow({
   onClose,
   onSave,
 }: {
-  assetId: string
   floor: StackingPlanFloor
   tenant: StackingPlanTenant
   draft: TenantEditorDraft
@@ -2686,11 +2681,10 @@ function SelectedTenantEditorRow({
       <div />
       <div className={MATRIX_ROW_CONTENT_CLASS}>
         <div className="rounded-xl border border-primary/15 bg-background/72 px-3 py-3">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-3">
             <p className="text-sm font-semibold text-foreground">
               Suite Editor • Floor {floor.floor} • {tenant.space}
             </p>
-            <TrackSuiteInScenarioMenu assetId={assetId} tenant={tenant} />
           </div>
           <CompactTenantEditor
             tenant={tenant}
