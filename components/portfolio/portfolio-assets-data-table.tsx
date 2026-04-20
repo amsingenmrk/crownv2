@@ -61,6 +61,20 @@ const VALUE_SOURCE_LABEL =
 
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
+
+function mobileModeledFieldsProvenanceLabel(
+  variant: PortfolioAssetsTableVariant
+) {
+  const parts = [
+    `Class: ${CLASS_SOURCE_LABEL}`,
+    `$/SF: ${PRICING_SOURCE_LABEL}`,
+    `Value: ${VALUE_SOURCE_LABEL}`,
+  ]
+  if (variant === "portfolio") {
+    parts.push(`Potential lift: ${POTENTIAL_LIFT_SOURCE_LABEL}`)
+  }
+  return parts.join(" ")
+}
 function gridTemplateForVisibleColumns(
   table: Table<PortfolioAssetRow>
 ): string {
@@ -359,6 +373,20 @@ export function PortfolioAssetsDataTable({
         </TableBody>
       </table>
 
+      {sortedRows.length > 0 ? (
+        <div className="flex items-start gap-2 border-b border-border bg-muted/15 px-4 py-2 lg:hidden">
+          <PortfolioProvenanceIndicator
+            label={mobileModeledFieldsProvenanceLabel(variant)}
+            className="mt-0.5 shrink-0"
+          />
+          <p className="min-w-0 text-[11px] leading-snug text-muted-foreground">
+            {variant === "portfolio"
+              ? "Class, $/SF, value, and potential lift are modeled for this demo. Definitions match the table column headers on larger screens."
+              : "Class, $/SF, and value are modeled for this demo. Definitions match the table column headers on larger screens."}
+          </p>
+        </div>
+      ) : null}
+
       <ul className="divide-y divide-border lg:hidden">
         {sortedRows.length === 0 ? (
           <li className="px-4 py-10 text-center text-sm text-muted-foreground">
@@ -407,26 +435,17 @@ export function PortfolioAssetsDataTable({
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Sector</span>
                     <span className="text-left text-foreground">{row.typeLabel}</span>
-                    <span className="inline-flex items-center gap-1.5">
-                      Class
-                      <PortfolioProvenanceIndicator label={CLASS_SOURCE_LABEL} />
-                    </span>
+                    <span>Class</span>
                     <span className="text-left text-foreground">{row.classLabel}</span>
                     <span>RSF</span>
                     <span className="text-left tabular-nums text-foreground">
                       {row.rsf}
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      $/SF
-                      <PortfolioProvenanceIndicator label={PRICING_SOURCE_LABEL} />
-                    </span>
+                    <span>$/SF</span>
                     <span className="text-left tabular-nums text-foreground">
                       {row.pricePerSf}
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      Value
-                      <PortfolioProvenanceIndicator label={VALUE_SOURCE_LABEL} />
-                    </span>
+                    <span>Value</span>
                     <span className="text-left tabular-nums text-foreground">
                       {row.value}
                     </span>
@@ -447,12 +466,7 @@ export function PortfolioAssetsDataTable({
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5">
-                          Potential Lift
-                          <PortfolioProvenanceIndicator
-                            label={POTENTIAL_LIFT_SOURCE_LABEL}
-                          />
-                        </span>
+                        <span>Potential Lift</span>
                         <span className="flex justify-start">
                           {row.recommendedModification == null ||
                           isMarketListingRowId(row.id) ? (

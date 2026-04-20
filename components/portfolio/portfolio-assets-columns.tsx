@@ -41,60 +41,50 @@ const VALUE_SOURCE_LABEL =
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
 
-function ValueWithProvenance({
-  value,
-  sourceLabel,
-  className,
-}: {
-  value: ReactNode
-  sourceLabel?: string
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        "inline-flex min-w-0 items-center gap-1.5 text-left",
-        className
-      )}
-    >
-      <span className="min-w-0 truncate">{value}</span>
-      {sourceLabel ? <PortfolioProvenanceIndicator label={sourceLabel} /> : null}
-    </div>
-  )
-}
-
 function SortableHeader({
   column,
   className,
+  sourceLabel,
   children,
 }: {
   column: Column<PortfolioAssetRow, unknown>
   className?: string
+  /** Provenance tooltip; kept in the header so rows are not repeated with (?) icons. */
+  sourceLabel?: string
   children: ReactNode
 }) {
+  const provenance =
+    sourceLabel != null && sourceLabel !== "" ? (
+      <PortfolioProvenanceIndicator label={sourceLabel} />
+    ) : null
+
   if (!column.getCanSort()) {
     return (
-      <div className={cn("font-medium", className)}>{children}</div>
+      <div className="flex w-full min-w-0 items-center gap-1.5 justify-start">
+        <div className={cn("min-w-0 font-medium", className)}>{children}</div>
+        {provenance}
+      </div>
     )
   }
   return (
-    <div className="flex w-full justify-start">
+    <div className="flex w-full min-w-0 items-center gap-1.5 justify-start">
       <Button
         type="button"
         variant="ghost"
         className={cn(
-          "-mx-2 h-auto min-h-0 gap-1.5 px-2 py-0 font-medium text-foreground",
+          "-mx-2 h-auto min-h-0 min-w-0 gap-1.5 px-2 py-0 font-medium text-foreground",
           className
         )}
         onClick={column.getToggleSortingHandler()}
       >
-        {children}
+        <span className="min-w-0">{children}</span>
         {column.getIsSorted() === "desc" ? (
           <ArrowDown className="size-4 shrink-0 opacity-70" aria-hidden />
         ) : column.getIsSorted() === "asc" ? (
           <ArrowUp className="size-4 shrink-0 opacity-70" aria-hidden />
         ) : null}
       </Button>
+      {provenance}
     </div>
   )
 }
@@ -257,14 +247,14 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Class" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Class</SortableHeader>
+        <SortableHeader column={column} sourceLabel={CLASS_SOURCE_LABEL}>
+          Class
+        </SortableHeader>
       ),
       cell: ({ row }) => (
-        <ValueWithProvenance
-          value={row.original.classLabel}
-          sourceLabel={CLASS_SOURCE_LABEL}
-          className="text-sm"
-        />
+        <div className="min-w-0 truncate text-left text-sm">
+          {row.original.classLabel}
+        </div>
       ),
     },
     {
@@ -305,17 +295,17 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "$/SF" },
       header: ({ column }) => (
-        <SortableHeader column={column}>$/SF</SortableHeader>
+        <SortableHeader column={column} sourceLabel={PRICING_SOURCE_LABEL}>
+          $/SF
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseInt(String(rowA.getValue(id)).replace(/\D/g, ""), 10) -
         Number.parseInt(String(rowB.getValue(id)).replace(/\D/g, ""), 10),
       cell: ({ row }) => (
-        <ValueWithProvenance
-          value={row.original.pricePerSf}
-          sourceLabel={PRICING_SOURCE_LABEL}
-          className="text-sm tabular-nums"
-        />
+        <div className="min-w-0 truncate text-left text-sm tabular-nums">
+          {row.original.pricePerSf}
+        </div>
       ),
     },
     {
@@ -340,18 +330,18 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Value" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Value</SortableHeader>
+        <SortableHeader column={column} sourceLabel={VALUE_SOURCE_LABEL}>
+          Value
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
           numeric: true,
         }),
       cell: ({ row }) => (
-        <ValueWithProvenance
-          value={row.original.value}
-          sourceLabel={VALUE_SOURCE_LABEL}
-          className="text-sm tabular-nums"
-        />
+        <div className="min-w-0 truncate text-left text-sm tabular-nums">
+          {row.original.value}
+        </div>
       ),
     },
     {
@@ -395,7 +385,12 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Potential Lift" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Potential Lift</SortableHeader>
+        <SortableHeader
+          column={column}
+          sourceLabel={POTENTIAL_LIFT_SOURCE_LABEL}
+        >
+          Potential Lift
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number(rowA.getValue(id)) - Number(rowB.getValue(id)),
@@ -412,28 +407,23 @@ export function createPortfolioAssetColumns(
               {row.original.lift}
             </span>
           ) : (
-            <div className="inline-flex items-center gap-1.5">
-              <Link
-                href={buildRecommendedModificationHref(
-                  row.original.id,
-                  row.original.recommendedModification
+            <Link
+              href={buildRecommendedModificationHref(
+                row.original.id,
+                row.original.recommendedModification
+              )}
+              className="inline-flex rounded-full focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+              aria-label={`Potential lift ${row.original.lift}. Open ${row.original.recommendedModification.optionTitle} in modifications.`}
+            >
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums transition-opacity hover:opacity-90",
+                  liftPillClassFromStrength(liftStrength(row.original.liftPercent))
                 )}
-                className="inline-flex rounded-full focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                aria-label={`Potential lift ${row.original.lift}. Open ${row.original.recommendedModification.optionTitle} in modifications.`}
               >
-                <span
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums transition-opacity hover:opacity-90",
-                    liftPillClassFromStrength(liftStrength(row.original.liftPercent))
-                  )}
-                >
-                  {row.original.lift}
-                </span>
-              </Link>
-              <PortfolioProvenanceIndicator
-                label={POTENTIAL_LIFT_SOURCE_LABEL}
-              />
-            </div>
+                {row.original.lift}
+              </span>
+            </Link>
           )}
         </div>
       ),
