@@ -114,9 +114,15 @@ export function occupancyMetricTextClass(occupancyPercent: number): string {
   return "text-destructive"
 }
 
+/**
+ * Sun / view scores are normalized 0–100. Maps low → high to red → orange →
+ * amber (yellow) → lime → emerald so the full range reads as bad → good.
+ */
 export function qualityScoreValueClass(value: number | null): string {
   if (value == null) return "text-muted-foreground"
-  if (value >= 67) return "text-chart-2"
-  if (value >= 34) return "text-chart-4"
-  return "text-destructive"
+  if (value >= 75) return "text-emerald-600 dark:text-emerald-400"
+  if (value >= 60) return "text-lime-600 dark:text-lime-400"
+  if (value >= 45) return "text-amber-500 dark:text-amber-400"
+  if (value >= 30) return "text-orange-600 dark:text-orange-400"
+  return "text-red-600 dark:text-red-400"
 }

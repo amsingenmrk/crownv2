@@ -461,10 +461,10 @@ function getFocusedMetricId(vizMode: StackingVizMode): FloorMetricId | null {
 function getFloorMetricLongLabel(metricId: FloorMetricId) {
   if (metricId === "occ") return "Occupancy"
   if (metricId === "vac") return "Vacancy"
-  if (metricId === "pred") return "Predicted Rent"
-  if (metricId === "contract") return "Contract Rent"
-  if (metricId === "sun") return "Sun Score"
-  return "View Score"
+  if (metricId === "pred") return "Predicted rent"
+  if (metricId === "contract") return "Contract rent"
+  if (metricId === "sun") return "Sun score"
+  return "View score"
 }
 
 function getFloorMetricPairTone(
@@ -644,10 +644,10 @@ function InlineMetricItem({
         : "rounded-sm bg-background/55 px-2 py-1 ring-1 ring-border/35"
   const baseLabelClassName =
     emphasis === "subtle"
-      ? "text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/65"
+      ? "text-[10px] font-medium tracking-normal text-muted-foreground/65"
       : emphasis === "active"
-        ? "text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/75"
-        : "text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground/85"
+        ? "text-[10px] font-medium tracking-normal text-muted-foreground/75"
+        : "text-[10px] font-medium tracking-normal text-muted-foreground/85"
   const baseValueClassName =
     emphasis === "subtle"
       ? "text-[12px] font-medium tabular-nums text-foreground/85"
@@ -946,33 +946,33 @@ export function AssetStackingPlanWorkspace({
     return [
       {
         id: "occ",
-        label: "Occ",
+        label: getFloorMetricLongLabel("occ"),
         value: formatPercentValue(summary.overallOccupancyPercent),
       },
       {
         id: "vac",
-        label: "Vac",
+        label: getFloorMetricLongLabel("vac"),
         value: formatPercentValue(vacancyPercent),
       },
       {
         id: "pred",
-        label: "Pred",
+        label: getFloorMetricLongLabel("pred"),
         value: formatCompactRate(averagePredictedRentPsf),
       },
       {
         id: "contract",
-        label: "Cont",
+        label: getFloorMetricLongLabel("contract"),
         value: formatCompactRate(averageContractRatePsf),
       },
       {
         id: "sun",
-        label: "Sun",
+        label: getFloorMetricLongLabel("sun"),
         value: formatCompactScore(averageSunScore),
         valueClassName: qualityScoreValueClass(averageSunScore),
       },
       {
         id: "view",
-        label: "View",
+        label: getFloorMetricLongLabel("view"),
         value: formatCompactScore(averageViewScore),
         valueClassName: qualityScoreValueClass(averageViewScore),
       },
@@ -1554,7 +1554,7 @@ function DetailedColumnHeaders({
   return (
     <div className="flex items-center border-b border-border bg-muted/35">
       <div className="flex w-[116px] items-center justify-center gap-1.5 px-3 py-3">
-        <div className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+        <div className="text-[11px] font-medium tracking-normal text-muted-foreground">
           Floor
         </div>
         <button
@@ -1625,26 +1625,26 @@ function DetailedFloorRow({
         <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/10">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/30 px-2.5 py-1.5">
             <InlineMetricItem
-              label="Occ"
+              label={getFloorMetricLongLabel("occ")}
               value={`${floor.occupancyPercent}%`}
               valueClassName={occupancyMetricTextClass(floor.occupancyPercent)}
               className="bg-background/70"
             />
             <InlineMetricItem
-              label="Pred"
+              label={getFloorMetricLongLabel("pred")}
               value={formatCompactRate(averagePredictedRate)}
             />
             <InlineMetricItem
-              label="Contract"
+              label={getFloorMetricLongLabel("contract")}
               value={formatCompactRate(averageContractRate)}
             />
             <InlineMetricItem
-              label="Sun"
+              label={getFloorMetricLongLabel("sun")}
               value={formatCompactScore(averageSunScore)}
               valueClassName={qualityScoreValueClass(averageSunScore)}
             />
             <InlineMetricItem
-              label="View"
+              label={getFloorMetricLongLabel("view")}
               value={formatCompactScore(averageViewScore)}
               valueClassName={qualityScoreValueClass(averageViewScore)}
             />
@@ -1801,7 +1801,7 @@ function StackSummaryRow({
         <div className="flex items-center justify-center px-3 py-3">
           <div className="flex min-w-[60px] flex-col items-center gap-1">
             <div className="flex h-9 min-w-[52px] items-center justify-center rounded-lg border border-border/60 bg-muted/35 px-3">
-              <div className="text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase">
+              <div className="text-[10px] font-medium tracking-normal text-foreground">
                 Total
               </div>
             </div>
@@ -2041,8 +2041,8 @@ function StackFirstRow({
                 ) : (
                   <ChevronRight className="size-4" />
                 )}
-                <span className="text-[10px] font-semibold tracking-[0.12em] uppercase">
-                  {isExpanded ? "Hide" : "Value Drivers"}
+                <span className="text-[10px] font-medium tracking-normal">
+                  {isExpanded ? "Hide" : "Value drivers"}
                 </span>
               </button>
             </div>
@@ -2089,46 +2089,39 @@ function FloorMetricRibbon({
   const items: Array<{
     id: FloorMetricId
     label: string
-    activeLabel: string
     value: string
     valueStyle?: React.CSSProperties
     valueClassName?: string
   }> = [
     {
       id: "occ",
-      label: "Occ",
-      activeLabel: "Occupancy",
+      label: getFloorMetricLongLabel("occ"),
       value: formatPercentValue(floor.occupancyPercent),
     },
     {
       id: "vac",
-      label: "Vac",
-      activeLabel: "Vacancy",
+      label: getFloorMetricLongLabel("vac"),
       value: formatPercentValue(floor.vacancyPercent),
     },
     {
       id: "pred",
-      label: "Pred",
-      activeLabel: "Predicted Rent",
+      label: getFloorMetricLongLabel("pred"),
       value: formatCompactRate(averagePredictedRate),
     },
     {
       id: "contract",
-      label: "Cont",
-      activeLabel: "Contract Rent",
+      label: getFloorMetricLongLabel("contract"),
       value: formatCompactRate(averageContractRate),
     },
     {
       id: "sun",
-      label: "Sun",
-      activeLabel: "Sun Score",
+      label: getFloorMetricLongLabel("sun"),
       value: formatCompactScore(averageSunScore),
       valueClassName: qualityScoreValueClass(averageSunScore),
     },
     {
       id: "view",
-      label: "View",
-      activeLabel: "View Score",
+      label: getFloorMetricLongLabel("view"),
       value: formatCompactScore(averageViewScore),
       valueClassName: qualityScoreValueClass(averageViewScore),
     },
@@ -2153,7 +2146,7 @@ function FloorMetricRibbon({
           <MatrixModeBadge mode={vizMode} />
           <FloorMetricPair
             metricId={focusedMetric.id}
-            label={focusedMetric.activeLabel}
+            label={focusedMetric.label}
             value={focusedMetric.value}
             floor={floor}
             vizMode={vizMode}
@@ -2826,7 +2819,7 @@ function SummaryFooter({
   return (
     <div className="flex items-center border-t border-border bg-muted/20">
       <div className="flex w-[116px] flex-col items-center px-3 py-3 text-center">
-        <div className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+        <div className="text-[10px] font-medium tracking-normal text-muted-foreground">
           Total RSF
         </div>
         <div className="mt-1 text-[11px] font-semibold text-foreground tabular-nums">
@@ -2836,25 +2829,25 @@ function SummaryFooter({
       <div className="flex flex-1 items-center justify-between gap-3 px-3 py-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <InlineMetricItem
-            label="Occ"
+            label={getFloorMetricLongLabel("occ")}
             value={`${overallOccupancyPercent.toFixed(2)}%`}
             className="bg-background/70"
           />
           <InlineMetricItem
-            label="Pred"
+            label={getFloorMetricLongLabel("pred")}
             value={formatCompactRate(averagePredictedRentPsf)}
           />
           <InlineMetricItem
-            label="Contract"
+            label={getFloorMetricLongLabel("contract")}
             value={formatCompactRate(averageContractRatePsf)}
           />
           <InlineMetricItem
-            label="Sun"
+            label={getFloorMetricLongLabel("sun")}
             value={formatCompactScore(averageSunScore)}
             valueClassName={qualityScoreValueClass(averageSunScore)}
           />
           <InlineMetricItem
-            label="View"
+            label={getFloorMetricLongLabel("view")}
             value={formatCompactScore(averageViewScore)}
             valueClassName={qualityScoreValueClass(averageViewScore)}
           />
