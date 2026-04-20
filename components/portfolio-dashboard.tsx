@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -815,7 +816,7 @@ function PortfolioDashboardInner({
               table={portfolioTable}
               className="hidden lg:flex"
             />
-            <Button type="button" className="shrink-0">
+            <Button className="shrink-0" render={<Link href="/search" />}>
               Add asset
             </Button>
           </div>
