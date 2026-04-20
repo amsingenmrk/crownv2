@@ -22,12 +22,6 @@ export function AssetForecastSummaryStrip({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          2 Year Avg Summary
-        </p>
-      </div>
-
       <section
         className={cn(metricStripSectionClassName, "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4")}
         aria-label="Forecast summary metrics"

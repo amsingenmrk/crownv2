@@ -112,34 +112,123 @@ function ForecastHighchart({ options }: { options: Highcharts.Options }) {
   )
 }
 
-export function AssetForecastCharts({
-  models,
-  variant = "default",
-}: {
-  models: AssetForecastModel[]
-  /** `compare`: badge text refers to compare columns (lines), not economic outlooks. */
-  variant?: "default" | "compare"
-}) {
-  const palette = useForecastChartPalette()
-  const chartRows = React.useMemo(
+const FORECAST_CHART_TAB_ROW_IDS: ForecastChartTab[] = [
+  "grossRevenue",
+  "opex",
+  "noi",
+  "salePrice",
+  "capRate",
+]
+
+function useForecastChartStatementTabs(models: AssetForecastModel[]) {
+  return React.useMemo(
     () =>
-      (models[0]?.statementRows ?? []).filter((row): row is typeof row & { id: ForecastChartTab } =>
-        ["grossRevenue", "opex", "noi", "salePrice", "capRate"].includes(row.id)
+      (models[0]?.statementRows ?? []).filter(
+        (row): row is (typeof row & { id: ForecastChartTab }) =>
+          FORECAST_CHART_TAB_ROW_IDS.includes(row.id as ForecastChartTab)
       ),
     [models]
   )
+}
 
-  const [activeTab, setActiveTab] = React.useState<ForecastChartTab>("grossRevenue")
+/** Renders chart title, optional compare copy, and metric toggles — place above `AssetForecastCharts`. */
+export function AssetForecastChartMetricToolbar({
+  models,
+  variant = "default",
+  metricTab,
+  onMetricTabChange,
+  ariaLabel = "Forecast chart metric",
+}: {
+  models: AssetForecastModel[]
+  variant?: "default" | "compare"
+  metricTab: ForecastChartTab
+  onMetricTabChange: (tab: ForecastChartTab) => void
+  ariaLabel?: string
+}) {
+  const chartRows = useForecastChartStatementTabs(models)
+  const activeChartMeta = getForecastStatementChartMeta(metricTab)
+
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{activeChartMeta.title}</h2>
+        </div>
+        {variant === "compare" ? (
+          <p className="max-w-2xl text-xs text-muted-foreground">
+            One line per compare column — Baseline outlook, quarterly values summed across that
+            column&apos;s assets.
+          </p>
+        ) : null}
+      </div>
+
+      <ToggleGroup
+        value={[metricTab]}
+        onValueChange={(values) => {
+          const next = values[0]
+          if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
+            onMetricTabChange(next as ForecastChartTab)
+          }
+        }}
+        aria-label={ariaLabel}
+        className="w-fit max-w-full flex-wrap"
+      >
+        {chartRows.map((row) => (
+          <ToggleGroupItem key={row.id} value={row.id}>
+            {row.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  )
+}
+
+export function AssetForecastCharts({
+  models,
+  metricTab: metricTabProp,
+  onMetricTabChange,
+  metricToolbarInCard = false,
+  toolbarVariant = "default",
+  metricToolbarAriaLabel = "Forecast chart metric",
+}: {
+  models: AssetForecastModel[]
+  /** Controlled metric selection (use with `onMetricTabChange`). */
+  metricTab?: ForecastChartTab
+  onMetricTabChange?: (tab: ForecastChartTab) => void
+  /** When true, metric toggles render in the chart card above the plot. */
+  metricToolbarInCard?: boolean
+  toolbarVariant?: "default" | "compare"
+  metricToolbarAriaLabel?: string
+}) {
+  const palette = useForecastChartPalette()
+  const chartRows = useForecastChartStatementTabs(models)
+
+  const [uncontrolledTab, setUncontrolledTab] = React.useState<ForecastChartTab>("grossRevenue")
+  const controlled = metricTabProp !== undefined
+  const activeTab = controlled ? metricTabProp! : uncontrolledTab
+
+  const setActiveTab = React.useCallback(
+    (next: ForecastChartTab) => {
+      if (controlled) {
+        onMetricTabChange?.(next)
+      } else {
+        setUncontrolledTab(next)
+      }
+    },
+    [controlled, onMetricTabChange]
+  )
 
   React.useEffect(() => {
     if (chartRows.some((row) => row.id === activeTab)) return
-    const fallbackTab = chartRows[0]?.id
-    if (fallbackTab != null) {
-      setActiveTab(fallbackTab)
+    const fallbackTab = chartRows[0]?.id as ForecastChartTab | undefined
+    if (fallbackTab == null) return
+    if (controlled) {
+      onMetricTabChange?.(fallbackTab)
+    } else {
+      setUncontrolledTab(fallbackTab)
     }
-  }, [activeTab, chartRows])
+  }, [activeTab, chartRows, controlled, onMetricTabChange])
 
-  const activeChartMeta = getForecastStatementChartMeta(activeTab)
   const chartOptions = React.useMemo(
     () => buildForecastStatementHighchartsConfig(models, activeTab, palette),
     [activeTab, models, palette]
@@ -150,40 +239,17 @@ export function AssetForecastCharts({
       className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
       aria-label="Forecast charts"
     >
-      <div className="flex flex-col gap-4 border-b border-border/60 px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold text-foreground">{activeChartMeta.title}</h2>
-            </div>
-            {variant === "compare" ? (
-              <p className="max-w-2xl text-xs text-muted-foreground">
-                One line per compare column — Baseline outlook, quarterly values summed across
-                that column&apos;s assets.
-              </p>
-            ) : null}
-          </div>
-
-          <ToggleGroup
-            value={[activeTab]}
-            onValueChange={(values) => {
-              const next = values[0]
-              if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
-                setActiveTab(next as ForecastChartTab)
-              }
-            }}
-            aria-label="Forecast chart metric"
-            className="w-fit max-w-full flex-wrap"
-          >
-            {chartRows.map((row) => (
-              <ToggleGroupItem key={row.id} value={row.id}>
-                {row.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+      {metricToolbarInCard ? (
+        <div className="border-b border-border/60 px-4 py-4">
+          <AssetForecastChartMetricToolbar
+            models={models}
+            variant={toolbarVariant}
+            metricTab={activeTab}
+            onMetricTabChange={setActiveTab}
+            ariaLabel={metricToolbarAriaLabel}
+          />
         </div>
-      </div>
-
+      ) : null}
       <div className="px-4 py-4">
         <ForecastHighchart options={chartOptions} />
       </div>

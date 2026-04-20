@@ -10,6 +10,8 @@ export type ScopedSurfaceNavItem = {
   href: string
   label: string
   icon: LucideIcon
+  /** Optional tooltip (e.g. when multiple items share the same `label`). */
+  title?: string
 }
 
 export function ScopedSurfaceNav({
@@ -46,6 +48,7 @@ export function ScopedSurfaceNav({
             <button
               key={item.href}
               type="button"
+              title={item.title}
               className={cn(
                 "flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -54,6 +57,7 @@ export function ScopedSurfaceNav({
               )}
               onClick={() => router.push(item.href)}
               aria-current={isActive ? "page" : undefined}
+              aria-label={item.title != null ? `${item.label} — ${item.title}` : undefined}
             >
               <Icon className="size-4 shrink-0" />
               {item.label}

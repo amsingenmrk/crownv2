@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { AssetForecastCharts } from "@/components/asset-forecast-charts"
+import {
+  AssetForecastCharts,
+  AssetForecastChartMetricToolbar,
+} from "@/components/asset-forecast-charts"
 import { PortfolioCompareDataTable } from "@/components/portfolio/portfolio-compare-data-table"
 import { buildCompareColumnForecastModels } from "@/lib/compare-forecast-models"
 import {
@@ -20,6 +23,7 @@ import {
   BUILTIN_SCENARIO,
 } from "@/lib/user-scenarios"
 import { subscribeScenarioIncludedProperties } from "@/lib/scenario-included-properties-storage"
+import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 
 function useComparePickerRefresh(): number {
   const [v, setV] = React.useReducer((n: number) => n + 1, 0)
@@ -105,6 +109,9 @@ export function PortfolioScenarioComparison({
     [baseColumns, slotKeys, scenarioChartMembership]
   )
 
+  const [compareChartMetricTab, setCompareChartMetricTab] =
+    React.useState<ForecastChartTab>("grossRevenue")
+
   const setSlot = React.useCallback(
     (index: number, value: string) => {
       onSlotKeysChange((prev) => {
@@ -144,7 +151,17 @@ export function PortfolioScenarioComparison({
         onAddColumn={addCompareColumn}
         onRemoveColumn={removeCompareColumn}
       />
-      <AssetForecastCharts models={compareForecastModels} variant="compare" />
+      <AssetForecastChartMetricToolbar
+        models={compareForecastModels}
+        variant="compare"
+        metricTab={compareChartMetricTab}
+        onMetricTabChange={setCompareChartMetricTab}
+      />
+      <AssetForecastCharts
+        models={compareForecastModels}
+        metricTab={compareChartMetricTab}
+        onMetricTabChange={setCompareChartMetricTab}
+      />
     </div>
   )
 }

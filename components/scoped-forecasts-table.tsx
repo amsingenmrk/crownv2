@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { assetHref } from "@/lib/assets"
+import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import type {
   ForecastPeriod,
   ForecastStatementRow,
@@ -116,6 +117,14 @@ function assetMetaText(
       ? "Baseline building · Baseline outlook"
       : `${entry.selection.selectedBuildingVersion.name} · ${entry.selection.selectedOutlookSet.name}`
   return `${entry.selection.row.location} · ${selectionLabel}`
+}
+
+function filterStatementRowsForMetric(
+  rows: ForecastStatementRow[],
+  metric: ForecastChartTab | undefined
+): ForecastStatementRow[] {
+  if (metric == null) return rows
+  return rows.filter((row) => row.id === metric)
 }
 
 function buildScopedForecastTableRows({
@@ -256,25 +265,38 @@ export function ScopedForecastsTable({
   assetModels,
   variant,
   topAccessory,
+  metricFilter,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
   variant: "baseline" | "selected"
   topAccessory?: React.ReactNode
+  metricFilter?: ForecastChartTab
 }) {
+  const filteredRows = React.useMemo(
+    () => filterStatementRowsForMetric(rows, metricFilter),
+    [metricFilter, rows]
+  )
+
   const [expanded, setExpanded] = React.useState<ExpandedState>({
     grossRevenue: true,
   })
 
+  React.useEffect(() => {
+    if (metricFilter != null) {
+      setExpanded({ [metricFilter]: true })
+    }
+  }, [metricFilter])
+
   const data = React.useMemo(
     () =>
       buildScopedForecastTableRows({
-        rows,
+        rows: filteredRows,
         assetModels,
         variant,
       }),
-    [assetModels, rows, variant]
+    [assetModels, filteredRows, variant]
   )
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
@@ -386,9 +408,11 @@ export function ScopedForecastsTable({
         </TableBody>
       </Table>
 
-      <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
-        Expand any statement row to inspect building-level contributions for the current selection.
-      </div>
+      {metricFilter == null ? (
+        <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
+          Expand any statement row to inspect building-level contributions for the current selection.
+        </div>
+      ) : null}
     </div>
   )
 }

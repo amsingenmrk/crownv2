@@ -4,13 +4,9 @@ import * as React from "react"
 import {
   flexRender,
   getCoreRowModel,
-  getExpandedRowModel,
   useReactTable,
   type ColumnDef,
-  type ExpandedState,
-  type Row,
 } from "@tanstack/react-table"
-import { ChevronDown, ChevronRight } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -19,12 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type {
-  ForecastPeriod,
-  ForecastRevenueFloorRow,
-  ForecastRevenueSpaceRow,
-  ForecastStatementRow,
-} from "@/lib/forecast-data"
+import type { ForecastPeriod, ForecastStatementRow } from "@/lib/forecast-data"
 import { cn } from "@/lib/utils"
 
 /** Compact USD without `Intl` compact notation — Node and browsers disagree on e.g. `$1.0M` vs `$1M`. */
@@ -78,15 +69,12 @@ const periodColumnStyle: React.CSSProperties = {
 
 type ForecastTableRow = {
   id: string
-  rowType: "statement" | "floor" | "suite"
   label: string
   kind: ForecastStatementRow["kind"]
   values: number[]
-  metaText?: string
   highlightLabel?: boolean
   highlightValue?: boolean
   startsSection?: boolean
-  subRows?: ForecastTableRow[]
 }
 
 function formatStatementValue(kind: ForecastStatementRow["kind"], value: number) {
@@ -101,95 +89,19 @@ function formatStatementValue(kind: ForecastStatementRow["kind"], value: number)
   return formatUsdSigned(value)
 }
 
-function suiteMetaText(space: ForecastRevenueSpaceRow) {
-  return `${space.tenantName}${space.isVacant ? " · Available" : ""}`
-}
-
-function buildRevenueFloorRows(
-  revenueBreakdown: ForecastRevenueFloorRow[]
-): ForecastTableRow[] {
-  return revenueBreakdown.map((floor) => ({
-    id: floor.id,
-    rowType: "floor",
-    label: floor.label,
-    kind: "currency",
-    values: floor.values,
-    metaText: `${floor.sqft.toLocaleString("en-US")} SF`,
-    subRows: floor.spaces.map((space) => ({
-      id: space.id,
-      rowType: "suite",
-      label: space.suite,
-      kind: "currency",
-      values: space.values,
-      metaText: suiteMetaText(space),
-    })),
-  }))
-}
-
-function buildForecastTableRows(
-  rows: ForecastStatementRow[],
-  revenueBreakdown: ForecastRevenueFloorRow[]
-): ForecastTableRow[] {
-  const revenueRows = buildRevenueFloorRows(revenueBreakdown)
-
+function buildForecastTableRows(rows: ForecastStatementRow[]): ForecastTableRow[] {
   return rows.map((row) => ({
     id: row.id,
-    rowType: "statement",
     label: row.label,
     kind: row.kind,
     values: row.values,
     highlightLabel: row.id === "salePrice",
     highlightValue: row.id === "salePrice",
     startsSection: row.id === "salePrice",
-    subRows: row.id === "grossRevenue" ? revenueRows : undefined,
   }))
 }
 
-function lineItemCellContent(row: Row<ForecastTableRow>) {
-  const item = row.original
-
-  if (item.rowType === "suite") {
-    return (
-      <div className="flex min-w-0 flex-col pl-10">
-        <span className="truncate font-medium text-foreground">{item.label}</span>
-        {item.metaText ? (
-          <span className="truncate text-xs text-muted-foreground">{item.metaText}</span>
-        ) : null}
-      </div>
-    )
-  }
-
-  if (row.getCanExpand()) {
-    return (
-      <button
-        type="button"
-        onClick={row.getToggleExpandedHandler()}
-        className={cn(
-          "flex w-full min-w-0 items-center gap-2 text-left",
-          item.rowType === "floor" && "pl-4"
-        )}
-        aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${item.label}`}
-      >
-        {row.getIsExpanded() ? (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-        )}
-        <span
-          className={cn(
-            "truncate font-medium text-foreground",
-            item.highlightLabel && "font-semibold"
-          )}
-        >
-          {item.label}
-        </span>
-        {item.metaText ? (
-          <span className="shrink-0 text-xs text-muted-foreground">{item.metaText}</span>
-        ) : null}
-      </button>
-    )
-  }
-
+function lineItemCellContent(item: ForecastTableRow) {
   return (
     <div className="flex min-w-0 items-center">
       <span
@@ -205,14 +117,6 @@ function lineItemCellContent(row: Row<ForecastTableRow>) {
 }
 
 function rowClassName(item: ForecastTableRow) {
-  if (item.rowType === "floor") {
-    return "group bg-muted/25 hover:bg-muted/30"
-  }
-
-  if (item.rowType === "suite") {
-    return "group bg-background/80 hover:bg-muted/15"
-  }
-
   return cn(
     "group",
     "hover:bg-transparent",
@@ -225,41 +129,26 @@ function firstColumnSurfaceClassName(item?: ForecastTableRow) {
     return "bg-card"
   }
 
-  if (item.rowType === "floor") {
-    return "bg-muted/25 group-hover:bg-muted/30"
-  }
-
-  if (item.rowType === "suite") {
-    return "bg-background/80 group-hover:bg-muted/15"
-  }
-
   return "bg-background"
 }
 
 export function AssetForecastsTable({
   periods,
   rows,
-  revenueBreakdown,
   topAccessory,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
-  revenueBreakdown: ForecastRevenueFloorRow[]
   topAccessory?: React.ReactNode
 }) {
-  const [expanded, setExpanded] = React.useState<ExpandedState>({})
-
-  const data = React.useMemo(
-    () => buildForecastTableRows(rows, revenueBreakdown),
-    [revenueBreakdown, rows]
-  )
+  const data = React.useMemo(() => buildForecastTableRows(rows), [rows])
 
   const columns = React.useMemo<ColumnDef<ForecastTableRow>[]>(
     () => [
       {
         id: "lineItem",
         header: () => "Line Item",
-        cell: ({ row }) => lineItemCellContent(row),
+        cell: ({ row }) => lineItemCellContent(row.original),
         enableSorting: false,
       },
       ...periods.map<ColumnDef<ForecastTableRow>>((period, index) => ({
@@ -290,13 +179,8 @@ export function AssetForecastsTable({
   const table = useReactTable({
     data,
     columns,
-    state: { expanded },
-    onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: (row) => row.subRows ?? [],
     getRowId: (row) => row.id,
-    autoResetExpanded: false,
   })
 
   const totalTableMinWidth = FIRST_COLUMN_WIDTH_PX + periods.length * PERIOD_COLUMN_WIDTH_PX
@@ -351,10 +235,8 @@ export function AssetForecastsTable({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      isLineItemColumn
-                        ? "sticky left-0 z-10 px-4"
-                        : "px-3",
-                      row.original.rowType === "suite" ? "py-3" : "py-2.5",
+                      isLineItemColumn ? "sticky left-0 z-10 px-4" : "px-3",
+                      "py-2.5",
                       isLineItemColumn && firstColumnSurfaceClassName(row.original)
                     )}
                     style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
@@ -367,11 +249,6 @@ export function AssetForecastsTable({
           ))}
         </TableBody>
       </Table>
-
-      <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
-        Expand <span className="font-medium text-foreground">Gross Revenue</span> to inspect
-        floor and suite-level revenue build-up.
-      </div>
     </div>
   )
 }

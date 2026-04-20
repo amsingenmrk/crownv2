@@ -3,7 +3,10 @@
 import * as React from "react"
 import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
-import { AssetForecastCharts } from "@/components/asset-forecast-charts"
+import {
+  AssetForecastCharts,
+  AssetForecastChartMetricToolbar,
+} from "@/components/asset-forecast-charts"
 import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
 import {
@@ -41,6 +44,7 @@ import {
   type ForecastStatementRow,
   type ForecastScenarioId,
 } from "@/lib/forecast-data"
+import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import {
   cloneScenario,
   cloneScenarios,
@@ -302,6 +306,8 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const [activeOutlookId, setActiveOutlookId] = React.useState<ForecastScenarioId>(
     defaultOutlooks[0]?.id ?? "baseline"
   )
+  const [forecastChartMetricTab, setForecastChartMetricTab] =
+    React.useState<ForecastChartTab>("grossRevenue")
   const [editingOutlookId, setEditingOutlookId] = React.useState<ForecastScenarioId | null>(null)
   const [originalEditingOutlook, setOriginalEditingOutlook] =
     React.useState<ForecastEconomicOutlookScenario | null>(null)
@@ -1222,7 +1228,16 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <AssetForecastCharts models={includedModels} />
+        <AssetForecastChartMetricToolbar
+          models={includedModels}
+          metricTab={forecastChartMetricTab}
+          onMetricTabChange={setForecastChartMetricTab}
+        />
+        <AssetForecastCharts
+          models={includedModels}
+          metricTab={forecastChartMetricTab}
+          onMetricTabChange={setForecastChartMetricTab}
+        />
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
@@ -1263,7 +1278,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             key={activeOutlookId}
             periods={model.periods}
             rows={model.statementRows}
-            revenueBreakdown={model.revenueBreakdown}
           />
         </section>
       </div>
