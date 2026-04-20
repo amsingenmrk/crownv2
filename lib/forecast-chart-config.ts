@@ -1,4 +1,4 @@
-import type Highcharts from "highcharts"
+import Highcharts from "highcharts"
 
 import type { AssetForecastModel, ForecastStatementRow } from "@/lib/forecast-data"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
@@ -142,6 +142,42 @@ function buildCurrencyStatementSeries(row: ForecastStatementRow) {
   return row.values.map((value) => toMillions(Math.abs(value)))
 }
 
+function buildStatementChartValues(row: ForecastStatementRow, isPercent: boolean) {
+  return isPercent
+    ? row.values.map((value) => Number(value.toFixed(2)))
+    : buildCurrencyStatementSeries(row)
+}
+
+function buildStatementUncertaintyBand(
+  row: ForecastStatementRow,
+  isPercent: boolean
+) {
+  const band = row.uncertaintyBand
+  if (band == null) {
+    return null
+  }
+
+  return {
+    lowerValues: isPercent
+      ? band.lowerValues.map((value) => Number(value.toFixed(2)))
+      : band.lowerValues.map((value) => toMillions(Math.abs(value))),
+    upperValues: isPercent
+      ? band.upperValues.map((value) => Number(value.toFixed(2)))
+      : band.upperValues.map((value) => toMillions(Math.abs(value))),
+    label: band.label,
+  }
+}
+
+function gradientFillForColor(color: string): Highcharts.GradientColorObject {
+  return {
+    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+    stops: [
+      [0, Highcharts.color(color).setOpacity(0.18).get() as string],
+      [1, Highcharts.color(color).setOpacity(0.03).get() as string],
+    ],
+  }
+}
+
 export function buildForecastStatementHighchartsConfig(
   models: AssetForecastModel[],
   rowId: ForecastChartTab,
@@ -163,7 +199,7 @@ export function buildForecastStatementHighchartsConfig(
     palette.accent,
     palette.neutral,
   ]
-  const series = models.map((model, index) => {
+  const series: Highcharts.SeriesOptionsType[] = models.flatMap((model, index) => {
     const row =
       model.statementRows.find((statementRow) => statementRow.id === resolvedRowId) ??
       model.statementRows[0] ?? {
@@ -172,15 +208,68 @@ export function buildForecastStatementHighchartsConfig(
         kind: "currency" as const,
         values: Array(categories.length).fill(0),
       }
+    const color = colors[index % colors.length]
+    const data = buildStatementChartValues(row, isPercent)
+    const uncertaintyBand = buildStatementUncertaintyBand(row, isPercent)
+    const uncertaintyStack = `uncertainty-${index}`
 
-    return {
-      type: "line" as const,
-      name: model.scenario.name,
-      data: isPercent
-        ? row.values.map((value) => Number(value.toFixed(2)))
-        : buildCurrencyStatementSeries(row),
-      color: colors[index % colors.length],
-    }
+    const envelopeSeries: Highcharts.SeriesOptionsType[] =
+      uncertaintyBand == null
+        ? []
+        : [
+            {
+              type: "area",
+              name: `${model.scenario.name} lower bound filler`,
+              data: uncertaintyBand.lowerValues,
+              stack: uncertaintyStack,
+              showInLegend: false,
+              enableMouseTracking: false,
+              color: Highcharts.color(color).setOpacity(0).get() as string,
+              fillOpacity: 0,
+              lineWidth: 0,
+              marker: { enabled: false },
+              states: {
+                hover: { enabled: false },
+                inactive: { opacity: 1 },
+              },
+            },
+            {
+              type: "area",
+              name: `${model.scenario.name} estimated uncertainty`,
+              data: uncertaintyBand.upperValues.map((value, pointIndex) =>
+                Number(
+                  (
+                    value - (uncertaintyBand.lowerValues[pointIndex] ?? value)
+                  ).toFixed(2)
+                )
+              ),
+              stack: uncertaintyStack,
+              showInLegend: false,
+              enableMouseTracking: false,
+              color,
+              fillColor: gradientFillForColor(color),
+              lineWidth: 0,
+              marker: { enabled: false },
+              states: {
+                hover: { enabled: false },
+                inactive: { opacity: 1 },
+              },
+            },
+          ]
+
+    return [
+      ...envelopeSeries,
+      {
+        type: "line",
+        name: model.scenario.name,
+        data,
+        color,
+        zIndex: 2,
+        custom: {
+          uncertaintyLabel: uncertaintyBand?.label,
+        },
+      } satisfies Highcharts.SeriesLineOptions,
+    ]
   })
 
   return {
@@ -251,6 +340,13 @@ export function buildForecastStatementHighchartsConfig(
       },
     },
     plotOptions: {
+      area: {
+        stacking: "normal",
+        lineWidth: 0,
+        marker: {
+          enabled: false,
+        },
+      },
       series: {
         animation: false,
       },
@@ -298,6 +394,19 @@ export function buildForecastStatementHighchartsConfig(
                 isPercent ? `${Number(point.y).toFixed(2)}%` : `$${Number(point.y).toFixed(2)}M`
               }`
           ),
+          ...points
+            .flatMap((point) => {
+              const userOptions = point.series.userOptions as Highcharts.SeriesLineOptions & {
+                custom?: { uncertaintyLabel?: string }
+              }
+              const uncertaintyLabel = userOptions.custom?.uncertaintyLabel
+              return uncertaintyLabel == null
+                ? []
+                : [
+                    `<span style="color:${palette.mutedText};font-size:11px;">${uncertaintyLabel}. Shading is heuristic and not a calibrated confidence interval.</span>`,
+                  ]
+            })
+            .slice(0, 1),
         ].join("<br/>")
       },
     },

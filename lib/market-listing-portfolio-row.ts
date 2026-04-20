@@ -3,6 +3,7 @@ import type { AssetGroupId } from "@/lib/assets"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioValueNoiCapFromSeed } from "@/lib/portfolio-asset-financials"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
+import { portfolioClassLabelForSeed } from "@/lib/portfolio-row-for-asset"
 
 const ASSET_STATUS_LABELS = [
   "Stabilized",
@@ -54,6 +55,7 @@ export function portfolioAssetRowForMarketPin(
     location: pin.location ?? "",
     ownership: "Market",
     typeLabel,
+    classLabel: portfolioClassLabelForSeed(seed, 60 + (seed % 35)),
     rsf: formatRsfShort(fin.rsfSqft),
     occPct: `${60 + (seed % 35)}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
@@ -64,6 +66,7 @@ export function portfolioAssetRowForMarketPin(
     status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
     lift: pin.lift,
     liftPercent: pin.liftPercent,
+    recommendedModification: null,
   }
 }
 

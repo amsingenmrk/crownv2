@@ -92,6 +92,10 @@ export type ModificationImpactMetrics = {
   averageModifiedRentPsf: number | null
   averageLiftPsf: number | null
   averageLiftPct: number | null
+  minLiftPsf: number | null
+  minLiftPct: number | null
+  maxLiftPsf: number | null
+  maxLiftPct: number | null
   matchingSqft: number
   matchedSpaceCount: number
   impactedSqft: number
@@ -195,6 +199,10 @@ export function deriveImpactMetrics(
       averageModifiedRentPsf: null,
       averageLiftPsf: null,
       averageLiftPct: null,
+      minLiftPsf: null,
+      minLiftPct: null,
+      maxLiftPsf: null,
+      maxLiftPct: null,
       matchingSqft: 0,
       matchedSpaceCount: 0,
       impactedSqft: 0,
@@ -233,12 +241,40 @@ export function deriveImpactMetrics(
             averageBaselineRentPsf) *
             100
         )
+  const minLiftPsf = roundToHundredths(
+    spaces.reduce(
+      (minValue, tenant) => Math.min(minValue, tenant.deltaPsf),
+      Number.POSITIVE_INFINITY
+    )
+  )
+  const minLiftPct = roundToHundredths(
+    spaces.reduce(
+      (minValue, tenant) => Math.min(minValue, tenant.deltaPct),
+      Number.POSITIVE_INFINITY
+    )
+  )
+  const maxLiftPsf = roundToHundredths(
+    spaces.reduce(
+      (maxValue, tenant) => Math.max(maxValue, tenant.deltaPsf),
+      Number.NEGATIVE_INFINITY
+    )
+  )
+  const maxLiftPct = roundToHundredths(
+    spaces.reduce(
+      (maxValue, tenant) => Math.max(maxValue, tenant.deltaPct),
+      Number.NEGATIVE_INFINITY
+    )
+  )
 
   return {
     averageBaselineRentPsf,
     averageModifiedRentPsf,
     averageLiftPsf,
     averageLiftPct,
+    minLiftPsf,
+    minLiftPct,
+    maxLiftPsf,
+    maxLiftPct,
     matchingSqft,
     matchedSpaceCount: spaces.length,
     impactedSqft: spaces

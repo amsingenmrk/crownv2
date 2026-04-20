@@ -1201,9 +1201,9 @@ export function AssetStackingPlanWorkspace({
               contractRatePsfValue != null &&
               predictedRentPsfValue != null &&
               rentPremiumPctValue != null
-                ? `+$${(predictedRentPsfValue - contractRatePsfValue).toFixed(2)} / SF (${rentPremiumPctValue.toFixed(
+                ? `+$${(predictedRentPsfValue - contractRatePsfValue).toFixed(2)} / SF (+${rentPremiumPctValue.toFixed(
                     1
-                  )}%)`
+                  )}% vs contract rent)`
                 : tenant.rentPremium,
             renewalProbabilityPct,
             timeToLeaseMonths,

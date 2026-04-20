@@ -798,12 +798,16 @@ function buildFloorValueDrivers({
     }
   }
 
-  const rankedFactors = [...scaledFactors].sort(
+  const rankedFactorsByMagnitude = [...scaledFactors].sort(
     (left, right) => Math.abs(right.impact) - Math.abs(left.impact)
   )
   const visibleFactorCount = 5
-  const waterfallFactors = rankedFactors.slice(0, visibleFactorCount)
-  const otherFactors = rankedFactors.slice(visibleFactorCount)
+  const waterfallFactors = sortValueDriverFactorsForDisplay(
+    rankedFactorsByMagnitude.slice(0, visibleFactorCount)
+  )
+  const otherFactors = sortValueDriverFactorsForDisplay(
+    rankedFactorsByMagnitude.slice(visibleFactorCount)
+  )
 
   return {
     marketBaselineRentPsf: roundToHundredths(
@@ -831,6 +835,21 @@ function buildFloorValueDrivers({
       otherFactorCount: otherFactors.length,
     },
   }
+}
+
+function sortValueDriverFactorsForDisplay(
+  factors: StackingValueDriverFactor[]
+) {
+  return [...factors].sort((left, right) => {
+    const leftPositive = left.impact >= 0
+    const rightPositive = right.impact >= 0
+
+    if (leftPositive !== rightPositive) {
+      return leftPositive ? -1 : 1
+    }
+
+    return Math.abs(right.impact) - Math.abs(left.impact)
+  })
 }
 
 type RandomFn = () => number
@@ -1222,7 +1241,7 @@ export function getSampleStackingPlanData(
           predictedRent: formatCurrencyPerSf(predictedRentPerSfValue),
           rentPremium: isVacant
             ? undefined
-            : `+$${rentPremiumPerSfValue.toFixed(2)} / SF (${rentPremiumPct.toFixed(1)}%)`,
+            : `+$${rentPremiumPerSfValue.toFixed(2)} / SF (+${rentPremiumPct.toFixed(1)}% vs contract rent)`,
           contacts: buildContacts(assetId, tenant.name, owner, isVacant),
           note: tenant.note,
         }

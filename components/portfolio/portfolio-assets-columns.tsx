@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
+import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -14,10 +15,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { AssetForecastSelect } from "@/components/portfolio/asset-forecast-select"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
+import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
@@ -27,6 +28,40 @@ import { cn } from "@/lib/utils"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
 export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
+
+const CLASS_SOURCE_LABEL =
+  "Modeled building class estimate for the demo portfolio table."
+
+const PRICING_SOURCE_LABEL =
+  "Modeled pricing estimate. This is not presented as raw client-reported pricing."
+
+const VALUE_SOURCE_LABEL =
+  "Modeled asset value estimate derived from the portfolio financial model."
+
+const POTENTIAL_LIFT_SOURCE_LABEL =
+  "Derived from the highest-lift single recommended modification for this asset."
+
+function ValueWithProvenance({
+  value,
+  sourceLabel,
+  className,
+}: {
+  value: ReactNode
+  sourceLabel?: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1.5 text-left",
+        className
+      )}
+    >
+      <span className="min-w-0 truncate">{value}</span>
+      {sourceLabel ? <PortfolioProvenanceIndicator label={sourceLabel} /> : null}
+    </div>
+  )
+}
 
 function SortableHeader({
   column,
@@ -209,12 +244,27 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "typeLabel",
       enableHiding: true,
-      meta: { columnLabel: "Type" },
+      meta: { columnLabel: "Sector" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Type</SortableHeader>
+        <SortableHeader column={column}>Sector</SortableHeader>
       ),
       cell: ({ row }) => (
         <span className="text-left text-sm">{row.original.typeLabel}</span>
+      ),
+    },
+    {
+      accessorKey: "classLabel",
+      enableHiding: true,
+      meta: { columnLabel: "Class" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>Class</SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <ValueWithProvenance
+          value={row.original.classLabel}
+          sourceLabel={CLASS_SOURCE_LABEL}
+          className="text-sm"
+        />
       ),
     },
     {
@@ -261,9 +311,11 @@ export function createPortfolioAssetColumns(
         Number.parseInt(String(rowA.getValue(id)).replace(/\D/g, ""), 10) -
         Number.parseInt(String(rowB.getValue(id)).replace(/\D/g, ""), 10),
       cell: ({ row }) => (
-        <div className="text-left text-sm tabular-nums">
-          {row.original.pricePerSf}
-        </div>
+        <ValueWithProvenance
+          value={row.original.pricePerSf}
+          sourceLabel={PRICING_SOURCE_LABEL}
+          className="text-sm tabular-nums"
+        />
       ),
     },
     {
@@ -295,9 +347,11 @@ export function createPortfolioAssetColumns(
           numeric: true,
         }),
       cell: ({ row }) => (
-        <div className="text-left text-sm tabular-nums">
-          {row.original.value}
-        </div>
+        <ValueWithProvenance
+          value={row.original.value}
+          sourceLabel={VALUE_SOURCE_LABEL}
+          className="text-sm tabular-nums"
+        />
       ),
     },
     {
@@ -347,32 +401,42 @@ export function createPortfolioAssetColumns(
         Number(rowA.getValue(id)) - Number(rowB.getValue(id)),
       cell: ({ row }) => (
         <div className="flex justify-start">
-          <span
-            className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
-              liftPillClassFromStrength(liftStrength(row.original.liftPercent))
-            )}
-          >
-            {row.original.lift}
-          </span>
+          {row.original.recommendedModification == null ||
+          isMarketListingRowId(row.original.id) ? (
+            <span
+              className={cn(
+                "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
+                liftPillClassFromStrength(liftStrength(row.original.liftPercent))
+              )}
+            >
+              {row.original.lift}
+            </span>
+          ) : (
+            <div className="inline-flex items-center gap-1.5">
+              <Link
+                href={buildRecommendedModificationHref(
+                  row.original.id,
+                  row.original.recommendedModification
+                )}
+                className="inline-flex rounded-full focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                aria-label={`Potential lift ${row.original.lift}. Open ${row.original.recommendedModification.optionTitle} in modifications.`}
+              >
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums transition-opacity hover:opacity-90",
+                    liftPillClassFromStrength(liftStrength(row.original.liftPercent))
+                  )}
+                >
+                  {row.original.lift}
+                </span>
+              </Link>
+              <PortfolioProvenanceIndicator
+                label={POTENTIAL_LIFT_SOURCE_LABEL}
+              />
+            </div>
+          )}
         </div>
       ),
-    })
-    columns.push({
-      id: "forecast",
-      enableHiding: true,
-      meta: { columnLabel: "Forecast" },
-      header: () => <div className="font-medium">Forecast</div>,
-      enableSorting: false,
-      cell: ({ row }) =>
-        isMarketListingRowId(row.original.id) ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <AssetForecastSelect
-            assetId={row.original.id}
-            building={row.original.building}
-          />
-        ),
     })
   } else {
     columns.push({

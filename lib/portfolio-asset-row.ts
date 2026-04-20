@@ -1,3 +1,5 @@
+import type { ModificationRecommendation } from "@/lib/modification-recommendations"
+
 export type PortfolioAssetRow = {
   id: string
   groupId: string
@@ -6,6 +8,7 @@ export type PortfolioAssetRow = {
   /** Display label for the Ownership column (e.g. badge text). */
   ownership: string
   typeLabel: string
+  classLabel: string
   rsf: string
   occPct: string
   pricePerSf: string
@@ -16,4 +19,5 @@ export type PortfolioAssetRow = {
   status: string
   lift: string
   liftPercent: number
+  recommendedModification: ModificationRecommendation | null
 }

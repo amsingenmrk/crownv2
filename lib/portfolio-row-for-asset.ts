@@ -4,6 +4,7 @@ import {
   seedForAsset,
 } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import { getTopSingleModificationRecommendationForAsset } from "@/lib/modification-recommendations"
 
 const ASSET_STATUS_LABELS = [
   "Stabilized",
@@ -25,6 +26,38 @@ function formatRsfShort(sqft: number): string {
   return String(sqft)
 }
 
+function formatLiftPercent(value: number) {
+  const rounded = Number(value.toFixed(1))
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1)}%`
+}
+
+function sectorLabelForAsset(asset: Asset) {
+  return asset.groupId === "office"
+    ? "Office"
+    : asset.groupId === "industrial"
+      ? "Industrial"
+      : asset.groupId === "retail"
+        ? "Retail"
+        : asset.groupLabel.length > 18
+          ? `${asset.groupLabel.slice(0, 16)}…`
+          : asset.groupLabel
+}
+
+export function portfolioClassLabelForSeed(
+  seed: number,
+  occupiedPercent: number
+) {
+  const tierScore = (seed % 100) * 0.45 + occupiedPercent * 0.55
+
+  if (tierScore >= 72) {
+    return "A"
+  }
+  if (tierScore >= 58) {
+    return "B"
+  }
+  return "C"
+}
+
 /** One portfolio table row — same values as the main portfolio assets grid. */
 export function portfolioAssetRowForAsset(
   asset: Asset,
@@ -32,18 +65,10 @@ export function portfolioAssetRowForAsset(
 ): PortfolioAssetRow {
   const seed = seedForAsset(asset, index)
   const fin = portfolioValueNoiCapFromSeed(seed)
-  const liftPct = 3 + (seed % 15)
-
-  const typeLabel =
-    asset.groupId === "office"
-      ? "Office"
-      : asset.groupId === "industrial"
-        ? "Industrial"
-        : asset.groupId === "retail"
-          ? "Retail"
-          : asset.groupLabel.length > 18
-            ? `${asset.groupLabel.slice(0, 16)}…`
-            : asset.groupLabel
+  const recommendation = getTopSingleModificationRecommendationForAsset(asset.id)
+  const typeLabel = sectorLabelForAsset(asset)
+  const classLabel = portfolioClassLabelForSeed(seed, asset.occupiedPercent)
+  const liftPercent = Number((recommendation?.averageLiftPct ?? 0).toFixed(1))
 
   const value =
     fin.valueMills >= 1000
@@ -60,6 +85,7 @@ export function portfolioAssetRowForAsset(
     location: asset.address,
     ownership: "Owned",
     typeLabel,
+    classLabel,
     rsf: formatRsfShort(fin.rsfSqft),
     occPct: `${asset.occupiedPercent}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
@@ -68,7 +94,8 @@ export function portfolioAssetRowForAsset(
     capRate: `${fin.capRatePct.toFixed(1)}%`,
     wale: `${(4.5 + (seed % 35) / 10).toFixed(1)}y`,
     status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
-    lift: `+${liftPct}%`,
-    liftPercent: liftPct,
+    lift: recommendation == null ? "—" : formatLiftPercent(liftPercent),
+    liftPercent,
+    recommendedModification: recommendation,
   }
 }

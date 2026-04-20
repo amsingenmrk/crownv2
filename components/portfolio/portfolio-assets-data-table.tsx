@@ -14,9 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
-import { AssetForecastSelect } from "@/components/portfolio/asset-forecast-select"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import {
   ScenarioRemoveFromScenarioCell,
@@ -32,6 +32,7 @@ import { useAppToast } from "@/components/app-toast"
 import { addAssetsToScenarioIncludedBySlug } from "@/lib/scenario-included-assets-storage"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
+import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,18 @@ import {
   USER_SCENARIOS_CHANGED_EVENT,
   type UserScenario,
 } from "@/lib/user-scenarios"
+
+const CLASS_SOURCE_LABEL =
+  "Modeled building class estimate for the demo portfolio table."
+
+const PRICING_SOURCE_LABEL =
+  "Modeled pricing estimate. This is not presented as raw client-reported pricing."
+
+const VALUE_SOURCE_LABEL =
+  "Modeled asset value estimate derived from the portfolio financial model."
+
+const POTENTIAL_LIFT_SOURCE_LABEL =
+  "Derived from the highest-lift single recommended modification for this asset."
 function gridTemplateForVisibleColumns(
   table: Table<PortfolioAssetRow>
 ): string {
@@ -392,11 +405,30 @@ export function PortfolioAssetsDataTable({
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Type</span>
+                    <span>Sector</span>
                     <span className="text-left text-foreground">{row.typeLabel}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      Class
+                      <PortfolioProvenanceIndicator label={CLASS_SOURCE_LABEL} />
+                    </span>
+                    <span className="text-left text-foreground">{row.classLabel}</span>
                     <span>RSF</span>
                     <span className="text-left tabular-nums text-foreground">
                       {row.rsf}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      $/SF
+                      <PortfolioProvenanceIndicator label={PRICING_SOURCE_LABEL} />
+                    </span>
+                    <span className="text-left tabular-nums text-foreground">
+                      {row.pricePerSf}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      Value
+                      <PortfolioProvenanceIndicator label={VALUE_SOURCE_LABEL} />
+                    </span>
+                    <span className="text-left tabular-nums text-foreground">
+                      {row.value}
                     </span>
                   </div>
                   {variant === "scenarios" ? (
@@ -415,32 +447,47 @@ export function PortfolioAssetsDataTable({
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span>Potential Lift</span>
-                        <span className="flex justify-start">
-                          <span
-                            className={cn(
-                              "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
-                              liftPillClassFromStrength(
-                                liftStrength(row.liftPercent)
-                              )
-                            )}
-                          >
-                            {row.lift}
-                          </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          Potential Lift
+                          <PortfolioProvenanceIndicator
+                            label={POTENTIAL_LIFT_SOURCE_LABEL}
+                          />
                         </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span>Forecast</span>
-                        <div className="min-w-0 text-left">
-                          {isMarketListingRowId(row.id) ? (
-                            <span className="text-muted-foreground">—</span>
+                        <span className="flex justify-start">
+                          {row.recommendedModification == null ||
+                          isMarketListingRowId(row.id) ? (
+                            <span
+                              className={cn(
+                                "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums",
+                                liftPillClassFromStrength(
+                                  liftStrength(row.liftPercent)
+                                )
+                              )}
+                            >
+                              {row.lift}
+                            </span>
                           ) : (
-                            <AssetForecastSelect
-                              assetId={row.id}
-                              building={row.building}
-                            />
+                            <Link
+                              href={buildRecommendedModificationHref(
+                                row.id,
+                                row.recommendedModification
+                              )}
+                              className="inline-flex rounded-full focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                              aria-label={`Potential lift ${row.lift}. Open ${row.recommendedModification.optionTitle} in modifications.`}
+                            >
+                              <span
+                                className={cn(
+                                  "inline-flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums transition-opacity hover:opacity-90",
+                                  liftPillClassFromStrength(
+                                    liftStrength(row.liftPercent)
+                                  )
+                                )}
+                              >
+                                {row.lift}
+                              </span>
+                            </Link>
                           )}
-                        </div>
+                        </span>
                       </div>
                     </>
                   )}

@@ -44,11 +44,18 @@ export type ForecastEconomicOutlookScenario = {
 
 export type ForecastRowKind = "currency" | "expense" | "percent"
 
+export type ForecastStatementUncertaintyBand = {
+  lowerValues: number[]
+  upperValues: number[]
+  label: string
+}
+
 export type ForecastStatementRow = {
   id: string
   label: string
   kind: ForecastRowKind
   values: number[]
+  uncertaintyBand?: ForecastStatementUncertaintyBand
 }
 
 export type ForecastRevenueSpaceRow = {
@@ -443,6 +450,82 @@ function buildQuarterlyOpex({
   })
 }
 
+function buildHeuristicUncertaintyBand({
+  rowId,
+  kind,
+  values,
+}: {
+  rowId: string
+  kind: ForecastRowKind
+  values: number[]
+}): ForecastStatementUncertaintyBand {
+  const lowerValues = values.map((value, index) => {
+    const spread = heuristicUncertaintySpread({ rowId, kind, value, index })
+    if (kind === "percent") {
+      return clamp(Number((value - spread).toFixed(2)), 0, 100)
+    }
+    return Math.max(0, Number((value - spread).toFixed(2)))
+  })
+
+  const upperValues = values.map((value, index) => {
+    const spread = heuristicUncertaintySpread({ rowId, kind, value, index })
+    if (kind === "percent") {
+      return clamp(Number((value + spread).toFixed(2)), 0, 100)
+    }
+    return Math.max(0, Number((value + spread).toFixed(2)))
+  })
+
+  return {
+    lowerValues,
+    upperValues,
+    label: "Estimated uncertainty envelope",
+  }
+}
+
+function heuristicUncertaintySpread({
+  rowId,
+  kind,
+  value,
+  index,
+}: {
+  rowId: string
+  kind: ForecastRowKind
+  value: number
+  index: number
+}) {
+  if (kind === "percent") {
+    const base =
+      rowId === "capRate"
+        ? 0.18
+        : 0.3
+    const step =
+      rowId === "capRate"
+        ? 0.05
+        : 0.08
+    return Number((base + index * step).toFixed(2))
+  }
+
+  const absoluteValue = Math.abs(value)
+  const basePct =
+    rowId === "salePrice"
+      ? 0.06
+      : rowId === "noi"
+        ? 0.05
+        : rowId === "opex"
+          ? 0.035
+          : 0.04
+  const periodStep =
+    rowId === "salePrice"
+      ? 0.02
+      : rowId === "noi"
+        ? 0.017
+        : rowId === "opex"
+          ? 0.01
+          : 0.013
+
+  return Number((absoluteValue * (basePct + index * periodStep)).toFixed(2))
+}
+
 export function defaultForecastAssumptionsForAsset(
   assetId: string
 ): ForecastAssumptions {
@@ -592,29 +675,39 @@ export function buildAssetForecastModel({
   )
   const salePrice = baseSalePrice.map((value) => value * valueMult)
 
+  const baseStatementRows: ForecastStatementRow[] = [
+    {
+      id: "grossRevenue",
+      label: "Gross Revenue",
+      kind: "currency",
+      values: grossRevenue,
+    },
+    { id: "opex", label: "OpEx", kind: "expense", values: opex },
+    { id: "noi", label: "NOI", kind: "currency", values: noi },
+    {
+      id: "salePrice",
+      label: "Asset Value",
+      kind: "currency",
+      values: salePrice,
+    },
+    { id: "capRate", label: "Cap Rate", kind: "percent", values: capRate },
+  ]
+  const statementRows: ForecastStatementRow[] = baseStatementRows.map((row) => ({
+    ...row,
+    uncertaintyBand: buildHeuristicUncertaintyBand({
+      rowId: row.id,
+      kind: row.kind,
+      values: row.values,
+    }),
+  }))
+
   return {
     assetId,
     assetName: asset?.name ?? "Selected asset",
     scenario,
     assumptions: normalizedAssumptions,
     periods,
-    statementRows: [
-      {
-        id: "grossRevenue",
-        label: "Gross Revenue",
-        kind: "currency",
-        values: grossRevenue,
-      },
-      { id: "opex", label: "OpEx", kind: "expense", values: opex },
-      { id: "noi", label: "NOI", kind: "currency", values: noi },
-      {
-        id: "salePrice",
-        label: "Asset Value",
-        kind: "currency",
-        values: salePrice,
-      },
-      { id: "capRate", label: "Cap Rate", kind: "percent", values: capRate },
-    ],
+    statementRows,
     revenueBreakdown,
     summary: {
       currentOccupancyPct: dataset.summary.overallOccupancyPercent,

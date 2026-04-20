@@ -177,6 +177,19 @@ function niceStep(range: number, targetTicks: number) {
   return 10 * magnitude
 }
 
+function sortFactorsForDisplay(factors: StackingValueDriverFactor[]) {
+  return [...factors].sort((left, right) => {
+    const leftPositive = left.impact >= 0
+    const rightPositive = right.impact >= 0
+
+    if (leftPositive !== rightPositive) {
+      return leftPositive ? -1 : 1
+    }
+
+    return Math.abs(right.impact) - Math.abs(left.impact)
+  })
+}
+
 function ValueDriversHighchart({ options }: { options: Highcharts.Options }) {
   const chartRef = React.useRef<HighchartsReact.RefObject>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -248,10 +261,7 @@ export function StackingValueDriversWaterfall({
   const palette = useWaterfallChartPalette()
 
   const otherFactors = React.useMemo(
-    () =>
-      [...valueDrivers.otherFactors].sort(
-        (left, right) => Math.abs(right.impact) - Math.abs(left.impact)
-      ),
+    () => sortFactorsForDisplay(valueDrivers.otherFactors),
     [valueDrivers.otherFactors]
   )
 

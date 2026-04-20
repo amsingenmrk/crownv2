@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useParams } from "next/navigation"
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
+import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
@@ -115,19 +116,36 @@ export function PortfolioPageHeader() {
     [scopedAssets]
   )
 
+  const basePath = scopeParam
+    ? `/portfolio/scopes/${encodeURIComponent(scopeParam)}`
+    : "/portfolio"
+  const navItems = React.useMemo(
+    () => [
+      { href: basePath, label: "Overview" },
+      { href: `${basePath}/forecasts`, label: "Forecasts" },
+    ],
+    [basePath]
+  )
+
   return (
-    <div className="border-b border-border bg-background px-6 py-4">
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-        <div className="flex min-w-0 items-start">
-          <div className="min-w-0 self-center">
-            <h2 className="truncate text-xl font-semibold">{title}</h2>
-            <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+    <>
+      <div className="border-b border-border bg-background px-6 py-4">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
+          <div className="flex min-w-0 items-start">
+            <div className="min-w-0 self-center">
+              <h2 className="truncate text-xl font-semibold">{title}</h2>
+              <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col items-stretch justify-center sm:items-end">
+            <OccupancySummaryBar occupiedPercent={occupiedPercent} />
           </div>
         </div>
-        <div className="flex min-w-0 flex-col items-stretch justify-center sm:items-end">
-          <OccupancySummaryBar occupiedPercent={occupiedPercent} />
-        </div>
       </div>
-    </div>
+      <ScopedSurfaceNav
+        items={navItems}
+        ariaLabel="Portfolio section navigation"
+      />
+    </>
   )
 }

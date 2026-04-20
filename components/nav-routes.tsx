@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, Columns4, Search } from "lucide-react"
+import { BarChart3, Columns4, FileUp, Search } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const ROUTES = [
+  { title: "Doc Upload", href: "/documents", icon: FileUp },
   { title: "Property search", href: "/search", icon: Search },
   { title: "Compare", href: "/compare", icon: Columns4 },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },

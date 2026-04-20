@@ -8,7 +8,7 @@ import {
   Layers3,
   Search,
 } from "lucide-react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 
 import {
   BuildingModificationsSidebar,
@@ -45,42 +45,26 @@ import {
   type ModificationImpactSpace,
 } from "@/lib/modifications-impact"
 import { deriveBaseAnnualOpex } from "@/lib/forecast-data"
+import {
+  buildRecommendedModificationValues,
+  parseRecommendedModificationSelection,
+} from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import { cn } from "@/lib/utils"
 
-function modificationDraftStorageKey(assetId: string) {
-  return `glassbox:modification-draft:${assetId}`
-}
-
-function parseModificationDraft(raw: string | null): ModValues | null {
-  if (raw == null || raw === "") return null
-  try {
-    const data = JSON.parse(raw) as unknown
-    if (data == null || typeof data !== "object" || Array.isArray(data)) {
-      return null
-    }
-    const o = data as Record<string, unknown>
-    const next: ModValues = { ...INITIAL_MOD_VALUES }
-    for (const k of Object.keys(INITIAL_MOD_VALUES) as (keyof ModValues)[]) {
-      const v = o[k as string]
-      if (typeof v === "string") next[k] = v
-    }
-    return next
-  } catch {
-    return null
-  }
-}
-
 export function ModificationsWorkspace() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const assetId =
     typeof params?.id === "string" && params.id.length > 0
       ? params.id
       : "default"
-
-  const draftKey = modificationDraftStorageKey(assetId)
+  const recommendedModification = React.useMemo(
+    () => parseRecommendedModificationSelection(searchParams),
+    [searchParams]
+  )
 
   const [values, setValues] = React.useState<ModValues>(() => ({
     ...INITIAL_MOD_VALUES,
@@ -90,21 +74,8 @@ export function ModificationsWorkspace() {
   )
 
   React.useLayoutEffect(() => {
-    const parsed = parseModificationDraft(
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem(draftKey)
-        : null
-    )
-    setValues(parsed ?? { ...INITIAL_MOD_VALUES })
-  }, [draftKey])
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(draftKey, JSON.stringify(values))
-    } catch {
-      /* quota / private mode */
-    }
-  }, [values, draftKey])
+    setValues(buildRecommendedModificationValues(recommendedModification))
+  }, [assetId, recommendedModification])
 
   const baseDataset = React.useMemo(
     () => getSampleStackingPlanData(assetId),
@@ -134,33 +105,13 @@ export function ModificationsWorkspace() {
     [matchingSpaces]
   )
   const scenarioKpis = React.useMemo(() => {
-    const financials = financialMetricsForAssetId(assetId)
-    const uplift = upliftFromModValues(values)
-    const baseAnnualRevenue = allSpaces.reduce((sum, tenant) => {
-      if (tenant.isVacant) {
-        return sum
-      }
-
-      return sum + tenant.sqft * tenant.baselineRentPsf
-    }, 0)
-    const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseAnnualRevenue)
-    const valueLift =
-      financials == null ? null : financials.valueUsd * (uplift.valueMult - 1)
-    const noiImpact =
-      financials == null ? null : financials.noiUsd * (uplift.noiMult - 1)
-
-    return {
-      valueLift,
-      valueLiftPct: (uplift.valueMult - 1) * 100,
-      noiImpact,
-      noiImpactPct: (uplift.noiMult - 1) * 100,
-      opexImpact: uplift.annualOpexDeltaUsd,
-      opexImpactPct:
-        baseAnnualOpex > 0
-          ? (uplift.annualOpexDeltaUsd / baseAnnualOpex) * 100
-          : 0,
-    }
-  }, [allSpaces, assetId, values])
+    return deriveFilteredScenarioKpis({
+      assetId,
+      allSpaces,
+      matchingSpaces,
+      values,
+    })
+  }, [allSpaces, assetId, matchingSpaces, values])
   const tenantVisualOverrides = React.useMemo<
     Record<string, SimplifiedTenantVisualOverride>
   >(() => {
@@ -267,18 +218,18 @@ function ImpactMetricsStrip({
   metrics: ReturnType<typeof deriveImpactMetrics>
   scenarioKpis: {
     valueLift: number | null
-    valueLiftPct: number
+    valueLiftPct: number | null
     noiImpact: number | null
-    noiImpactPct: number
-    opexImpact: number
-    opexImpactPct: number
+    noiImpactPct: number | null
+    opexImpact: number | null
+    opexImpactPct: number | null
   }
 }) {
   return (
     <section
       className={cn(
         metricStripSectionClassName,
-        "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+        "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6"
       )}
       aria-label="Modification impact metrics"
     >
@@ -297,14 +248,44 @@ function ImpactMetricsStrip({
       </MetricStripCell>
 
       <MetricStripCell>
+        <MetricStripLabel>Min rent lift</MetricStripLabel>
+        <MetricStripValueRow>
+          <span className="text-foreground">
+            {formatSignedRate(metrics.minLiftPsf)}
+          </span>
+          {metrics.minLiftPct != null ? (
+            <MetricStripValueSuffix>
+              ({formatSignedPercent(metrics.minLiftPct)})
+            </MetricStripValueSuffix>
+          ) : null}
+        </MetricStripValueRow>
+      </MetricStripCell>
+
+      <MetricStripCell>
+        <MetricStripLabel>Max rent lift</MetricStripLabel>
+        <MetricStripValueRow>
+          <span className="text-foreground">
+            {formatSignedRate(metrics.maxLiftPsf)}
+          </span>
+          {metrics.maxLiftPct != null ? (
+            <MetricStripValueSuffix>
+              ({formatSignedPercent(metrics.maxLiftPct)})
+            </MetricStripValueSuffix>
+          ) : null}
+        </MetricStripValueRow>
+      </MetricStripCell>
+
+      <MetricStripCell>
         <MetricStripLabel>Value lift</MetricStripLabel>
         <MetricStripValueRow>
           <span className="text-foreground">
             {formatSignedCurrencyCompact(scenarioKpis.valueLift)}
           </span>
-          <MetricStripValueSuffix>
-            ({formatSignedPercent(scenarioKpis.valueLiftPct)})
-          </MetricStripValueSuffix>
+          {scenarioKpis.valueLiftPct != null ? (
+            <MetricStripValueSuffix>
+              ({formatSignedPercent(scenarioKpis.valueLiftPct)})
+            </MetricStripValueSuffix>
+          ) : null}
         </MetricStripValueRow>
       </MetricStripCell>
 
@@ -314,9 +295,11 @@ function ImpactMetricsStrip({
           <span className="text-foreground">
             {formatSignedCurrencyAnnual(scenarioKpis.opexImpact)}
           </span>
-          <MetricStripValueSuffix>
-            ({formatSignedPercent(scenarioKpis.opexImpactPct)})
-          </MetricStripValueSuffix>
+          {scenarioKpis.opexImpactPct != null ? (
+            <MetricStripValueSuffix>
+              ({formatSignedPercent(scenarioKpis.opexImpactPct)})
+            </MetricStripValueSuffix>
+          ) : null}
         </MetricStripValueRow>
       </MetricStripCell>
 
@@ -326,13 +309,75 @@ function ImpactMetricsStrip({
           <span className="text-foreground">
             {formatSignedCurrencyAnnual(scenarioKpis.noiImpact)}
           </span>
-          <MetricStripValueSuffix>
-            ({formatSignedPercent(scenarioKpis.noiImpactPct)})
-          </MetricStripValueSuffix>
+          {scenarioKpis.noiImpactPct != null ? (
+            <MetricStripValueSuffix>
+              ({formatSignedPercent(scenarioKpis.noiImpactPct)})
+            </MetricStripValueSuffix>
+          ) : null}
         </MetricStripValueRow>
       </MetricStripCell>
     </section>
   )
+}
+
+function deriveFilteredScenarioKpis({
+  assetId,
+  allSpaces,
+  matchingSpaces,
+  values,
+}: {
+  assetId: string
+  allSpaces: ModificationImpactSpace[]
+  matchingSpaces: ModificationImpactSpace[]
+  values: ModValues
+}) {
+  if (matchingSpaces.length === 0) {
+    return {
+      valueLift: null,
+      valueLiftPct: null,
+      noiImpact: null,
+      noiImpactPct: null,
+      opexImpact: null,
+      opexImpactPct: null,
+    }
+  }
+
+  const financials = financialMetricsForAssetId(assetId)
+  const uplift = upliftFromModValues(values)
+  const matchingSqft = matchingSpaces.reduce((sum, tenant) => sum + tenant.sqft, 0)
+  const totalSqft = allSpaces.reduce((sum, tenant) => sum + tenant.sqft, 0)
+  const sqftShare = totalSqft > 0 ? matchingSqft / totalSqft : 0
+  const baseAnnualRevenue = matchingSpaces.reduce(
+    (sum, tenant) => sum + tenant.sqft * tenant.baselineRentPsf,
+    0
+  )
+  const modifiedAnnualRevenue = matchingSpaces.reduce(
+    (sum, tenant) => sum + tenant.sqft * tenant.modifiedRentPsf,
+    0
+  )
+  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseAnnualRevenue)
+  const opexImpact = uplift.annualOpexDeltaUsd * sqftShare
+  const noiImpact = modifiedAnnualRevenue - baseAnnualRevenue - opexImpact
+  const baseAnnualNoi = baseAnnualRevenue - baseAnnualOpex
+  const capRatePct = financials?.capRatePct ?? null
+  const valueLift =
+    capRatePct != null && capRatePct > 0 ? noiImpact / (capRatePct / 100) : null
+  const baseValue =
+    capRatePct != null && capRatePct > 0 ? baseAnnualNoi / (capRatePct / 100) : null
+
+  return {
+    valueLift,
+    valueLiftPct:
+      valueLift == null || baseValue == null || baseValue === 0
+        ? null
+        : roundToTenths((valueLift / baseValue) * 100),
+    noiImpact: roundToHundredths(noiImpact),
+    noiImpactPct:
+      baseAnnualNoi === 0 ? null : roundToTenths((noiImpact / baseAnnualNoi) * 100),
+    opexImpact: roundToHundredths(opexImpact),
+    opexImpactPct:
+      baseAnnualOpex === 0 ? null : roundToTenths((opexImpact / baseAnnualOpex) * 100),
+  }
 }
 
 function ImpactFilters({
@@ -772,4 +817,12 @@ function formatSignedCurrencyAnnual(value: number | null) {
   }
 
   return `${formatSignedCurrencyCompact(value)} / yr`
+}
+
+function roundToHundredths(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function roundToTenths(value: number) {
+  return Math.round(value * 10) / 10
 }
