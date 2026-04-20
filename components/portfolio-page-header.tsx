@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { LayoutDashboard, LineChart } from "lucide-react"
 import { useParams } from "next/navigation"
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
@@ -121,8 +122,8 @@ export function PortfolioPageHeader() {
     : "/portfolio"
   const navItems = React.useMemo(
     () => [
-      { href: basePath, label: "Overview" },
-      { href: `${basePath}/forecasts`, label: "Forecasts" },
+      { href: basePath, label: "Overview", icon: LayoutDashboard },
+      { href: `${basePath}/forecasts`, label: "Forecasts", icon: LineChart },
     ],
     [basePath]
   )

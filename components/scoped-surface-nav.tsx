@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import type { LucideIcon } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils"
 export type ScopedSurfaceNavItem = {
   href: string
   label: string
+  icon: LucideIcon
 }
 
 export function ScopedSurfaceNav({
@@ -38,6 +40,7 @@ export function ScopedSurfaceNav({
       <div className="-mb-px flex w-fit items-center gap-1">
         {items.map((item) => {
           const isActive = activeHref === item.href
+          const Icon = item.icon
 
           return (
             <button
@@ -52,6 +55,7 @@ export function ScopedSurfaceNav({
               onClick={() => router.push(item.href)}
               aria-current={isActive ? "page" : undefined}
             >
+              <Icon className="size-4 shrink-0" />
               {item.label}
             </button>
           )

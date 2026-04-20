@@ -187,21 +187,7 @@ export function NavAssets() {
                         activeAssetGroupId === group.groupId
                       }
                       render={
-                        <Link
-                          href={portfolioScopeHref(group.groupId)}
-                          onClick={(e) => {
-                            const isOpen = openByGroup[group.groupId] ?? false
-                            if (isOpen) {
-                              e.preventDefault()
-                              setOpenByGroup((s) => ({
-                                ...s,
-                                [group.groupId]: false,
-                              }))
-                              return
-                            }
-                            openOnlyGroup(group.groupId)
-                          }}
-                        />
+                        <Link href={portfolioScopeHref(group.groupId)} />
                       }
                     >
                       <span className="truncate">{group.label}</span>

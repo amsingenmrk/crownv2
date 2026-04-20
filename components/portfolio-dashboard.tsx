@@ -23,7 +23,6 @@ import {
   MetricStripValueRow,
   metricStripSectionClassName,
 } from "@/components/metric-strip"
-import { AssetForecastCharts } from "@/components/asset-forecast-charts"
 import {
   ScenarioMetricInlinePair,
 } from "@/components/portfolio/scenario-comparative-kpis"
@@ -42,7 +41,6 @@ import {
   parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
-import { buildAggregateForecastModelForAssetIds } from "@/lib/compare-forecast-models"
 import {
   ASSETS,
   PORTFOLIO_OVERVIEW_LABEL,
@@ -457,20 +455,6 @@ function PortfolioDashboardInner({
     return portfolioKpiStripFromRows(visibleAssetRows)
   }, [assetsTableVariant, visibleAssetRows])
 
-  const portfolioAggregateForecastModels = React.useMemo(() => {
-    if (assetsTableVariant !== "portfolio") return null
-    const ids = visibleAssetRows.map((r) => r.id)
-    const model = buildAggregateForecastModelForAssetIds(
-      ids,
-      effectivePortfolioGroupLabel
-    )
-    return model != null ? [model] : null
-  }, [
-    assetsTableVariant,
-    visibleAssetRows,
-    effectivePortfolioGroupLabel,
-  ])
-
   const visibleMapPins = React.useMemo(
     () => mapPinsForRows(visibleAssetRows),
     [visibleAssetRows]
@@ -757,10 +741,6 @@ function PortfolioDashboardInner({
           ))
         )}
       </section>
-
-      {portfolioAggregateForecastModels != null ? (
-        <AssetForecastCharts models={portfolioAggregateForecastModels} />
-      ) : null}
 
       {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section
