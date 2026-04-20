@@ -1361,43 +1361,37 @@ export function AssetStackingPlanWorkspace({
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-2.5 py-1.5 shadow-sm">
-                          <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground/75 uppercase">
-                            Focus
-                          </span>
-                          <Select
-                            value={vizMode}
-                            onValueChange={(value) => {
-                              if (
-                                value === "leaseExpiration" ||
-                                value === "predictedRent" ||
-                                value === "contractRate"
-                              ) {
-                                setVizMode(value)
-                              }
-                            }}
+                        <Select
+                          value={vizMode}
+                          onValueChange={(value) => {
+                            if (
+                              value === "leaseExpiration" ||
+                              value === "predictedRent" ||
+                              value === "contractRate"
+                            ) {
+                              setVizMode(value)
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                            aria-label="Select stacking visualization mode"
                           >
-                            <SelectTrigger
-                              size="sm"
-                              className="min-w-[180px] border-0 bg-transparent px-0 shadow-none"
-                              aria-label="Select stacking visualization mode"
-                            >
-                              <span className="truncate">
-                                {getLegendLabelForMode(vizMode)}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                              {STACKING_VIZ_MODE_OPTIONS.map((option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            <span className="truncate">
+                              {getLegendLabelForMode(vizMode)}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent align="start">
+                            {STACKING_VIZ_MODE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <div className="flex items-center">
                           <StackingPlanLegend mode={vizMode} />
                         </div>
@@ -1407,43 +1401,37 @@ export function AssetStackingPlanWorkspace({
                   <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
                     {shouldShowViewToggle ? (
                       <>
-                        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-2.5 py-1.5 shadow-sm">
-                          <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground/75 uppercase">
-                            Focus
-                          </span>
-                          <Select
-                            value={vizMode}
-                            onValueChange={(value) => {
-                              if (
-                                value === "leaseExpiration" ||
-                                value === "predictedRent" ||
-                                value === "contractRate"
-                              ) {
-                                setVizMode(value)
-                              }
-                            }}
+                        <Select
+                          value={vizMode}
+                          onValueChange={(value) => {
+                            if (
+                              value === "leaseExpiration" ||
+                              value === "predictedRent" ||
+                              value === "contractRate"
+                            ) {
+                              setVizMode(value)
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                            aria-label="Select stacking visualization mode"
                           >
-                            <SelectTrigger
-                              size="sm"
-                              className="min-w-[180px] border-0 bg-transparent px-0 shadow-none"
-                              aria-label="Select stacking visualization mode"
-                            >
-                              <span className="truncate">
-                                {getLegendLabelForMode(vizMode)}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                              {STACKING_VIZ_MODE_OPTIONS.map((option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            <span className="truncate">
+                              {getLegendLabelForMode(vizMode)}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent align="start">
+                            {STACKING_VIZ_MODE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <div className="flex items-center">
                           <StackingPlanLegend mode={vizMode} />
                         </div>
@@ -1545,13 +1533,10 @@ function MatrixModeBadge({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 shadow-sm",
+        "inline-flex items-center rounded-full border border-border/55 bg-background/75 px-2.5 py-1 shadow-sm",
         className
       )}
     >
-      <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground/75 uppercase">
-        Focus
-      </span>
       <span className="text-[11px] font-medium text-foreground/90">
         {getLegendLabelForMode(mode)}
       </span>
