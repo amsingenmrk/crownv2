@@ -1,4 +1,4 @@
-import { ScopedForecastsWorkspace } from "@/components/scoped-forecasts-workspace"
+import { redirect } from "next/navigation"
 
 export default async function ScenarioForecastsAltPage({
   params,
@@ -6,6 +6,5 @@ export default async function ScenarioForecastsAltPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-
-  return <ScopedForecastsWorkspace scope={{ kind: "scenario", scenarioSlug: slug }} layout="alt" />
+  redirect(`/scenarios/${encodeURIComponent(slug)}/forecasts`)
 }

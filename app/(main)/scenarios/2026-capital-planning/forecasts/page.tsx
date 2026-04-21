@@ -6,6 +6,7 @@ export default function Scenario2026CapitalPlanningForecastsPage() {
   return (
     <ScopedForecastsWorkspace
       scope={{ kind: "scenario", scenarioSlug: BUILTIN_SCENARIO.slug }}
+      layout="alt"
     />
   )
 }

@@ -6,7 +6,10 @@ import {
   AssetForecastCharts,
   AssetForecastChartMetricToolbar,
 } from "@/components/asset-forecast-charts"
-import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
+import {
+  AssetForecastSummaryStrip,
+  type ForecastSummaryKpi,
+} from "@/components/asset-forecast-summary-strip"
 import { ScopedForecastLeasingAssumptionsBar } from "@/components/scoped-forecast-leasing-assumptions"
 import { ScopedForecastSelectorPanel } from "@/components/scoped-forecast-selector-panel"
 import { ScopedForecastsTable } from "@/components/scoped-forecasts-table"
@@ -30,6 +33,14 @@ function averageSeries(values: number[]) {
 function getStatementRowAverage(rows: ForecastStatementRow[], rowId: string) {
   return averageSeries(rows.find((row) => row.id === rowId)?.values ?? [])
 }
+
+/** Stable SSR / first client paint: KPIs depend on localStorage (scenario scope, mod sets). */
+const FORECAST_SUMMARY_KPI_PLACEHOLDERS: ForecastSummaryKpi[] = [
+  { label: "Gross Revenue", value: "—", valueSuffix: "/ yr" },
+  { label: "OpEx", value: "—", valueSuffix: "/ yr" },
+  { label: "NOI", value: "—", valueSuffix: "/ yr" },
+  { label: "Asset Value", value: "—" },
+]
 
 export function ScopedForecastsWorkspace({
   scope,
@@ -139,6 +150,16 @@ export function ScopedForecastsWorkspace({
     ]
   }, [activeModel.statementRows])
 
+  const [forecastSummaryHydrated, setForecastSummaryHydrated] =
+    React.useState(false)
+  React.useEffect(() => {
+    setForecastSummaryHydrated(true)
+  }, [])
+
+  const forecastSummaryStripItems = forecastSummaryHydrated
+    ? forecastSummaryItems
+    : FORECAST_SUMMARY_KPI_PLACEHOLDERS
+
   const [classicChartMetricTab, setClassicChartMetricTab] =
     React.useState<ForecastChartTab>("grossRevenue")
   const [altMetricTab, setAltMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
@@ -146,7 +167,7 @@ export function ScopedForecastsWorkspace({
   if (layout === "alt") {
     return (
       <div className="flex min-h-0 w-full flex-col gap-6">
-        <AssetForecastSummaryStrip items={forecastSummaryItems} />
+        <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
@@ -219,7 +240,7 @@ export function ScopedForecastsWorkspace({
             </ToggleGroup>
           </div>
           <div className="pt-3">
-            <AssetForecastSummaryStrip items={forecastSummaryItems} />
+            <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
           </div>
         </section>
 

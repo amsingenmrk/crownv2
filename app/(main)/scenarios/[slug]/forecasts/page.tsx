@@ -7,5 +7,10 @@ export default async function ScenarioForecastsPage({
 }) {
   const { slug } = await params
 
-  return <ScopedForecastsWorkspace scope={{ kind: "scenario", scenarioSlug: slug }} />
+  return (
+    <ScopedForecastsWorkspace
+      scope={{ kind: "scenario", scenarioSlug: slug }}
+      layout="alt"
+    />
+  )
 }

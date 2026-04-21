@@ -1,12 +1,7 @@
-import { ScopedForecastsWorkspace } from "@/components/scoped-forecasts-workspace"
+import { redirect } from "next/navigation"
 
 import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
 
 export default function Scenario2026CapitalPlanningForecastsAltPage() {
-  return (
-    <ScopedForecastsWorkspace
-      scope={{ kind: "scenario", scenarioSlug: BUILTIN_SCENARIO.slug }}
-      layout="alt"
-    />
-  )
+  redirect(`/scenarios/${BUILTIN_SCENARIO.slug}/forecasts`)
 }

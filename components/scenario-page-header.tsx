@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { LayoutDashboard, LineChart, Sparkles } from "lucide-react"
+import { LayoutDashboard, LineChart } from "lucide-react"
 import { usePathname } from "next/navigation"
 import {
   parseStoredSets,
@@ -269,12 +269,6 @@ export function ScenarioPageHeader() {
     () => [
       { href: basePath, label: "Overview", icon: LayoutDashboard },
       { href: `${basePath}/forecasts`, label: "Forecasts", icon: LineChart },
-      {
-        href: `${basePath}/forecasts-alt`,
-        label: "Forecasts",
-        icon: Sparkles,
-        title: "Alternate forecast layout",
-      },
     ],
     [basePath]
   )
