@@ -4,7 +4,6 @@ import * as React from "react"
 import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -12,92 +11,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS,
+  ScopedForecastLeasingAssumptionField,
+  type ScopedForecastLeasingAssumptionFieldKey,
+} from "@/components/scoped-forecast-leasing-assumptions"
 import type { ForecastAssumptions } from "@/lib/forecast-data"
 import type { ScopedForecastAssetSelection } from "@/lib/scoped-forecast"
-
-const ASSUMPTION_FIELDS = [
-  {
-    key: "timeToLeaseMonths",
-    label: "Time to Lease",
-    suffix: "mo",
-    min: 3,
-    max: 24,
-    step: 1,
-  },
-  {
-    key: "occupancyTargetPct",
-    label: "Occupancy Target",
-    suffix: "%",
-    min: 65,
-    max: 99,
-    step: 1,
-  },
-  {
-    key: "defaultRenewalProbabilityPct",
-    label: "Renewal Probability",
-    suffix: "%",
-    min: 10,
-    max: 95,
-    step: 1,
-  },
-] as const
-
-type AssumptionFieldKey = (typeof ASSUMPTION_FIELDS)[number]["key"]
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function AssumptionField({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  suffix,
-}: {
-  label: string
-  value: number
-  onChange: (next: number) => void
-  min: number
-  max: number
-  step: number
-  suffix: string
-}) {
-  return (
-    <label className="min-w-0 space-y-0.5">
-      <div className="truncate text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="relative">
-        <Input
-          type="number"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          className="h-8 border-border/60 bg-background/80 pr-11 text-[0.82rem] tabular-nums shadow-none"
-          onChange={(event) => {
-            const next = Number(event.target.value)
-            if (Number.isNaN(next)) return
-            onChange(clamp(next, min, max))
-          }}
-        />
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
-          {suffix}
-        </span>
-      </div>
-    </label>
-  )
-}
-
-function selectItemsFromOptions(options: readonly { id: string; name: string }[]) {
-  return Object.fromEntries(options.map((option) => [option.id, option.name])) as Record<
-    string,
-    string
-  >
-}
+import {
+  modificationItemsRecord,
+  modificationSelectLabelFromOption,
+  modificationSelectPlaceholder,
+  outlookSetItemsRecord,
+  outlookSetSelectLabel,
+  outlookSetSelectPlaceholder,
+} from "@/lib/scoped-forecast-select-labels"
 
 export function ScopedForecastSelectorPanel({
   assetSelections,
@@ -155,7 +83,7 @@ export function ScopedForecastSelectorPanel({
                       Saved Modification Set
                     </span>
                     <Select
-                      items={selectItemsFromOptions(selection.buildingVersionOptions)}
+                      items={modificationItemsRecord(selection.buildingVersionOptions)}
                       value={selection.selectedBuildingVersionId}
                       onValueChange={(value) => {
                         if (value == null) return
@@ -167,12 +95,12 @@ export function ScopedForecastSelectorPanel({
                         className="w-full text-[0.8rem]"
                         aria-label={`${selection.row.building} saved modification set`}
                       >
-                        <SelectValue placeholder="Baseline building" />
+                        <SelectValue placeholder={modificationSelectPlaceholder()} />
                       </SelectTrigger>
                       <SelectContent>
                         {selection.buildingVersionOptions.map((option) => (
                           <SelectItem key={option.id} value={option.id}>
-                            {option.name}
+                            {modificationSelectLabelFromOption(option)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -181,10 +109,10 @@ export function ScopedForecastSelectorPanel({
 
                   <label className="space-y-1">
                     <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                      Saved Economic Outlook Set
+                      Outlook
                     </span>
                     <Select
-                      items={selectItemsFromOptions(selection.outlookSetOptions)}
+                      items={outlookSetItemsRecord(selection.outlookSetOptions)}
                       value={selection.selectedOutlookSetId}
                       onValueChange={(value) => {
                         if (value == null) return
@@ -194,14 +122,14 @@ export function ScopedForecastSelectorPanel({
                       <SelectTrigger
                         size="sm"
                         className="w-full text-[0.8rem]"
-                        aria-label={`${selection.row.building} saved outlook set`}
+                        aria-label={`${selection.row.building} outlook`}
                       >
-                        <SelectValue placeholder="Baseline outlook" />
+                        <SelectValue placeholder={outlookSetSelectPlaceholder()} />
                       </SelectTrigger>
                       <SelectContent>
                         {selection.outlookSetOptions.map((option) => (
                           <SelectItem key={option.id} value={option.id}>
-                            {option.name}
+                            {outlookSetSelectLabel(option)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -223,8 +151,8 @@ export function ScopedForecastSelectorPanel({
           Leasing Assumptions
         </p>
         <div className="grid gap-3">
-          {ASSUMPTION_FIELDS.map((field) => (
-            <AssumptionField
+          {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
+            <ScopedForecastLeasingAssumptionField
               key={field.key}
               label={field.label}
               value={assumptions[field.key]}
@@ -236,7 +164,7 @@ export function ScopedForecastSelectorPanel({
                     field.key === "defaultRenewalProbabilityPct"
                       ? Math.round(next)
                       : next,
-                } as Pick<ForecastAssumptions, AssumptionFieldKey>)
+                } as Pick<ForecastAssumptions, ScopedForecastLeasingAssumptionFieldKey>)
               }
               min={field.min}
               max={field.max}

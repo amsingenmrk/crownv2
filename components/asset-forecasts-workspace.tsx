@@ -53,6 +53,11 @@ import {
   parseStoredForecastScenarios,
   type ForecastOutlookSet,
 } from "@/lib/forecast-scenario-storage"
+import {
+  modificationSelectLabel,
+  modificationSelectPlaceholder,
+  outlookSetStoredNameDisplay,
+} from "@/lib/scoped-forecast-select-labels"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
@@ -461,10 +466,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
 
   const buildingVersionLabels = React.useMemo(
     () =>
-      Object.fromEntries(buildingVersions.map((version) => [version.id, version.name])) as Record<
-        string,
-        string
-      >,
+      Object.fromEntries(
+        buildingVersions.map((version) => [
+          version.id,
+          modificationSelectLabel(version.id, version.name),
+        ])
+      ) as Record<string, string>,
     [buildingVersions]
   )
 
@@ -537,7 +544,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       [NO_ACTIVE_OUTLOOK_SET]: "Select a saved set…",
     }
     for (const s of sortedOutlookSets) {
-      labels[s.id] = s.name
+      labels[s.id] = outlookSetStoredNameDisplay(s.name)
     }
     return labels
   }, [sortedOutlookSets])
@@ -865,12 +872,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
           }}
         >
           <SelectTrigger className="mt-4 w-full min-w-0" aria-label="Building modifications">
-            <SelectValue placeholder="Baseline building" />
+            <SelectValue placeholder={modificationSelectPlaceholder()} />
           </SelectTrigger>
           <SelectContent>
             {buildingVersions.map((version) => (
               <SelectItem key={version.id} value={version.id}>
-                {version.name}
+                {modificationSelectLabel(version.id, version.name)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -920,7 +927,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 <SelectItem value={NO_ACTIVE_OUTLOOK_SET}>Select a saved set…</SelectItem>
                 {sortedOutlookSets.map((set) => (
                   <SelectItem key={set.id} value={set.id}>
-                    {set.name}
+                    {outlookSetStoredNameDisplay(set.name)}
                   </SelectItem>
                 ))}
               </SelectContent>

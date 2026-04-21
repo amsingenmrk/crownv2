@@ -147,11 +147,12 @@ function buildForecastTableRows(
 
 function lineItemCellContent(row: Row<ForecastTableRow>) {
   const item = row.original
+  const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
 
   if (item.rowType === "suite") {
     return (
       <div className="flex min-w-0 flex-col pl-10">
-        <span className="truncate font-medium text-foreground">{item.label}</span>
+        <span className={cn("truncate text-foreground", firstRowWeight)}>{item.label}</span>
         {item.metaText ? (
           <span className="truncate text-xs text-muted-foreground">{item.metaText}</span>
         ) : null}
@@ -177,8 +178,8 @@ function lineItemCellContent(row: Row<ForecastTableRow>) {
         )}
         <span
           className={cn(
-            "truncate font-medium text-foreground",
-            item.highlightLabel && "font-semibold"
+            "truncate text-foreground",
+            row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
           )}
         >
           {item.label}
@@ -194,8 +195,8 @@ function lineItemCellContent(row: Row<ForecastTableRow>) {
     <div className="flex min-w-0 items-center">
       <span
         className={cn(
-          "truncate font-medium text-foreground",
-          item.highlightLabel && "font-semibold"
+          "truncate text-foreground",
+          row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
         )}
       >
         {item.label}
@@ -273,7 +274,7 @@ export function AssetForecastsTable({
             <div
               className={cn(
                 "text-right tabular-nums",
-                isFirstRow ? "font-medium" : "font-normal",
+                isFirstRow ? "font-semibold" : "font-normal",
                 item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
               )}
             >
@@ -314,18 +315,22 @@ export function AssetForecastsTable({
       >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+            <TableRow
+              key={headerGroup.id}
+              className="border-b-2 border-border bg-muted hover:bg-muted/90"
+            >
               {headerGroup.headers.map((header) => {
                 const isLineItemColumn = header.column.id === "lineItem"
 
                 return (
                   <TableHead
                     key={header.id}
+                    scope="col"
                     className={cn(
-                      isLineItemColumn
-                        ? "sticky left-0 z-20 px-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-                        : "px-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground",
-                      isLineItemColumn && firstColumnSurfaceClassName()
+                      "h-auto min-w-0 bg-muted py-2 align-middle text-sm font-medium text-foreground",
+                      isLineItemColumn &&
+                        "sticky left-0 z-20 border-r border-border/60 px-4 text-left",
+                      !isLineItemColumn && "px-3 text-right"
                     )}
                     style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
                   >

@@ -17,18 +17,14 @@ import {
   type ForecastAssumptions,
 } from "@/lib/forecast-data"
 import {
-  forecastOutlookSetStorageKey,
-  parseStoredForecastOutlookSets,
-} from "@/lib/forecast-scenario-storage"
-import {
   scenarioComparePortfolioRows,
 } from "@/lib/scenario-compare-rows"
 import {
   SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
   SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
   baselineScopedForecastBuildingVersionOption,
-  baselineScopedForecastOutlookSetOption,
   buildDefaultScopedForecastAssumptions,
+  buildScopedPresetOutlookSetOptions,
   type ScopedForecastAssetSelection,
   type ScopedForecastBuildingVersionOption,
   type ScopedForecastOutlookSetOption,
@@ -75,7 +71,6 @@ function syncSelectedIdsWithOptions({
 
 export function useScopedForecastState(scope: ScopedForecastScope) {
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
-  const baselineOutlook = defaultOutlooks[0]!
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
@@ -130,8 +125,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     const onStorage = (event: StorageEvent) => {
       if (
         event.key != null &&
-        (event.key.startsWith("glassbox:modification-sets:") ||
-          event.key.startsWith("glassbox:forecast-outlook-sets:"))
+        event.key.startsWith("glassbox:modification-sets:")
       ) {
         reload()
       }
@@ -163,25 +157,9 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
           })),
       ]
 
-      const outlookSetOptions: ScopedForecastOutlookSetOption[] = [
-        baselineScopedForecastOutlookSetOption(baselineOutlook),
-        ...parseStoredForecastOutlookSets(
-          typeof localStorage === "undefined"
-            ? null
-            : localStorage.getItem(forecastOutlookSetStorageKey(row.id)),
-          defaultOutlooks
-        )
-          .sort((left, right) => left.name.localeCompare(right.name))
-          .map((set) => ({
-            id: set.id,
-            name: set.name,
-            set,
-            activeScenario:
-              set.outlooks.find((outlook) => outlook.id === set.activeOutlookId) ??
-              set.outlooks[0] ??
-              baselineOutlook,
-          })),
-      ]
+      /** Match asset-level forecast: only built-in scenarios from {@link buildDefaultForecastScenarios}. */
+      const outlookSetOptions: ScopedForecastOutlookSetOption[] =
+        buildScopedPresetOutlookSetOptions(defaultOutlooks)
 
       next[row.id] = {
         buildingVersionOptions,
@@ -190,7 +168,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     }
 
     return next
-  }, [baselineOutlook, defaultOutlooks, optionsReloadTick, scopedRows])
+  }, [defaultOutlooks, optionsReloadTick, scopedRows])
 
   React.useEffect(() => {
     const assetIds = scopedRows.map((row) => row.id)
@@ -228,7 +206,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     return scopedRows.map((row) => {
       const rowOptions = optionsByAssetId[row.id] ?? {
         buildingVersionOptions: [baselineScopedForecastBuildingVersionOption()],
-        outlookSetOptions: [baselineScopedForecastOutlookSetOption(baselineOutlook)],
+        outlookSetOptions: buildScopedPresetOutlookSetOptions(defaultOutlooks),
       }
       const selectedBuildingVersion =
         rowOptions.buildingVersionOptions.find(
@@ -250,7 +228,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       }
     })
   }, [
-    baselineOutlook,
+    defaultOutlooks,
     optionsByAssetId,
     scopedRows,
     selectedBuildingVersionIds,

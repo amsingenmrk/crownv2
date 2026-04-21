@@ -250,6 +250,8 @@ export function PortfolioMapbox({
   }, [mapLoadGeneration])
 
   React.useEffect(() => {
+    const map = mapRef.current?.getMap()
+    if (map?.loaded()) map.resize()
     fitToPins()
     if (!edgeToEdge) return
     const id = requestAnimationFrame(() => {

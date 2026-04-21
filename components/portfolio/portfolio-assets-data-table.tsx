@@ -297,11 +297,11 @@ export function PortfolioAssetsDataTable({
         className="hidden w-full min-w-max px-0 caption-bottom text-sm max-lg:hidden lg:grid"
         style={{ gridTemplateColumns }}
       >
-        <TableHeader className="contents [&_tr]:border-0">
+        <TableHeader className="contents">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="grid items-center border-b border-border bg-muted/50 hover:bg-muted/50"
+              className="grid items-center border-b-2 border-border bg-muted hover:bg-muted/90"
               style={gridRowStyle}
             >
               {headerGroup.headers.map((header) => (

@@ -813,12 +813,14 @@ function PortfolioDashboardInner({
             <div
               id="portfolio-map-canvas"
               className={cn(
-                "relative isolate flex w-full shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-muted/60",
+                "relative flex w-full shrink-0 flex-col rounded-xl border border-border bg-muted/60",
                 /* Map only: fill viewport below chrome; no dvh cap so the GL canvas matches this box. */
                 "h-[calc(100svh-22rem)] min-h-[16rem]",
                 "mb-4 md:mb-6"
               )}
             >
+              {/* Clip corners here; avoid isolate+overflow on the same box as the GL canvas. */}
+              <div className="absolute inset-0 min-h-0 min-w-0 overflow-hidden rounded-[inherit]">
               {mapboxEnabled ? (
                 <PortfolioMapbox pins={portfolioMapboxPins} />
               ) : (
@@ -852,6 +854,7 @@ function PortfolioDashboardInner({
                   ))}
                 </>
               )}
+              </div>
             </div>
           ) : (
             <div className="min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">

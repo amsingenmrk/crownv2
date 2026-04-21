@@ -270,6 +270,10 @@ export function assetHref(id: string): string {
   return `/assets/${id}/stacking-plan`
 }
 
+export function assetForecastHref(id: string): string {
+  return `/assets/${id}/forecasts`
+}
+
 export function portfolioScopeSlug(scopeId: string): string {
   if (
     scopeId === "office" ||

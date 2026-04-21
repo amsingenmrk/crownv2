@@ -11,8 +11,15 @@ import {
   type ExpandedState,
   type Row,
 } from "@tanstack/react-table"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, Telescope, Wrench } from "lucide-react"
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -21,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { assetHref } from "@/lib/assets"
+import { assetForecastHref } from "@/lib/assets"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import type {
   ForecastPeriod,
@@ -31,6 +38,15 @@ import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import type {
   ScopedForecastResolvedAssetModel,
 } from "@/lib/scoped-forecast-rollup"
+import type { ScopedForecastAssetSelection } from "@/lib/scoped-forecast"
+import {
+  modificationItemsRecord,
+  modificationSelectLabelFromOption,
+  modificationSelectPlaceholder,
+  outlookSetItemsRecord,
+  outlookSetSelectLabel,
+  outlookSetSelectPlaceholder,
+} from "@/lib/scoped-forecast-select-labels"
 import { cn } from "@/lib/utils"
 
 /** Compact USD without `Intl` compact notation — Node and browsers disagree on e.g. `$1.0M` vs `$1M`. */
@@ -82,11 +98,24 @@ function formatStatementValue(kind: ForecastStatementRow["kind"], value: number)
 }
 
 const FIRST_COLUMN_WIDTH_PX = 180
+const SELECTOR_COLUMN_WIDTH_PX = 128
 const PERIOD_COLUMN_WIDTH_PX = 108
 
 const firstColumnStyle: React.CSSProperties = {
   width: FIRST_COLUMN_WIDTH_PX,
   minWidth: FIRST_COLUMN_WIDTH_PX,
+}
+
+const modificationsColumnStyle: React.CSSProperties = {
+  width: SELECTOR_COLUMN_WIDTH_PX,
+  minWidth: SELECTOR_COLUMN_WIDTH_PX,
+  left: FIRST_COLUMN_WIDTH_PX,
+}
+
+const outlookColumnStyle: React.CSSProperties = {
+  width: SELECTOR_COLUMN_WIDTH_PX,
+  minWidth: SELECTOR_COLUMN_WIDTH_PX,
+  left: FIRST_COLUMN_WIDTH_PX + SELECTOR_COLUMN_WIDTH_PX,
 }
 
 const periodColumnStyle: React.CSSProperties = {
@@ -97,6 +126,8 @@ const periodColumnStyle: React.CSSProperties = {
 type ScopedForecastTableRow = {
   id: string
   rowType: "statement" | "asset"
+  /** Set for asset rows — drives Modifications / Outlook column dropdowns. */
+  assetId?: string
   label: string
   kind: ForecastStatementRow["kind"]
   values: number[]
@@ -140,12 +171,13 @@ function buildScopedForecastTableRows({
       return {
         id: `${row.id}-${entry.model.assetId}`,
         rowType: "asset",
+        assetId: entry.model.assetId,
         label: entry.model.assetName,
         kind: assetRow.kind,
         values: assetRow.values,
         href: isMarketListingRowId(entry.selection.row.id)
           ? undefined
-          : assetHref(entry.selection.row.id),
+          : assetForecastHref(entry.selection.row.id),
       }
     }),
   }))
@@ -179,12 +211,13 @@ function buildFlatScopedForecastTableRows({
       out.push({
         id: `${row.id}-${entry.model.assetId}`,
         rowType: "asset",
+        assetId: entry.model.assetId,
         label: entry.model.assetName,
         kind: assetRow.kind,
         values: assetRow.values,
         href: isMarketListingRowId(entry.selection.row.id)
           ? undefined
-          : assetHref(entry.selection.row.id),
+          : assetForecastHref(entry.selection.row.id),
       })
     }
   }
@@ -193,6 +226,7 @@ function buildFlatScopedForecastTableRows({
 
 function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   const item = row.original
+  const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
 
   if (item.rowType === "asset") {
     return (
@@ -200,12 +234,15 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         {item.href != null ? (
           <Link
             href={item.href}
-            className="group/asset-link inline-flex min-w-0 max-w-full truncate rounded-sm text-left font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={cn(
+              "group/asset-link inline-flex min-w-0 max-w-full truncate rounded-sm text-left text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              firstRowWeight
+            )}
           >
             {item.label}
           </Link>
         ) : (
-          <span className="truncate font-medium text-foreground">{item.label}</span>
+          <span className={cn("truncate text-foreground", firstRowWeight)}>{item.label}</span>
         )}
       </div>
     )
@@ -226,8 +263,8 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         )}
         <span
           className={cn(
-            "truncate font-medium text-foreground",
-            item.highlightLabel && "font-semibold"
+            "truncate text-foreground",
+            row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
           )}
         >
           {item.label}
@@ -240,8 +277,8 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
     <div className="flex min-w-0 items-center">
       <span
         className={cn(
-          "truncate font-medium text-foreground",
-          item.highlightLabel && "font-semibold"
+          "truncate text-foreground",
+          row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
         )}
       >
         {item.label}
@@ -274,6 +311,19 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
   return "bg-background"
 }
 
+/** Sticky Modifications / Outlook columns — match line-item column surfaces. */
+function selectorColumnsSurfaceClassName(item?: ScopedForecastTableRow) {
+  if (item == null) {
+    return "bg-card"
+  }
+
+  if (item.rowType === "asset") {
+    return "bg-muted/20 group-hover:bg-muted/25"
+  }
+
+  return "bg-background"
+}
+
 export function ScopedForecastsTable({
   periods,
   rows,
@@ -282,6 +332,9 @@ export function ScopedForecastsTable({
   topAccessory,
   metricFilter,
   assetContributionsDisplay = "nested",
+  assetSelections,
+  onSelectBuildingVersion,
+  onSelectOutlookSet,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
@@ -294,8 +347,25 @@ export function ScopedForecastsTable({
    * `flat`: statement row plus asset rows as a single flat list (no expand/collapse).
    */
   assetContributionsDisplay?: "nested" | "flat"
+  /** When set with handlers, adds Modifications and Outlook columns (per-building dropdowns). */
+  assetSelections?: readonly ScopedForecastAssetSelection[]
+  onSelectBuildingVersion?: (assetId: string, nextId: string) => void
+  onSelectOutlookSet?: (assetId: string, nextId: string) => void
 }) {
   const flatAssetContributions = assetContributionsDisplay === "flat"
+
+  const showSelectorColumns =
+    assetSelections != null &&
+    assetSelections.length > 0 &&
+    onSelectBuildingVersion != null &&
+    onSelectOutlookSet != null
+
+  const selectionByAssetId = React.useMemo(() => {
+    if (assetSelections == null || assetSelections.length === 0) {
+      return new Map<string, ScopedForecastAssetSelection>()
+    }
+    return new Map(assetSelections.map((s) => [s.row.id, s]))
+  }, [assetSelections])
 
   const filteredRows = React.useMemo(
     () => filterStatementRowsForMetric(rows, metricFilter),
@@ -337,14 +407,112 @@ export function ScopedForecastsTable({
     [assetModels, filteredRows, flatAssetContributions, variant]
   )
 
-  const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
-    () => [
+  const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(() => {
+    const selectorColumns: ColumnDef<ScopedForecastTableRow>[] = showSelectorColumns
+      ? [
+          {
+            id: "modifications",
+            header: () => (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <Wrench
+                  className="size-3.5 shrink-0 opacity-80"
+                  aria-hidden
+                />
+                Modifications
+              </span>
+            ),
+            cell: ({ row }) => {
+              const item = row.original
+              if (item.rowType !== "asset" || item.assetId == null) {
+                return <span className="text-muted-foreground">—</span>
+              }
+              const selection = selectionByAssetId.get(item.assetId)
+              if (selection == null) return null
+              return (
+                <Select
+                  items={modificationItemsRecord(selection.buildingVersionOptions)}
+                  value={selection.selectedBuildingVersionId}
+                  onValueChange={(value) => {
+                    if (value == null) return
+                    onSelectBuildingVersion(item.assetId!, value)
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-7 w-full max-w-[7.25rem] text-[0.75rem]"
+                    aria-label={`${selection.row.building} modification set`}
+                  >
+                    <SelectValue placeholder={modificationSelectPlaceholder()} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selection.buildingVersionOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {modificationSelectLabelFromOption(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            },
+            enableSorting: false,
+          },
+          {
+            id: "outlook",
+            header: () => (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <Telescope
+                  className="size-3.5 shrink-0 opacity-80"
+                  aria-hidden
+                />
+                Outlook
+              </span>
+            ),
+            cell: ({ row }) => {
+              const item = row.original
+              if (item.rowType !== "asset" || item.assetId == null) {
+                return <span className="text-muted-foreground">—</span>
+              }
+              const selection = selectionByAssetId.get(item.assetId)
+              if (selection == null) return null
+              return (
+                <Select
+                  items={outlookSetItemsRecord(selection.outlookSetOptions)}
+                  value={selection.selectedOutlookSetId}
+                  onValueChange={(value) => {
+                    if (value == null) return
+                    onSelectOutlookSet(item.assetId!, value)
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-7 w-full max-w-[7.25rem] text-[0.75rem]"
+                    aria-label={`${selection.row.building} outlook set`}
+                  >
+                    <SelectValue placeholder={outlookSetSelectPlaceholder()} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selection.outlookSetOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {outlookSetSelectLabel(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            },
+            enableSorting: false,
+          },
+        ]
+      : []
+
+    return [
       {
         id: "lineItem",
-        header: () => "Line Item",
+        header: () => "Asset",
         cell: ({ row }) => lineItemCellContent(row),
         enableSorting: false,
       },
+      ...selectorColumns,
       ...periods.map<ColumnDef<ScopedForecastTableRow>>((period, index) => ({
         id: `period-${period.label}`,
         header: () => period.label,
@@ -356,7 +524,7 @@ export function ScopedForecastsTable({
             <div
               className={cn(
                 "text-right tabular-nums",
-                isFirstRow ? "font-medium" : "font-normal",
+                isFirstRow ? "font-semibold" : "font-normal",
                 item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
               )}
             >
@@ -366,9 +534,14 @@ export function ScopedForecastsTable({
         },
         enableSorting: false,
       })),
-    ],
-    [periods]
-  )
+    ]
+  }, [
+    onSelectBuildingVersion,
+    onSelectOutlookSet,
+    periods,
+    selectionByAssetId,
+    showSelectorColumns,
+  ])
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
   const table = useReactTable({
@@ -383,7 +556,10 @@ export function ScopedForecastsTable({
     autoResetExpanded: false,
   })
 
-  const totalTableMinWidth = FIRST_COLUMN_WIDTH_PX + periods.length * PERIOD_COLUMN_WIDTH_PX
+  const totalTableMinWidth =
+    FIRST_COLUMN_WIDTH_PX +
+    (showSelectorColumns ? 2 * SELECTOR_COLUMN_WIDTH_PX : 0) +
+    periods.length * PERIOD_COLUMN_WIDTH_PX
 
   return (
     <div className="overflow-hidden">
@@ -394,20 +570,42 @@ export function ScopedForecastsTable({
       <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+            <TableRow
+              key={headerGroup.id}
+              className="border-b-2 border-border bg-muted hover:bg-muted/90"
+            >
               {headerGroup.headers.map((header) => {
-                const isLineItemColumn = header.column.id === "lineItem"
+                const colId = header.column.id
+                const isLineItemColumn = colId === "lineItem"
+                const isModificationsColumn = colId === "modifications"
+                const isOutlookColumn = colId === "outlook"
 
                 return (
                   <TableHead
                     key={header.id}
+                    scope="col"
                     className={cn(
-                      isLineItemColumn
-                        ? "sticky left-0 z-20 px-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-                        : "px-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground",
-                      isLineItemColumn && firstColumnSurfaceClassName()
+                      "h-auto min-w-0 bg-muted py-2 align-middle text-sm font-medium text-foreground",
+                      isLineItemColumn &&
+                        "sticky left-0 z-20 border-r border-border/60 px-4 text-left",
+                      isModificationsColumn &&
+                        "sticky z-[19] border-r border-border/60 px-2 text-left",
+                      isOutlookColumn &&
+                        "sticky z-[18] border-r border-border/60 px-2 text-left",
+                      !isLineItemColumn &&
+                        !isModificationsColumn &&
+                        !isOutlookColumn &&
+                        "px-3 text-right"
                     )}
-                    style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
+                    style={
+                      isLineItemColumn
+                        ? firstColumnStyle
+                        : isModificationsColumn
+                          ? modificationsColumnStyle
+                          : isOutlookColumn
+                            ? outlookColumnStyle
+                            : periodColumnStyle
+                    }
                   >
                     {header.isPlaceholder
                       ? null
@@ -426,17 +624,43 @@ export function ScopedForecastsTable({
           {table.getRowModel().rows.map((row) => (
             <TableRow key={row.id} className={rowClassName(row.original)}>
               {row.getVisibleCells().map((cell) => {
-                const isLineItemColumn = cell.column.id === "lineItem"
+                const colId = cell.column.id
+                const isLineItemColumn = colId === "lineItem"
+                const isModificationsColumn = colId === "modifications"
+                const isOutlookColumn = colId === "outlook"
 
                 return (
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      isLineItemColumn ? "sticky left-0 z-10 px-4" : "px-3",
-                      row.original.rowType === "asset" ? "py-3" : "py-2.5",
-                      isLineItemColumn && firstColumnSurfaceClassName(row.original)
+                      isLineItemColumn && "sticky left-0 z-10 border-r border-border/60 px-4",
+                      isModificationsColumn &&
+                        "sticky z-[9] border-r border-border/60 px-2 py-1.5",
+                      isOutlookColumn && "sticky z-[8] border-r border-border/60 px-2 py-1.5",
+                      !isLineItemColumn &&
+                        !isModificationsColumn &&
+                        !isOutlookColumn &&
+                        "px-3",
+                      row.original.rowType === "asset" &&
+                        !isModificationsColumn &&
+                        !isOutlookColumn
+                        ? "py-3"
+                        : !isModificationsColumn && !isOutlookColumn
+                          ? "py-2.5"
+                          : undefined,
+                      isLineItemColumn && firstColumnSurfaceClassName(row.original),
+                      (isModificationsColumn || isOutlookColumn) &&
+                        selectorColumnsSurfaceClassName(row.original)
                     )}
-                    style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
+                    style={
+                      isLineItemColumn
+                        ? firstColumnStyle
+                        : isModificationsColumn
+                          ? modificationsColumnStyle
+                          : isOutlookColumn
+                            ? outlookColumnStyle
+                            : periodColumnStyle
+                    }
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>

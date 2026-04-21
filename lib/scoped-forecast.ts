@@ -74,6 +74,24 @@ export function baselineScopedForecastOutlookSetOption(
   }
 }
 
+/**
+ * One selectable option per built-in economic outlook (e.g. Baseline, Optimistic, Pessimistic).
+ * First scenario keeps {@link SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID} for existing selection state.
+ */
+export function buildScopedPresetOutlookSetOptions(
+  scenarios: readonly ForecastEconomicOutlookScenario[]
+): ScopedForecastOutlookSetOption[] {
+  return scenarios.map((scenario, index) => ({
+    id:
+      index === 0
+        ? SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID
+        : `__scoped_preset_outlook__:${scenario.id}`,
+    name: scenario.name,
+    set: null,
+    activeScenario: scenario,
+  }))
+}
+
 export function buildDefaultScopedForecastAssumptions(
   assetIds: readonly string[]
 ): ForecastAssumptions {

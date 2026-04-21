@@ -56,12 +56,12 @@ export function AssetForecastSummaryStrip({
             className="flex h-full min-h-0 flex-col"
           >
             <MetricStripLabel>{item.label}</MetricStripLabel>
-            <div className="mt-auto min-w-0">
-              <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2">
-                {valueRow("mt-0")}
+            <div className="mt-auto w-full min-w-0">
+              <div className="mt-1 flex w-full min-w-0 items-baseline gap-x-2">
+                <div className="min-w-0 shrink">{valueRow("mt-0")}</div>
                 <p
                   id={SUMMARY_STRIP_FOOTNOTE_ID}
-                  className="text-xs leading-snug text-muted-foreground"
+                  className="min-w-0 flex-1 text-right text-xs leading-snug text-muted-foreground"
                 >
                   2-year average
                 </p>

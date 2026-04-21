@@ -7,6 +7,7 @@ import {
   AssetForecastChartMetricToolbar,
 } from "@/components/asset-forecast-charts"
 import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
+import { ScopedForecastLeasingAssumptionsBar } from "@/components/scoped-forecast-leasing-assumptions"
 import { ScopedForecastSelectorPanel } from "@/components/scoped-forecast-selector-panel"
 import { ScopedForecastsTable } from "@/components/scoped-forecasts-table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -167,12 +168,14 @@ export function ScopedForecastsWorkspace({
             variant={activeVariant}
             assetContributionsDisplay="flat"
             metricFilter={altMetricTab}
+            assetSelections={assetSelections}
+            onSelectBuildingVersion={setSelectedBuildingVersionId}
+            onSelectOutlookSet={setSelectedOutlookSetId}
             topAccessory={
-              <div className="text-xs text-muted-foreground">
-                Viewing <span className="font-medium text-foreground">{activeModel.scenario.name}</span>{" "}
-                contributions across {activeAssetModels.length} building
-                {activeAssetModels.length === 1 ? "" : "s"}.
-              </div>
+              <ScopedForecastLeasingAssumptionsBar
+                assumptions={assumptions}
+                onAssumptionsChange={updateAssumptions}
+              />
             }
           />
         </section>
@@ -244,6 +247,9 @@ export function ScopedForecastsWorkspace({
             assetModels={activeAssetModels}
             variant={activeVariant}
             assetContributionsDisplay="flat"
+            assetSelections={assetSelections}
+            onSelectBuildingVersion={setSelectedBuildingVersionId}
+            onSelectOutlookSet={setSelectedOutlookSetId}
             topAccessory={
               <div className="text-xs text-muted-foreground">
                 Viewing <span className="font-medium text-foreground">{activeModel.scenario.name}</span>{" "}
