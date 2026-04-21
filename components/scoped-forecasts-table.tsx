@@ -101,22 +101,10 @@ type ScopedForecastTableRow = {
   kind: ForecastStatementRow["kind"]
   values: number[]
   href?: string
-  metaText?: string
   highlightLabel?: boolean
   highlightValue?: boolean
   startsSection?: boolean
   subRows?: ScopedForecastTableRow[]
-}
-
-function assetMetaText(
-  entry: ScopedForecastResolvedAssetModel,
-  variant: "baseline" | "selected"
-) {
-  const selectionLabel =
-    variant === "baseline"
-      ? "Baseline building · Baseline outlook"
-      : `${entry.selection.selectedBuildingVersion.name} · ${entry.selection.selectedOutlookSet.name}`
-  return `${entry.selection.row.location} · ${selectionLabel}`
 }
 
 function filterStatementRowsForMetric(
@@ -158,10 +146,49 @@ function buildScopedForecastTableRows({
         href: isMarketListingRowId(entry.selection.row.id)
           ? undefined
           : assetHref(entry.selection.row.id),
-        metaText: assetMetaText(entry, variant),
       }
     }),
   }))
+}
+
+/** Statement row + per-asset rows at the same depth (no expand/collapse). */
+function buildFlatScopedForecastTableRows({
+  rows,
+  assetModels,
+  variant,
+}: {
+  rows: ForecastStatementRow[]
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+  variant: "baseline" | "selected"
+}): ScopedForecastTableRow[] {
+  const out: ScopedForecastTableRow[] = []
+  for (const row of rows) {
+    out.push({
+      id: row.id,
+      rowType: "statement",
+      label: row.label,
+      kind: row.kind,
+      values: row.values,
+      highlightLabel: row.id === "salePrice",
+      highlightValue: row.id === "salePrice",
+      startsSection: row.id === "salePrice",
+    })
+    for (const entry of assetModels) {
+      const assetRow =
+        entry.model.statementRows.find((statementRow) => statementRow.id === row.id) ?? row
+      out.push({
+        id: `${row.id}-${entry.model.assetId}`,
+        rowType: "asset",
+        label: entry.model.assetName,
+        kind: assetRow.kind,
+        values: assetRow.values,
+        href: isMarketListingRowId(entry.selection.row.id)
+          ? undefined
+          : assetHref(entry.selection.row.id),
+      })
+    }
+  }
+  return out
 }
 
 function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
@@ -169,28 +196,16 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
 
   if (item.rowType === "asset") {
     return (
-      <div className="flex min-w-0 flex-col pl-10">
+      <div className="flex min-w-0">
         {item.href != null ? (
           <Link
             href={item.href}
-            className="group/asset-link inline-flex w-fit max-w-full flex-col rounded-sm text-left underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="group/asset-link inline-flex min-w-0 max-w-full truncate rounded-sm text-left font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <span className="truncate font-medium text-foreground">
-              {item.label}
-            </span>
-            {item.metaText ? (
-              <span className="truncate text-xs text-muted-foreground group-hover/asset-link:text-foreground/80">
-                {item.metaText}
-              </span>
-            ) : null}
+            {item.label}
           </Link>
         ) : (
-          <>
-            <span className="truncate font-medium text-foreground">{item.label}</span>
-            {item.metaText ? (
-              <span className="truncate text-xs text-muted-foreground">{item.metaText}</span>
-            ) : null}
-          </>
+          <span className="truncate font-medium text-foreground">{item.label}</span>
         )}
       </div>
     )
@@ -266,6 +281,7 @@ export function ScopedForecastsTable({
   variant,
   topAccessory,
   metricFilter,
+  assetContributionsDisplay = "nested",
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
@@ -273,7 +289,14 @@ export function ScopedForecastsTable({
   variant: "baseline" | "selected"
   topAccessory?: React.ReactNode
   metricFilter?: ForecastChartTab
+  /**
+   * `nested`: statement rows expand to show per-asset rows (default).
+   * `flat`: statement row plus asset rows as a single flat list (no expand/collapse).
+   */
+  assetContributionsDisplay?: "nested" | "flat"
 }) {
+  const flatAssetContributions = assetContributionsDisplay === "flat"
+
   const filteredRows = React.useMemo(
     () => filterStatementRowsForMetric(rows, metricFilter),
     [metricFilter, rows]
@@ -284,19 +307,34 @@ export function ScopedForecastsTable({
   })
 
   React.useEffect(() => {
+    if (flatAssetContributions) return
     if (metricFilter != null) {
       setExpanded({ [metricFilter]: true })
     }
-  }, [metricFilter])
+  }, [flatAssetContributions, metricFilter])
+
+  const getSubRows = React.useCallback(
+    (row: ScopedForecastTableRow) => {
+      if (flatAssetContributions) return undefined
+      return row.subRows ?? undefined
+    },
+    [flatAssetContributions]
+  )
 
   const data = React.useMemo(
     () =>
-      buildScopedForecastTableRows({
-        rows: filteredRows,
-        assetModels,
-        variant,
-      }),
-    [assetModels, filteredRows, variant]
+      flatAssetContributions
+        ? buildFlatScopedForecastTableRows({
+            rows: filteredRows,
+            assetModels,
+            variant,
+          })
+        : buildScopedForecastTableRows({
+            rows: filteredRows,
+            assetModels,
+            variant,
+          }),
+    [assetModels, filteredRows, flatAssetContributions, variant]
   )
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
@@ -312,13 +350,14 @@ export function ScopedForecastsTable({
         header: () => period.label,
         cell: (info) => {
           const item = info.row.original
+          const isFirstRow = info.row.index === 0
 
           return (
             <div
               className={cn(
-                "text-right tabular-nums font-medium",
-                item.kind === "expense" ? "text-muted-foreground" : "text-foreground",
-                item.highlightValue && "font-semibold"
+                "text-right tabular-nums",
+                isFirstRow ? "font-medium" : "font-normal",
+                item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
               )}
             >
               {formatStatementValue(item.kind, item.values[index] ?? 0)}
@@ -335,11 +374,11 @@ export function ScopedForecastsTable({
   const table = useReactTable({
     data,
     columns,
-    state: { expanded },
-    onExpandedChange: setExpanded,
+    state: flatAssetContributions ? {} : { expanded },
+    onExpandedChange: flatAssetContributions ? undefined : setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: (row) => row.subRows ?? [],
+    getSubRows,
     getRowId: (row) => row.id,
     autoResetExpanded: false,
   })
@@ -408,9 +447,14 @@ export function ScopedForecastsTable({
         </TableBody>
       </Table>
 
-      {metricFilter == null ? (
+      {metricFilter == null && !flatAssetContributions ? (
         <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
           Expand any statement row to inspect building-level contributions for the current selection.
+        </div>
+      ) : null}
+      {flatAssetContributions ? (
+        <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
+          Totals on the line above; following rows are building-level values for the selected metric.
         </div>
       ) : null}
     </div>

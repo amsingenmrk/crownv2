@@ -152,10 +152,13 @@ export function AssetForecastChartMetricToolbar({
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">{activeChartMeta.title}</h2>
+          <h2 className="text-base font-semibold text-foreground">{activeChartMeta.title}</h2>
         </div>
+        <p className="max-w-2xl text-xs leading-snug text-muted-foreground">
+          {activeChartMeta.description}
+        </p>
         {variant === "compare" ? (
-          <p className="max-w-2xl text-xs text-muted-foreground">
+          <p className="max-w-2xl text-xs leading-snug text-muted-foreground">
             One line per compare column — Baseline outlook, quarterly values summed across that
             column&apos;s assets.
           </p>
@@ -190,6 +193,7 @@ export function AssetForecastCharts({
   metricToolbarInCard = false,
   toolbarVariant = "default",
   metricToolbarAriaLabel = "Forecast chart metric",
+  embedded = false,
 }: {
   models: AssetForecastModel[]
   /** Controlled metric selection (use with `onMetricTabChange`). */
@@ -199,6 +203,8 @@ export function AssetForecastCharts({
   metricToolbarInCard?: boolean
   toolbarVariant?: "default" | "compare"
   metricToolbarAriaLabel?: string
+  /** When true, omit outer card wrapper — parent combines chart with adjacent content (e.g. table). */
+  embedded?: boolean
 }) {
   const palette = useForecastChartPalette()
   const chartRows = useForecastChartStatementTabs(models)
@@ -234,11 +240,8 @@ export function AssetForecastCharts({
     [activeTab, models, palette]
   )
 
-  return (
-    <section
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-      aria-label="Forecast charts"
-    >
+  const chartInner = (
+    <>
       {metricToolbarInCard ? (
         <div className="border-b border-border/60 px-4 py-4">
           <AssetForecastChartMetricToolbar
@@ -250,9 +253,26 @@ export function AssetForecastCharts({
           />
         </div>
       ) : null}
-      <div className="px-4 py-4">
+      <div
+        className={
+          embedded ? "border-b border-border/60 px-4 py-4" : "px-4 py-4"
+        }
+      >
         <ForecastHighchart options={chartOptions} />
       </div>
+    </>
+  )
+
+  if (embedded) {
+    return chartInner
+  }
+
+  return (
+    <section
+      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+      aria-label="Forecast charts"
+    >
+      {chartInner}
     </section>
   )
 }

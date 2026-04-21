@@ -5,7 +5,6 @@ import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
 import {
   AssetForecastCharts,
-  AssetForecastChartMetricToolbar,
 } from "@/components/asset-forecast-charts"
 import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
@@ -1228,15 +1227,11 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <AssetForecastChartMetricToolbar
-          models={includedModels}
-          metricTab={forecastChartMetricTab}
-          onMetricTabChange={setForecastChartMetricTab}
-        />
         <AssetForecastCharts
           models={includedModels}
           metricTab={forecastChartMetricTab}
           onMetricTabChange={setForecastChartMetricTab}
+          metricToolbarInCard
         />
 
         <section
@@ -1278,6 +1273,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             key={activeOutlookId}
             periods={model.periods}
             rows={model.statementRows}
+            revenueBreakdown={model.revenueBreakdown}
           />
         </section>
       </div>

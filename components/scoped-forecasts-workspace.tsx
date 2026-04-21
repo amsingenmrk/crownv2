@@ -145,31 +145,27 @@ export function ScopedForecastsWorkspace({
   if (layout === "alt") {
     return (
       <div className="flex min-h-0 w-full flex-col gap-6">
-        <div className="h-fit shrink-0">
-          <AssetForecastSummaryStrip items={forecastSummaryItems} />
-        </div>
-
-        <AssetForecastCharts
-          models={rollup.comparisonModels}
-          metricTab={altMetricTab}
-          onMetricTabChange={setAltMetricTab}
-          metricToolbarInCard
-          metricToolbarAriaLabel="Forecast metric for chart and table"
-        />
+        <AssetForecastSummaryStrip items={forecastSummaryItems} />
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label={`${scopeLabel} forecast statement`}
+          aria-label={`${scopeLabel} forecast chart and statement`}
         >
-          <div className="border-b border-border/60 px-4 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Forecast statement</h2>
-          </div>
+          <AssetForecastCharts
+            models={rollup.comparisonModels}
+            metricTab={altMetricTab}
+            onMetricTabChange={setAltMetricTab}
+            metricToolbarInCard
+            metricToolbarAriaLabel="Forecast metric for chart and table"
+            embedded
+          />
           <ScopedForecastsTable
             key={`${activeComparisonId}-${altMetricTab}`}
             periods={activeModel.periods}
             rows={activeModel.statementRows}
             assetModels={activeAssetModels}
             variant={activeVariant}
+            assetContributionsDisplay="flat"
             metricFilter={altMetricTab}
             topAccessory={
               <div className="text-xs text-muted-foreground">
@@ -196,63 +192,58 @@ export function ScopedForecastsWorkspace({
       />
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <AssetForecastChartMetricToolbar
-          models={rollup.comparisonModels}
-          metricTab={classicChartMetricTab}
-          onMetricTabChange={setClassicChartMetricTab}
-        />
-        <AssetForecastCharts
-          models={rollup.comparisonModels}
-          metricTab={classicChartMetricTab}
-          onMetricTabChange={setClassicChartMetricTab}
-        />
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card px-4 pb-4 shadow-sm"
+          aria-label={`${scopeLabel} forecast summary`}
+        >
+          <div className="flex flex-col gap-3 border-b border-border/60 py-4 sm:flex-row sm:items-center sm:justify-end">
+            <ToggleGroup
+              value={[activeComparisonId]}
+              onValueChange={(values) => {
+                const next = values[0]
+                if (typeof next === "string" && next !== "") {
+                  setActiveComparisonId(next)
+                }
+              }}
+              aria-label="Switch between baseline and selected forecast"
+              className="w-fit"
+            >
+              {rollup.comparisonModels.map((model) => (
+                <ToggleGroupItem key={model.scenario.id} value={model.scenario.id}>
+                  {model.scenario.name}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+          <div className="pt-3">
+            <AssetForecastSummaryStrip items={forecastSummaryItems} />
+          </div>
+        </section>
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label={`${scopeLabel} forecast statement`}
+          aria-label={`${scopeLabel} forecast chart and statement`}
         >
-          <div className="border-b border-border/60">
-            <div className="px-4 py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Forecast Statement
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {scopeLabel} aggregated across {assetSelections.length} building
-                    {assetSelections.length === 1 ? "" : "s"}.
-                  </p>
-                </div>
-                <ToggleGroup
-                  value={[activeComparisonId]}
-                  onValueChange={(values) => {
-                    const next = values[0]
-                    if (typeof next === "string" && next !== "") {
-                      setActiveComparisonId(next)
-                    }
-                  }}
-                  aria-label="Switch between baseline and selected forecast"
-                  className="w-fit"
-                >
-                  {rollup.comparisonModels.map((model) => (
-                    <ToggleGroupItem key={model.scenario.id} value={model.scenario.id}>
-                      {model.scenario.name}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            </div>
-            <div className="px-4 pb-4 pt-3">
-              <AssetForecastSummaryStrip items={forecastSummaryItems} />
-            </div>
+          <div className="border-b border-border/60 px-4 py-4">
+            <AssetForecastChartMetricToolbar
+              models={rollup.comparisonModels}
+              metricTab={classicChartMetricTab}
+              onMetricTabChange={setClassicChartMetricTab}
+            />
           </div>
-
+          <AssetForecastCharts
+            models={rollup.comparisonModels}
+            metricTab={classicChartMetricTab}
+            onMetricTabChange={setClassicChartMetricTab}
+            embedded
+          />
           <ScopedForecastsTable
             key={activeComparisonId}
             periods={activeModel.periods}
             rows={activeModel.statementRows}
             assetModels={activeAssetModels}
             variant={activeVariant}
+            assetContributionsDisplay="flat"
             topAccessory={
               <div className="text-xs text-muted-foreground">
                 Viewing <span className="font-medium text-foreground">{activeModel.scenario.name}</span>{" "}

@@ -805,16 +805,18 @@ function PortfolioDashboardInner({
           id="portfolio-assets-main-panel"
           className={cn(
             "min-h-0 min-w-0 w-full max-w-full",
-            assetsMainView === "map" && "flex min-h-0 flex-1 flex-col"
+            assetsMainView === "map" &&
+              "flex min-h-0 flex-1 flex-col overflow-hidden"
           )}
         >
           {assetsMainView === "map" ? (
             <div
               id="portfolio-map-canvas"
               className={cn(
-                "relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/60",
-                /* Min height + flex growth so Mapbox canvas always gets real pixels (flex-only sizing can leave 0). */
-                "min-h-[min(52dvh,420px)] lg:min-h-[min(58dvh,560px)]"
+                "relative isolate flex w-full shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-muted/60",
+                /* Map only: fill viewport below chrome; no dvh cap so the GL canvas matches this box. */
+                "h-[calc(100svh-22rem)] min-h-[16rem]",
+                "mb-4 md:mb-6"
               )}
             >
               {mapboxEnabled ? (
