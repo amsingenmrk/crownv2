@@ -1,5 +1,5 @@
-import { ScopedForecastsWorkspace } from "@/components/scoped-forecasts-workspace"
+import { redirect } from "next/navigation"
 
 export default function PortfolioForecastsAltPage() {
-  return <ScopedForecastsWorkspace scope={{ kind: "portfolio" }} layout="alt" />
+  redirect("/portfolio/forecasts")
 }

@@ -1,4 +1,3 @@
-import { ScopedForecastsWorkspace } from "@/components/scoped-forecasts-workspace"
 import { redirect } from "next/navigation"
 
 import {
@@ -16,14 +15,5 @@ export default async function PortfolioScopeForecastsAltPage({
   const resolvedScopeId = portfolioScopeIdFromRouteParam(scopeId)
   const canonicalScopeSlug = portfolioScopeSlug(resolvedScopeId)
 
-  if (decodeURIComponent(scopeId) !== canonicalScopeSlug) {
-    redirect(`${portfolioScopeHref(resolvedScopeId)}/forecasts-alt`)
-  }
-
-  return (
-    <ScopedForecastsWorkspace
-      scope={{ kind: "portfolio", portfolioScopeId: resolvedScopeId }}
-      layout="alt"
-    />
-  )
+  redirect(`${portfolioScopeHref(resolvedScopeId)}/forecasts`)
 }

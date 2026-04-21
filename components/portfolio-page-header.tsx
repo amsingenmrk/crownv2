@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { LayoutDashboard, LineChart, Sparkles } from "lucide-react"
+import { LayoutDashboard, LineChart } from "lucide-react"
 import { useParams } from "next/navigation"
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
@@ -124,12 +124,6 @@ export function PortfolioPageHeader() {
     () => [
       { href: basePath, label: "Overview", icon: LayoutDashboard },
       { href: `${basePath}/forecasts`, label: "Forecasts", icon: LineChart },
-      {
-        href: `${basePath}/forecasts-alt`,
-        label: "Forecasts",
-        icon: Sparkles,
-        title: "Alternate forecast layout",
-      },
     ],
     [basePath]
   )

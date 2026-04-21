@@ -70,7 +70,7 @@ export function ScopedForecastLeasingAssumptionField({
     >
       <span
         className={cn(
-          "flex shrink-0 items-center border-r border-border/60 bg-muted/30 px-2.5 py-2 text-sm font-medium leading-snug text-muted-foreground normal-case",
+          "flex shrink-0 items-center border-r border-border/60 bg-muted/30 px-2.5 py-2 text-[12px] font-medium leading-snug text-muted-foreground normal-case",
           nowrapLabel
             ? "max-w-none"
             : "max-w-[46%] sm:max-w-[55%]",
@@ -86,14 +86,14 @@ export function ScopedForecastLeasingAssumptionField({
         min={min}
         max={max}
         step={step}
-        className="h-9 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-1 text-sm tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-9 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-1 text-[12px] tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-[12px]"
         onChange={(event) => {
           const next = Number(event.target.value)
           if (Number.isNaN(next)) return
           onChange(clamp(next, min, max))
         }}
       />
-      <span className="flex shrink-0 items-center border-l border-border/60 bg-muted/15 px-2.5 text-sm font-medium tabular-nums text-muted-foreground">
+      <span className="flex shrink-0 items-center border-l border-border/60 bg-muted/15 px-2.5 text-[12px] font-medium tabular-nums text-muted-foreground">
         {suffix}
       </span>
     </label>
@@ -109,11 +109,11 @@ export function ScopedForecastLeasingAssumptionsBar({
   onAssumptionsChange: (updates: Partial<ForecastAssumptions>) => void
 }) {
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3 items-start max-sm:justify-center sm:flex-row sm:items-center sm:justify-start sm:gap-6">
-      <h3 className="m-0 shrink-0 text-base font-medium text-foreground sm:max-w-[11rem] sm:pb-0.5">
+    <div className="flex w-full min-w-0 flex-col gap-3 items-end max-sm:justify-center sm:flex-row sm:items-center sm:justify-end sm:gap-6">
+      <h3 className="m-0 w-full shrink-0 text-left text-[14px] font-medium text-foreground sm:mr-auto sm:w-auto sm:max-w-[11rem] sm:pb-0.5">
         Leasing assumptions
       </h3>
-      <div className="grid min-w-0 w-full flex-1 grid-cols-1 gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)]">
+      <div className="grid min-w-0 w-full max-w-full grid-cols-1 justify-items-end gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)] sm:justify-items-start">
         {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
           <ScopedForecastLeasingAssumptionField
             key={field.key}
