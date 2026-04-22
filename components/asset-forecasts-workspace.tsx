@@ -857,7 +857,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
         className="flex w-full shrink-0 flex-col rounded-xl border border-border bg-card p-4 shadow-sm lg:w-72 xl:w-80"
         aria-label="Forecast inputs"
       >
-        <h2 className="text-sm font-semibold text-foreground">Forecast Inputs</h2>
+        <h2 className="text-sm font-semibold text-foreground">Modifications</h2>
 
         <Select
           items={buildingVersionLabels}
