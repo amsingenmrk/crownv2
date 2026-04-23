@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
+import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
@@ -88,10 +89,14 @@ export function PortfolioAssetsDataTable({
   table,
   variant,
   liftExtent,
+  showScopeColumn = false,
+  customGroups = {},
 }: {
   table: Table<PortfolioAssetRow>
   variant: PortfolioAssetsTableVariant
   liftExtent: { min: number; max: number }
+  showScopeColumn?: boolean
+  customGroups?: Record<string, string>
 }) {
   const data = table.options.data
   const router = useRouter()
@@ -432,6 +437,19 @@ export function PortfolioAssetsDataTable({
                       </span>
                     )}
                   </div>
+                  {variant === "portfolio" && showScopeColumn ? (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Scope</span>
+                      <span className="min-w-0">
+                        <AssetScopeSelect
+                          assetId={row.id}
+                          building={row.building}
+                          groupId={row.groupId}
+                          customGroups={customGroups}
+                        />
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Sector</span>
                     <span className="text-left text-foreground">{row.typeLabel}</span>

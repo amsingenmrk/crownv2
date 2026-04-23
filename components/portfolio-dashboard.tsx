@@ -514,9 +514,21 @@ function PortfolioDashboardInner({
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
+  const showScopeColumn =
+    assetsTableVariant === "portfolio" && portfolioScopeId == null
+
   const portfolioColumns = React.useMemo(
-    () => createPortfolioAssetColumns(assetsTableVariant, liftPctExtent),
-    [assetsTableVariant, liftPctExtent]
+    () =>
+      createPortfolioAssetColumns(assetsTableVariant, liftPctExtent, {
+        showScopeColumn,
+        customGroups: assetGroupData.customGroups,
+      }),
+    [
+      assetGroupData.customGroups,
+      assetsTableVariant,
+      liftPctExtent,
+      showScopeColumn,
+    ]
   )
 
   const [sorting, setSorting] = React.useState<SortingState>(() =>
@@ -862,6 +874,8 @@ function PortfolioDashboardInner({
                 table={portfolioTable}
                 variant={assetsTableVariant}
                 liftExtent={liftPctExtent}
+                showScopeColumn={showScopeColumn}
+                customGroups={assetGroupData.customGroups}
               />
             </div>
           )}

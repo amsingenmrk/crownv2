@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
@@ -28,6 +29,11 @@ import { cn } from "@/lib/utils"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
 export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
+
+type PortfolioAssetColumnOptions = {
+  showScopeColumn?: boolean
+  customGroups?: Record<string, string>
+}
 
 const CLASS_SOURCE_LABEL =
   "Modeled building class estimate for the demo portfolio table."
@@ -167,7 +173,11 @@ function SelectHeader({ table }: { table: Table<PortfolioAssetRow> }) {
 
 export function createPortfolioAssetColumns(
   variant: PortfolioAssetsTableVariant,
-  liftExtent: { min: number; max: number }
+  liftExtent: { min: number; max: number },
+  {
+    showScopeColumn = false,
+    customGroups = {},
+  }: PortfolioAssetColumnOptions = {}
 ): ColumnDef<PortfolioAssetRow>[] {
   const liftStrength = (liftPercent: number) =>
     normalizedLiftStrength(liftPercent, liftExtent.min, liftExtent.max)
@@ -377,6 +387,25 @@ export function createPortfolioAssetColumns(
       ),
     },
   ]
+
+  if (variant === "portfolio" && showScopeColumn) {
+    columns.splice(3, 0, {
+      id: "scope",
+      accessorFn: (row) => row.groupId,
+      enableHiding: true,
+      meta: { columnLabel: "Scope" },
+      header: () => <div className="font-medium">Scope</div>,
+      cell: ({ row }) => (
+        <AssetScopeSelect
+          assetId={row.original.id}
+          building={row.original.building}
+          groupId={row.original.groupId}
+          customGroups={customGroups}
+        />
+      ),
+      enableSorting: false,
+    })
+  }
 
   if (variant === "portfolio") {
     columns.push({
