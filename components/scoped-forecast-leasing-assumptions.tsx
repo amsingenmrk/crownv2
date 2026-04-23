@@ -100,7 +100,7 @@ export function ScopedForecastLeasingAssumptionField({
   )
 }
 
-/** Horizontal leasing inputs for scoped forecast alt layout (above the statement table). */
+/** Horizontal leasing inputs for scoped forecast alt layout (table accessory, rendered below the statement in the card). */
 export function ScopedForecastLeasingAssumptionsBar({
   assumptions,
   onAssumptionsChange,

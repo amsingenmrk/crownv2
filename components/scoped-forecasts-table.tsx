@@ -97,6 +97,92 @@ function formatStatementValue(kind: ForecastStatementRow["kind"], value: number)
   return formatUsdSigned(value)
 }
 
+/** Statement rows rolled up across buildings for the scoped portfolio table footer. */
+const PORTFOLIO_SUMMARY_ROW_IDS = [
+  "grossRevenue",
+  "opex",
+  "noi",
+  "salePrice",
+  "capRate",
+] as const
+
+function sumStatementAcrossAssets(
+  assetModels: readonly ScopedForecastResolvedAssetModel[],
+  rowId: string,
+  periodCount: number
+): number[] {
+  return Array.from({ length: periodCount }, (_, periodIndex) =>
+    assetModels.reduce((sum, entry) => {
+      const row = entry.model.statementRows.find((r) => r.id === rowId)
+      return sum + (row?.values[periodIndex] ?? 0)
+    }, 0)
+  )
+}
+
+/** Asset-value–weighted average cap rate per period (falls back to simple mean when total value is 0). */
+function valueWeightedCapRateSeries(
+  assetModels: readonly ScopedForecastResolvedAssetModel[],
+  periodCount: number
+): number[] {
+  return Array.from({ length: periodCount }, (_, periodIndex) => {
+    let weighted = 0
+    let totalValue = 0
+    for (const entry of assetModels) {
+      const cap =
+        entry.model.statementRows.find((r) => r.id === "capRate")?.values[periodIndex] ?? 0
+      const value =
+        entry.model.statementRows.find((r) => r.id === "salePrice")?.values[periodIndex] ?? 0
+      weighted += cap * value
+      totalValue += value
+    }
+    if (totalValue <= 0) {
+      const n = assetModels.length
+      if (n === 0) return 0
+      const simple =
+        assetModels.reduce(
+          (s, e) =>
+            s + (e.model.statementRows.find((r) => r.id === "capRate")?.values[periodIndex] ?? 0),
+          0
+        ) / n
+      return Number(simple.toFixed(2))
+    }
+    return Number((weighted / totalValue).toFixed(2))
+  })
+}
+
+function buildPortfolioQuarterlySummaryRows(
+  statementRows: ForecastStatementRow[],
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+): ForecastStatementRow[] {
+  const periodCount = assetModels[0]?.model.periods.length ?? 0
+  if (periodCount === 0 || assetModels.length === 0) return []
+
+  const meta = new Map(statementRows.map((r) => [r.id, r]))
+  const gross = sumStatementAcrossAssets(assetModels, "grossRevenue", periodCount)
+  const opex = sumStatementAcrossAssets(assetModels, "opex", periodCount)
+  const noi = sumStatementAcrossAssets(assetModels, "noi", periodCount)
+  const salePrice = sumStatementAcrossAssets(assetModels, "salePrice", periodCount)
+  const capRates = valueWeightedCapRateSeries(assetModels, periodCount)
+
+  const valuesById: Record<(typeof PORTFOLIO_SUMMARY_ROW_IDS)[number], number[]> = {
+    grossRevenue: gross,
+    opex,
+    noi,
+    salePrice,
+    capRate: capRates,
+  }
+
+  return PORTFOLIO_SUMMARY_ROW_IDS.map((id) => {
+    const template = meta.get(id)
+    return {
+      id: `portfolio-total-${id}`,
+      label: template?.label ?? id,
+      kind: template?.kind ?? "currency",
+      values: valuesById[id],
+    }
+  })
+}
+
 const FIRST_COLUMN_WIDTH_PX = 180
 const SELECTOR_COLUMN_WIDTH_PX = 128
 const PERIOD_COLUMN_WIDTH_PX = 108
@@ -123,6 +209,86 @@ const periodColumnStyle: React.CSSProperties = {
   minWidth: PERIOD_COLUMN_WIDTH_PX,
 }
 
+/** Portfolio-level quarterly roll-up; can be rendered below the statement table or elsewhere (e.g. under the chart). */
+export function ScopedForecastsPortfolioTotalsTable({
+  periods,
+  rows,
+  assetModels,
+}: {
+  periods: ForecastPeriod[]
+  rows: ForecastStatementRow[]
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+}) {
+  const portfolioSummaryRows = React.useMemo(
+    () => buildPortfolioQuarterlySummaryRows(rows, assetModels),
+    [assetModels, rows]
+  )
+
+  const totalTableMinWidth =
+    FIRST_COLUMN_WIDTH_PX + periods.length * PERIOD_COLUMN_WIDTH_PX
+
+  if (portfolioSummaryRows.length === 0) return null
+
+  return (
+    <div className="border-t border-border/80">
+      <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
+        <TableHeader>
+          <TableRow className="border-b border-border bg-muted/80 hover:bg-muted/80">
+            <TableHead
+              scope="col"
+              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-4 py-2 text-left text-sm font-medium text-foreground"
+              style={firstColumnStyle}
+            >
+              Quarter
+            </TableHead>
+            {periods.map((period) => (
+              <TableHead
+                key={`summary-h-${period.label}`}
+                scope="col"
+                className="h-auto min-w-0 bg-muted/80 px-3 py-2 text-right text-sm font-medium text-foreground"
+                style={periodColumnStyle}
+              >
+                {period.label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {portfolioSummaryRows.map((row) => (
+            <TableRow
+              key={row.id}
+              className="group border-b border-border/60 last:border-b-0 hover:bg-transparent"
+            >
+              <TableCell
+                className="sticky left-0 z-10 border-r border-border/60 bg-background px-4 py-2.5"
+                style={firstColumnStyle}
+              >
+                <span className="font-medium text-foreground">{row.label}</span>
+              </TableCell>
+              {periods.map((period, index) => (
+                <TableCell
+                  key={`${row.id}-${period.label}`}
+                  className="px-3 py-2.5"
+                  style={periodColumnStyle}
+                >
+                  <div
+                    className={cn(
+                      "text-right tabular-nums text-foreground",
+                      row.kind === "expense" && "text-muted-foreground"
+                    )}
+                  >
+                    {formatStatementValue(row.kind, row.values[index] ?? 0)}
+                  </div>
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 type ScopedForecastTableRow = {
   id: string
   rowType: "statement" | "asset"
@@ -131,11 +297,170 @@ type ScopedForecastTableRow = {
   label: string
   kind: ForecastStatementRow["kind"]
   values: number[]
+  /** When set (total-horizon pivot), value cells use this kind per column index instead of `kind`. */
+  periodCellKinds?: ForecastStatementRow["kind"][]
   href?: string
   highlightLabel?: boolean
   highlightValue?: boolean
   startsSection?: boolean
   subRows?: ScopedForecastTableRow[]
+}
+
+/** Column order for total-horizon pivot (one column per metric, one row per asset + portfolio). */
+const TOTAL_HORIZON_PIVOT_METRICS: readonly ForecastChartTab[] = [
+  "grossRevenue",
+  "opex",
+  "noi",
+  "salePrice",
+  "capRate",
+]
+
+function statementRowForMetric(
+  statementRows: ForecastStatementRow[],
+  metricId: ForecastChartTab
+): ForecastStatementRow | undefined {
+  return statementRows.find((r) => r.id === metricId)
+}
+
+function buildTotalHorizonAssetPivotRows({
+  statementRows,
+  assetModels,
+}: {
+  statementRows: ForecastStatementRow[]
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+}): ScopedForecastTableRow[] {
+  const portfolioValues = TOTAL_HORIZON_PIVOT_METRICS.map((metricId) => {
+    const stmt = statementRowForMetric(statementRows, metricId)
+    if (stmt == null) return 0
+    return singleColumnValuesForTotalHorizon(stmt.kind, stmt.id, stmt.values)[0] ?? 0
+  })
+  const portfolioKinds = TOTAL_HORIZON_PIVOT_METRICS.map(
+    (metricId) => statementRowForMetric(statementRows, metricId)?.kind ?? "currency"
+  )
+
+  const out: ScopedForecastTableRow[] = [
+    {
+      id: "portfolio-horizon-pivot",
+      rowType: "statement",
+      label: "Portfolio",
+      kind: "currency",
+      values: portfolioValues,
+      periodCellKinds: portfolioKinds,
+    },
+  ]
+
+  for (const entry of assetModels) {
+    const values = TOTAL_HORIZON_PIVOT_METRICS.map((metricId) => {
+      const stmt = entry.model.statementRows.find((r) => r.id === metricId)
+      if (stmt == null) return 0
+      return singleColumnValuesForTotalHorizon(stmt.kind, stmt.id, stmt.values)[0] ?? 0
+    })
+    const kinds = TOTAL_HORIZON_PIVOT_METRICS.map((metricId) => {
+      const stmt = entry.model.statementRows.find((r) => r.id === metricId)
+      return stmt?.kind ?? "currency"
+    })
+    out.push({
+      id: `horizon-pivot-${entry.model.assetId}`,
+      rowType: "asset",
+      assetId: entry.model.assetId,
+      label: entry.model.assetName,
+      kind: "currency",
+      values,
+      periodCellKinds: kinds,
+      href: isMarketListingRowId(entry.selection.row.id)
+        ? undefined
+        : assetForecastHref(entry.selection.row.id),
+    })
+  }
+
+  return out
+}
+
+export type ForecastStatementPeriodGranularity = "quarterly" | "total"
+
+const STATEMENT_PERIOD_GRANULARITY_ITEMS: Record<
+  ForecastStatementPeriodGranularity,
+  string
+> = {
+  total: "2 Year Total",
+  quarterly: "Quarterly",
+}
+
+/** Total vs quarterly columns — shared by {@link ScopedForecastsTable} and parent section headers. */
+export function StatementPeriodGranularitySelect({
+  value,
+  onValueChange,
+}: {
+  value: ForecastStatementPeriodGranularity
+  onValueChange: (next: ForecastStatementPeriodGranularity) => void
+}) {
+  return (
+    <Select
+      items={STATEMENT_PERIOD_GRANULARITY_ITEMS}
+      value={value}
+      onValueChange={(next) => {
+        if (next === "quarterly" || next === "total") {
+          onValueChange(next)
+        }
+      }}
+    >
+      <SelectTrigger
+        size="sm"
+        className="min-w-[9.5rem] justify-between"
+        aria-label="Statement columns: two-year total horizon or quarterly"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" side="bottom">
+        <SelectItem value="total">2 Year Total</SelectItem>
+        <SelectItem value="quarterly">Quarterly</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
+const FORECAST_TABLE_METRIC_IDS = [
+  "grossRevenue",
+  "opex",
+  "noi",
+  "salePrice",
+  "capRate",
+] as const
+
+function statementMetricIdFromTableRowId(
+  tableRowId: string
+): (typeof FORECAST_TABLE_METRIC_IDS)[number] | undefined {
+  for (const id of FORECAST_TABLE_METRIC_IDS) {
+    if (tableRowId === id || tableRowId.startsWith(`${id}-`)) {
+      return id
+    }
+  }
+  return undefined
+}
+
+/**
+ * Single-column horizon view: flow lines (revenue, OpEx, NOI) sum quarters;
+ * point-in-time lines (asset value, cap rate) use the last forecast period.
+ */
+function singleColumnValuesForTotalHorizon(
+  kind: ForecastStatementRow["kind"],
+  tableRowId: string,
+  values: readonly number[]
+): number[] {
+  if (values.length === 0) return [0]
+  const metric = statementMetricIdFromTableRowId(tableRowId)
+
+  if (metric === "salePrice" || metric === "capRate") {
+    return [values[values.length - 1] ?? 0]
+  }
+
+  if (kind === "percent") {
+    const mean = values.reduce((sum, v) => sum + v, 0) / values.length
+    return [Number(mean.toFixed(2))]
+  }
+
+  const sum = values.reduce((acc, v) => acc + v, 0)
+  return [sum]
 }
 
 function filterStatementRowsForMetric(
@@ -144,6 +469,28 @@ function filterStatementRowsForMetric(
 ): ForecastStatementRow[] {
   if (metric == null) return rows
   return rows.filter((row) => row.id === metric)
+}
+
+function assetSubRowsForStatementRow(
+  row: ForecastStatementRow,
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+): ScopedForecastTableRow[] {
+  return assetModels.map((entry) => {
+    const assetRow =
+      entry.model.statementRows.find((statementRow) => statementRow.id === row.id) ?? row
+
+    return {
+      id: `${row.id}-${entry.model.assetId}`,
+      rowType: "asset" as const,
+      assetId: entry.model.assetId,
+      label: entry.model.assetName,
+      kind: assetRow.kind,
+      values: assetRow.values,
+      href: isMarketListingRowId(entry.selection.row.id)
+        ? undefined
+        : assetForecastHref(entry.selection.row.id),
+    }
+  })
 }
 
 function buildScopedForecastTableRows({
@@ -155,32 +502,35 @@ function buildScopedForecastTableRows({
   assetModels: readonly ScopedForecastResolvedAssetModel[]
   variant: "baseline" | "selected"
 }): ScopedForecastTableRow[] {
-  return rows.map((row) => ({
-    id: row.id,
-    rowType: "statement",
-    label: row.label,
-    kind: row.kind,
-    values: row.values,
-    highlightLabel: row.id === "salePrice",
-    highlightValue: row.id === "salePrice",
-    startsSection: row.id === "salePrice",
-    subRows: assetModels.map((entry) => {
-      const assetRow =
-        entry.model.statementRows.find((statementRow) => statementRow.id === row.id) ?? row
-
-      return {
-        id: `${row.id}-${entry.model.assetId}`,
-        rowType: "asset",
-        assetId: entry.model.assetId,
-        label: entry.model.assetName,
-        kind: assetRow.kind,
-        values: assetRow.values,
-        href: isMarketListingRowId(entry.selection.row.id)
-          ? undefined
-          : assetForecastHref(entry.selection.row.id),
-      }
-    }),
-  }))
+  const out: ScopedForecastTableRow[] = []
+  for (const row of rows) {
+    if (row.id === "grossRevenue") {
+      out.push({
+        id: row.id,
+        rowType: "statement",
+        label: row.label,
+        kind: row.kind,
+        values: row.values,
+        highlightLabel: false,
+        highlightValue: false,
+        startsSection: false,
+        subRows: assetSubRowsForStatementRow(row, assetModels),
+      })
+      continue
+    }
+    out.push({
+      id: row.id,
+      rowType: "statement",
+      label: row.label,
+      kind: row.kind,
+      values: row.values,
+      highlightLabel: row.id === "salePrice",
+      highlightValue: row.id === "salePrice",
+      startsSection: row.id === "salePrice",
+      subRows: assetSubRowsForStatementRow(row, assetModels),
+    })
+  }
+  return out
 }
 
 /** Statement row + per-asset rows at the same depth (no expand/collapse). */
@@ -195,6 +545,20 @@ function buildFlatScopedForecastTableRows({
 }): ScopedForecastTableRow[] {
   const out: ScopedForecastTableRow[] = []
   for (const row of rows) {
+    if (row.id === "grossRevenue") {
+      out.push({
+        id: row.id,
+        rowType: "statement",
+        label: row.label,
+        kind: row.kind,
+        values: row.values,
+        highlightLabel: false,
+        highlightValue: false,
+        startsSection: false,
+      })
+      out.push(...assetSubRowsForStatementRow(row, assetModels))
+      continue
+    }
     out.push({
       id: row.id,
       rowType: "statement",
@@ -205,21 +569,7 @@ function buildFlatScopedForecastTableRows({
       highlightValue: row.id === "salePrice",
       startsSection: row.id === "salePrice",
     })
-    for (const entry of assetModels) {
-      const assetRow =
-        entry.model.statementRows.find((statementRow) => statementRow.id === row.id) ?? row
-      out.push({
-        id: `${row.id}-${entry.model.assetId}`,
-        rowType: "asset",
-        assetId: entry.model.assetId,
-        label: entry.model.assetName,
-        kind: assetRow.kind,
-        values: assetRow.values,
-        href: isMarketListingRowId(entry.selection.row.id)
-          ? undefined
-          : assetForecastHref(entry.selection.row.id),
-      })
-    }
+    out.push(...assetSubRowsForStatementRow(row, assetModels))
   }
   return out
 }
@@ -335,6 +685,10 @@ export function ScopedForecastsTable({
   assetSelections,
   onSelectBuildingVersion,
   onSelectOutlookSet,
+  portfolioTotalsPlacement = "belowStatement",
+  statementToolbar = "default",
+  periodGranularity: periodGranularityProp,
+  onPeriodGranularityChange,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
@@ -351,6 +705,19 @@ export function ScopedForecastsTable({
   assetSelections?: readonly ScopedForecastAssetSelection[]
   onSelectBuildingVersion?: (assetId: string, nextId: string) => void
   onSelectOutlookSet?: (assetId: string, nextId: string) => void
+  /**
+   * `belowStatement`: render the portfolio quarterly totals table under this grid (default).
+   * `none`: omit it here so the parent can render it elsewhere (e.g. below the chart).
+   */
+  portfolioTotalsPlacement?: "belowStatement" | "none"
+  /**
+   * `default`: title + total/quarterly control above the grid.
+   * `none`: omit that chrome — parent renders it (see `StatementPeriodGranularitySelect`).
+   */
+  statementToolbar?: "default" | "none"
+  /** Controlled quarterly / total horizon (pair with `onPeriodGranularityChange`). */
+  periodGranularity?: ForecastStatementPeriodGranularity
+  onPeriodGranularityChange?: (next: ForecastStatementPeriodGranularity) => void
 }) {
   const flatAssetContributions = assetContributionsDisplay === "flat"
 
@@ -372,23 +739,39 @@ export function ScopedForecastsTable({
     [metricFilter, rows]
   )
 
-  const [expanded, setExpanded] = React.useState<ExpandedState>({
-    grossRevenue: true,
-  })
+  const [internalPeriodGranularity, setInternalPeriodGranularity] =
+    React.useState<ForecastStatementPeriodGranularity>("total")
+
+  const periodGranularity =
+    periodGranularityProp ?? internalPeriodGranularity
+
+  const setPeriodGranularity = React.useCallback(
+    (next: ForecastStatementPeriodGranularity) => {
+      onPeriodGranularityChange?.(next)
+      if (periodGranularityProp === undefined) {
+        setInternalPeriodGranularity(next)
+      }
+    },
+    [onPeriodGranularityChange, periodGranularityProp]
+  )
+
+  const isTotalHorizonPivot = periodGranularity === "total"
+
+  const [expanded, setExpanded] = React.useState<ExpandedState>({})
 
   React.useEffect(() => {
-    if (flatAssetContributions) return
+    if (flatAssetContributions || isTotalHorizonPivot) return
     if (metricFilter != null) {
       setExpanded({ [metricFilter]: true })
     }
-  }, [flatAssetContributions, metricFilter])
+  }, [flatAssetContributions, isTotalHorizonPivot, metricFilter])
 
   const getSubRows = React.useCallback(
     (row: ScopedForecastTableRow) => {
-      if (flatAssetContributions) return undefined
+      if (flatAssetContributions || isTotalHorizonPivot) return undefined
       return row.subRows ?? undefined
     },
-    [flatAssetContributions]
+    [flatAssetContributions, isTotalHorizonPivot]
   )
 
   const data = React.useMemo(
@@ -406,6 +789,25 @@ export function ScopedForecastsTable({
           }),
     [assetModels, filteredRows, flatAssetContributions, variant]
   )
+
+  const displayPeriods = React.useMemo((): ForecastPeriod[] => {
+    if (periodGranularity === "quarterly") return periods
+    const anchor = periods[0]
+    return [
+      {
+        index: 0,
+        label: "2 Year Total",
+        quarter: anchor?.quarter ?? 0,
+        year: anchor?.year ?? 0,
+        startDate: anchor?.startDate ?? "",
+      },
+    ]
+  }, [periodGranularity, periods])
+
+  const tableData = React.useMemo(() => {
+    if (periodGranularity === "quarterly") return data
+    return buildTotalHorizonAssetPivotRows({ statementRows: rows, assetModels })
+  }, [assetModels, data, periodGranularity, rows])
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(() => {
     const selectorColumns: ColumnDef<ScopedForecastTableRow>[] = showSelectorColumns
@@ -505,30 +907,63 @@ export function ScopedForecastsTable({
         ]
       : []
 
+    const lineItemColumn: ColumnDef<ScopedForecastTableRow> = {
+      id: "lineItem",
+      header: () => "Asset",
+      cell: ({ row }) => lineItemCellContent(row),
+      enableSorting: false,
+    }
+
+    if (isTotalHorizonPivot) {
+      return [
+        lineItemColumn,
+        ...selectorColumns,
+        ...TOTAL_HORIZON_PIVOT_METRICS.map<ColumnDef<ScopedForecastTableRow>>(
+          (metricId, index) => ({
+            id: `pivot-${metricId}`,
+            header: () => statementRowForMetric(rows, metricId)?.label ?? metricId,
+            cell: (info) => {
+              const item = info.row.original
+              const isFirstRow = info.row.index === 0
+              const kind = item.periodCellKinds?.[index] ?? item.kind
+              return (
+                <div
+                  className={cn(
+                    "text-right tabular-nums",
+                    isFirstRow ? "font-semibold" : "font-normal",
+                    kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                  )}
+                >
+                  {formatStatementValue(kind, item.values[index] ?? 0)}
+                </div>
+              )
+            },
+            enableSorting: false,
+          })
+        ),
+      ]
+    }
+
     return [
-      {
-        id: "lineItem",
-        header: () => "Asset",
-        cell: ({ row }) => lineItemCellContent(row),
-        enableSorting: false,
-      },
+      lineItemColumn,
       ...selectorColumns,
-      ...periods.map<ColumnDef<ScopedForecastTableRow>>((period, index) => ({
+      ...displayPeriods.map<ColumnDef<ScopedForecastTableRow>>((period, index) => ({
         id: `period-${period.label}`,
         header: () => period.label,
         cell: (info) => {
           const item = info.row.original
           const isFirstRow = info.row.index === 0
+          const kind = item.periodCellKinds?.[index] ?? item.kind
 
           return (
             <div
               className={cn(
                 "text-right tabular-nums",
                 isFirstRow ? "font-semibold" : "font-normal",
-                item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                kind === "expense" ? "text-muted-foreground" : "text-foreground"
               )}
             >
-              {formatStatementValue(item.kind, item.values[index] ?? 0)}
+              {formatStatementValue(kind, item.values[index] ?? 0)}
             </div>
           )
         },
@@ -536,19 +971,22 @@ export function ScopedForecastsTable({
       })),
     ]
   }, [
+    displayPeriods,
+    isTotalHorizonPivot,
     onSelectBuildingVersion,
     onSelectOutlookSet,
-    periods,
+    rows,
     selectionByAssetId,
     showSelectorColumns,
   ])
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
   const table = useReactTable({
-    data,
+    data: tableData,
     columns,
-    state: flatAssetContributions ? {} : { expanded },
-    onExpandedChange: flatAssetContributions ? undefined : setExpanded,
+    state: flatAssetContributions || isTotalHorizonPivot ? {} : { expanded },
+    onExpandedChange:
+      flatAssetContributions || isTotalHorizonPivot ? undefined : setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getSubRows,
@@ -556,15 +994,25 @@ export function ScopedForecastsTable({
     autoResetExpanded: false,
   })
 
+  const valueColumnCount = isTotalHorizonPivot
+    ? TOTAL_HORIZON_PIVOT_METRICS.length
+    : displayPeriods.length
+
   const totalTableMinWidth =
     FIRST_COLUMN_WIDTH_PX +
     (showSelectorColumns ? 2 * SELECTOR_COLUMN_WIDTH_PX : 0) +
-    periods.length * PERIOD_COLUMN_WIDTH_PX
+    valueColumnCount * PERIOD_COLUMN_WIDTH_PX
 
   return (
     <div className="overflow-hidden">
-      {topAccessory != null ? (
-        <div className="border-b border-border/60 px-4 py-3">{topAccessory}</div>
+      {statementToolbar === "default" ? (
+        <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Asset Forecast</h2>
+          <StatementPeriodGranularitySelect
+            value={periodGranularity}
+            onValueChange={setPeriodGranularity}
+          />
+        </div>
       ) : null}
 
       <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
@@ -671,15 +1119,21 @@ export function ScopedForecastsTable({
         </TableBody>
       </Table>
 
+      {portfolioTotalsPlacement === "belowStatement" ? (
+        <ScopedForecastsPortfolioTotalsTable
+          periods={periods}
+          rows={rows}
+          assetModels={assetModels}
+        />
+      ) : null}
+
       {metricFilter == null && !flatAssetContributions ? (
         <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
           Expand any statement row to inspect building-level contributions for the current selection.
         </div>
       ) : null}
-      {flatAssetContributions ? (
-        <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
-          Totals on the line above; following rows are building-level values for the selected metric.
-        </div>
+      {topAccessory != null ? (
+        <div className="border-b border-border/60 px-4 py-3">{topAccessory}</div>
       ) : null}
     </div>
   )

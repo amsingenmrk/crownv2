@@ -12,6 +12,7 @@ import {
 } from "@/lib/forecast-chart-config"
 import type { AssetForecastModel } from "@/lib/forecast-data"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { cn } from "@/lib/utils"
 
 const CHART_CONTAINER_STYLE: React.CSSProperties = {
   position: "absolute",
@@ -131,6 +132,43 @@ function useForecastChartStatementTabs(models: AssetForecastModel[]) {
   )
 }
 
+/** Gross Revenue / OpEx / … toggles — same control as in {@link AssetForecastChartMetricToolbar}. */
+export function AssetForecastChartMetricToggleGroup({
+  models,
+  metricTab,
+  onMetricTabChange,
+  ariaLabel = "Forecast chart metric",
+  className,
+}: {
+  models: AssetForecastModel[]
+  metricTab: ForecastChartTab
+  onMetricTabChange: (tab: ForecastChartTab) => void
+  ariaLabel?: string
+  className?: string
+}) {
+  const chartRows = useForecastChartStatementTabs(models)
+
+  return (
+    <ToggleGroup
+      value={[metricTab]}
+      onValueChange={(values) => {
+        const next = values[0]
+        if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
+          onMetricTabChange(next as ForecastChartTab)
+        }
+      }}
+      aria-label={ariaLabel}
+      className={cn("w-fit max-w-full flex-wrap", className)}
+    >
+      {chartRows.map((row) => (
+        <ToggleGroupItem key={row.id} value={row.id}>
+          {row.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
+
 /** Renders chart title, optional compare copy, and metric toggles — place above `AssetForecastCharts`. */
 export function AssetForecastChartMetricToolbar({
   models,
@@ -138,22 +176,26 @@ export function AssetForecastChartMetricToolbar({
   metricTab,
   onMetricTabChange,
   ariaLabel = "Forecast chart metric",
+  showMetricTitle = true,
 }: {
   models: AssetForecastModel[]
   variant?: "default" | "compare"
   metricTab: ForecastChartTab
   onMetricTabChange: (tab: ForecastChartTab) => void
   ariaLabel?: string
+  /** When false, omit the metric `h2` (parent supplies a section title, e.g. “Gross revenue projection”). */
+  showMetricTitle?: boolean
 }) {
-  const chartRows = useForecastChartStatementTabs(models)
   const activeChartMeta = getForecastStatementChartMeta(metricTab)
 
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-foreground">{activeChartMeta.title}</h2>
-        </div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-1">
+        {showMetricTitle ? (
+          <h2 className="text-base font-semibold tracking-tight text-foreground">
+            {activeChartMeta.title}
+          </h2>
+        ) : null}
         <p className="max-w-2xl text-xs leading-snug text-muted-foreground">
           {activeChartMeta.description}
         </p>
@@ -165,23 +207,13 @@ export function AssetForecastChartMetricToolbar({
         ) : null}
       </div>
 
-      <ToggleGroup
-        value={[metricTab]}
-        onValueChange={(values) => {
-          const next = values[0]
-          if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
-            onMetricTabChange(next as ForecastChartTab)
-          }
-        }}
-        aria-label={ariaLabel}
-        className="w-fit max-w-full flex-wrap"
-      >
-        {chartRows.map((row) => (
-          <ToggleGroupItem key={row.id} value={row.id}>
-            {row.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <AssetForecastChartMetricToggleGroup
+        models={models}
+        metricTab={metricTab}
+        onMetricTabChange={onMetricTabChange}
+        ariaLabel={ariaLabel}
+        className="shrink-0"
+      />
     </div>
   )
 }
@@ -193,6 +225,7 @@ export function AssetForecastCharts({
   metricToolbarInCard = false,
   toolbarVariant = "default",
   metricToolbarAriaLabel = "Forecast chart metric",
+  metricToolbarShowMetricTitle = true,
   embedded = false,
 }: {
   models: AssetForecastModel[]
@@ -203,6 +236,8 @@ export function AssetForecastCharts({
   metricToolbarInCard?: boolean
   toolbarVariant?: "default" | "compare"
   metricToolbarAriaLabel?: string
+  /** When false, toolbar omits the metric heading (use with a parent section title). */
+  metricToolbarShowMetricTitle?: boolean
   /** When true, omit outer card wrapper — parent combines chart with adjacent content (e.g. table). */
   embedded?: boolean
 }) {
@@ -250,6 +285,7 @@ export function AssetForecastCharts({
             metricTab={activeTab}
             onMetricTabChange={setActiveTab}
             ariaLabel={metricToolbarAriaLabel}
+            showMetricTitle={metricToolbarShowMetricTitle}
           />
         </div>
       ) : null}

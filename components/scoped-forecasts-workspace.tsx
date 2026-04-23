@@ -3,8 +3,9 @@
 import * as React from "react"
 
 import {
-  AssetForecastCharts,
+  AssetForecastChartMetricToggleGroup,
   AssetForecastChartMetricToolbar,
+  AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
 import {
   AssetForecastSummaryStrip,
@@ -12,7 +13,12 @@ import {
 } from "@/components/asset-forecast-summary-strip"
 import { ScopedForecastLeasingAssumptionsBar } from "@/components/scoped-forecast-leasing-assumptions"
 import { ScopedForecastSelectorPanel } from "@/components/scoped-forecast-selector-panel"
-import { ScopedForecastsTable } from "@/components/scoped-forecasts-table"
+import {
+  type ForecastStatementPeriodGranularity,
+  ScopedForecastsPortfolioTotalsTable,
+  ScopedForecastsTable,
+  StatementPeriodGranularitySelect,
+} from "@/components/scoped-forecasts-table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useScopedForecastState } from "@/hooks/use-scoped-forecast-state"
 import { resolveAssetGroupLabel } from "@/lib/assets"
@@ -163,6 +169,8 @@ export function ScopedForecastsWorkspace({
   const [classicChartMetricTab, setClassicChartMetricTab] =
     React.useState<ForecastChartTab>("grossRevenue")
   const [altMetricTab, setAltMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
+  const [altStatementGranularity, setAltStatementGranularity] =
+    React.useState<ForecastStatementPeriodGranularity>("total")
 
   if (layout === "alt") {
     return (
@@ -171,16 +179,27 @@ export function ScopedForecastsWorkspace({
 
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label={`${scopeLabel} forecast chart and statement`}
+          aria-label={`${scopeLabel} asset forecast statement`}
         >
-          <AssetForecastCharts
-            models={rollup.comparisonModels}
-            metricTab={altMetricTab}
-            onMetricTabChange={setAltMetricTab}
-            metricToolbarInCard
-            metricToolbarAriaLabel="Forecast metric for chart and table"
-            embedded
-          />
+          <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold tracking-tight text-foreground">Asset Forecast</h2>
+              <StatementPeriodGranularitySelect
+                value={altStatementGranularity}
+                onValueChange={setAltStatementGranularity}
+              />
+            </div>
+            {altStatementGranularity === "quarterly" ? (
+              <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+                <AssetForecastChartMetricToggleGroup
+                  models={rollup.comparisonModels}
+                  metricTab={altMetricTab}
+                  onMetricTabChange={setAltMetricTab}
+                  aria-label="Forecast metric for chart and table"
+                />
+              </div>
+            ) : null}
+          </div>
           <ScopedForecastsTable
             key={`${activeComparisonId}-${altMetricTab}`}
             periods={activeModel.periods}
@@ -192,12 +211,56 @@ export function ScopedForecastsWorkspace({
             assetSelections={assetSelections}
             onSelectBuildingVersion={setSelectedBuildingVersionId}
             onSelectOutlookSet={setSelectedOutlookSetId}
+            portfolioTotalsPlacement="none"
+            statementToolbar="none"
+            periodGranularity={altStatementGranularity}
+            onPeriodGranularityChange={setAltStatementGranularity}
             topAccessory={
               <ScopedForecastLeasingAssumptionsBar
                 assumptions={assumptions}
                 onAssumptionsChange={updateAssumptions}
               />
             }
+          />
+        </section>
+
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+          aria-label={`${scopeLabel} gross revenue projection chart`}
+        >
+          <div className="border-b border-border/60 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold tracking-tight text-foreground">
+                Gross Revenue Projection
+              </h2>
+              <AssetForecastChartMetricToggleGroup
+                models={rollup.comparisonModels}
+                metricTab={altMetricTab}
+                onMetricTabChange={setAltMetricTab}
+                aria-label="Forecast metric for chart and table"
+                className="shrink-0"
+              />
+            </div>
+          </div>
+          <AssetForecastCharts
+            models={rollup.comparisonModels}
+            metricTab={altMetricTab}
+            onMetricTabChange={setAltMetricTab}
+            embedded
+          />
+        </section>
+
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+          aria-label={`${scopeLabel} portfolio quarterly totals`}
+        >
+          <div className="border-b border-border/60 px-4 py-3">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Portfolio totals</h2>
+          </div>
+          <ScopedForecastsPortfolioTotalsTable
+            periods={activeModel.periods}
+            rows={activeModel.statementRows}
+            assetModels={activeAssetModels}
           />
         </section>
       </div>
