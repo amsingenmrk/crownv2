@@ -20,13 +20,18 @@ import {
   scenarioComparePortfolioRows,
 } from "@/lib/scenario-compare-rows"
 import {
+  DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
   SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
   SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
   baselineScopedForecastBuildingVersionOption,
   buildDefaultScopedForecastAssumptions,
   buildScopedPresetOutlookSetOptions,
+  normalizeScopedForecastPortfolioScenarioProbabilities,
   type ScopedForecastAssetSelection,
   type ScopedForecastBuildingVersionOption,
+  type ScopedForecastPortfolioModificationMode,
+  type ScopedForecastPortfolioScenarioId,
+  type ScopedForecastPortfolioScenarioProbabilities,
   type ScopedForecastOutlookSetOption,
   type ScopedForecastScope,
 } from "@/lib/scoped-forecast"
@@ -103,22 +108,21 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       ),
     [assetGroupData]
   )
+  const isScenarioScope = scope.kind === "scenario"
+  const scenarioSlug = isScenarioScope ? scope.scenarioSlug : undefined
+  const portfolioScopeId =
+    scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
+  const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? "overview"}`
 
   const scopedRows = React.useMemo(() => {
-    if (scope.kind === "scenario") {
-      return scenarioComparePortfolioRows(scope.scenarioSlug, portfolioAssetRows)
+    if (isScenarioScope && scenarioSlug != null) {
+      return scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)
     }
-    if (scope.portfolioScopeId != null) {
-      return portfolioAssetRows.filter(
-        (row) => row.groupId === scope.portfolioScopeId
-      )
+    if (portfolioScopeId != null) {
+      return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
     }
     return portfolioAssetRows
-  }, [
-    portfolioAssetRows,
-    scope.kind,
-    scope.kind === "scenario" ? scope.scenarioSlug : scope.portfolioScopeId,
-  ])
+  }, [isScenarioScope, portfolioAssetRows, portfolioScopeId, scenarioSlug])
 
   React.useEffect(() => {
     const reload = () => setOptionsReloadTick((current) => current + 1)
@@ -140,6 +144,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [])
 
   const optionsByAssetId = React.useMemo<SelectionOptionsByAssetId>(() => {
+    void optionsReloadTick
     const next: SelectionOptionsByAssetId = {}
     for (const row of scopedRows) {
       const buildingVersionOptions: ScopedForecastBuildingVersionOption[] = [
@@ -197,10 +202,27 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   const [assumptions, setAssumptions] = React.useState<ForecastAssumptions>(
     defaultAssumptions
   )
+  const [portfolioModificationMode, setPortfolioModificationMode] =
+    React.useState<ScopedForecastPortfolioModificationMode>("baseline")
+  const [portfolioScenarioProbabilities, setPortfolioScenarioProbabilities] =
+    React.useState<ScopedForecastPortfolioScenarioProbabilities>(() =>
+      normalizeScopedForecastPortfolioScenarioProbabilities(
+        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+      )
+    )
 
   React.useLayoutEffect(() => {
     setAssumptions(defaultAssumptions)
   }, [defaultAssumptions])
+
+  React.useEffect(() => {
+    setPortfolioModificationMode("baseline")
+    setPortfolioScenarioProbabilities(
+      normalizeScopedForecastPortfolioScenarioProbabilities(
+        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+      )
+    )
+  }, [scopeIdentity])
 
   const assetSelections = React.useMemo<ScopedForecastAssetSelection[]>(() => {
     return scopedRows.map((row) => {
@@ -255,6 +277,18 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     []
   )
 
+  const setPortfolioScenarioProbability = React.useCallback(
+    (scenarioId: ScopedForecastPortfolioScenarioId, nextValue: number) => {
+      setPortfolioScenarioProbabilities((current) =>
+        normalizeScopedForecastPortfolioScenarioProbabilities({
+          ...current,
+          [scenarioId]: nextValue,
+        })
+      )
+    },
+    []
+  )
+
   const resetSelections = React.useCallback(() => {
     const nextBuildingSelections: Record<string, string> = {}
     const nextOutlookSelections: Record<string, string> = {}
@@ -274,6 +308,10 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     assetSelections,
     assumptions,
     setAssumptions,
+    portfolioModificationMode,
+    setPortfolioModificationMode,
+    portfolioScenarioProbabilities,
+    setPortfolioScenarioProbability,
     resetSelections,
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,

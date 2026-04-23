@@ -36,6 +36,7 @@ import type {
 } from "@/lib/forecast-data"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import type {
+  ScopedForecastPortfolioOutlookModel,
   ScopedForecastResolvedAssetModel,
 } from "@/lib/scoped-forecast-rollup"
 import type { ScopedForecastAssetSelection } from "@/lib/scoped-forecast"
@@ -183,6 +184,89 @@ function buildPortfolioQuarterlySummaryRows(
   })
 }
 
+function statementValuesForTotalHorizon(row: ScopedForecastTableRow): number[] {
+  return singleColumnValuesForTotalHorizon(row.kind, row.id, row.values)
+}
+
+function convertScopedForecastTableRowForTotalHorizon(
+  row: ScopedForecastTableRow
+): ScopedForecastTableRow {
+  return {
+    ...row,
+    values: statementValuesForTotalHorizon(row),
+    subRows: row.subRows?.map(convertScopedForecastTableRowForTotalHorizon),
+  }
+}
+
+function assetSubRowsForPortfolioOutlookStatement({
+  statementRow,
+  assetModels,
+  outlookId,
+}: {
+  statementRow: ForecastStatementRow
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+  outlookId: string
+}): ScopedForecastTableRow[] {
+  return assetModels.map((entry) => {
+    const assetRow =
+      entry.model.statementRows.find(
+        (candidateStatementRow) => candidateStatementRow.id === statementRow.id
+      ) ?? statementRow
+
+    return {
+      id: `${statementRow.id}-${outlookId}-${entry.model.assetId}`,
+      rowType: "asset",
+      assetId: entry.model.assetId,
+      label: entry.model.assetName,
+      kind: assetRow.kind,
+      values: assetRow.values,
+      href: isMarketListingRowId(entry.selection.row.id)
+        ? undefined
+        : assetForecastHref(entry.selection.row.id),
+    }
+  })
+}
+
+function buildPortfolioOutlookBreakdownRows({
+  rows,
+  outlookModels,
+}: {
+  rows: ForecastStatementRow[]
+  outlookModels: readonly ScopedForecastPortfolioOutlookModel[]
+}): ScopedForecastTableRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    rowType: "statement",
+    label: row.label,
+    kind: row.kind,
+    values: row.values,
+    highlightLabel: row.id === "salePrice",
+    highlightValue: row.id === "salePrice",
+    startsSection: row.id === "salePrice",
+    subRows: outlookModels.map((outlookModel) => {
+      const outlookRow =
+        outlookModel.portfolioModel.statementRows.find(
+          (statementRow) => statementRow.id === row.id
+        ) ?? row
+
+      return {
+        id: `${row.id}-${outlookModel.scenarioId}`,
+        rowType: "outlook",
+        label: `${outlookModel.portfolioModel.scenario.name} (${outlookModel.probabilityPct}%)`,
+        kind: outlookRow.kind,
+        values: outlookRow.values,
+        highlightLabel: row.id === "salePrice",
+        highlightValue: row.id === "salePrice",
+        subRows: assetSubRowsForPortfolioOutlookStatement({
+          statementRow: row,
+          assetModels: outlookModel.assetModels,
+          outlookId: outlookModel.scenarioId,
+        }),
+      } satisfies ScopedForecastTableRow
+    }),
+  }))
+}
+
 const FIRST_COLUMN_WIDTH_PX = 180
 const SELECTOR_COLUMN_WIDTH_PX = 128
 const PERIOD_COLUMN_WIDTH_PX = 108
@@ -214,23 +298,122 @@ export function ScopedForecastsPortfolioTotalsTable({
   periods,
   rows,
   assetModels,
+  outlookModels,
+  metricFocus,
+  periodGranularity = "quarterly",
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
+  outlookModels?: readonly ScopedForecastPortfolioOutlookModel[]
+  metricFocus?: ForecastChartTab
+  periodGranularity?: ForecastStatementPeriodGranularity
 }) {
-  const portfolioSummaryRows = React.useMemo(
-    () => buildPortfolioQuarterlySummaryRows(rows, assetModels),
-    [assetModels, rows]
+  const hasOutlookBreakdown =
+    outlookModels != null && outlookModels.length > 0
+  const [expanded, setExpanded] = React.useState<ExpandedState>({})
+
+  React.useEffect(() => {
+    if (!hasOutlookBreakdown || metricFocus == null) return
+    setExpanded((current) => ({
+      ...(current === true ? {} : current),
+      [metricFocus]: true,
+    }))
+  }, [hasOutlookBreakdown, metricFocus])
+
+  const displayPeriods = React.useMemo((): ForecastPeriod[] => {
+    if (periodGranularity === "quarterly") return periods
+    const anchor = periods[0]
+    return [
+      {
+        index: 0,
+        label: "2 Year Total",
+        quarter: anchor?.quarter ?? 0,
+        year: anchor?.year ?? 0,
+        startDate: anchor?.startDate ?? "",
+      },
+    ]
+  }, [periodGranularity, periods])
+
+  const tableRows = React.useMemo(() => {
+    if (hasOutlookBreakdown) {
+      const nestedRows = buildPortfolioOutlookBreakdownRows({
+        rows,
+        outlookModels: outlookModels ?? [],
+      })
+      return periodGranularity === "quarterly"
+        ? nestedRows
+        : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
+    }
+
+    return buildPortfolioQuarterlySummaryRows(rows, assetModels).map((row) => ({
+      id: row.id,
+      rowType: "statement" as const,
+      label: row.label,
+      kind: row.kind,
+      values:
+        periodGranularity === "quarterly"
+          ? row.values
+          : singleColumnValuesForTotalHorizon(row.kind, row.id, row.values),
+      highlightLabel: row.id === "salePrice",
+      highlightValue: row.id === "salePrice",
+      startsSection: row.id === "salePrice",
+    }))
+  }, [assetModels, hasOutlookBreakdown, outlookModels, periodGranularity, rows])
+
+  const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
+    () => [
+      {
+        id: "lineItem",
+        header: () => "Line Item",
+        cell: ({ row }) => lineItemCellContent(row),
+        enableSorting: false,
+      },
+      ...displayPeriods.map<ColumnDef<ScopedForecastTableRow>>((period, index) => ({
+        id: `period-${period.label}`,
+        header: () => period.label,
+        cell: (info) => {
+          const item = info.row.original
+          return (
+            <div
+              className={cn(
+                "text-right tabular-nums",
+                item.highlightValue ? "font-semibold" : "font-normal",
+                item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
+              )}
+            >
+              {formatStatementValue(item.kind, item.values[index] ?? 0)}
+            </div>
+          )
+        },
+        enableSorting: false,
+      })),
+    ],
+    [displayPeriods]
   )
 
   const totalTableMinWidth =
-    FIRST_COLUMN_WIDTH_PX + periods.length * PERIOD_COLUMN_WIDTH_PX
+    FIRST_COLUMN_WIDTH_PX + displayPeriods.length * PERIOD_COLUMN_WIDTH_PX
 
-  if (portfolioSummaryRows.length === 0) return null
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
+  const table = useReactTable({
+    data: tableRows,
+    columns,
+    state: hasOutlookBreakdown ? { expanded } : {},
+    onExpandedChange: hasOutlookBreakdown ? setExpanded : undefined,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getSubRows: hasOutlookBreakdown
+      ? (row: ScopedForecastTableRow) => row.subRows ?? undefined
+      : undefined,
+    getRowId: (row) => row.id,
+    autoResetExpanded: false,
+  })
+
+  if (tableRows.length === 0) return null
 
   return (
-    <div className="border-t border-border/80">
+    <div className={cn(!hasOutlookBreakdown && "border-t border-border/80")}>
       <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
         <TableHeader>
           <TableRow className="border-b border-border bg-muted/80 hover:bg-muted/80">
@@ -239,9 +422,9 @@ export function ScopedForecastsPortfolioTotalsTable({
               className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-4 py-2 text-left text-sm font-medium text-foreground"
               style={firstColumnStyle}
             >
-              Quarter
+              Line Item
             </TableHead>
-            {periods.map((period) => (
+            {displayPeriods.map((period) => (
               <TableHead
                 key={`summary-h-${period.label}`}
                 scope="col"
@@ -254,18 +437,19 @@ export function ScopedForecastsPortfolioTotalsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {portfolioSummaryRows.map((row) => (
-            <TableRow
-              key={row.id}
-              className="group border-b border-border/60 last:border-b-0 hover:bg-transparent"
-            >
+          {table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id} className={rowClassName(row.original)}>
               <TableCell
-                className="sticky left-0 z-10 border-r border-border/60 bg-background px-4 py-2.5"
+                className={cn(
+                  "sticky left-0 z-10 border-r border-border/60 px-4",
+                  row.original.rowType === "asset" ? "py-3" : "py-2.5",
+                  firstColumnSurfaceClassName(row.original)
+                )}
                 style={firstColumnStyle}
               >
-                <span className="font-medium text-foreground">{row.label}</span>
+                {lineItemCellContent(row)}
               </TableCell>
-              {periods.map((period, index) => (
+              {displayPeriods.map((period, index) => (
                 <TableCell
                   key={`${row.id}-${period.label}`}
                   className="px-3 py-2.5"
@@ -273,11 +457,17 @@ export function ScopedForecastsPortfolioTotalsTable({
                 >
                   <div
                     className={cn(
-                      "text-right tabular-nums text-foreground",
-                      row.kind === "expense" && "text-muted-foreground"
+                      "text-right tabular-nums",
+                      row.original.highlightValue ? "font-semibold" : "font-normal",
+                      row.original.kind === "expense"
+                        ? "text-muted-foreground"
+                        : "text-foreground"
                     )}
                   >
-                    {formatStatementValue(row.kind, row.values[index] ?? 0)}
+                    {formatStatementValue(
+                      row.original.kind,
+                      row.original.values[index] ?? 0
+                    )}
                   </div>
                 </TableCell>
               ))}
@@ -285,13 +475,19 @@ export function ScopedForecastsPortfolioTotalsTable({
           ))}
         </TableBody>
       </Table>
+      {hasOutlookBreakdown ? (
+        <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
+          Expand a line item to inspect outlook totals, then expand an outlook to
+          inspect asset-level contributions.
+        </div>
+      ) : null}
     </div>
   )
 }
 
 type ScopedForecastTableRow = {
   id: string
-  rowType: "statement" | "asset"
+  rowType: "statement" | "outlook" | "asset"
   /** Set for asset rows — drives Modifications / Outlook column dropdowns. */
   assetId?: string
   label: string
@@ -496,11 +692,9 @@ function assetSubRowsForStatementRow(
 function buildScopedForecastTableRows({
   rows,
   assetModels,
-  variant,
 }: {
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
-  variant: "baseline" | "selected"
 }): ScopedForecastTableRow[] {
   const out: ScopedForecastTableRow[] = []
   for (const row of rows) {
@@ -537,11 +731,9 @@ function buildScopedForecastTableRows({
 function buildFlatScopedForecastTableRows({
   rows,
   assetModels,
-  variant,
 }: {
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
-  variant: "baseline" | "selected"
 }): ScopedForecastTableRow[] {
   const out: ScopedForecastTableRow[] = []
   for (const row of rows) {
@@ -577,10 +769,12 @@ function buildFlatScopedForecastTableRows({
 function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   const item = row.original
   const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
+  const indentationStyle =
+    row.depth === 0 ? undefined : { paddingLeft: `${row.depth * 16}px` }
 
   if (item.rowType === "asset") {
     return (
-      <div className="flex min-w-0">
+      <div className="flex min-w-0" style={indentationStyle}>
         {item.href != null ? (
           <Link
             href={item.href}
@@ -605,6 +799,7 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         onClick={row.getToggleExpandedHandler()}
         className="flex w-full min-w-0 items-center gap-2 text-left"
         aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${item.label}`}
+        style={indentationStyle}
       >
         {row.getIsExpanded() ? (
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
@@ -613,7 +808,8 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         )}
         <span
           className={cn(
-            "truncate text-foreground",
+            "truncate",
+            item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
             row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
           )}
         >
@@ -624,10 +820,11 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   }
 
   return (
-    <div className="flex min-w-0 items-center">
+    <div className="flex min-w-0 items-center" style={indentationStyle}>
       <span
         className={cn(
-          "truncate text-foreground",
+          "truncate",
+          item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
           row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
         )}
       >
@@ -640,6 +837,10 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
 function rowClassName(item: ScopedForecastTableRow) {
   if (item.rowType === "asset") {
     return "group bg-muted/20 hover:bg-muted/25"
+  }
+
+  if (item.rowType === "outlook") {
+    return "group bg-muted/10 hover:bg-muted/15"
   }
 
   return cn(
@@ -658,6 +859,10 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
     return "bg-muted/20 group-hover:bg-muted/25"
   }
 
+  if (item.rowType === "outlook") {
+    return "bg-muted/10 group-hover:bg-muted/15"
+  }
+
   return "bg-background"
 }
 
@@ -671,6 +876,10 @@ function selectorColumnsSurfaceClassName(item?: ScopedForecastTableRow) {
     return "bg-muted/20 group-hover:bg-muted/25"
   }
 
+  if (item.rowType === "outlook") {
+    return "bg-muted/10 group-hover:bg-muted/15"
+  }
+
   return "bg-background"
 }
 
@@ -678,7 +887,6 @@ export function ScopedForecastsTable({
   periods,
   rows,
   assetModels,
-  variant,
   topAccessory,
   metricFilter,
   assetContributionsDisplay = "nested",
@@ -693,7 +901,6 @@ export function ScopedForecastsTable({
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
-  variant: "baseline" | "selected"
   topAccessory?: React.ReactNode
   metricFilter?: ForecastChartTab
   /**
@@ -780,14 +987,12 @@ export function ScopedForecastsTable({
         ? buildFlatScopedForecastTableRows({
             rows: filteredRows,
             assetModels,
-            variant,
           })
         : buildScopedForecastTableRows({
             rows: filteredRows,
             assetModels,
-            variant,
           }),
-    [assetModels, filteredRows, flatAssetContributions, variant]
+    [assetModels, filteredRows, flatAssetContributions]
   )
 
   const displayPeriods = React.useMemo((): ForecastPeriod[] => {

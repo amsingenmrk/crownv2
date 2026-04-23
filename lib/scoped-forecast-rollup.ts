@@ -8,10 +8,16 @@ import {
   type ForecastEconomicOutlookScenario,
   type ForecastStatementRow,
 } from "@/lib/forecast-data"
+import {
+  buildRecommendedModificationValues,
+  getTopSingleModificationRecommendationForAsset,
+} from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
   buildDefaultScopedForecastAssumptions,
   type ScopedForecastAssetSelection,
+  type ScopedForecastPortfolioControlState,
+  type ScopedForecastPortfolioScenarioId,
 } from "@/lib/scoped-forecast"
 import {
   applyStackingPlanTenantForecastOverrides,
@@ -27,12 +33,24 @@ export type ScopedForecastResolvedAssetModel = {
   model: AssetForecastModel
 }
 
+export type ScopedForecastPortfolioOutlookModel = {
+  scenarioId: ScopedForecastPortfolioScenarioId
+  probabilityPct: number
+  portfolioModel: AssetForecastModel
+  assetModels: ScopedForecastResolvedAssetModel[]
+}
+
 export type ScopedForecastRollup = {
   baselineModel: AssetForecastModel
   selectedModel: AssetForecastModel
   comparisonModels: AssetForecastModel[]
   baselineAssetModels: ScopedForecastResolvedAssetModel[]
   selectedAssetModels: ScopedForecastResolvedAssetModel[]
+  portfolioOverview?: {
+    expectedModel: AssetForecastModel
+    outlookModels: ScopedForecastPortfolioOutlookModel[]
+    chartModels: AssetForecastModel[]
+  }
 }
 
 function scenarioForAggregateModel(
@@ -163,6 +181,75 @@ function weightedUncertaintyBand(
     lowerValues,
     upperValues,
     label: "Heuristic weighted range across selected assets.",
+  }
+}
+
+function probabilityWeightedSeries(
+  models: AssetForecastModel[],
+  weights: readonly number[],
+  rowId: string
+) {
+  const periodCount = models[0]?.periods.length ?? 0
+  return Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const rowValue =
+        model.statementRows.find((statementRow) => statementRow.id === rowId)?.values[index] ?? 0
+      weightedTotal += rowValue * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+}
+
+function probabilityWeightedUncertaintyBand(
+  models: AssetForecastModel[],
+  weights: readonly number[],
+  rowId: string
+): ForecastStatementRow["uncertaintyBand"] {
+  const hasAnyBand = models.some((model) =>
+    model.statementRows.find((statementRow) => statementRow.id === rowId)?.uncertaintyBand != null
+  )
+  if (!hasAnyBand) return undefined
+
+  const periodCount = models[0]?.periods.length ?? 0
+  const lowerValues = Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const band =
+        model.statementRows.find((statementRow) => statementRow.id === rowId)?.uncertaintyBand
+      weightedTotal += (band?.lowerValues[index] ?? 0) * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+  const upperValues = Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const band =
+        model.statementRows.find((statementRow) => statementRow.id === rowId)?.uncertaintyBand
+      weightedTotal += (band?.upperValues[index] ?? 0) * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+
+  return {
+    lowerValues,
+    upperValues,
+    label: "Probability-weighted range across outlooks.",
   }
 }
 
@@ -358,23 +445,17 @@ function stackingPlanDataForAsset(assetId: string) {
   )
 }
 
-function buildVariantAssetModel({
+function buildResolvedAssetModel({
   selection,
   assumptions,
-  variant,
+  scenario,
+  modValues,
 }: {
   selection: ScopedForecastAssetSelection
   assumptions: ForecastAssumptions
-  variant: ScopedForecastVariant
+  scenario: ForecastEconomicOutlookScenario
+  modValues: typeof INITIAL_MOD_VALUES
 }): ScopedForecastResolvedAssetModel {
-  const scenario =
-    variant === "baseline"
-      ? buildDefaultForecastScenarios()[0]!
-      : selection.selectedOutlookSet.activeScenario
-  const modValues =
-    variant === "baseline"
-      ? INITIAL_MOD_VALUES
-      : selection.selectedBuildingVersion.values
   const model = buildAssetForecastModel({
     assetId: selection.row.id,
     scenario,
@@ -392,14 +473,168 @@ function buildVariantAssetModel({
   }
 }
 
+function buildVariantAssetModel({
+  selection,
+  assumptions,
+  variant,
+}: {
+  selection: ScopedForecastAssetSelection
+  assumptions: ForecastAssumptions
+  variant: ScopedForecastVariant
+}): ScopedForecastResolvedAssetModel {
+  return buildResolvedAssetModel({
+    selection,
+    assumptions,
+    scenario:
+      variant === "baseline"
+        ? buildDefaultForecastScenarios()[0]!
+        : selection.selectedOutlookSet.activeScenario,
+    modValues:
+      variant === "baseline"
+        ? INITIAL_MOD_VALUES
+        : selection.selectedBuildingVersion.values,
+  })
+}
+
+function recommendedModValuesForSelection(selection: ScopedForecastAssetSelection) {
+  return buildRecommendedModificationValues(
+    getTopSingleModificationRecommendationForAsset(selection.row.id)
+  )
+}
+
+function buildProbabilityWeightedPortfolioModel({
+  scopeLabel,
+  assumptions,
+  models,
+  weights,
+}: {
+  scopeLabel: string
+  assumptions: ForecastAssumptions
+  models: AssetForecastModel[]
+  weights: readonly number[]
+}): AssetForecastModel {
+  const baselineScenarioTemplate = buildDefaultForecastScenarios()[0]!
+
+  if (models.length === 0) {
+    return aggregateAssetForecastModels({
+      scopeLabel,
+      scenarioName: "Probability-weighted",
+      scenarioId: "scoped-portfolio-expected",
+      models,
+      assumptions,
+    })
+  }
+
+  const grossRevenue = probabilityWeightedSeries(models, weights, "grossRevenue")
+  const opex = probabilityWeightedSeries(models, weights, "opex")
+  const noi = probabilityWeightedSeries(models, weights, "noi")
+  const salePrice = probabilityWeightedSeries(models, weights, "salePrice")
+  const capRate = probabilityWeightedSeries(models, weights, "capRate")
+
+  const statementRows: ForecastStatementRow[] = [
+    {
+      id: "grossRevenue",
+      label: "Gross Revenue",
+      kind: "currency",
+      values: grossRevenue,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(
+        models,
+        weights,
+        "grossRevenue"
+      ),
+    },
+    {
+      id: "opex",
+      label: "OpEx",
+      kind: "expense",
+      values: opex,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "opex"),
+    },
+    {
+      id: "noi",
+      label: "NOI",
+      kind: "currency",
+      values: noi,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "noi"),
+    },
+    {
+      id: "salePrice",
+      label: "Asset Value",
+      kind: "currency",
+      values: salePrice,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(
+        models,
+        weights,
+        "salePrice"
+      ),
+    },
+    {
+      id: "capRate",
+      label: "Cap Rate",
+      kind: "percent",
+      values: capRate,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "capRate"),
+    },
+  ]
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const weightedSummaryValue = (
+    read: (model: AssetForecastModel) => number,
+    digits = 2
+  ) => {
+    if (totalWeight <= 0) return 0
+    const value =
+      models.reduce((sum, model, index) => {
+        return sum + read(model) * (weights[index] ?? 0)
+      }, 0) / totalWeight
+    return Number(value.toFixed(digits))
+  }
+
+  return {
+    assetId: "scoped-portfolio-expected",
+    assetName: scopeLabel,
+    scenario: scenarioForAggregateModel(
+      baselineScenarioTemplate,
+      "Probability-weighted",
+      "scoped-portfolio-expected"
+    ),
+    assumptions,
+    periods: models[0]!.periods,
+    statementRows,
+    revenueBreakdown: [],
+    summary: {
+      currentOccupancyPct: weightedSummaryValue(
+        (model) => model.summary.currentOccupancyPct
+      ),
+      targetOccupancyPct: weightedSummaryValue(
+        (model) => model.summary.targetOccupancyPct
+      ),
+      currentAnnualRevenue: weightedSummaryValue(
+        (model) => model.summary.currentAnnualRevenue
+      ),
+      currentAnnualOpex: weightedSummaryValue(
+        (model) => model.summary.currentAnnualOpex
+      ),
+      currentAnnualNoi: weightedSummaryValue(
+        (model) => model.summary.currentAnnualNoi
+      ),
+      exitCapRatePct: weightedSummaryValue(
+        (model) => model.summary.exitCapRatePct
+      ),
+    },
+  }
+}
+
 export function buildScopedForecastRollup({
   scopeLabel,
   assetSelections,
   assumptions,
+  portfolioControls,
 }: {
   scopeLabel: string
   assetSelections: readonly ScopedForecastAssetSelection[]
   assumptions: ForecastAssumptions
+  portfolioControls?: ScopedForecastPortfolioControlState
 }): ScopedForecastRollup {
   const normalizedAssumptions =
     assetSelections.length > 0
@@ -436,11 +671,64 @@ export function buildScopedForecastRollup({
     assumptions: normalizedAssumptions,
   })
 
+  const portfolioOverview =
+    portfolioControls == null
+      ? undefined
+      : (() => {
+          const defaultScenarios = buildDefaultForecastScenarios()
+          const portfolioOutlookModels = defaultScenarios.map((scenario) => {
+            const assetModels = assetSelections.map((selection) =>
+              buildResolvedAssetModel({
+                selection,
+                assumptions: normalizedAssumptions,
+                scenario,
+                modValues:
+                  portfolioControls.modificationMode === "recommended"
+                    ? recommendedModValuesForSelection(selection)
+                    : INITIAL_MOD_VALUES,
+              })
+            )
+            const probabilityPct =
+              portfolioControls.scenarioProbabilities[
+                scenario.id as ScopedForecastPortfolioScenarioId
+              ] ?? 0
+
+            return {
+              scenarioId: scenario.id as ScopedForecastPortfolioScenarioId,
+              probabilityPct,
+              portfolioModel: aggregateAssetForecastModels({
+                scopeLabel,
+                scenarioName: scenario.name,
+                scenarioId: `scoped-portfolio-${scenario.id}`,
+                models: assetModels.map((entry) => entry.model),
+                assumptions: normalizedAssumptions,
+              }),
+              assetModels,
+            } satisfies ScopedForecastPortfolioOutlookModel
+          })
+          const expectedModel = buildProbabilityWeightedPortfolioModel({
+            scopeLabel,
+            assumptions: normalizedAssumptions,
+            models: portfolioOutlookModels.map((entry) => entry.portfolioModel),
+            weights: portfolioOutlookModels.map((entry) => entry.probabilityPct),
+          })
+
+          return {
+            expectedModel,
+            outlookModels: portfolioOutlookModels,
+            chartModels: [
+              expectedModel,
+              ...portfolioOutlookModels.map((entry) => entry.portfolioModel),
+            ],
+          }
+        })()
+
   return {
     baselineModel,
     selectedModel,
     comparisonModels: [baselineModel, selectedModel],
     baselineAssetModels,
     selectedAssetModels,
+    portfolioOverview,
   }
 }

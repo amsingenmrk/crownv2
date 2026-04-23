@@ -47,6 +47,74 @@ export type ScopedForecastAssetSelection = {
   selectedOutlookSet: ScopedForecastOutlookSetOption
 }
 
+export type ScopedForecastPortfolioModificationMode =
+  | "baseline"
+  | "recommended"
+
+export const SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS = [
+  "baseline",
+  "optimistic",
+  "pessimistic",
+] as const
+
+export type ScopedForecastPortfolioScenarioId =
+  (typeof SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS)[number]
+
+export type ScopedForecastPortfolioScenarioProbabilities = Record<
+  ScopedForecastPortfolioScenarioId,
+  number
+>
+
+export type ScopedForecastPortfolioControlState = {
+  modificationMode: ScopedForecastPortfolioModificationMode
+  scenarioProbabilities: ScopedForecastPortfolioScenarioProbabilities
+}
+
+export const DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES: ScopedForecastPortfolioScenarioProbabilities =
+  {
+    baseline: 60,
+    optimistic: 20,
+    pessimistic: 20,
+  }
+
+function clampProbability(value: number) {
+  return Math.min(100, Math.max(0, value))
+}
+
+export function normalizeScopedForecastPortfolioScenarioProbabilities(
+  probabilities: ScopedForecastPortfolioScenarioProbabilities
+): ScopedForecastPortfolioScenarioProbabilities {
+  const clamped = SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.reduce(
+    (next, scenarioId) => {
+      next[scenarioId] = clampProbability(probabilities[scenarioId] ?? 0)
+      return next
+    },
+    {} as ScopedForecastPortfolioScenarioProbabilities
+  )
+  const total = SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.reduce(
+    (sum, scenarioId) => sum + clamped[scenarioId],
+    0
+  )
+
+  if (total <= 0) {
+    return { ...DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES }
+  }
+
+  let remaining = 100
+  return SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.reduce(
+    (next, scenarioId, index) => {
+      const isLast = index === SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.length - 1
+      const normalized = isLast
+        ? remaining
+        : Math.round((clamped[scenarioId] / total) * 100)
+      next[scenarioId] = normalized
+      remaining -= normalized
+      return next
+    },
+    {} as ScopedForecastPortfolioScenarioProbabilities
+  )
+}
+
 function roundToWhole(value: number) {
   return Math.round(value)
 }
