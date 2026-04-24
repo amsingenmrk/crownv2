@@ -53,10 +53,13 @@ import {
 import { useAppToast } from "@/components/app-toast"
 import {
   addCustomAssetGroup,
+  duplicateCustomAssetGroupFromId,
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
+  removeCustomAssetGroupById,
   setAssetGroupOverride,
   subscribeAssetGroupOverrides,
+  updateCustomAssetGroupNameById,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
@@ -255,6 +258,99 @@ function ScenarioBreadcrumbCurrentPage({
   )
 }
 
+function PortfolioScopeBreadcrumbCurrentPage({
+  scopeId,
+  pageTitle,
+  showToast,
+}: {
+  scopeId: string
+  pageTitle: string
+  showToast: (message: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    if (!editing) return
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [editing])
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim()
+    if (!trimmed || trimmed === pageTitle) {
+      setEditing(false)
+      setDraft("")
+      return
+    }
+    if (updateCustomAssetGroupNameById(scopeId, trimmed)) {
+      showToast(`Renamed to “${trimmed}”.`)
+    }
+    setEditing(false)
+    setDraft("")
+  }, [draft, pageTitle, scopeId, showToast])
+
+  const cancel = useCallback(() => {
+    setEditing(false)
+    setDraft("")
+  }, [])
+
+  return (
+    <BreadcrumbItem className="min-w-0">
+      {editing ? (
+        <Input
+          ref={inputRef}
+          id={inputId}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              commit()
+            }
+            if (e.key === "Escape") {
+              e.preventDefault()
+              cancel()
+            }
+          }}
+          autoComplete="off"
+          aria-label="Portfolio scope name"
+          className="h-8 min-w-[10rem] max-w-[min(28rem,calc(100vw-8rem))] text-sm font-medium"
+        />
+      ) : (
+        <span
+          data-slot="breadcrumb-page"
+          role="link"
+          aria-current="page"
+          className="inline-flex min-w-0 max-w-full items-center"
+        >
+          <button
+            type="button"
+            className={cn(
+              "truncate rounded-sm px-1 py-0.5 text-left text-sm font-medium text-foreground -mx-1",
+              "underline-offset-4 outline-none hover:bg-muted/80 hover:underline",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            title="Click to rename"
+            onClick={() => {
+              setDraft(pageTitle)
+              setEditing(true)
+            }}
+          >
+            {pageTitle}
+          </button>
+        </span>
+      )}
+    </BreadcrumbItem>
+  )
+}
+
 export function AppTopbar() {
   const pathname = usePathname()
   const params = useParams()
@@ -289,6 +385,12 @@ export function AppTopbar() {
   const [compareRenameDraft, setCompareRenameDraft] = useState("")
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
   const [newAssetGroupName, setNewAssetGroupName] = useState("")
+  const [deletePortfolioScopeOpen, setDeletePortfolioScopeOpen] =
+    useState(false)
+  const [portfolioScopeRenameOpen, setPortfolioScopeRenameOpen] =
+    useState(false)
+  const [portfolioScopeRenameDraft, setPortfolioScopeRenameDraft] =
+    useState("")
   const newAssetGroupInputId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
@@ -318,6 +420,13 @@ export function AppTopbar() {
   const canDeleteCurrentScenario =
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
   const canRenameScenarioInline = canDeleteCurrentScenario
+  const canManageCurrentPortfolioScope = useMemo(() => {
+    if (portfolioScopeBreadcrumbId == null) return false
+    return Object.hasOwn(
+      assetGroupData.customGroups,
+      portfolioScopeBreadcrumbId
+    )
+  }, [assetGroupData.customGroups, portfolioScopeBreadcrumbId])
 
   const filteredAssets = useMemo(() => {
     const merged = ASSETS.map((a) => getAssetById(a.id, assetGroupData) ?? a)
@@ -376,6 +485,15 @@ export function AppTopbar() {
       })
     }
   }, [showScenarioBreadcrumb, scenarioSlug])
+
+  useEffect(() => {
+    if (!showPortfolioScopeBreadcrumb || !canManageCurrentPortfolioScope) {
+      queueMicrotask(() => {
+        setPortfolioScopeRenameOpen(false)
+        setDeletePortfolioScopeOpen(false)
+      })
+    }
+  }, [canManageCurrentPortfolioScope, showPortfolioScopeBreadcrumb])
 
   return (
     <header className="grid h-12 min-w-0 w-full max-w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
@@ -585,12 +703,24 @@ export function AppTopbar() {
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate font-medium">
-                  {portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                    portfolioScopeBreadcrumbId}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
+              {canManageCurrentPortfolioScope ? (
+                <PortfolioScopeBreadcrumbCurrentPage
+                  key={portfolioScopeBreadcrumbId}
+                  scopeId={portfolioScopeBreadcrumbId}
+                  pageTitle={
+                    portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                    portfolioScopeBreadcrumbId
+                  }
+                  showToast={showToast}
+                />
+              ) : (
+                <BreadcrumbItem className="min-w-0">
+                  <BreadcrumbPage className="truncate font-medium">
+                    {portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                      portfolioScopeBreadcrumbId}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              )}
             </BreadcrumbList>
           </Breadcrumb>
         ) : (
@@ -794,6 +924,177 @@ export function AppTopbar() {
                 </DropdownMenuSub>
               </DropdownMenuContent>
             </DropdownMenu>
+          </>
+        ) : null}
+        {showPortfolioScopeBreadcrumb &&
+        canManageCurrentPortfolioScope &&
+        portfolioScopeBreadcrumbId != null ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label="Portfolio scope actions"
+                  />
+                }
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setPortfolioScopeRenameDraft(
+                      portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                        portfolioScopeBreadcrumbId
+                    )
+                    setPortfolioScopeRenameOpen(true)
+                  }}
+                >
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const id = portfolioScopeBreadcrumbId
+                    const created = duplicateCustomAssetGroupFromId(id)
+                    if (created != null) {
+                      router.push(portfolioScopeHref(created.id))
+                      showToast(`Portfolio scope “${created.label}” created.`)
+                    }
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    setDeletePortfolioScopeOpen(true)
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog
+              open={portfolioScopeRenameOpen}
+              onOpenChange={setPortfolioScopeRenameOpen}
+            >
+              <DialogContent showCloseButton className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename portfolio scope</DialogTitle>
+                </DialogHeader>
+                <Input
+                  value={portfolioScopeRenameDraft}
+                  onChange={(e) => setPortfolioScopeRenameDraft(e.target.value)}
+                  placeholder="Name"
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      const name = portfolioScopeRenameDraft.trim()
+                      if (!name || portfolioScopeBreadcrumbId == null) return
+                      if (
+                        name ===
+                        (portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                          portfolioScopeBreadcrumbId)
+                      ) {
+                        setPortfolioScopeRenameOpen(false)
+                        return
+                      }
+                      if (
+                        updateCustomAssetGroupNameById(
+                          portfolioScopeBreadcrumbId,
+                          name
+                        )
+                      ) {
+                        setPortfolioScopeRenameOpen(false)
+                        showToast(`Renamed to “${name}”.`)
+                      }
+                    }
+                  }}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPortfolioScopeRenameOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!portfolioScopeRenameDraft.trim()}
+                    onClick={() => {
+                      const name = portfolioScopeRenameDraft.trim()
+                      if (!name || portfolioScopeBreadcrumbId == null) return
+                      if (
+                        name ===
+                        (portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                          portfolioScopeBreadcrumbId)
+                      ) {
+                        setPortfolioScopeRenameOpen(false)
+                        return
+                      }
+                      if (
+                        updateCustomAssetGroupNameById(
+                          portfolioScopeBreadcrumbId,
+                          name
+                        )
+                      ) {
+                        setPortfolioScopeRenameOpen(false)
+                        showToast(`Renamed to “${name}”.`)
+                      }
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog
+              open={deletePortfolioScopeOpen}
+              onOpenChange={setDeletePortfolioScopeOpen}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Delete portfolio scope</DialogTitle>
+                  <DialogDescription>
+                    This removes &ldquo;{pageTitle}&rdquo; and clears
+                    which assets were assigned to this custom scope. Assets
+                    return to their default fund groups. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDeletePortfolioScopeOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      if (portfolioScopeBreadcrumbId == null) return
+                      const ok = removeCustomAssetGroupById(
+                        portfolioScopeBreadcrumbId
+                      )
+                      setDeletePortfolioScopeOpen(false)
+                      if (ok) {
+                        router.push("/portfolio")
+                        showToast("Portfolio scope deleted.")
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         ) : null}
         {showScenarioMoreMenu ? (

@@ -3,18 +3,10 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import {
-  Diff,
-  Filter,
-  Plus,
-  Search,
-  X,
-} from "lucide-react"
+import { Filter, Plus, Search, X } from "lucide-react"
 
 import { useAppToast } from "@/components/app-toast"
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
-import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -32,9 +24,16 @@ import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
+  setAssetGroupOverride,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
-import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
+import {
+  ASSETS,
+  ASSET_GROUP_SIDEBAR_LABELS,
+  BUILT_IN_ASSET_GROUP_IDS,
+  assetHref,
+  getAssetById,
+} from "@/lib/assets"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { useScenariosIncludingAssetCount } from "@/hooks/use-scenarios-including-asset-count"
@@ -94,15 +93,20 @@ type SearchListingFilters = {
 }
 
 type ScenarioMenuOption = { name: string; slug: string }
+type PortfolioMenuOption = { name: string; groupId: string }
 
 function SearchListingCardActions({
   assetId,
+  isMarket,
+  portfolioCurrentGroupId,
+  portfoliosForMenu,
   scenariosForMenu,
-  onOpenCreateScenario,
 }: {
   assetId: string
+  isMarket: boolean
+  portfolioCurrentGroupId: string | null
+  portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
-  onOpenCreateScenario: () => void
 }) {
   const showToast = useAppToast()
 
@@ -115,40 +119,74 @@ function SearchListingCardActions({
             variant="outline"
             size="icon-sm"
             className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Add to scenario"
+            aria-label="Add to portfolio or scenario"
           />
         }
       >
-        <Diff className="size-4" aria-hidden />
+        <Plus className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         side="top"
         sideOffset={6}
-        className="z-[120] min-w-[12rem]"
+        className="z-[120] min-w-[12.5rem] max-h-[min(50vh,22rem)] overflow-y-auto"
       >
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="font-normal text-muted-foreground">
-            Add to scenario
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            Portfolios
+          </DropdownMenuLabel>
+          {isMarket ? (
+            <DropdownMenuItem
+              className="text-muted-foreground"
+              disabled
+            >
+              <span className="text-pretty">Not available for market listings</span>
+            </DropdownMenuItem>
+          ) : (
+            portfoliosForMenu.map((p) => {
+              const selected = portfolioCurrentGroupId === p.groupId
+              return (
+                <DropdownMenuItem
+                  key={p.groupId}
+                  disabled={selected}
+                  onClick={() => {
+                    if (selected) return
+                    setAssetGroupOverride(assetId, p.groupId)
+                    queueMicrotask(() =>
+                      showToast(`Property moved to “${p.name}”.`)
+                    )
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {selected ? (
+                    <span
+                      className="ml-2 text-xs text-muted-foreground"
+                      aria-hidden
+                    >
+                      Current
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              )
+            })
+          )}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            Scenarios
           </DropdownMenuLabel>
           {scenariosForMenu.map((s) => (
             <DropdownMenuItem
               key={s.slug}
               onClick={() => {
                 addPortfolioAssetToScenarioBySlug(s.slug, assetId)
-                queueMicrotask(() =>
-                  showToast(`Added to “${s.name}”.`)
-                )
+                queueMicrotask(() => showToast(`Added to “${s.name}”.`))
               }}
             >
               <span className="truncate">{s.name}</span>
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onOpenCreateScenario}>
-            <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-            Create new scenario
-          </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -157,12 +195,12 @@ function SearchListingCardActions({
 
 function SearchListingPreviewCard({
   pin,
+  portfoliosForMenu,
   scenariosForMenu,
-  onOpenCreateScenario,
 }: {
   pin: PortfolioMapboxPin
+  portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
-  onOpenCreateScenario: (assetId: string) => void
 }) {
   const isMarket = pin.listingScope === "market"
   const scenariosIncludingCount = useScenariosIncludingAssetCount(pin.id)
@@ -185,6 +223,10 @@ function SearchListingPreviewCard({
     if (index < 0) return null
     const a = getAssetById(pin.id, assetGroupData) ?? ASSETS[index]!
     return portfolioAssetRowForAsset(a, index)
+  }, [assetGroupData, isMarket, pin.id])
+  const portfolioCurrentGroupId = React.useMemo(() => {
+    if (isMarket) return null
+    return getAssetById(pin.id, assetGroupData)?.groupId ?? null
   }, [assetGroupData, isMarket, pin.id])
   const liftText =
     pin.lift.trim() !== ""
@@ -280,8 +322,10 @@ function SearchListingPreviewCard({
       <div className="shrink-0">
         <SearchListingCardActions
           assetId={pin.id}
+          isMarket={isMarket}
+          portfolioCurrentGroupId={portfolioCurrentGroupId}
+          portfoliosForMenu={portfoliosForMenu}
           scenariosForMenu={scenariosForMenu}
-          onOpenCreateScenario={() => onOpenCreateScenario(pin.id)}
         />
       </div>
     </div>
@@ -492,11 +536,7 @@ export function SearchComingSoon() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [filterPanelOpen, handleFilterCancel])
 
-  const router = useRouter()
-  const showToast = useAppToast()
   const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
-  const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
-  const createScenarioAssetIdRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     const sync = () => setUserScenarios(readUserScenarios())
@@ -522,6 +562,19 @@ export function SearchComingSoon() {
       ...userSorted,
     ]
   }, [userScenarios])
+
+  const portfoliosForMenu = React.useMemo((): PortfolioMenuOption[] => {
+    const custom = Object.entries(assetGroupData.customGroups)
+      .map(([groupId, name]) => ({ name, groupId }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    const builtIn = BUILT_IN_ASSET_GROUP_IDS.map((groupId) => ({
+      name: ASSET_GROUP_SIDEBAR_LABELS[groupId],
+      groupId,
+    }))
+    return [...builtIn, ...custom]
+  }, [assetGroupData.customGroups])
 
   const showMapbox = mapboxEnabled
   const propertyCount = mapSearchFilteredPins.length
@@ -607,11 +660,8 @@ export function SearchComingSoon() {
                   <div key={pin.id} role="listitem">
                     <SearchListingPreviewCard
                       pin={pin}
+                      portfoliosForMenu={portfoliosForMenu}
                       scenariosForMenu={scenariosForMenu}
-                      onOpenCreateScenario={(assetId) => {
-                        createScenarioAssetIdRef.current = assetId
-                        setNewScenarioOpen(true)
-                      }}
                     />
                   </div>
                 ))}
@@ -619,11 +669,8 @@ export function SearchComingSoon() {
                   <div key={pin.id} role="listitem">
                     <SearchListingPreviewCard
                       pin={pin}
+                      portfoliosForMenu={portfoliosForMenu}
                       scenariosForMenu={scenariosForMenu}
-                      onOpenCreateScenario={(assetId) => {
-                        createScenarioAssetIdRef.current = assetId
-                        setNewScenarioOpen(true)
-                      }}
                     />
                   </div>
                 ))}
@@ -726,26 +773,6 @@ export function SearchComingSoon() {
         </aside>
       </div>
     </div>
-    <NewScenarioDialog
-      open={newScenarioOpen}
-      onOpenChange={(open) => {
-        setNewScenarioOpen(open)
-        if (!open) createScenarioAssetIdRef.current = null
-      }}
-      afterCreate={(scenario) => {
-        const id = createScenarioAssetIdRef.current
-        if (id) {
-          addPortfolioAssetToScenarioBySlug(scenario.slug, id)
-        }
-        createScenarioAssetIdRef.current = null
-        router.push(`/scenarios/${scenario.slug}`)
-        showToast(
-          id
-            ? `Created “${scenario.name}” and added this asset.`
-            : `Created “${scenario.name}”.`
-        )
-      }}
-    />
     </>
   )
 }
