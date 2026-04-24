@@ -40,7 +40,6 @@ import {
   type ScopedForecastPortfolioModificationMode,
   type ScopedForecastPortfolioScenarioProbabilities,
   type ScopedForecastScope,
-  outlookWeightProbabilitiesToSlider,
   outlookWeightSliderToProbabilities,
 } from "@/lib/scoped-forecast"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
@@ -157,18 +156,21 @@ function PortfolioForecastControlCenter({
   modificationMode,
   onModificationModeChange,
   scenarioProbabilities,
-  onScenarioProbabilitiesChange,
+  outlookSliderValue,
+  onOutlookSliderCommit,
   assumptions,
   onAssumptionsChange,
 }: {
   modificationMode: ScopedForecastPortfolioModificationMode
   onModificationModeChange: (next: ScopedForecastPortfolioModificationMode) => void
   scenarioProbabilities: ScopedForecastPortfolioScenarioProbabilities
-  onScenarioProbabilitiesChange: (next: ScopedForecastPortfolioScenarioProbabilities) => void
+  /** Authoritative 0–100 handle position (avoids inverse-mapping snap after drag). */
+  outlookSliderValue: number
+  onOutlookSliderCommit: (sliderValue: number) => void
   assumptions: ForecastAssumptions
   onAssumptionsChange: (updates: Partial<ForecastAssumptions>) => void
 }) {
-  const committedSlider = outlookWeightProbabilitiesToSlider(scenarioProbabilities)
+  const committedSlider = outlookSliderValue
   const [dragSlider, setDragSlider] = React.useState<number | null>(null)
   const pointerDragActiveRef = React.useRef(false)
   const dragSliderRef = React.useRef<number | null>(null)
@@ -193,9 +195,9 @@ function PortfolioForecastControlCenter({
     dragSliderRef.current = null
     setDragSlider(null)
     if (last !== null) {
-      onScenarioProbabilitiesChange(outlookWeightSliderToProbabilities(last))
+      onOutlookSliderCommit(last)
     }
-  }, [onScenarioProbabilitiesChange])
+  }, [onOutlookSliderCommit])
 
   React.useEffect(() => {
     window.addEventListener("pointerup", finishPointerDrag)
@@ -215,9 +217,9 @@ function PortfolioForecastControlCenter({
         setDragSlider(next)
         return
       }
-      onScenarioProbabilitiesChange(outlookWeightSliderToProbabilities(next))
+      onOutlookSliderCommit(next)
     },
-    [onScenarioProbabilitiesChange]
+    [onOutlookSliderCommit]
   )
 
   const sliderDisplay = dragSlider ?? committedSlider
@@ -353,7 +355,8 @@ export function ScopedForecastsWorkspace({
     portfolioModificationMode,
     setPortfolioModificationMode,
     portfolioScenarioProbabilities,
-    replacePortfolioScenarioProbabilities,
+    portfolioOutlookSliderValue,
+    applyPortfolioOutlookSlider,
     resetSelections,
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,
@@ -490,7 +493,8 @@ export function ScopedForecastsWorkspace({
               modificationMode={portfolioModificationMode}
               onModificationModeChange={setPortfolioModificationMode}
               scenarioProbabilities={portfolioScenarioProbabilities}
-              onScenarioProbabilitiesChange={replacePortfolioScenarioProbabilities}
+              outlookSliderValue={portfolioOutlookSliderValue}
+              onOutlookSliderCommit={applyPortfolioOutlookSlider}
               assumptions={assumptions}
               onAssumptionsChange={updateAssumptions}
             />

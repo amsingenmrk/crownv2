@@ -27,6 +27,8 @@ import {
   buildDefaultScopedForecastAssumptions,
   buildScopedPresetOutlookSetOptions,
   normalizeScopedForecastPortfolioScenarioProbabilities,
+  outlookWeightProbabilitiesToSlider,
+  outlookWeightSliderToProbabilities,
   type ScopedForecastAssetSelection,
   type ScopedForecastBuildingVersionOption,
   type ScopedForecastPortfolioModificationMode,
@@ -210,6 +212,14 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
         DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
       )
     )
+  /** Exact 0–100 handle position; probabilities alone round-trip through an approximate inverse and would snap the thumb. */
+  const [portfolioOutlookSliderValue, setPortfolioOutlookSliderValue] = React.useState(() =>
+    outlookWeightProbabilitiesToSlider(
+      normalizeScopedForecastPortfolioScenarioProbabilities(
+        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+      )
+    )
+  )
 
   React.useLayoutEffect(() => {
     setAssumptions(defaultAssumptions)
@@ -217,11 +227,11 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   React.useEffect(() => {
     setPortfolioModificationMode("baseline")
-    setPortfolioScenarioProbabilities(
-      normalizeScopedForecastPortfolioScenarioProbabilities(
-        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
-      )
+    const normalized = normalizeScopedForecastPortfolioScenarioProbabilities(
+      DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
     )
+    setPortfolioScenarioProbabilities(normalized)
+    setPortfolioOutlookSliderValue(outlookWeightProbabilitiesToSlider(normalized))
   }, [scopeIdentity])
 
   const assetSelections = React.useMemo<ScopedForecastAssetSelection[]>(() => {
@@ -279,24 +289,36 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   const setPortfolioScenarioProbability = React.useCallback(
     (scenarioId: ScopedForecastPortfolioScenarioId, nextValue: number) => {
-      setPortfolioScenarioProbabilities((current) =>
-        normalizeScopedForecastPortfolioScenarioProbabilities({
+      setPortfolioScenarioProbabilities((current) => {
+        const merged = normalizeScopedForecastPortfolioScenarioProbabilities({
           ...current,
           [scenarioId]: nextValue,
         })
-      )
+        setPortfolioOutlookSliderValue(outlookWeightProbabilitiesToSlider(merged))
+        return merged
+      })
     },
     []
   )
 
   const replacePortfolioScenarioProbabilities = React.useCallback(
     (next: ScopedForecastPortfolioScenarioProbabilities) => {
-      setPortfolioScenarioProbabilities(
-        normalizeScopedForecastPortfolioScenarioProbabilities(next)
-      )
+      const normalized = normalizeScopedForecastPortfolioScenarioProbabilities(next)
+      setPortfolioScenarioProbabilities(normalized)
+      setPortfolioOutlookSliderValue(outlookWeightProbabilitiesToSlider(normalized))
     },
     []
   )
+
+  const applyPortfolioOutlookSlider = React.useCallback((sliderValue: number) => {
+    const next = Math.min(100, Math.max(0, Math.round(sliderValue)))
+    setPortfolioOutlookSliderValue(next)
+    setPortfolioScenarioProbabilities(
+      normalizeScopedForecastPortfolioScenarioProbabilities(
+        outlookWeightSliderToProbabilities(next)
+      )
+    )
+  }, [])
 
   const resetSelections = React.useCallback(() => {
     const nextBuildingSelections: Record<string, string> = {}
@@ -320,6 +342,8 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     portfolioModificationMode,
     setPortfolioModificationMode,
     portfolioScenarioProbabilities,
+    portfolioOutlookSliderValue,
+    applyPortfolioOutlookSlider,
     setPortfolioScenarioProbability,
     replacePortfolioScenarioProbabilities,
     resetSelections,
