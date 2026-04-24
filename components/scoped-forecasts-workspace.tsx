@@ -270,7 +270,7 @@ function PortfolioForecastControlCenter({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
-        <h3 className="text-sm font-semibold text-foreground">Scenario Probabilities</h3>
+        <h3 className="text-sm font-semibold text-foreground">Outlook Probabilities</h3>
         <div className="px-0.5 pt-1">
           <div className="mb-2 grid grid-cols-3 gap-1 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
             <span className="text-left">Pessimistic</span>
