@@ -363,6 +363,7 @@ export function ScopedForecastsWorkspace({
   } = useScopedForecastState(scope)
   const isPortfolioOverview =
     scope.kind === "portfolio" && scope.portfolioScopeId == null
+  const isPortfolioScope = scope.kind === "portfolio"
 
   const scopeLabel = React.useMemo(() => {
     if (scope.kind === "scenario") {
@@ -382,7 +383,7 @@ export function ScopedForecastsWorkspace({
         scopeLabel,
         assetSelections,
         assumptions,
-        portfolioControls: isPortfolioOverview
+        portfolioControls: isPortfolioScope
           ? {
               modificationMode: portfolioModificationMode,
               scenarioProbabilities: portfolioScenarioProbabilities,
@@ -392,12 +393,15 @@ export function ScopedForecastsWorkspace({
     [
       assetSelections,
       assumptions,
-      isPortfolioOverview,
+      isPortfolioScope,
       portfolioModificationMode,
       portfolioScenarioProbabilities,
       scopeLabel,
     ]
   )
+
+  const forecastChartModels =
+    rollup.portfolioOverview?.chartModels ?? rollup.comparisonModels
 
   const [activeComparisonId, setActiveComparisonId] = React.useState(
     rollup.selectedModel.scenario.id
@@ -485,7 +489,7 @@ export function ScopedForecastsWorkspace({
     React.useState<ForecastStatementPeriodGranularity>("total")
 
   if (layout === "alt") {
-    if (isPortfolioOverview && rollup.portfolioOverview != null) {
+    if (isPortfolioScope && rollup.portfolioOverview != null) {
       return (
         <TooltipProvider delay={120}>
           <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
@@ -524,7 +528,7 @@ export function ScopedForecastsWorkspace({
               </section>
 
               <AssetForecastCharts
-                models={rollup.portfolioOverview.chartModels}
+                models={forecastChartModels}
                 metricTab={altMetricTab}
                 onMetricTabChange={setAltMetricTab}
                 metricToolbarInCard
@@ -554,7 +558,7 @@ export function ScopedForecastsWorkspace({
             {altStatementGranularity === "quarterly" ? (
               <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
                 <AssetForecastChartMetricToggleGroup
-                  models={rollup.comparisonModels}
+                  models={forecastChartModels}
                   metricTab={altMetricTab}
                   onMetricTabChange={setAltMetricTab}
                   aria-label="Forecast metric for chart and table"
@@ -595,7 +599,7 @@ export function ScopedForecastsWorkspace({
                 Gross Revenue Projection
               </h2>
               <AssetForecastChartMetricToggleGroup
-                models={rollup.comparisonModels}
+                models={forecastChartModels}
                 metricTab={altMetricTab}
                 onMetricTabChange={setAltMetricTab}
                 aria-label="Forecast metric for chart and table"
@@ -604,7 +608,7 @@ export function ScopedForecastsWorkspace({
             </div>
           </div>
           <AssetForecastCharts
-            models={rollup.comparisonModels}
+            models={forecastChartModels}
             metricTab={altMetricTab}
             onMetricTabChange={setAltMetricTab}
             embedded
@@ -674,13 +678,13 @@ export function ScopedForecastsWorkspace({
         >
           <div className="border-b border-border/60 px-4 py-4">
             <AssetForecastChartMetricToolbar
-              models={rollup.comparisonModels}
+              models={forecastChartModels}
               metricTab={classicChartMetricTab}
               onMetricTabChange={setClassicChartMetricTab}
             />
           </div>
           <AssetForecastCharts
-            models={rollup.comparisonModels}
+            models={forecastChartModels}
             metricTab={classicChartMetricTab}
             onMetricTabChange={setClassicChartMetricTab}
             embedded

@@ -183,6 +183,18 @@ function gradientFillForColor(color: string): Highcharts.GradientColorObject {
   }
 }
 
+/** Left→right: a bit stronger near the first quarters, then fades (fanning into the horizon). */
+function fanOutlookRangeFillByTime(color: string): Highcharts.GradientColorObject {
+  return {
+    linearGradient: { x1: 0, y1: 0, x2: 1, y2: 0 },
+    stops: [
+      [0, Highcharts.color(color).setOpacity(0.14).get() as string],
+      [0.45, Highcharts.color(color).setOpacity(0.08).get() as string],
+      [1, Highcharts.color(color).setOpacity(0.024).get() as string],
+    ],
+  }
+}
+
 const SCOPED_PORTFOLIO_EXPECTED_SCENARIO_ID = "scoped-portfolio-expected"
 const SCOPED_PORTFOLIO_FAN_OUTLOOK_IDS = [
   "scoped-portfolio-baseline",
@@ -249,7 +261,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
       name: "Pessimistic–optimistic",
       data: rangeData,
       color: rangeColor,
-      fillColor: Highcharts.color(rangeColor).setOpacity(0.22).get() as string,
+      fillColor: fanOutlookRangeFillByTime(rangeColor),
       fillOpacity: 1,
       lineWidth: 0,
       marker: { enabled: false },
