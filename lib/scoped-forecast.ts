@@ -70,12 +70,78 @@ export type ScopedForecastPortfolioControlState = {
   scenarioProbabilities: ScopedForecastPortfolioScenarioProbabilities
 }
 
+/** Balanced weights — matches center position on the portfolio outlook weight slider. */
 export const DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES: ScopedForecastPortfolioScenarioProbabilities =
   {
-    baseline: 60,
-    optimistic: 20,
-    pessimistic: 20,
+    baseline: 34,
+    optimistic: 33,
+    pessimistic: 33,
   }
+
+const OUTLOOK_WEIGHT_SLIDER_LEFT: ScopedForecastPortfolioScenarioProbabilities = {
+  pessimistic: 55,
+  baseline: 30,
+  optimistic: 15,
+}
+
+const OUTLOOK_WEIGHT_SLIDER_MID: ScopedForecastPortfolioScenarioProbabilities = {
+  pessimistic: 33,
+  baseline: 34,
+  optimistic: 33,
+}
+
+const OUTLOOK_WEIGHT_SLIDER_RIGHT: ScopedForecastPortfolioScenarioProbabilities = {
+  pessimistic: 15,
+  baseline: 30,
+  optimistic: 55,
+}
+
+function lerpProbability(a: number, b: number, t: number) {
+  return a + (b - a) * t
+}
+
+/** Maps slider 0 (pessimistic) … 50 (baseline) … 100 (optimistic) to three weights summing to 100%. */
+export function outlookWeightSliderToProbabilities(
+  sliderValue: number
+): ScopedForecastPortfolioScenarioProbabilities {
+  const s = Math.min(100, Math.max(0, Math.round(sliderValue)))
+  const t = (s - 50) / 50
+  const L = OUTLOOK_WEIGHT_SLIDER_LEFT
+  const M = OUTLOOK_WEIGHT_SLIDER_MID
+  const R = OUTLOOK_WEIGHT_SLIDER_RIGHT
+
+  let pessimistic: number
+  let baseline: number
+  let optimistic: number
+
+  if (t <= 0) {
+    const u = t + 1
+    pessimistic = lerpProbability(L.pessimistic, M.pessimistic, u)
+    baseline = lerpProbability(L.baseline, M.baseline, u)
+    optimistic = lerpProbability(L.optimistic, M.optimistic, u)
+  } else {
+    const u = t
+    pessimistic = lerpProbability(M.pessimistic, R.pessimistic, u)
+    baseline = lerpProbability(M.baseline, R.baseline, u)
+    optimistic = lerpProbability(M.optimistic, R.optimistic, u)
+  }
+
+  return normalizeScopedForecastPortfolioScenarioProbabilities({
+    pessimistic: Math.round(pessimistic),
+    baseline: Math.round(baseline),
+    optimistic: Math.round(optimistic),
+  })
+}
+
+/** Approximate inverse for controlled slider value from current weights. */
+export function outlookWeightProbabilitiesToSlider(
+  probabilities: ScopedForecastPortfolioScenarioProbabilities
+): number {
+  const p = probabilities.pessimistic
+  const o = probabilities.optimistic
+  const delta = (o - p) / 100
+  return Math.round(Math.min(100, Math.max(0, 50 + 50 * delta)))
+}
 
 function clampProbability(value: number) {
   return Math.min(100, Math.max(0, value))

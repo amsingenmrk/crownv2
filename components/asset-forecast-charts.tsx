@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import Highcharts from "highcharts"
 import HighchartsReact from "highcharts-react-official"
 
 import {
+  Highcharts,
   buildForecastStatementHighchartsConfig,
   getForecastStatementChartMeta,
   type ForecastChartPalette,

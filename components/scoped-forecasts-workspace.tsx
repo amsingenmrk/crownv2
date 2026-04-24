@@ -37,12 +37,13 @@ import { resolveAssetGroupLabel } from "@/lib/assets"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import type { ForecastAssumptions, ForecastStatementRow } from "@/lib/forecast-data"
 import {
-  SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS,
   type ScopedForecastPortfolioModificationMode,
-  type ScopedForecastPortfolioScenarioId,
+  type ScopedForecastPortfolioScenarioProbabilities,
+  type ScopedForecastScope,
+  outlookWeightProbabilitiesToSlider,
+  outlookWeightSliderToProbabilities,
 } from "@/lib/scoped-forecast"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
-import type { ScopedForecastScope } from "@/lib/scoped-forecast"
 import { buildScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
@@ -61,16 +62,9 @@ const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
   ScopedForecastPortfolioModificationMode,
   string
 > = {
-  baseline: "Baseline",
+  baseline: "None",
   recommended: "Recommended",
 }
-
-const PORTFOLIO_SCENARIO_LABELS: Record<ScopedForecastPortfolioScenarioId, string> =
-  {
-    baseline: "Baseline",
-    optimistic: "Optimistic",
-    pessimistic: "Pessimistic",
-  }
 
 function SectionTitleTooltip({
   title,
@@ -114,7 +108,8 @@ function clampControlCenterValue(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function ControlCenterValueTile({
+/** Matches `AssumptionField` in `asset-forecasts-workspace` (single-asset forecast sidebar). */
+function AssetForecastSidebarNumberField({
   label,
   value,
   onChange,
@@ -131,36 +126,30 @@ function ControlCenterValueTile({
   step: number
   suffix: string
 }) {
-  const inputId = React.useId()
-
   return (
-    <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2.5">
-      <label
-        htmlFor={inputId}
-        className="block text-[11px] font-medium leading-none text-muted-foreground"
-      >
+    <label className="min-w-0 space-y-0.5">
+      <div className="truncate text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
         {label}
-      </label>
-      <div className="mt-2 flex items-end gap-2">
+      </div>
+      <div className="relative">
         <Input
-          id={inputId}
           type="number"
           value={value}
           min={min}
           max={max}
           step={step}
-          className="h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent p-0 text-right text-base font-semibold tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-base"
+          className="h-8 border-border/60 bg-background/80 pr-11 text-[0.82rem] tabular-nums shadow-none"
           onChange={(event) => {
             const next = Number(event.target.value)
             if (Number.isNaN(next)) return
             onChange(clampControlCenterValue(next, min, max))
           }}
         />
-        <span className="pb-0.5 text-[11px] font-medium text-muted-foreground">
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
           {suffix}
         </span>
       </div>
-    </div>
+    </label>
   )
 }
 
@@ -168,24 +157,75 @@ function PortfolioForecastControlCenter({
   modificationMode,
   onModificationModeChange,
   scenarioProbabilities,
-  onScenarioProbabilityChange,
+  onScenarioProbabilitiesChange,
   assumptions,
   onAssumptionsChange,
 }: {
   modificationMode: ScopedForecastPortfolioModificationMode
   onModificationModeChange: (next: ScopedForecastPortfolioModificationMode) => void
-  scenarioProbabilities: Record<ScopedForecastPortfolioScenarioId, number>
-  onScenarioProbabilityChange: (
-    scenarioId: ScopedForecastPortfolioScenarioId,
-    next: number
-  ) => void
+  scenarioProbabilities: ScopedForecastPortfolioScenarioProbabilities
+  onScenarioProbabilitiesChange: (next: ScopedForecastPortfolioScenarioProbabilities) => void
   assumptions: ForecastAssumptions
   onAssumptionsChange: (updates: Partial<ForecastAssumptions>) => void
 }) {
-  const probabilityTotal = SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.reduce(
-    (sum, scenarioId) => sum + scenarioProbabilities[scenarioId],
-    0
+  const committedSlider = outlookWeightProbabilitiesToSlider(scenarioProbabilities)
+  const [dragSlider, setDragSlider] = React.useState<number | null>(null)
+  const pointerDragActiveRef = React.useRef(false)
+  const dragSliderRef = React.useRef<number | null>(null)
+  const capturePointerIdRef = React.useRef<number | null>(null)
+  const rangeInputRef = React.useRef<HTMLInputElement>(null)
+
+  const finishPointerDrag = React.useCallback(() => {
+    const el = rangeInputRef.current
+    const captureId = capturePointerIdRef.current
+    if (captureId != null && el?.releasePointerCapture) {
+      try {
+        el.releasePointerCapture(captureId)
+      } catch {
+        /* not capturing */
+      }
+    }
+    capturePointerIdRef.current = null
+
+    if (!pointerDragActiveRef.current) return
+    pointerDragActiveRef.current = false
+    const last = dragSliderRef.current
+    dragSliderRef.current = null
+    setDragSlider(null)
+    if (last !== null) {
+      onScenarioProbabilitiesChange(outlookWeightSliderToProbabilities(last))
+    }
+  }, [onScenarioProbabilitiesChange])
+
+  React.useEffect(() => {
+    window.addEventListener("pointerup", finishPointerDrag)
+    window.addEventListener("pointercancel", finishPointerDrag)
+    return () => {
+      window.removeEventListener("pointerup", finishPointerDrag)
+      window.removeEventListener("pointercancel", finishPointerDrag)
+    }
+  }, [finishPointerDrag])
+
+  const applyRangeValue = React.useCallback(
+    (raw: string) => {
+      const next = Number(raw)
+      if (Number.isNaN(next)) return
+      if (pointerDragActiveRef.current) {
+        dragSliderRef.current = next
+        setDragSlider(next)
+        return
+      }
+      onScenarioProbabilitiesChange(outlookWeightSliderToProbabilities(next))
+    },
+    [onScenarioProbabilitiesChange]
   )
+
+  const sliderDisplay = dragSlider ?? committedSlider
+  const probsDisplay =
+    dragSlider !== null
+      ? outlookWeightSliderToProbabilities(dragSlider)
+      : scenarioProbabilities
+
   const setAssumptionValue = React.useCallback(
     (key: ScopedForecastLeasingAssumptionFieldKey, next: number) => {
       onAssumptionsChange({
@@ -201,103 +241,92 @@ function PortfolioForecastControlCenter({
   )
 
   return (
-    <section
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-      aria-label="Portfolio forecast control center"
+    <aside
+      className="flex w-full shrink-0 flex-col rounded-xl border border-border bg-card p-4 shadow-sm lg:w-72 xl:w-80"
+      aria-label="Forecast inputs"
     >
-      <div className="border-b border-border/60 px-4 py-3 lg:px-5">
-        <SectionTitleTooltip
-          title="Control center"
-          description="Configure a portfolio-wide modifications mode, outlook weighting, and leasing assumptions before reviewing totals and projections."
-          level="h2"
-          className="text-base font-semibold tracking-tight text-foreground"
-        />
+      <div className="min-w-0 space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">Modification Mode</h3>
+        <ToggleGroup
+          value={[modificationMode]}
+          onValueChange={(values) => {
+            const next = values[0]
+            if (next === "baseline" || next === "recommended") {
+              onModificationModeChange(next)
+            }
+          }}
+          aria-label="Portfolio forecast modification mode"
+          className="flex h-10 w-full gap-1 bg-muted/30 p-1"
+        >
+          <ToggleGroupItem value="baseline" className="h-full min-w-0 flex-1 px-2 text-xs sm:text-sm">
+            {PORTFOLIO_MODIFICATION_MODE_LABELS.baseline}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="recommended" className="h-full min-w-0 flex-1 px-2 text-xs sm:text-sm">
+            {PORTFOLIO_MODIFICATION_MODE_LABELS.recommended}
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
-      <div className="lg:grid lg:grid-cols-[0.92fr_1fr_1.12fr]">
-        <section className="px-4 py-4 lg:border-r lg:border-border/60 lg:px-5">
-          <SectionTitleTooltip
-            title="Modification mode"
-            description="Toggle between an all-baseline portfolio and per-asset recommended highest-lift strategies."
-            level="h3"
-            className="text-sm font-semibold text-foreground"
-          />
-          <ToggleGroup
-            value={[modificationMode]}
-            onValueChange={(values) => {
-              const next = values[0]
-              if (next === "baseline" || next === "recommended") {
-                onModificationModeChange(next)
+      <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold text-foreground">Scenario Probabilities</h3>
+        <div className="px-0.5 pt-1">
+          <div className="mb-2 grid grid-cols-3 gap-1 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="text-left">Pessimistic</span>
+            <span className="text-center">Baseline</span>
+            <span className="text-right">Optimistic</span>
+          </div>
+          <input
+            ref={rangeInputRef}
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={sliderDisplay}
+            onPointerDownCapture={(event) => {
+              pointerDragActiveRef.current = true
+              const el = event.currentTarget
+              try {
+                el.setPointerCapture(event.pointerId)
+                capturePointerIdRef.current = event.pointerId
+              } catch {
+                capturePointerIdRef.current = null
               }
+              const fromDom = Number(el.value)
+              const initial = Number.isNaN(fromDom) ? committedSlider : fromDom
+              dragSliderRef.current = initial
+              setDragSlider(initial)
             }}
-            aria-label="Portfolio forecast modification mode"
-            className="mt-3 flex h-10 w-full gap-1 bg-muted/30 p-1"
-          >
-            <ToggleGroupItem value="baseline" className="h-full min-w-0 flex-1 px-4">
-              {PORTFOLIO_MODIFICATION_MODE_LABELS.baseline}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="recommended" className="h-full min-w-0 flex-1 px-4">
-              {PORTFOLIO_MODIFICATION_MODE_LABELS.recommended}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </section>
-
-        <section className="border-t border-border/60 px-4 py-4 lg:border-t-0 lg:border-r lg:border-border/60 lg:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <SectionTitleTooltip
-                title="Scenario probabilities"
-                description="Weights normalize to 100% and drive the expected portfolio totals."
-                level="h3"
-                className="text-sm font-semibold text-foreground"
-              />
-            </div>
-            <span className="rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-xs font-medium tabular-nums text-foreground">
-              Total {probabilityTotal}%
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {SCOPED_FORECAST_PORTFOLIO_SCENARIO_IDS.map((scenarioId) => (
-              <ControlCenterValueTile
-                key={scenarioId}
-                label={PORTFOLIO_SCENARIO_LABELS[scenarioId]}
-                value={scenarioProbabilities[scenarioId]}
-                onChange={(next) =>
-                  onScenarioProbabilityChange(scenarioId, Math.round(next))
-                }
-                min={0}
-                max={100}
-                step={1}
-                suffix="%"
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="border-t border-border/60 px-4 py-4 lg:border-t-0 lg:px-5">
-          <SectionTitleTooltip
-            title="Leasing assumptions"
-            description="Adjust leasing timing, occupancy target, and renewal probability used in the portfolio forecast."
-            level="h3"
-            className="text-sm font-semibold text-foreground"
+            onInput={(event) => applyRangeValue(event.currentTarget.value)}
+            onChange={(event) => applyRangeValue(event.currentTarget.value)}
+            aria-label="Weight portfolio outlook from pessimistic through baseline to optimistic"
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:bg-primary"
           />
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
-              <ControlCenterValueTile
-                key={field.key}
-                label={field.label}
-                value={assumptions[field.key]}
-                onChange={(next) => setAssumptionValue(field.key, next)}
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                suffix={field.suffix}
-              />
-            ))}
+          <div className="mt-1.5 grid grid-cols-3 gap-1 text-xs tabular-nums text-muted-foreground">
+            <span className="text-left">{probsDisplay.pessimistic}%</span>
+            <span className="text-center">{probsDisplay.baseline}%</span>
+            <span className="text-right">{probsDisplay.optimistic}%</span>
           </div>
-        </section>
+        </div>
       </div>
-    </section>
+
+      <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold text-foreground">Leasing Assumptions</h3>
+        <div className="grid gap-3">
+          {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
+            <AssetForecastSidebarNumberField
+              key={field.key}
+              label={field.label}
+              value={assumptions[field.key]}
+              onChange={(next) => setAssumptionValue(field.key, next)}
+              min={field.min}
+              max={field.max}
+              step={field.step}
+              suffix={field.suffix}
+            />
+          ))}
+        </div>
+      </div>
+    </aside>
   )
 }
 
@@ -324,7 +353,7 @@ export function ScopedForecastsWorkspace({
     portfolioModificationMode,
     setPortfolioModificationMode,
     portfolioScenarioProbabilities,
-    setPortfolioScenarioProbability,
+    replacePortfolioScenarioProbabilities,
     resetSelections,
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,
@@ -456,45 +485,47 @@ export function ScopedForecastsWorkspace({
     if (isPortfolioOverview && rollup.portfolioOverview != null) {
       return (
         <TooltipProvider delay={120}>
-          <div className="flex min-h-0 w-full flex-col gap-6">
+          <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
             <PortfolioForecastControlCenter
               modificationMode={portfolioModificationMode}
               onModificationModeChange={setPortfolioModificationMode}
               scenarioProbabilities={portfolioScenarioProbabilities}
-              onScenarioProbabilityChange={setPortfolioScenarioProbability}
+              onScenarioProbabilitiesChange={replacePortfolioScenarioProbabilities}
               assumptions={assumptions}
               onAssumptionsChange={updateAssumptions}
             />
 
-            <section
-              className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-              aria-label={`${scopeLabel} portfolio totals`}
-            >
-              <div className="border-b border-border/60 px-4 py-3">
-                <div className="min-w-0">
-                  <SectionTitleTooltip
-                    title="Portfolio totals"
-                    description="Weighted expected quarterly totals roll up into Baseline, Optimistic, and Pessimistic outlook breakdowns, then individual assets."
-                    level="h2"
-                    className="text-base font-semibold tracking-tight text-foreground"
-                  />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
+              <section
+                className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                aria-label={`${scopeLabel} portfolio totals`}
+              >
+                <div className="border-b border-border/60 px-4 py-3">
+                  <div className="min-w-0">
+                    <SectionTitleTooltip
+                      title="Portfolio totals"
+                      description="Weighted expected quarterly totals roll up into Baseline, Optimistic, and Pessimistic outlook breakdowns, then individual assets."
+                      level="h2"
+                      className="text-base font-semibold tracking-tight text-foreground"
+                    />
+                  </div>
                 </div>
-              </div>
-              <ScopedForecastsPortfolioTotalsTable
-                periods={rollup.portfolioOverview.expectedModel.periods}
-                rows={rollup.portfolioOverview.expectedModel.statementRows}
-                assetModels={[]}
-                outlookModels={rollup.portfolioOverview.outlookModels}
-                metricFocus={altMetricTab}
-              />
-            </section>
+                <ScopedForecastsPortfolioTotalsTable
+                  periods={rollup.portfolioOverview.expectedModel.periods}
+                  rows={rollup.portfolioOverview.expectedModel.statementRows}
+                  assetModels={[]}
+                  outlookModels={rollup.portfolioOverview.outlookModels}
+                  metricFocus={altMetricTab}
+                />
+              </section>
 
-            <AssetForecastCharts
-              models={rollup.portfolioOverview.chartModels}
-              metricTab={altMetricTab}
-              onMetricTabChange={setAltMetricTab}
-              metricToolbarInCard
-            />
+              <AssetForecastCharts
+                models={rollup.portfolioOverview.chartModels}
+                metricTab={altMetricTab}
+                onMetricTabChange={setAltMetricTab}
+                metricToolbarInCard
+              />
+            </div>
           </div>
         </TooltipProvider>
       )

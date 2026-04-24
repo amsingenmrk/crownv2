@@ -44,7 +44,7 @@ export function ScopedForecastSelectorPanel({
 }) {
   return (
     <aside
-      className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-80 xl:w-96"
+      className="flex w-full shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:w-80"
       aria-label="Forecast inputs"
     >
       <h2 className="text-sm font-semibold text-foreground">Forecast Inputs</h2>

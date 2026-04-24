@@ -289,6 +289,15 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     []
   )
 
+  const replacePortfolioScenarioProbabilities = React.useCallback(
+    (next: ScopedForecastPortfolioScenarioProbabilities) => {
+      setPortfolioScenarioProbabilities(
+        normalizeScopedForecastPortfolioScenarioProbabilities(next)
+      )
+    },
+    []
+  )
+
   const resetSelections = React.useCallback(() => {
     const nextBuildingSelections: Record<string, string> = {}
     const nextOutlookSelections: Record<string, string> = {}
@@ -312,6 +321,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     setPortfolioModificationMode,
     portfolioScenarioProbabilities,
     setPortfolioScenarioProbability,
+    replacePortfolioScenarioProbabilities,
     resetSelections,
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,

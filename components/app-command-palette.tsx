@@ -45,13 +45,25 @@ const ROUTES = [
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
-/** SSR and the first client paint must match; read `navigator` only after mount. */
+let macLikeClientReady = false
+
+function subscribeMacLikeClient(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => {}
+  queueMicrotask(() => {
+    macLikeClientReady = true
+    onStoreChange()
+  })
+  return () => {}
+}
+
+function getMacLikeSnapshot() {
+  if (!macLikeClientReady || typeof navigator === "undefined") return false
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+}
+
+/** SSR-safe: server snapshot is false; after commit we read `navigator` (see React `useSyncExternalStore`). */
 function useMacLikePlatform() {
-  const [macLike, setMacLike] = useState(false)
-  useEffect(() => {
-    setMacLike(/Mac|iPhone|iPad|iPod/i.test(navigator.platform))
-  }, [])
-  return macLike
+  return useSyncExternalStore(subscribeMacLikeClient, getMacLikeSnapshot, () => false)
 }
 
 function CommandKeyHint({ className }: { className?: string }) {

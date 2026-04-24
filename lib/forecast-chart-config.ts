@@ -1,7 +1,12 @@
-import Highcharts from "highcharts"
+import type HighchartsNS from "highcharts"
+import HighchartsCore from "highcharts/es-modules/masters/highcharts.src.js"
+import "highcharts/es-modules/Series/AreaRange/AreaRangeSeries.js"
 
 import type { AssetForecastModel, ForecastStatementRow } from "@/lib/forecast-data"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+
+/** Same instance passed to `highcharts-react-official` in {@link AssetForecastCharts}. */
+export const Highcharts = HighchartsCore as unknown as typeof HighchartsNS
 
 const TOOLTIP_FONT = "var(--font-sans), system-ui, sans-serif"
 
@@ -178,11 +183,243 @@ function gradientFillForColor(color: string): Highcharts.GradientColorObject {
   }
 }
 
+const SCOPED_PORTFOLIO_EXPECTED_SCENARIO_ID = "scoped-portfolio-expected"
+const SCOPED_PORTFOLIO_FAN_OUTLOOK_IDS = [
+  "scoped-portfolio-baseline",
+  "scoped-portfolio-optimistic",
+  "scoped-portfolio-pessimistic",
+] as const
+
+function isScopedPortfolioFanChartModels(models: AssetForecastModel[]): boolean {
+  if (models.length !== 4) return false
+  if (models[0]?.scenario.id !== SCOPED_PORTFOLIO_EXPECTED_SCENARIO_ID) return false
+  const restIds = models.slice(1).map((m) => m.scenario.id).sort()
+  const expected = [...SCOPED_PORTFOLIO_FAN_OUTLOOK_IDS].sort()
+  return restIds.length === 3 && restIds.every((id, index) => id === expected[index])
+}
+
+function buildScopedPortfolioFanForecastStatementConfig(
+  models: AssetForecastModel[],
+  rowId: ForecastChartTab,
+  palette: ForecastChartPalette
+): Highcharts.Options {
+  const expectedModel = models[0]!
+  const baselineModel = models.find((m) => m.scenario.id === "scoped-portfolio-baseline")!
+  const optimisticModel = models.find((m) => m.scenario.id === "scoped-portfolio-optimistic")!
+  const pessimisticModel = models.find((m) => m.scenario.id === "scoped-portfolio-pessimistic")!
+
+  const categories = expectedModel.periods.map((period) => period.label)
+  const baseRow =
+    expectedModel.statementRows.find((statementRow) => statementRow.id === rowId) ??
+    expectedModel.statementRows[0]
+  const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
+  const meta = getForecastStatementChartMeta(resolvedRowId)
+  const isPercent = baseRow?.kind === "percent"
+
+  const rowFor = (model: AssetForecastModel): ForecastStatementRow =>
+    model.statementRows.find((r) => r.id === resolvedRowId) ??
+    model.statementRows[0] ?? {
+      id: resolvedRowId,
+      label: meta.title,
+      kind: "currency" as const,
+      values: Array(categories.length).fill(0),
+    }
+
+  const pessimisticValues = buildStatementChartValues(rowFor(pessimisticModel), isPercent)
+  const optimisticValues = buildStatementChartValues(rowFor(optimisticModel), isPercent)
+  const baselineValues = buildStatementChartValues(rowFor(baselineModel), isPercent)
+  const weightedValues = buildStatementChartValues(rowFor(expectedModel), isPercent)
+
+  const rangeData: [number, number][] = categories.map((_, index) => {
+    const low = pessimisticValues[index] ?? 0
+    const high = optimisticValues[index] ?? 0
+    return [Math.min(low, high), Math.max(low, high)]
+  })
+
+  const rangeColor = palette.primary
+  const baselineColor = palette.accent
+  const weightedColor = palette.secondary
+
+  const formatY = (value: number) =>
+    isPercent ? `${Number(value).toFixed(2)}%` : `$${Number(value).toFixed(2)}M`
+
+  const series: Highcharts.SeriesOptionsType[] = [
+    {
+      type: "arearange",
+      name: "Pessimistic–optimistic",
+      data: rangeData,
+      color: rangeColor,
+      fillColor: Highcharts.color(rangeColor).setOpacity(0.22).get() as string,
+      fillOpacity: 1,
+      lineWidth: 0,
+      marker: { enabled: false },
+      zIndex: 0,
+    },
+    {
+      type: "line",
+      name: "Baseline",
+      data: baselineValues,
+      color: baselineColor,
+      lineWidth: 2.5,
+      zIndex: 2,
+      marker: { enabled: false },
+    },
+    {
+      type: "line",
+      name: expectedModel.scenario.name,
+      data: weightedValues,
+      color: weightedColor,
+      lineWidth: 2,
+      dashStyle: "ShortDot",
+      zIndex: 3,
+      marker: { enabled: false },
+    },
+  ]
+
+  return {
+    chart: {
+      type: "line",
+      backgroundColor: "transparent",
+      plotBackgroundColor: "transparent",
+      style: { fontFamily: TOOLTIP_FONT },
+      spacing: [8, 8, 8, 8],
+    },
+    title: { text: undefined },
+    xAxis: {
+      categories,
+      title: {
+        text: "Quarter",
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+          fontWeight: "500",
+        },
+      },
+      lineColor: palette.border,
+      lineWidth: 1,
+      tickColor: palette.border,
+      tickLength: 6,
+      tickWidth: 1,
+      labels: {
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+        },
+      },
+    },
+    yAxis: {
+      title: {
+        text: meta.yAxisTitle,
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+          fontWeight: "500",
+        },
+      },
+      gridLineColor: palette.grid,
+      lineWidth: 0,
+      tickWidth: 0,
+      labels: {
+        formatter: function () {
+          if (isPercent) {
+            return `${Number(this.value).toFixed(1)}%`
+          }
+          return `$${Number(this.value).toFixed(1)}M`
+        },
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+        },
+      },
+    },
+    legend: {
+      enabled: true,
+      align: "center",
+      verticalAlign: "bottom",
+      margin: 12,
+      itemStyle: {
+        color: palette.text,
+        fontSize: "11px",
+        fontWeight: "500",
+      },
+    },
+    plotOptions: {
+      arearange: {
+        lineWidth: 0,
+        marker: { enabled: false },
+      },
+      series: {
+        animation: false,
+      },
+      line: {
+        lineWidth: 2.5,
+        marker: {
+          enabled: false,
+        },
+      },
+    },
+    series,
+    credits: { enabled: false },
+    tooltip: {
+      shared: true,
+      outside: false,
+      backgroundColor: palette.tooltipBackground,
+      borderColor: palette.border,
+      borderRadius: 10,
+      style: {
+        color: palette.text,
+        fontSize: "12px",
+        fontFamily: TOOLTIP_FONT,
+      },
+      formatter: function () {
+        const points = this.points ?? []
+        if (points.length === 0) return false
+
+        const rawX = this.x
+        const index = typeof rawX === "number" && Number.isFinite(rawX) ? Math.round(rawX) : NaN
+        const fromCategories =
+          !Number.isNaN(index) && index >= 0 && index < categories.length ? categories[index] : null
+        const fromPoint = points[0]?.category
+        const xLabel =
+          (typeof fromPoint === "string" && fromPoint !== "" ? fromPoint : null) ??
+          fromCategories ??
+          (typeof rawX === "string" ? rawX : null) ??
+          String(rawX ?? "")
+
+        const lines = [`<b>${xLabel}</b>`]
+        for (const point of points) {
+          if (point.series.type === "arearange") {
+            const rangePoint = point as Highcharts.Point & { low?: number; high?: number }
+            const low = rangePoint.low
+            const high = rangePoint.high
+            if (low == null || high == null) continue
+            lines.push(
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(low)} – ${formatY(high)}`
+            )
+          } else if (point.y != null) {
+            lines.push(
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(Number(point.y))}`
+            )
+          }
+        }
+        lines.push(
+          `<span style="color:${palette.mutedText};font-size:11px;">Shaded band spans pessimistic to optimistic by quarter.</span>`
+        )
+        return lines.join("<br/>")
+      },
+    },
+  }
+}
+
 export function buildForecastStatementHighchartsConfig(
   models: AssetForecastModel[],
   rowId: ForecastChartTab,
   palette: ForecastChartPalette
 ): Highcharts.Options {
+  if (isScopedPortfolioFanChartModels(models)) {
+    return buildScopedPortfolioFanForecastStatementConfig(models, rowId, palette)
+  }
+
   const baseModel = models[0]
   const baseRow =
     baseModel?.statementRows.find((statementRow) => statementRow.id === rowId) ??
