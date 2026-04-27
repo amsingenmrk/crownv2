@@ -1,5 +1,6 @@
 import { AppTopbar } from "@/components/app-topbar"
 import { ScenarioPageHeader } from "@/components/scenario-page-header"
+import { ScenarioModificationSelectionsProvider } from "@/components/scenario-modification-selections-context"
 
 export default function ScenariosLayout({
   children,
@@ -7,7 +8,7 @@ export default function ScenariosLayout({
   children: React.ReactNode
 }>) {
   return (
-    <>
+    <ScenarioModificationSelectionsProvider>
       <AppTopbar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ScenarioPageHeader />
@@ -15,6 +16,6 @@ export default function ScenariosLayout({
           {children}
         </div>
       </div>
-    </>
+    </ScenarioModificationSelectionsProvider>
   )
 }

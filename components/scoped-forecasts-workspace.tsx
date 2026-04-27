@@ -361,8 +361,6 @@ export function ScopedForecastsWorkspace({
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,
   } = useScopedForecastState(scope)
-  const isPortfolioOverview =
-    scope.kind === "portfolio" && scope.portfolioScopeId == null
   const isPortfolioScope = scope.kind === "portfolio"
 
   const scopeLabel = React.useMemo(() => {
@@ -589,6 +587,7 @@ export function ScopedForecastsWorkspace({
             onPeriodGranularityChange={
               scenarioForecastsQuarterlyOnly ? undefined : setAltStatementGranularity
             }
+            useScenarioOverviewModificationSelect={scope.kind === "scenario"}
             topAccessory={
               <ScopedForecastLeasingAssumptionsBar
                 assumptions={assumptions}
@@ -707,6 +706,7 @@ export function ScopedForecastsWorkspace({
             assetSelections={assetSelections}
             onSelectBuildingVersion={setSelectedBuildingVersionId}
             onSelectOutlookSet={setSelectedOutlookSetId}
+            useScenarioOverviewModificationSelect={scope.kind === "scenario"}
             topAccessory={
               <div className="text-xs text-muted-foreground">
                 Viewing <span className="font-medium text-foreground">{activeModel.scenario.name}</span>{" "}

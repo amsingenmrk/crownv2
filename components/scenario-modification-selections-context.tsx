@@ -6,6 +6,7 @@ import { scenarioMembershipModeFromPathname } from "@/lib/scenario-membership"
 import {
   parseScenarioTableSelectionsRaw,
   readScenarioTableSelections,
+  scenarioModificationsTableStoragePathname,
   scenarioTableSelectionsKey,
 } from "@/lib/scenario-table-selections-storage"
 import {
@@ -46,7 +47,9 @@ const ScenarioModificationSelectionsContext = React.createContext<Ctx | null>(
 
 function storageKeySelections(pathname: string | null): string | null {
   if (pathname == null || !pathname.startsWith("/scenarios/")) return null
-  return scenarioTableSelectionsKey(pathname)
+  const base = scenarioModificationsTableStoragePathname(pathname)
+  if (base == null) return null
+  return scenarioTableSelectionsKey(base)
 }
 
 function persistJson(key: string | null, value: unknown) {
@@ -339,4 +342,8 @@ export function useScenarioModificationSelections(): Ctx {
     )
   }
   return ctx
+}
+
+export function useScenarioModificationSelectionsOptional(): Ctx | null {
+  return React.useContext(ScenarioModificationSelectionsContext)
 }

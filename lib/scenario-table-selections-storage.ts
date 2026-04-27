@@ -1,5 +1,16 @@
 const SELECTIONS_PREFIX = "glassbox:scenario-table-selections:" as const
 
+/** `/scenarios/:slug` — same key for overview, forecasts, and other tabs under a scenario. */
+export function scenarioModificationsTableStoragePathname(
+  pathname: string
+): string | null {
+  if (!pathname.startsWith("/scenarios/")) return null
+  const afterPrefix = pathname.slice("/scenarios/".length)
+  const slash = afterPrefix.indexOf("/")
+  if (slash === -1) return pathname
+  return `/scenarios/${afterPrefix.slice(0, slash)}`
+}
+
 export function scenarioTableSelectionsKey(pathname: string): string {
   return `${SELECTIONS_PREFIX}${pathname}`
 }
@@ -27,6 +38,7 @@ export function parseScenarioTableSelectionsRaw(
 
 export function readScenarioTableSelections(pathname: string): ScenarioTableSelections {
   if (typeof localStorage === "undefined") return {}
-  const raw = localStorage.getItem(scenarioTableSelectionsKey(pathname))
+  const keyPath = scenarioModificationsTableStoragePathname(pathname) ?? pathname
+  const raw = localStorage.getItem(scenarioTableSelectionsKey(keyPath))
   return parseScenarioTableSelectionsRaw(raw)
 }

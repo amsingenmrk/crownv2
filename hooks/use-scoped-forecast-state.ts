@@ -6,6 +6,7 @@ import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/components/building-modifications-sidebar"
+import { useScenarioModificationSelectionsOptional } from "@/components/scenario-modification-selections-context"
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
@@ -77,6 +78,7 @@ function syncSelectedIdsWithOptions({
 }
 
 export function useScopedForecastState(scope: ScopedForecastScope) {
+  const scenarioModificationsCtx = useScenarioModificationSelectionsOptional()
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
@@ -111,6 +113,8 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     [assetGroupData]
   )
   const isScenarioScope = scope.kind === "scenario"
+  const useScenarioTableModificationSelections =
+    isScenarioScope && scenarioModificationsCtx != null
   const scenarioSlug = isScenarioScope ? scope.scenarioSlug : undefined
   const portfolioScopeId =
     scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
@@ -179,14 +183,16 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   React.useEffect(() => {
     const assetIds = scopedRows.map((row) => row.id)
-    setSelectedBuildingVersionIds((previous) =>
-      syncSelectedIdsWithOptions({
-        previous,
-        assetIds,
-        optionsByAssetId,
-        baselineId: SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
-      })
-    )
+    if (!useScenarioTableModificationSelections) {
+      setSelectedBuildingVersionIds((previous) =>
+        syncSelectedIdsWithOptions({
+          previous,
+          assetIds,
+          optionsByAssetId,
+          baselineId: SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
+        })
+      )
+    }
     setSelectedOutlookSetIds((previous) =>
       syncSelectedIdsWithOptions({
         previous,
@@ -195,7 +201,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
         baselineId: SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
       })
     )
-  }, [optionsByAssetId, scopedRows])
+  }, [optionsByAssetId, scopedRows, useScenarioTableModificationSelections])
 
   const defaultAssumptions = React.useMemo(
     () => buildDefaultScopedForecastAssumptions(scopedRows.map((row) => row.id)),
@@ -235,14 +241,27 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [scopeIdentity])
 
   const assetSelections = React.useMemo<ScopedForecastAssetSelection[]>(() => {
+    const tableSelections =
+      useScenarioTableModificationSelections && scenarioModificationsCtx != null
+        ? scenarioModificationsCtx.selections
+        : null
+
     return scopedRows.map((row) => {
       const rowOptions = optionsByAssetId[row.id] ?? {
         buildingVersionOptions: [baselineScopedForecastBuildingVersionOption()],
         outlookSetOptions: buildScopedPresetOutlookSetOptions(defaultOutlooks),
       }
+      const resolvedBuildingVersionId =
+        tableSelections != null
+          ? (() => {
+              const fromTable = tableSelections[row.id]
+              if (fromTable != null && fromTable !== "") return fromTable
+              return SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID
+            })()
+          : selectedBuildingVersionIds[row.id]
       const selectedBuildingVersion =
         rowOptions.buildingVersionOptions.find(
-          (option) => option.id === selectedBuildingVersionIds[row.id]
+          (option) => option.id === resolvedBuildingVersionId
         ) ?? rowOptions.buildingVersionOptions[0]!
       const selectedOutlookSet =
         rowOptions.outlookSetOptions.find(
@@ -263,18 +282,27 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     defaultOutlooks,
     optionsByAssetId,
     scopedRows,
+    scenarioModificationsCtx,
     selectedBuildingVersionIds,
     selectedOutlookSetIds,
+    useScenarioTableModificationSelections,
   ])
 
   const setSelectedBuildingVersionId = React.useCallback(
     (assetId: string, nextId: string) => {
+      if (isScenarioScope && scenarioModificationsCtx != null) {
+        scenarioModificationsCtx.setTableSelection(
+          assetId,
+          nextId === SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID ? "" : nextId
+        )
+        return
+      }
       setSelectedBuildingVersionIds((current) => ({
         ...current,
         [assetId]: nextId,
       }))
     },
-    []
+    [isScenarioScope, scenarioModificationsCtx]
   )
 
   const setSelectedOutlookSetId = React.useCallback(
@@ -321,19 +349,30 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [])
 
   const resetSelections = React.useCallback(() => {
-    const nextBuildingSelections: Record<string, string> = {}
-    const nextOutlookSelections: Record<string, string> = {}
-
-    for (const row of scopedRows) {
-      nextBuildingSelections[row.id] =
-        SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID
-      nextOutlookSelections[row.id] = SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID
+    if (useScenarioTableModificationSelections && scenarioModificationsCtx != null) {
+      for (const row of scopedRows) {
+        scenarioModificationsCtx.setTableSelection(row.id, "")
+      }
+    } else {
+      const nextBuildingSelections: Record<string, string> = {}
+      for (const row of scopedRows) {
+        nextBuildingSelections[row.id] = SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID
+      }
+      setSelectedBuildingVersionIds(nextBuildingSelections)
     }
 
-    setSelectedBuildingVersionIds(nextBuildingSelections)
+    const nextOutlookSelections: Record<string, string> = {}
+    for (const row of scopedRows) {
+      nextOutlookSelections[row.id] = SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID
+    }
     setSelectedOutlookSetIds(nextOutlookSelections)
     setAssumptions(defaultAssumptions)
-  }, [defaultAssumptions, scopedRows])
+  }, [
+    defaultAssumptions,
+    scopedRows,
+    scenarioModificationsCtx,
+    useScenarioTableModificationSelections,
+  ])
 
   return {
     assetSelections,

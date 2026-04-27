@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { assetForecastHref } from "@/lib/assets"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import type {
@@ -897,6 +898,7 @@ export function ScopedForecastsTable({
   statementToolbar = "default",
   periodGranularity: periodGranularityProp,
   onPeriodGranularityChange,
+  useScenarioOverviewModificationSelect,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
@@ -925,8 +927,15 @@ export function ScopedForecastsTable({
   /** Controlled quarterly / total horizon (pair with `onPeriodGranularityChange`). */
   periodGranularity?: ForecastStatementPeriodGranularity
   onPeriodGranularityChange?: (next: ForecastStatementPeriodGranularity) => void
+  /**
+   * When true, Modifications uses the same control as the scenario overview table
+   * (saved sets + violet selected styling) and shares selection via scenario context.
+   */
+  useScenarioOverviewModificationSelect?: boolean
 }) {
   const flatAssetContributions = assetContributionsDisplay === "flat"
+  const useScenarioOverviewModificationSelectProp =
+    useScenarioOverviewModificationSelect ?? false
 
   const showSelectorColumns =
     assetSelections != null &&
@@ -1035,6 +1044,16 @@ export function ScopedForecastsTable({
               }
               const selection = selectionByAssetId.get(item.assetId)
               if (selection == null) return null
+              if (useScenarioOverviewModificationSelectProp) {
+                return isMarketListingRowId(item.assetId) ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : (
+                  <AssetModificationSetSelect
+                    assetId={item.assetId}
+                    building={item.label}
+                  />
+                )
+              }
               return (
                 <Select
                   items={modificationItemsRecord(selection.buildingVersionOptions)}
@@ -1183,6 +1202,7 @@ export function ScopedForecastsTable({
     rows,
     selectionByAssetId,
     showSelectorColumns,
+    useScenarioOverviewModificationSelectProp,
   ])
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable

@@ -27,10 +27,7 @@ import {
   ScenarioMetricInlinePair,
 } from "@/components/portfolio/scenario-comparative-kpis"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
-import {
-  ScenarioModificationSelectionsProvider,
-  useScenarioModificationSelections,
-} from "@/components/scenario-modification-selections-context"
+import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 import { PortfolioAssetsViewOptions } from "@/components/portfolio/portfolio-assets-view-options"
 import {
   createPortfolioAssetColumns,
@@ -895,12 +892,10 @@ export function PortfolioDashboard({
   portfolioScopeId?: string
 }) {
   return (
-    <ScenarioModificationSelectionsProvider>
-      <PortfolioDashboardInner
-        assetsTableVariant={assetsTableVariant}
-        scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
-        portfolioScopeId={portfolioScopeId}
-      />
-    </ScenarioModificationSelectionsProvider>
+    <PortfolioDashboardInner
+      assetsTableVariant={assetsTableVariant}
+      scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
+      portfolioScopeId={portfolioScopeId}
+    />
   )
 }

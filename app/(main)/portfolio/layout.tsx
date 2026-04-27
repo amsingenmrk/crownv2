@@ -1,5 +1,6 @@
 import { AppTopbar } from "@/components/app-topbar"
 import { PortfolioPageHeader } from "@/components/portfolio-page-header"
+import { ScenarioModificationSelectionsProvider } from "@/components/scenario-modification-selections-context"
 
 export default function PortfolioLayout({
   children,
@@ -7,7 +8,7 @@ export default function PortfolioLayout({
   children: React.ReactNode
 }>) {
   return (
-    <>
+    <ScenarioModificationSelectionsProvider>
       <AppTopbar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PortfolioPageHeader />
@@ -15,6 +16,6 @@ export default function PortfolioLayout({
           {children}
         </div>
       </div>
-    </>
+    </ScenarioModificationSelectionsProvider>
   )
 }
