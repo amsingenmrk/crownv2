@@ -427,6 +427,19 @@ export function PortfolioAssetsDataTable({
                       </span>
                     </div>
                   </div>
+                  {variant === "scenarios" ? (
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      <span className="text-muted-foreground">Modifications</span>
+                      {isMarketListingRowId(row.id) ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <AssetModificationSetSelect
+                          assetId={row.id}
+                          building={row.building}
+                        />
+                      )}
+                    </div>
+                  ) : null}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>Ownership</span>
                     {isMarketListingRowId(row.id) ? (
@@ -469,18 +482,12 @@ export function PortfolioAssetsDataTable({
                     </span>
                   </div>
                   {variant === "scenarios" ? (
-                    <>
-                      <AssetModificationSetSelect
+                    <div className="flex justify-end border-t border-border pt-3">
+                      <ScenarioRemoveFromScenarioCell
                         assetId={row.id}
                         building={row.building}
                       />
-                      <div className="flex justify-end border-t border-border pt-3">
-                        <ScenarioRemoveFromScenarioCell
-                          assetId={row.id}
-                          building={row.building}
-                        />
-                      </div>
-                    </>
+                    </div>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">

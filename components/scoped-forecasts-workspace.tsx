@@ -488,6 +488,11 @@ export function ScopedForecastsWorkspace({
   const [altStatementGranularity, setAltStatementGranularity] =
     React.useState<ForecastStatementPeriodGranularity>("total")
 
+  const scenarioForecastsQuarterlyOnly =
+    layout === "alt" && scope.kind === "scenario"
+  const statementPeriodGranularity: ForecastStatementPeriodGranularity =
+    scenarioForecastsQuarterlyOnly ? "quarterly" : altStatementGranularity
+
   if (layout === "alt") {
     if (isPortfolioScope && rollup.portfolioOverview != null) {
       return (
@@ -550,12 +555,14 @@ export function ScopedForecastsWorkspace({
           <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold tracking-tight text-foreground">Asset Forecast</h2>
-              <StatementPeriodGranularitySelect
-                value={altStatementGranularity}
-                onValueChange={setAltStatementGranularity}
-              />
+              {!scenarioForecastsQuarterlyOnly ? (
+                <StatementPeriodGranularitySelect
+                  value={altStatementGranularity}
+                  onValueChange={setAltStatementGranularity}
+                />
+              ) : null}
             </div>
-            {altStatementGranularity === "quarterly" ? (
+            {statementPeriodGranularity === "quarterly" ? (
               <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
                 <AssetForecastChartMetricToggleGroup
                   models={forecastChartModels}
@@ -578,8 +585,10 @@ export function ScopedForecastsWorkspace({
             onSelectOutlookSet={setSelectedOutlookSetId}
             portfolioTotalsPlacement="none"
             statementToolbar="none"
-            periodGranularity={altStatementGranularity}
-            onPeriodGranularityChange={setAltStatementGranularity}
+            periodGranularity={statementPeriodGranularity}
+            onPeriodGranularityChange={
+              scenarioForecastsQuarterlyOnly ? undefined : setAltStatementGranularity
+            }
             topAccessory={
               <ScopedForecastLeasingAssumptionsBar
                 assumptions={assumptions}

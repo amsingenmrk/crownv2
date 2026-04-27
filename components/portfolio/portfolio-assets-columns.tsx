@@ -458,7 +458,8 @@ export function createPortfolioAssetColumns(
       ),
     })
   } else {
-    columns.push({
+    // Scenario overview: Asset column shows address in subtitle — keep Modifications next.
+    columns.splice(2, 0, {
       id: "modifications",
       enableHiding: false,
       header: "Modifications",
