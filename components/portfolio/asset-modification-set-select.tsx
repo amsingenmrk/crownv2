@@ -46,9 +46,12 @@ function useSavedModificationSets(assetId: string) {
 export function AssetModificationSetSelect({
   assetId,
   building,
+  /** Same trigger sizing as the scoped forecasts Outlook column (`h-7`, `max-w-[7.25rem]`, `text-[0.75rem]`). */
+  matchOutlookRowSelect = false,
 }: {
   assetId: string
   building: string
+  matchOutlookRowSelect?: boolean
 }) {
   const { sortedSets, reload } = useSavedModificationSets(assetId)
   const { selections, setTableSelection } = useScenarioModificationSelections()
@@ -84,8 +87,11 @@ export function AssetModificationSetSelect({
         }}
       >
         <SelectTrigger
+          size={matchOutlookRowSelect ? "sm" : "default"}
           className={cn(
-            "w-full max-w-full min-w-0",
+            matchOutlookRowSelect
+              ? "h-7 w-full max-w-[7.25rem] min-w-0 text-[0.75rem]"
+              : "w-full max-w-full min-w-0",
             value !== "" &&
               "border-violet-500/45 bg-violet-500/[0.09] font-medium text-violet-800 shadow-sm hover:bg-violet-500/[0.12] hover:border-violet-500/55 focus-visible:border-violet-500 focus-visible:ring-violet-500/25 dark:border-violet-400/40 dark:bg-violet-500/[0.14] dark:text-violet-200 dark:hover:bg-violet-500/20 dark:hover:border-violet-400/55 dark:focus-visible:border-violet-400 dark:focus-visible:ring-violet-400/30 [&_svg]:text-violet-600 dark:[&_svg]:text-violet-400"
           )}

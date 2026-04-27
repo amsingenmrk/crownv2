@@ -1051,6 +1051,7 @@ export function ScopedForecastsTable({
                   <AssetModificationSetSelect
                     assetId={item.assetId}
                     building={item.label}
+                    matchOutlookRowSelect
                   />
                 )
               }
