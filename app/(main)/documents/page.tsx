@@ -1,4 +1,4 @@
-import { FileSpreadsheet, FileText, UploadCloud } from "lucide-react"
+import { FileSpreadsheet, FileText, ReceiptText, UploadCloud } from "lucide-react"
 
 import { AppTopbar } from "@/components/app-topbar"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,12 @@ const UPLOAD_SURFACES = [
     description:
       "Upload a rent roll to start normalizing lease data into an analysis-ready stack.",
     icon: FileSpreadsheet,
+  },
+  {
+    title: "T12",
+    description:
+      "Upload a trailing 12-month operating statement to capture recent revenue, expense, and NOI performance.",
+    icon: ReceiptText,
   },
   {
     title: "Offering Memorandum",
@@ -29,8 +35,8 @@ export default function DocumentsPage() {
         <div className="max-w-3xl">
           <h1 className="text-2xl font-semibold tracking-tight">Doc Upload</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upload rent rolls and offering memoranda to kick off structured
-            analysis in NBX.
+            Upload rent rolls, T12s, and offering memoranda to kick off
+            structured analysis in NBX.
           </p>
         </div>
 
