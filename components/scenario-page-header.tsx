@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { LayoutDashboard, LineChart } from "lucide-react"
+import { Aperture, LineChart } from "lucide-react"
 import { usePathname } from "next/navigation"
 import {
   parseStoredSets,
@@ -267,7 +267,7 @@ export function ScenarioPageHeader() {
   const basePath = scenarioSlug != null ? `/scenarios/${scenarioSlug}` : "/scenarios"
   const navItems = React.useMemo(
     () => [
-      { href: basePath, label: "Snapshot", icon: LayoutDashboard },
+      { href: basePath, label: "Snapshot", icon: Aperture },
       { href: `${basePath}/forecasts`, label: "Forecasts", icon: LineChart },
     ],
     [basePath]

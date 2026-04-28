@@ -241,7 +241,11 @@ function PortfolioDashboardInner({
         )
 
   const assetsTableHeading =
-    assetsTableVariant === "portfolio" ? "Assets" : effectivePortfolioGroupLabel
+    assetsTableVariant === "portfolio" ||
+    (assetsTableVariant === "scenarios" &&
+      effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE)
+      ? "Assets"
+      : effectivePortfolioGroupLabel
 
   /**
    * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.

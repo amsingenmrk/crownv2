@@ -122,7 +122,12 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   const scopedRows = React.useMemo(() => {
     if (isScenarioScope && scenarioSlug != null) {
-      return scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)
+      // Match the default Scenario Snapshot table sort (by asset name).
+      return [...scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)].sort(
+        (a, b) =>
+          a.building.localeCompare(b.building, undefined, { sensitivity: "base" }) ||
+          a.id.localeCompare(b.id, undefined, { sensitivity: "base" })
+      )
     }
     if (portfolioScopeId != null) {
       return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
