@@ -4,6 +4,10 @@ import { type ReactNode, useState } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
+import {
+  parseStoredSets,
+  storageKeyForAsset,
+} from "@/components/building-modifications-sidebar"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,11 +24,17 @@ import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
+import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
+import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
+import {
+  formatCapRatePts,
+  formatUsdDeltaCompact,
+} from "@/lib/scenario-kpi-format"
 import { cn } from "@/lib/utils"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
@@ -46,6 +56,88 @@ const VALUE_SOURCE_LABEL =
 
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
+
+type ScenarioDeltaMetricKey = "pricePerSf" | "noi" | "value" | "capRate"
+
+function formatUsdPerSfDelta(delta: number): string {
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : ""
+  return `${sign}$${Math.abs(delta).toFixed(1)} / SF`
+}
+
+function deltaClassName(delta: number) {
+  if (Math.abs(delta) < 1e-6) {
+    return "text-muted-foreground tabular-nums"
+  }
+  return delta > 0
+    ? "tabular-nums text-emerald-600 dark:text-emerald-400"
+    : "tabular-nums text-rose-600 dark:text-rose-400"
+}
+
+function ScenarioAssetMetricCell({
+  assetId,
+  baseDisplay,
+  metricKey,
+}: {
+  assetId: string
+  baseDisplay: string
+  metricKey: ScenarioDeltaMetricKey
+}) {
+  const { selections } = useScenarioModificationSelections()
+  const selectedSetId = selections[assetId] ?? ""
+
+  const delta = (() => {
+    if (selectedSetId === "" || isMarketListingRowId(assetId) || typeof window === "undefined") {
+      return null
+    }
+
+    const financials = financialMetricsForAssetId(assetId)
+    if (financials == null) return null
+
+    const selectedSet = parseStoredSets(localStorage.getItem(storageKeyForAsset(assetId))).find(
+      (set) => set.id === selectedSetId
+    )
+    if (selectedSet == null) return null
+
+    const uplift = upliftFromModValues(selectedSet.values)
+    const modifiedValueUsd = financials.valueUsd * uplift.valueMult
+    const modifiedNoiUsd = financials.noiUsd * uplift.noiMult
+    const modifiedPricePerSf = financials.pricePerSfN * uplift.valueMult
+    const modifiedCapRatePct =
+      modifiedValueUsd > 0 ? (modifiedNoiUsd / modifiedValueUsd) * 100 : 0
+
+    switch (metricKey) {
+      case "pricePerSf":
+        return {
+          value: modifiedPricePerSf - financials.pricePerSfN,
+          text: formatUsdPerSfDelta(modifiedPricePerSf - financials.pricePerSfN),
+        }
+      case "noi":
+        return {
+          value: modifiedNoiUsd - financials.noiUsd,
+          text: formatUsdDeltaCompact(modifiedNoiUsd - financials.noiUsd),
+        }
+      case "value":
+        return {
+          value: modifiedValueUsd - financials.valueUsd,
+          text: formatUsdDeltaCompact(modifiedValueUsd - financials.valueUsd),
+        }
+      case "capRate":
+        return {
+          value: modifiedCapRatePct - financials.capRatePct,
+          text: formatCapRatePts(modifiedCapRatePct - financials.capRatePct),
+        }
+    }
+  })()
+
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
+      <span>{baseDisplay}</span>
+      {delta != null ? (
+        <span className={deltaClassName(delta.value)}>{delta.text}</span>
+      ) : null}
+    </span>
+  )
+}
 
 function SortableHeader({
   column,
@@ -314,7 +406,15 @@ export function createPortfolioAssetColumns(
         Number.parseInt(String(rowB.getValue(id)).replace(/\D/g, ""), 10),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {row.original.pricePerSf}
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.pricePerSf}
+              metricKey="pricePerSf"
+            />
+          ) : (
+            row.original.pricePerSf
+          )}
         </div>
       ),
     },
@@ -331,7 +431,15 @@ export function createPortfolioAssetColumns(
         }),
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
-          {row.original.noi}
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.noi}
+              metricKey="noi"
+            />
+          ) : (
+            row.original.noi
+          )}
         </div>
       ),
     },
@@ -350,7 +458,15 @@ export function createPortfolioAssetColumns(
         }),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {row.original.value}
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.value}
+              metricKey="value"
+            />
+          ) : (
+            row.original.value
+          )}
         </div>
       ),
     },
@@ -366,7 +482,15 @@ export function createPortfolioAssetColumns(
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
-          {row.original.capRate}
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.capRate}
+              metricKey="capRate"
+            />
+          ) : (
+            row.original.capRate
+          )}
         </div>
       ),
     },
