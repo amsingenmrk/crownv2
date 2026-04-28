@@ -3,6 +3,7 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -65,6 +66,12 @@ import {
   mapPinClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
+import {
+  defaultPortfolioAssetsTableSorting,
+  readPortfolioAssetsTableSorting,
+  writePortfolioAssetsTableVisibleOrder,
+  writePortfolioAssetsTableSorting,
+} from "@/lib/portfolio-assets-table-sorting"
 import { cn } from "@/lib/utils"
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
@@ -196,6 +203,7 @@ function PortfolioDashboardInner({
   scenarioRelaxedAssetFilter?: boolean
   portfolioScopeId?: string
 }) {
+  const pathname = usePathname()
   const assetsHeadingId = React.useId()
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
     "table"
@@ -533,12 +541,18 @@ function PortfolioDashboardInner({
   )
 
   const [sorting, setSorting] = React.useState<SortingState>(() =>
-    assetsTableVariant === "portfolio"
-      ? [{ id: "lift", desc: true }]
-      : [{ id: "building", desc: false }]
+    defaultPortfolioAssetsTableSorting(assetsTableVariant)
   )
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
+
+  React.useLayoutEffect(() => {
+    setSorting(readPortfolioAssetsTableSorting(pathname, assetsTableVariant))
+  }, [assetsTableVariant, pathname])
+
+  React.useEffect(() => {
+    writePortfolioAssetsTableSorting(pathname, sorting)
+  }, [pathname, sorting])
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
   const portfolioTable = useReactTable({
@@ -554,6 +568,15 @@ function PortfolioDashboardInner({
     enableRowSelection: true,
     enableHiding: true,
   })
+
+  const visibleRowOrder = React.useMemo(
+    () => portfolioTable.getRowModel().rows.map((row) => row.original.id),
+    [portfolioTable, sorting, visibleAssetRows]
+  )
+
+  React.useEffect(() => {
+    writePortfolioAssetsTableVisibleOrder(pathname, visibleRowOrder)
+  }, [pathname, visibleRowOrder])
 
   React.useEffect(() => {
     const visible = new Set(visibleAssetRows.map((r) => r.id))

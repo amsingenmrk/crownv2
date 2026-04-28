@@ -510,6 +510,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     const averageOpex = getStatementRowAverage(model.statementRows, "opex") * 4
     const averageNoi = getStatementRowAverage(model.statementRows, "noi") * 4
     const averageAssetValue = getStatementRowAverage(model.statementRows, "salePrice")
+    const averageCapRate = getStatementRowAverage(model.statementRows, "capRate")
 
     return [
       {
@@ -530,6 +531,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       {
         label: "Asset Value",
         value: formatUsdPortfolioCompact(averageAssetValue),
+      },
+      {
+        label: "Cap Rate",
+        value: `${averageCapRate.toFixed(2)}%`,
       },
     ]
   }, [model])

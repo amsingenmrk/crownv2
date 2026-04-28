@@ -104,16 +104,30 @@ export function ScopedForecastLeasingAssumptionField({
 export function ScopedForecastLeasingAssumptionsBar({
   assumptions,
   onAssumptionsChange,
+  showTitle = true,
 }: {
   assumptions: ForecastAssumptions
   onAssumptionsChange: (updates: Partial<ForecastAssumptions>) => void
+  showTitle?: boolean
 }) {
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3 items-end max-sm:justify-center sm:flex-row sm:items-center sm:justify-end sm:gap-6">
-      <h3 className="m-0 w-full shrink-0 text-left text-[14px] font-medium text-foreground sm:mr-auto sm:w-auto sm:max-w-[11rem] sm:pb-0.5">
-        Leasing assumptions
-      </h3>
-      <div className="grid min-w-0 w-full max-w-full grid-cols-1 justify-items-end gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)] sm:justify-items-start">
+    <div
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-3 max-sm:justify-center sm:flex-row sm:items-center sm:gap-6",
+        showTitle ? "items-end sm:justify-end" : "items-start sm:justify-start",
+      )}
+    >
+      {showTitle ? (
+        <h3 className="m-0 w-full shrink-0 text-left text-[14px] font-medium text-foreground sm:mr-auto sm:w-auto sm:max-w-[11rem] sm:pb-0.5">
+          Leasing assumptions
+        </h3>
+      ) : null}
+      <div
+        className={cn(
+          "grid min-w-0 w-full max-w-full grid-cols-1 gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)]",
+          showTitle ? "justify-items-end sm:justify-items-start" : "justify-items-start",
+        )}
+      >
         {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
           <ScopedForecastLeasingAssumptionField
             key={field.key}

@@ -185,6 +185,31 @@ function buildPortfolioQuarterlySummaryRows(
   })
 }
 
+function buildPortfolioQuarterlySummaryRowsWithAssets(
+  statementRows: ForecastStatementRow[],
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+): ScopedForecastTableRow[] {
+  const summaryRows = buildPortfolioQuarterlySummaryRows(statementRows, assetModels)
+  const statementRowById = new Map(statementRows.map((row) => [row.id, row]))
+
+  return PORTFOLIO_SUMMARY_ROW_IDS.map((id) => {
+    const summaryRow = summaryRows.find((row) => row.id === `portfolio-total-${id}`)
+    const sourceRow = statementRowById.get(id)
+
+    return {
+      id: summaryRow?.id ?? `portfolio-total-${id}`,
+      rowType: "statement",
+      label: summaryRow?.label ?? sourceRow?.label ?? id,
+      kind: summaryRow?.kind ?? sourceRow?.kind ?? "currency",
+      values: summaryRow?.values ?? [],
+      highlightLabel: id === "salePrice",
+      highlightValue: id === "salePrice",
+      startsSection: id === "salePrice",
+      subRows: sourceRow == null ? undefined : assetSubRowsForStatementRow(sourceRow, assetModels),
+    }
+  })
+}
+
 function statementValuesForTotalHorizon(row: ScopedForecastTableRow): number[] {
   return singleColumnValuesForTotalHorizon(row.kind, row.id, row.values)
 }
@@ -315,12 +340,12 @@ export function ScopedForecastsPortfolioTotalsTable({
   const [expanded, setExpanded] = React.useState<ExpandedState>({})
 
   React.useEffect(() => {
-    if (!hasOutlookBreakdown || metricFocus == null) return
+    if (metricFocus == null) return
     setExpanded((current) => ({
       ...(current === true ? {} : current),
       [metricFocus]: true,
     }))
-  }, [hasOutlookBreakdown, metricFocus])
+  }, [metricFocus])
 
   const displayPeriods = React.useMemo((): ForecastPeriod[] => {
     if (periodGranularity === "quarterly") return periods
@@ -347,20 +372,15 @@ export function ScopedForecastsPortfolioTotalsTable({
         : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
     }
 
-    return buildPortfolioQuarterlySummaryRows(rows, assetModels).map((row) => ({
-      id: row.id,
-      rowType: "statement" as const,
-      label: row.label,
-      kind: row.kind,
-      values:
-        periodGranularity === "quarterly"
-          ? row.values
-          : singleColumnValuesForTotalHorizon(row.kind, row.id, row.values),
-      highlightLabel: row.id === "salePrice",
-      highlightValue: row.id === "salePrice",
-      startsSection: row.id === "salePrice",
-    }))
+    const nestedRows = buildPortfolioQuarterlySummaryRowsWithAssets(rows, assetModels)
+    return periodGranularity === "quarterly"
+      ? nestedRows
+      : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
   }, [assetModels, hasOutlookBreakdown, outlookModels, periodGranularity, rows])
+  const hasExpandableRows = React.useMemo(
+    () => tableRows.some((row) => (row.subRows?.length ?? 0) > 0),
+    [tableRows]
+  )
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
     () => [
@@ -400,11 +420,11 @@ export function ScopedForecastsPortfolioTotalsTable({
   const table = useReactTable({
     data: tableRows,
     columns,
-    state: hasOutlookBreakdown ? { expanded } : {},
-    onExpandedChange: hasOutlookBreakdown ? setExpanded : undefined,
+    state: hasExpandableRows ? { expanded } : {},
+    onExpandedChange: hasExpandableRows ? setExpanded : undefined,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: hasOutlookBreakdown
+    getSubRows: hasExpandableRows
       ? (row: ScopedForecastTableRow) => row.subRows ?? undefined
       : undefined,
     getRowId: (row) => row.id,
@@ -481,6 +501,11 @@ export function ScopedForecastsPortfolioTotalsTable({
           Expand a line item to inspect outlook totals, then expand an outlook to
           inspect asset-level contributions.
         </div>
+      ) : hasExpandableRows ? (
+        <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
+          Expand a line item to inspect asset-level contributions. Click an asset to open
+          its forecast page.
+        </div>
       ) : null}
     </div>
   )
@@ -497,6 +522,7 @@ type ScopedForecastTableRow = {
   /** When set (total-horizon pivot), value cells use this kind per column index instead of `kind`. */
   periodCellKinds?: ForecastStatementRow["kind"][]
   href?: string
+  isSummaryRow?: boolean
   highlightLabel?: boolean
   highlightValue?: boolean
   startsSection?: boolean
@@ -693,21 +719,26 @@ function assetSubRowsForStatementRow(
 function buildScopedForecastTableRows({
   rows,
   assetModels,
+  filteredMetricSummaryLabel,
 }: {
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
+  filteredMetricSummaryLabel?: string
 }): ScopedForecastTableRow[] {
+  const useFilteredMetricSummaryLabel =
+    filteredMetricSummaryLabel != null && rows.length === 1
   const out: ScopedForecastTableRow[] = []
   for (const row of rows) {
     if (row.id === "grossRevenue") {
       out.push({
         id: row.id,
         rowType: "statement",
-        label: row.label,
+        label: useFilteredMetricSummaryLabel ? filteredMetricSummaryLabel : row.label,
         kind: row.kind,
         values: row.values,
         highlightLabel: false,
         highlightValue: false,
+        isSummaryRow: useFilteredMetricSummaryLabel,
         startsSection: false,
         subRows: assetSubRowsForStatementRow(row, assetModels),
       })
@@ -716,11 +747,12 @@ function buildScopedForecastTableRows({
     out.push({
       id: row.id,
       rowType: "statement",
-      label: row.label,
+      label: useFilteredMetricSummaryLabel ? filteredMetricSummaryLabel : row.label,
       kind: row.kind,
       values: row.values,
       highlightLabel: row.id === "salePrice",
       highlightValue: row.id === "salePrice",
+      isSummaryRow: useFilteredMetricSummaryLabel,
       startsSection: row.id === "salePrice",
       subRows: assetSubRowsForStatementRow(row, assetModels),
     })
@@ -732,21 +764,26 @@ function buildScopedForecastTableRows({
 function buildFlatScopedForecastTableRows({
   rows,
   assetModels,
+  filteredMetricSummaryLabel,
 }: {
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
+  filteredMetricSummaryLabel?: string
 }): ScopedForecastTableRow[] {
+  const useFilteredMetricSummaryLabel =
+    filteredMetricSummaryLabel != null && rows.length === 1
   const out: ScopedForecastTableRow[] = []
   for (const row of rows) {
     if (row.id === "grossRevenue") {
       out.push({
         id: row.id,
         rowType: "statement",
-        label: row.label,
+        label: useFilteredMetricSummaryLabel ? filteredMetricSummaryLabel : row.label,
         kind: row.kind,
         values: row.values,
         highlightLabel: false,
         highlightValue: false,
+        isSummaryRow: useFilteredMetricSummaryLabel,
         startsSection: false,
       })
       out.push(...assetSubRowsForStatementRow(row, assetModels))
@@ -755,11 +792,12 @@ function buildFlatScopedForecastTableRows({
     out.push({
       id: row.id,
       rowType: "statement",
-      label: row.label,
+      label: useFilteredMetricSummaryLabel ? filteredMetricSummaryLabel : row.label,
       kind: row.kind,
       values: row.values,
       highlightLabel: row.id === "salePrice",
       highlightValue: row.id === "salePrice",
+      isSummaryRow: useFilteredMetricSummaryLabel,
       startsSection: row.id === "salePrice",
     })
     out.push(...assetSubRowsForStatementRow(row, assetModels))
@@ -772,6 +810,10 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
   const indentationStyle =
     row.depth === 0 ? undefined : { paddingLeft: `${row.depth * 16}px` }
+  const summaryLabelClassName = item.isSummaryRow
+    ? "whitespace-normal leading-snug"
+    : "truncate"
+  const accessibleLabel = item.isSummaryRow ? item.label.replace(":", "") : item.label
 
   if (item.rowType === "asset") {
     return (
@@ -798,8 +840,11 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
       <button
         type="button"
         onClick={row.getToggleExpandedHandler()}
-        className="flex w-full min-w-0 items-center gap-2 text-left"
-        aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${item.label}`}
+        className={cn(
+          "flex w-full min-w-0 gap-2 text-left",
+          item.isSummaryRow ? "items-start" : "items-center"
+        )}
+        aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${accessibleLabel}`}
         style={indentationStyle}
       >
         {row.getIsExpanded() ? (
@@ -809,7 +854,7 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         )}
         <span
           className={cn(
-            "truncate",
+            summaryLabelClassName,
             item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
             row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
           )}
@@ -824,7 +869,7 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
     <div className="flex min-w-0 items-center" style={indentationStyle}>
       <span
         className={cn(
-          "truncate",
+          summaryLabelClassName,
           item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
           row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
         )}
@@ -836,6 +881,10 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
 }
 
 function rowClassName(item: ScopedForecastTableRow) {
+  if (item.isSummaryRow) {
+    return "group border-b border-border/80 bg-primary/[0.05] hover:bg-primary/[0.06]"
+  }
+
   if (item.rowType === "asset") {
     return "group bg-muted/20 hover:bg-muted/25"
   }
@@ -856,6 +905,10 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
     return "bg-card"
   }
 
+  if (item.isSummaryRow) {
+    return "bg-primary/[0.05] group-hover:bg-primary/[0.06]"
+  }
+
   if (item.rowType === "asset") {
     return "bg-muted/20 group-hover:bg-muted/25"
   }
@@ -871,6 +924,10 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
 function selectorColumnsSurfaceClassName(item?: ScopedForecastTableRow) {
   if (item == null) {
     return "bg-card"
+  }
+
+  if (item.isSummaryRow) {
+    return "bg-primary/[0.05] group-hover:bg-primary/[0.06]"
   }
 
   if (item.rowType === "asset") {
@@ -890,6 +947,7 @@ export function ScopedForecastsTable({
   assetModels,
   topAccessory,
   metricFilter,
+  filteredMetricSummaryLabel,
   assetContributionsDisplay = "nested",
   assetSelections,
   onSelectBuildingVersion,
@@ -905,6 +963,8 @@ export function ScopedForecastsTable({
   assetModels: readonly ScopedForecastResolvedAssetModel[]
   topAccessory?: React.ReactNode
   metricFilter?: ForecastChartTab
+  /** Optional label override for the single filtered statement row shown above asset rows. */
+  filteredMetricSummaryLabel?: string
   /**
    * `nested`: statement rows expand to show per-asset rows (default).
    * `flat`: statement row plus asset rows as a single flat list (no expand/collapse).
@@ -974,11 +1034,22 @@ export function ScopedForecastsTable({
   const isTotalHorizonPivot = periodGranularity === "total"
 
   const [expanded, setExpanded] = React.useState<ExpandedState>({})
+  const metricFilterExpansionInitializedRef = React.useRef(false)
 
   React.useEffect(() => {
     if (flatAssetContributions || isTotalHorizonPivot) return
     if (metricFilter != null) {
-      setExpanded({ [metricFilter]: true })
+      setExpanded((current) => {
+        const normalizedCurrent = current === true ? {} : current
+        const hadExpandedRows = Object.values(normalizedCurrent).some(Boolean)
+
+        if (!metricFilterExpansionInitializedRef.current) {
+          metricFilterExpansionInitializedRef.current = true
+          return { [metricFilter]: true }
+        }
+
+        return hadExpandedRows ? { [metricFilter]: true } : {}
+      })
     }
   }, [flatAssetContributions, isTotalHorizonPivot, metricFilter])
 
@@ -996,12 +1067,14 @@ export function ScopedForecastsTable({
         ? buildFlatScopedForecastTableRows({
             rows: filteredRows,
             assetModels,
+            filteredMetricSummaryLabel,
           })
         : buildScopedForecastTableRows({
             rows: filteredRows,
             assetModels,
+            filteredMetricSummaryLabel,
           }),
-    [assetModels, filteredRows, flatAssetContributions]
+    [assetModels, filteredRows, filteredMetricSummaryLabel, flatAssetContributions]
   )
 
   const displayPeriods = React.useMemo((): ForecastPeriod[] => {

@@ -30,16 +30,20 @@ export function AssetForecastSummaryStrip({
 }: {
   items: ForecastSummaryKpi[]
 }) {
-  const footnoteInFourthCard = items.length > 3
+  const footnoteInLastCard = items.length > 3
+  const gridClassName =
+    items.length >= 5
+      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+      : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
 
   return (
     <section
-      className={cn(metricStripSectionClassName, "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4")}
+      className={cn(metricStripSectionClassName, gridClassName)}
       aria-label="Forecast summary metrics"
-      aria-describedby={footnoteInFourthCard ? SUMMARY_STRIP_FOOTNOTE_ID : undefined}
+      aria-describedby={footnoteInLastCard ? SUMMARY_STRIP_FOOTNOTE_ID : undefined}
     >
       {items.map((item, index) => {
-        const isFourthCard = footnoteInFourthCard && index === 3
+        const isFootnoteCard = footnoteInLastCard && index === items.length - 1
         const hasScenarioPair =
           item.baseFormatted != null &&
           item.scenarioFormatted != null &&
@@ -65,7 +69,7 @@ export function AssetForecastSummaryStrip({
             </MetricStripValueRow>
           )
 
-        if (!isFourthCard) {
+        if (!isFootnoteCard) {
           return (
             <MetricStripCell key={item.label}>
               <MetricStripLabel>{item.label}</MetricStripLabel>

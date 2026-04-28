@@ -423,6 +423,219 @@ function buildScopedPortfolioFanForecastStatementConfig(
   }
 }
 
+function buildMultiModelFanForecastStatementConfig(
+  models: AssetForecastModel[],
+  rowId: ForecastChartTab,
+  palette: ForecastChartPalette
+): Highcharts.Options {
+  const baseModel = models[0]
+  const categories = baseModel?.periods.map((period) => period.label) ?? []
+  const baseRow =
+    baseModel?.statementRows.find((statementRow) => statementRow.id === rowId) ??
+    baseModel?.statementRows[0]
+  const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
+  const meta = getForecastStatementChartMeta(resolvedRowId)
+  const isPercent = baseRow?.kind === "percent"
+
+  const rowsByModel = models.map((model) => ({
+    model,
+    row:
+      model.statementRows.find((statementRow) => statementRow.id === resolvedRowId) ??
+      model.statementRows[0] ?? {
+        id: resolvedRowId,
+        label: meta.title,
+        kind: "currency" as const,
+        values: Array(categories.length).fill(0),
+      },
+  }))
+  const valuesByModel = rowsByModel.map(({ row }) => buildStatementChartValues(row, isPercent))
+  const rangeData: [number, number][] = categories.map((_, index) => {
+    const values = valuesByModel.map((series) => series[index] ?? 0)
+    return [Math.min(...values), Math.max(...values)]
+  })
+
+  const formatY = (value: number) =>
+    isPercent ? `${Number(value).toFixed(2)}%` : `$${Number(value).toFixed(2)}M`
+
+  const baselineLineColor = palette.accent
+  const comparisonLineColors = [
+    palette.secondary,
+    palette.tertiary,
+    palette.quaternary,
+    palette.neutral,
+    palette.primary,
+  ]
+  let comparisonColorIndex = 0
+  const rangeColor = palette.primary
+
+  const series: Highcharts.SeriesOptionsType[] = [
+    {
+      type: "arearange",
+      name: "Range",
+      data: rangeData,
+      color: rangeColor,
+      fillColor: fanOutlookRangeFillByTime(rangeColor),
+      fillOpacity: 1,
+      lineWidth: 0,
+      marker: { enabled: false },
+      zIndex: 0,
+    },
+    ...rowsByModel.map(({ model }, index) => {
+      const isBaselineModel =
+        model.scenario.id === "baseline" ||
+        model.scenario.id === "scoped-baseline" ||
+        model.scenario.name.toLowerCase() === "baseline"
+      const color = isBaselineModel
+        ? baselineLineColor
+        : comparisonLineColors[comparisonColorIndex++ % comparisonLineColors.length]!
+
+      return {
+        type: "line",
+        name: model.scenario.name,
+        data: valuesByModel[index],
+        color,
+        lineWidth: isBaselineModel ? 2.5 : 2,
+        zIndex: isBaselineModel ? 3 : 2,
+        marker: { enabled: false },
+      } satisfies Highcharts.SeriesLineOptions
+    }),
+  ]
+
+  return {
+    chart: {
+      type: "line",
+      backgroundColor: "transparent",
+      plotBackgroundColor: "transparent",
+      style: { fontFamily: TOOLTIP_FONT },
+      spacing: [8, 8, 8, 8],
+    },
+    title: { text: undefined },
+    xAxis: {
+      categories,
+      title: {
+        text: "Quarter",
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+          fontWeight: "500",
+        },
+      },
+      lineColor: palette.border,
+      lineWidth: 1,
+      tickColor: palette.border,
+      tickLength: 6,
+      tickWidth: 1,
+      labels: {
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+        },
+      },
+    },
+    yAxis: {
+      title: {
+        text: meta.yAxisTitle,
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+          fontWeight: "500",
+        },
+      },
+      gridLineColor: palette.grid,
+      lineWidth: 0,
+      tickWidth: 0,
+      labels: {
+        formatter: function () {
+          if (isPercent) {
+            return `${Number(this.value).toFixed(1)}%`
+          }
+          return `$${Number(this.value).toFixed(1)}M`
+        },
+        style: {
+          color: palette.mutedText,
+          fontSize: "11px",
+        },
+      },
+    },
+    legend: {
+      enabled: true,
+      align: "center",
+      verticalAlign: "bottom",
+      margin: 12,
+      itemStyle: {
+        color: palette.text,
+        fontSize: "11px",
+        fontWeight: "500",
+      },
+    },
+    plotOptions: {
+      arearange: {
+        lineWidth: 0,
+        marker: { enabled: false },
+      },
+      series: {
+        animation: false,
+      },
+      line: {
+        lineWidth: 2.5,
+        marker: {
+          enabled: false,
+        },
+      },
+    },
+    series,
+    credits: { enabled: false },
+    tooltip: {
+      shared: true,
+      outside: false,
+      backgroundColor: palette.tooltipBackground,
+      borderColor: palette.border,
+      borderRadius: 10,
+      style: {
+        color: palette.text,
+        fontSize: "12px",
+        fontFamily: TOOLTIP_FONT,
+      },
+      formatter: function () {
+        const points = this.points ?? []
+        if (points.length === 0) return false
+
+        const rawX = this.x
+        const index = typeof rawX === "number" && Number.isFinite(rawX) ? Math.round(rawX) : NaN
+        const fromCategories =
+          !Number.isNaN(index) && index >= 0 && index < categories.length ? categories[index] : null
+        const fromPoint = points[0]?.category
+        const xLabel =
+          (typeof fromPoint === "string" && fromPoint !== "" ? fromPoint : null) ??
+          fromCategories ??
+          (typeof rawX === "string" ? rawX : null) ??
+          String(rawX ?? "")
+
+        const lines = [`<b>${xLabel}</b>`]
+        for (const point of points) {
+          if (point.series.type === "arearange") {
+            const rangePoint = point as Highcharts.Point & { low?: number; high?: number }
+            const low = rangePoint.low
+            const high = rangePoint.high
+            if (low == null || high == null) continue
+            lines.push(
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(low)} – ${formatY(high)}`
+            )
+          } else if (point.y != null) {
+            lines.push(
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(Number(point.y))}`
+            )
+          }
+        }
+        lines.push(
+          `<span style="color:${palette.mutedText};font-size:11px;">Shaded band spans the lowest and highest selected lines by quarter.</span>`
+        )
+        return lines.join("<br/>")
+      },
+    },
+  }
+}
+
 export function buildForecastStatementHighchartsConfig(
   models: AssetForecastModel[],
   rowId: ForecastChartTab,
@@ -430,6 +643,10 @@ export function buildForecastStatementHighchartsConfig(
 ): Highcharts.Options {
   if (isScopedPortfolioFanChartModels(models)) {
     return buildScopedPortfolioFanForecastStatementConfig(models, rowId, palette)
+  }
+
+  if (models.length > 1) {
+    return buildMultiModelFanForecastStatementConfig(models, rowId, palette)
   }
 
   const baseModel = models[0]

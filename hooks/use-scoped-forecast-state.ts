@@ -12,14 +12,22 @@ import {
   parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
-import { ASSETS, getAssetById } from "@/lib/assets"
+import { ASSETS, getAssetById, portfolioScopeHref } from "@/lib/assets"
 import {
   buildDefaultForecastScenarios,
   type ForecastAssumptions,
 } from "@/lib/forecast-data"
 import {
+  defaultPortfolioAssetsTableSorting,
+  readPortfolioAssetsTableSorting,
+  readPortfolioAssetsTableVisibleOrder,
+  sortPortfolioAssetRows,
+  sortPortfolioAssetRowsByVisibleOrder,
+} from "@/lib/portfolio-assets-table-sorting"
+import {
   scenarioComparePortfolioRows,
 } from "@/lib/scenario-compare-rows"
+import { scenarioPathFromSlug } from "@/lib/scenario-membership"
 import {
   DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
   SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
@@ -119,21 +127,50 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   const portfolioScopeId =
     scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
   const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? "overview"}`
-
-  const scopedRows = React.useMemo(() => {
+  const snapshotSortVariant = isScenarioScope ? "scenarios" : "portfolio"
+  const snapshotPathname = React.useMemo(() => {
     if (isScenarioScope && scenarioSlug != null) {
-      // Match the default Scenario Snapshot table sort (by asset name).
-      return [...scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)].sort(
-        (a, b) =>
-          a.building.localeCompare(b.building, undefined, { sensitivity: "base" }) ||
-          a.id.localeCompare(b.id, undefined, { sensitivity: "base" })
-      )
+      return scenarioPathFromSlug(scenarioSlug)
     }
     if (portfolioScopeId != null) {
-      return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
+      return portfolioScopeHref(portfolioScopeId)
     }
-    return portfolioAssetRows
-  }, [isScenarioScope, portfolioAssetRows, portfolioScopeId, scenarioSlug])
+    return "/portfolio"
+  }, [isScenarioScope, portfolioScopeId, scenarioSlug])
+  const [snapshotSorting, setSnapshotSorting] = React.useState(() =>
+    defaultPortfolioAssetsTableSorting(snapshotSortVariant)
+  )
+  const [snapshotVisibleOrder, setSnapshotVisibleOrder] = React.useState<string[]>([])
+
+  React.useLayoutEffect(() => {
+    setSnapshotSorting(readPortfolioAssetsTableSorting(snapshotPathname, snapshotSortVariant))
+    setSnapshotVisibleOrder(readPortfolioAssetsTableVisibleOrder(snapshotPathname))
+  }, [snapshotPathname, snapshotSortVariant])
+
+  const scopedRows = React.useMemo(() => {
+    const baseRows = (() => {
+      if (isScenarioScope && scenarioSlug != null) {
+        return scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)
+      }
+      if (portfolioScopeId != null) {
+        return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
+      }
+      return portfolioAssetRows
+    })()
+
+    if (snapshotVisibleOrder.length > 0) {
+      return sortPortfolioAssetRowsByVisibleOrder(baseRows, snapshotVisibleOrder)
+    }
+
+    return sortPortfolioAssetRows(baseRows, snapshotSorting)
+  }, [
+    isScenarioScope,
+    portfolioAssetRows,
+    portfolioScopeId,
+    scenarioSlug,
+    snapshotVisibleOrder,
+    snapshotSorting,
+  ])
 
   React.useEffect(() => {
     const reload = () => setOptionsReloadTick((current) => current + 1)
