@@ -40,7 +40,10 @@ import type {
   ScopedForecastPortfolioOutlookModel,
   ScopedForecastResolvedAssetModel,
 } from "@/lib/scoped-forecast-rollup"
-import type { ScopedForecastAssetSelection } from "@/lib/scoped-forecast"
+import {
+  SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
+  type ScopedForecastAssetSelection,
+} from "@/lib/scoped-forecast"
 import {
   modificationItemsRecord,
   modificationSelectLabelFromOption,
@@ -318,6 +321,9 @@ const periodColumnStyle: React.CSSProperties = {
   width: PERIOD_COLUMN_WIDTH_PX,
   minWidth: PERIOD_COLUMN_WIDTH_PX,
 }
+
+const selectedScopedForecastSelectorTriggerClassName =
+  "border-violet-500/45 bg-violet-500/[0.09] font-medium text-violet-800 shadow-sm hover:bg-violet-500/[0.12] hover:border-violet-500/55 focus-visible:border-violet-500 focus-visible:ring-violet-500/25 dark:border-violet-400/40 dark:bg-violet-500/[0.14] dark:text-violet-200 dark:hover:bg-violet-500/20 dark:hover:border-violet-400/55 dark:focus-visible:border-violet-400 dark:focus-visible:ring-violet-400/30 [&_svg]:text-violet-600 dark:[&_svg]:text-violet-400"
 
 /** Portfolio-level quarterly roll-up; can be rendered below the statement table or elsewhere (e.g. under the chart). */
 export function ScopedForecastsPortfolioTotalsTable({
@@ -1174,6 +1180,8 @@ export function ScopedForecastsTable({
               }
               const selection = selectionByAssetId.get(item.assetId)
               if (selection == null) return null
+              const isOutlookChangedFromBaseline =
+                selection.selectedOutlookSetId !== SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID
               return (
                 <Select
                   items={outlookSetItemsRecord(selection.outlookSetOptions)}
@@ -1185,7 +1193,11 @@ export function ScopedForecastsTable({
                 >
                   <SelectTrigger
                     size="sm"
-                    className="h-7 w-full max-w-[7.25rem] text-[0.75rem]"
+                    className={cn(
+                      "h-7 w-full max-w-[7.25rem] text-[0.75rem]",
+                      isOutlookChangedFromBaseline &&
+                        selectedScopedForecastSelectorTriggerClassName
+                    )}
                     aria-label={`${selection.row.building} outlook set`}
                   >
                     <SelectValue placeholder={outlookSetSelectPlaceholder()} />
