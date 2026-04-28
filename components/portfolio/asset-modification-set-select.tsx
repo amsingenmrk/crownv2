@@ -59,7 +59,7 @@ export function AssetModificationSetSelect({
 
   const modificationSetItemLabels = React.useMemo(() => {
     const labels: Record<string, React.ReactNode> = {
-      [NO_TABLE_MOD_PRESET_VALUE]: "Select a saved set…",
+      [NO_TABLE_MOD_PRESET_VALUE]: "None",
     }
     for (const s of sortedSets) {
       labels[s.id] = s.name
@@ -97,12 +97,10 @@ export function AssetModificationSetSelect({
           )}
           aria-label={`Modifications saved set for ${building}`}
         >
-          <SelectValue placeholder="Select a saved set…" />
+          <SelectValue placeholder="None" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={NO_TABLE_MOD_PRESET_VALUE}>
-            Select a saved set…
-          </SelectItem>
+          <SelectItem value={NO_TABLE_MOD_PRESET_VALUE}>None</SelectItem>
           {sortedSets.map((s) => (
             <SelectItem key={s.id} value={s.id}>
               {s.name}

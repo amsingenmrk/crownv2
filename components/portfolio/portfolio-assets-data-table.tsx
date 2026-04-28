@@ -436,6 +436,7 @@ export function PortfolioAssetsDataTable({
                         <AssetModificationSetSelect
                           assetId={row.id}
                           building={row.building}
+                          matchOutlookRowSelect
                         />
                       )}
                     </div>

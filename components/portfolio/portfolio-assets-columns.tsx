@@ -470,6 +470,7 @@ export function createPortfolioAssetColumns(
           <AssetModificationSetSelect
             assetId={row.original.id}
             building={row.original.building}
+            matchOutlookRowSelect
           />
         ),
       enableSorting: false,
