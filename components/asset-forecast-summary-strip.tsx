@@ -7,12 +7,20 @@ import {
   MetricStripValueSuffix,
   metricStripSectionClassName,
 } from "@/components/metric-strip"
+import { ScenarioMetricInlinePair } from "@/components/portfolio/scenario-comparative-kpis"
 import { cn } from "@/lib/utils"
 
 export type ForecastSummaryKpi = {
   label: string
   value: string
   valueSuffix?: string
+  /** Optional: render base → scenario + delta line (scenario overview treatment). */
+  baseFormatted?: string
+  scenarioFormatted?: string
+  showScenario?: boolean
+  deltaLine?: string
+  pctLine?: string
+  deltaDirection?: "up" | "down" | "neutral"
 }
 
 const SUMMARY_STRIP_FOOTNOTE_ID = "forecast-summary-strip-footnote"
@@ -32,14 +40,30 @@ export function AssetForecastSummaryStrip({
     >
       {items.map((item, index) => {
         const isFourthCard = footnoteInFourthCard && index === 3
-        const valueRow = (valueRowClassName?: string) => (
-          <MetricStripValueRow className={valueRowClassName}>
-            <span className="text-foreground">{item.value}</span>
-            {item.valueSuffix != null && item.valueSuffix !== "" ? (
-              <MetricStripValueSuffix>{item.valueSuffix}</MetricStripValueSuffix>
-            ) : null}
-          </MetricStripValueRow>
-        )
+        const hasScenarioPair =
+          item.baseFormatted != null &&
+          item.scenarioFormatted != null &&
+          item.showScenario != null
+        const valueRow = (valueRowClassName?: string) =>
+          hasScenarioPair ? (
+            <div className={valueRowClassName}>
+              <ScenarioMetricInlinePair
+                baseFormatted={item.baseFormatted!}
+                scenarioFormatted={item.scenarioFormatted!}
+                showScenario={item.showScenario!}
+                deltaLine={item.deltaLine}
+                pctLine={item.pctLine}
+                deltaDirection={item.deltaDirection}
+              />
+            </div>
+          ) : (
+            <MetricStripValueRow className={valueRowClassName}>
+              <span className="text-foreground">{item.value}</span>
+              {item.valueSuffix != null && item.valueSuffix !== "" ? (
+                <MetricStripValueSuffix>{item.valueSuffix}</MetricStripValueSuffix>
+              ) : null}
+            </MetricStripValueRow>
+          )
 
         if (!isFourthCard) {
           return (

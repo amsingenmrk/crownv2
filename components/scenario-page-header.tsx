@@ -267,7 +267,7 @@ export function ScenarioPageHeader() {
   const basePath = scenarioSlug != null ? `/scenarios/${scenarioSlug}` : "/scenarios"
   const navItems = React.useMemo(
     () => [
-      { href: basePath, label: "Overview", icon: LayoutDashboard },
+      { href: basePath, label: "Snapshot", icon: LayoutDashboard },
       { href: `${basePath}/forecasts`, label: "Forecasts", icon: LineChart },
     ],
     [basePath]

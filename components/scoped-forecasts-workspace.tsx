@@ -37,6 +37,7 @@ import { resolveAssetGroupLabel } from "@/lib/assets"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import type { ForecastAssumptions, ForecastStatementRow } from "@/lib/forecast-data"
 import {
+  SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
   type ScopedForecastPortfolioModificationMode,
   type ScopedForecastPortfolioScenarioProbabilities,
   type ScopedForecastScope,
@@ -44,7 +45,11 @@ import {
 } from "@/lib/scoped-forecast"
 import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import { buildScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
-import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
+import {
+  formatPctChange,
+  formatUsdDeltaCompact,
+  formatUsdPortfolioCompact,
+} from "@/lib/scenario-kpi-format"
 import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
 
 function averageSeries(values: number[]) {
@@ -55,6 +60,12 @@ function averageSeries(values: number[]) {
 
 function getStatementRowAverage(rows: ForecastStatementRow[], rowId: string) {
   return averageSeries(rows.find((row) => row.id === rowId)?.values ?? [])
+}
+
+function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
+  if (d > 1e-6) return "up"
+  if (d < -1e-6) return "down"
+  return "neutral"
 }
 
 const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
@@ -437,38 +448,127 @@ export function ScopedForecastsWorkspace({
   )
 
   const forecastSummaryItems = React.useMemo(() => {
-    const averageGrossRevenue =
+    const selectedGrossRevenue =
       getStatementRowAverage(activeModel.statementRows, "grossRevenue") * 4
-    const averageOpex =
-      getStatementRowAverage(activeModel.statementRows, "opex") * 4
-    const averageNoi = getStatementRowAverage(activeModel.statementRows, "noi") * 4
-    const averageAssetValue = getStatementRowAverage(
-      activeModel.statementRows,
+    const selectedOpex = getStatementRowAverage(activeModel.statementRows, "opex") * 4
+    const selectedNoi = getStatementRowAverage(activeModel.statementRows, "noi") * 4
+    const selectedAssetValue = getStatementRowAverage(activeModel.statementRows, "salePrice")
+
+    const baselineGrossRevenue =
+      getStatementRowAverage(rollup.baselineModel.statementRows, "grossRevenue") * 4
+    const baselineOpex =
+      getStatementRowAverage(rollup.baselineModel.statementRows, "opex") * 4
+    const baselineNoi = getStatementRowAverage(rollup.baselineModel.statementRows, "noi") * 4
+    const baselineAssetValue = getStatementRowAverage(
+      rollup.baselineModel.statementRows,
       "salePrice"
     )
 
-    return [
+    const hasAnySelectedModifications =
+      scope.kind === "scenario" &&
+      assetSelections.some(
+        (s) => s.selectedBuildingVersionId !== SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID
+      )
+
+    const showScenarioPair =
+      scope.kind === "scenario" && activeVariant === "selected" && hasAnySelectedModifications
+
+    const hasDelta = (a: number, b: number) => Math.abs(a - b) > 1e-6
+
+    const withSuffix = (formatted: string, suffix: string) =>
+      suffix && suffix !== "" ? `${formatted} ${suffix}` : formatted
+
+    const items: ForecastSummaryKpi[] = [
       {
         label: "Gross Revenue",
-        value: formatUsdPortfolioCompact(averageGrossRevenue),
+        value: formatUsdPortfolioCompact(selectedGrossRevenue),
         valueSuffix: "/ yr",
+        ...(showScenarioPair && hasDelta(selectedGrossRevenue, baselineGrossRevenue)
+          ? {
+              baseFormatted: withSuffix(
+                formatUsdPortfolioCompact(baselineGrossRevenue),
+                "/ yr"
+              ),
+              scenarioFormatted: withSuffix(
+                formatUsdPortfolioCompact(selectedGrossRevenue),
+                "/ yr"
+              ),
+              showScenario: true,
+              deltaLine: `${formatUsdDeltaCompact(selectedGrossRevenue - baselineGrossRevenue)}`,
+              pctLine: formatPctChange(baselineGrossRevenue, selectedGrossRevenue),
+              deltaDirection: scenarioDeltaDirection(
+                selectedGrossRevenue - baselineGrossRevenue
+              ),
+            }
+          : null),
       },
       {
         label: "OpEx",
-        value: formatUsdPortfolioCompact(Math.abs(averageOpex)),
+        value: formatUsdPortfolioCompact(Math.abs(selectedOpex)),
         valueSuffix: "/ yr",
+        ...(showScenarioPair && hasDelta(selectedOpex, baselineOpex)
+          ? {
+              baseFormatted: withSuffix(
+                formatUsdPortfolioCompact(Math.abs(baselineOpex)),
+                "/ yr"
+              ),
+              scenarioFormatted: withSuffix(
+                formatUsdPortfolioCompact(Math.abs(selectedOpex)),
+                "/ yr"
+              ),
+              showScenario: true,
+              deltaLine: `${formatUsdDeltaCompact(selectedOpex - baselineOpex)}`,
+              pctLine: formatPctChange(baselineOpex, selectedOpex),
+              deltaDirection: scenarioDeltaDirection(selectedOpex - baselineOpex),
+            }
+          : null),
       },
       {
         label: "NOI",
-        value: formatUsdPortfolioCompact(averageNoi),
+        value: formatUsdPortfolioCompact(selectedNoi),
         valueSuffix: "/ yr",
+        ...(showScenarioPair && hasDelta(selectedNoi, baselineNoi)
+          ? {
+              baseFormatted: withSuffix(
+                formatUsdPortfolioCompact(baselineNoi),
+                "/ yr"
+              ),
+              scenarioFormatted: withSuffix(
+                formatUsdPortfolioCompact(selectedNoi),
+                "/ yr"
+              ),
+              showScenario: true,
+              deltaLine: `${formatUsdDeltaCompact(selectedNoi - baselineNoi)}`,
+              pctLine: formatPctChange(baselineNoi, selectedNoi),
+              deltaDirection: scenarioDeltaDirection(selectedNoi - baselineNoi),
+            }
+          : null),
       },
       {
         label: "Asset Value",
-        value: formatUsdPortfolioCompact(averageAssetValue),
+        value: formatUsdPortfolioCompact(selectedAssetValue),
+        ...(showScenarioPair && hasDelta(selectedAssetValue, baselineAssetValue)
+          ? {
+              baseFormatted: formatUsdPortfolioCompact(baselineAssetValue),
+              scenarioFormatted: formatUsdPortfolioCompact(selectedAssetValue),
+              showScenario: true,
+              deltaLine: `${formatUsdDeltaCompact(selectedAssetValue - baselineAssetValue)}`,
+              pctLine: formatPctChange(baselineAssetValue, selectedAssetValue),
+              deltaDirection: scenarioDeltaDirection(
+                selectedAssetValue - baselineAssetValue
+              ),
+            }
+          : null),
       },
     ]
-  }, [activeModel.statementRows])
+    return items
+  }, [
+    activeModel.statementRows,
+    activeVariant,
+    assetSelections,
+    rollup.baselineModel.statementRows,
+    scope.kind,
+  ])
 
   const [forecastSummaryHydrated, setForecastSummaryHydrated] =
     React.useState(false)
