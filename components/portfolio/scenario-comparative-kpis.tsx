@@ -38,8 +38,8 @@ export function ScenarioMetricInlinePair({
   /** Drives the trend icon before the primary delta text (same `text-xs` scale as the line). */
   deltaDirection?: "up" | "down" | "neutral"
 }) {
-  const showDelta =
-    showScenario && deltaLine != null && pctLine != null && pctLine !== ""
+  const showDelta = showScenario && deltaLine != null && deltaLine !== ""
+  const showPct = pctLine != null && pctLine !== ""
 
   return (
     <>
@@ -67,9 +67,11 @@ export function ScenarioMetricInlinePair({
           <span className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
             {deltaLine}
           </span>
-          <span className="tabular-nums text-violet-600/95 dark:text-violet-400/90">
-            {pctLine}
-          </span>
+          {showPct ? (
+            <span className="tabular-nums text-violet-600/95 dark:text-violet-400/90">
+              {pctLine}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </>

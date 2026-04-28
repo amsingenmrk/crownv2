@@ -14,9 +14,11 @@ import {
 } from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
+  DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
   buildDefaultScopedForecastAssumptions,
   type ScopedForecastAssetSelection,
   type ScopedForecastPortfolioControlState,
+  type ScopedForecastPortfolioModificationMode,
   type ScopedForecastPortfolioScenarioId,
 } from "@/lib/scoped-forecast"
 import {
@@ -48,6 +50,7 @@ export type ScopedForecastRollup = {
   selectedAssetModels: ScopedForecastResolvedAssetModel[]
   portfolioOverview?: {
     expectedModel: AssetForecastModel
+    referenceExpectedModel: AssetForecastModel
     outlookModels: ScopedForecastPortfolioOutlookModel[]
     chartModels: AssetForecastModel[]
   }
@@ -502,6 +505,51 @@ function recommendedModValuesForSelection(selection: ScopedForecastAssetSelectio
   )
 }
 
+function buildPortfolioOutlookModels({
+  scopeLabel,
+  assetSelections,
+  assumptions,
+  modificationMode,
+  scenarioProbabilities,
+}: {
+  scopeLabel: string
+  assetSelections: readonly ScopedForecastAssetSelection[]
+  assumptions: ForecastAssumptions
+  modificationMode: ScopedForecastPortfolioModificationMode
+  scenarioProbabilities: ScopedForecastPortfolioControlState["scenarioProbabilities"]
+}): ScopedForecastPortfolioOutlookModel[] {
+  const defaultScenarios = buildDefaultForecastScenarios()
+
+  return defaultScenarios.map((scenario) => {
+    const assetModels = assetSelections.map((selection) =>
+      buildResolvedAssetModel({
+        selection,
+        assumptions,
+        scenario,
+        modValues:
+          modificationMode === "recommended"
+            ? recommendedModValuesForSelection(selection)
+            : INITIAL_MOD_VALUES,
+      })
+    )
+    const probabilityPct =
+      scenarioProbabilities[scenario.id as ScopedForecastPortfolioScenarioId] ?? 0
+
+    return {
+      scenarioId: scenario.id as ScopedForecastPortfolioScenarioId,
+      probabilityPct,
+      portfolioModel: aggregateAssetForecastModels({
+        scopeLabel,
+        scenarioName: scenario.name,
+        scenarioId: `scoped-portfolio-${scenario.id}`,
+        models: assetModels.map((entry) => entry.model),
+        assumptions,
+      }),
+      assetModels,
+    } satisfies ScopedForecastPortfolioOutlookModel
+  })
+}
+
 function buildProbabilityWeightedPortfolioModel({
   scopeLabel,
   assumptions,
@@ -675,36 +723,12 @@ export function buildScopedForecastRollup({
     portfolioControls == null
       ? undefined
       : (() => {
-          const defaultScenarios = buildDefaultForecastScenarios()
-          const portfolioOutlookModels = defaultScenarios.map((scenario) => {
-            const assetModels = assetSelections.map((selection) =>
-              buildResolvedAssetModel({
-                selection,
-                assumptions: normalizedAssumptions,
-                scenario,
-                modValues:
-                  portfolioControls.modificationMode === "recommended"
-                    ? recommendedModValuesForSelection(selection)
-                    : INITIAL_MOD_VALUES,
-              })
-            )
-            const probabilityPct =
-              portfolioControls.scenarioProbabilities[
-                scenario.id as ScopedForecastPortfolioScenarioId
-              ] ?? 0
-
-            return {
-              scenarioId: scenario.id as ScopedForecastPortfolioScenarioId,
-              probabilityPct,
-              portfolioModel: aggregateAssetForecastModels({
-                scopeLabel,
-                scenarioName: scenario.name,
-                scenarioId: `scoped-portfolio-${scenario.id}`,
-                models: assetModels.map((entry) => entry.model),
-                assumptions: normalizedAssumptions,
-              }),
-              assetModels,
-            } satisfies ScopedForecastPortfolioOutlookModel
+          const portfolioOutlookModels = buildPortfolioOutlookModels({
+            scopeLabel,
+            assetSelections,
+            assumptions: normalizedAssumptions,
+            modificationMode: portfolioControls.modificationMode,
+            scenarioProbabilities: portfolioControls.scenarioProbabilities,
           })
           const expectedModel = buildProbabilityWeightedPortfolioModel({
             scopeLabel,
@@ -712,9 +736,24 @@ export function buildScopedForecastRollup({
             models: portfolioOutlookModels.map((entry) => entry.portfolioModel),
             weights: portfolioOutlookModels.map((entry) => entry.probabilityPct),
           })
+          const referenceOutlookModels = buildPortfolioOutlookModels({
+            scopeLabel,
+            assetSelections,
+            assumptions: normalizedAssumptions,
+            modificationMode: "baseline",
+            scenarioProbabilities:
+              DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
+          })
+          const referenceExpectedModel = buildProbabilityWeightedPortfolioModel({
+            scopeLabel,
+            assumptions: normalizedAssumptions,
+            models: referenceOutlookModels.map((entry) => entry.portfolioModel),
+            weights: referenceOutlookModels.map((entry) => entry.probabilityPct),
+          })
 
           return {
             expectedModel,
+            referenceExpectedModel,
             outlookModels: portfolioOutlookModels,
             chartModels: [
               expectedModel,

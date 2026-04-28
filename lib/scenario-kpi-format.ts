@@ -16,13 +16,13 @@ export function formatUsdDeltaCompact(deltaUsd: number): string {
 export function formatPctChange(from: number, to: number): string {
   if (from === 0) return "—"
   const pct = ((to - from) / from) * 100
-  const sign = pct >= 0 ? "+" : ""
-  return `${sign}${pct.toFixed(2)}%`
+  const sign = pct > 0 ? "+" : pct < 0 ? "−" : ""
+  return `${sign}${Math.abs(pct).toFixed(2)}%`
 }
 
 export function formatCapRatePts(deltaPts: number): string {
-  const sign = deltaPts >= 0 ? "+" : ""
-  return `${sign}${deltaPts.toFixed(2)} pts`
+  const sign = deltaPts > 0 ? "+" : deltaPts < 0 ? "−" : ""
+  return `${sign}${Math.abs(deltaPts).toFixed(2)} pts`
 }
 
 export function formatUsdPerSf(usd: number, sqft: number): string {

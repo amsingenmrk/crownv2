@@ -6,7 +6,10 @@ import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 import {
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
-import { AssetForecastSummaryStrip } from "@/components/asset-forecast-summary-strip"
+import {
+  AssetForecastSummaryStrip,
+  type ForecastSummaryKpi,
+} from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
 import {
   INITIAL_MOD_VALUES,
@@ -20,7 +23,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -58,7 +60,12 @@ import {
   modificationSelectPlaceholder,
   outlookSetStoredNameDisplay,
 } from "@/lib/scoped-forecast-select-labels"
-import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
+import {
+  formatCapRatePts,
+  formatPctChange,
+  formatUsdDeltaCompact,
+  formatUsdPortfolioCompact,
+} from "@/lib/scenario-kpi-format"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
   applyStackingPlanTenantForecastOverrides,
@@ -186,14 +193,48 @@ function formatScenarioMacroAverage(value: number, suffix: string) {
   return `${macroAverageFormatter.format(value)}${suffix}`
 }
 
-function averageSeries(values: number[]) {
-  if (values.length === 0) return 0
-  const total = values.reduce((sum, value) => sum + value, 0)
-  return total / values.length
+function sumSeries(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0)
 }
 
-function getStatementRowAverage(rows: ForecastStatementRow[], rowId: string) {
-  return averageSeries(rows.find((row) => row.id === rowId)?.values ?? [])
+function getStatementRowValues(rows: ForecastStatementRow[], rowId: string) {
+  return rows.find((row) => row.id === rowId)?.values ?? []
+}
+
+function getStatementRowCumulativeValue(rows: ForecastStatementRow[], rowId: string) {
+  return sumSeries(getStatementRowValues(rows, rowId))
+}
+
+function getStatementRowTerminalValue(rows: ForecastStatementRow[], rowId: string) {
+  const values = getStatementRowValues(rows, rowId)
+  return values[values.length - 1] ?? 0
+}
+
+type ForecastSummaryMetricValues = {
+  grossRevenue: number
+  opex: number
+  noi: number
+  assetValue: number
+  capRate: number
+}
+
+function getForecastSummaryMetricValues(
+  rows: ForecastStatementRow[]
+): ForecastSummaryMetricValues {
+  return {
+    grossRevenue: getStatementRowCumulativeValue(rows, "grossRevenue"),
+    // Compare OpEx on displayed magnitude, not raw signed expense rows.
+    opex: Math.abs(getStatementRowCumulativeValue(rows, "opex")),
+    noi: getStatementRowCumulativeValue(rows, "noi"),
+    assetValue: getStatementRowTerminalValue(rows, "salePrice"),
+    capRate: getStatementRowTerminalValue(rows, "capRate"),
+  }
+}
+
+function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
+  if (d > 1e-6) return "up"
+  if (d < -1e-6) return "down"
+  return "neutral"
 }
 
 function normalizeOutlooksForSetComparison(
@@ -464,6 +505,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const activeBuildingVersion =
     buildingVersions.find((version) => version.id === activeBuildingVersionId) ?? buildingVersions[0]
 
+  const activeModValues = activeBuildingVersion?.values ?? INITIAL_MOD_VALUES
   const buildingVersionLabels = React.useMemo(
     () =>
       Object.fromEntries(
@@ -475,69 +517,186 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [buildingVersions]
   )
 
-  const model = React.useMemo(
+  const buildModelForSelection = React.useCallback(
+    (
+      scenario: ForecastEconomicOutlookScenario,
+      modValues: ModificationSetRecord["values"] = activeModValues
+    ) =>
+      buildAssetForecastModel({
+        assetId,
+        scenario,
+        assumptions,
+        modValues,
+        stackingPlanData: forecastDataset,
+      }),
+    [activeModValues, assetId, assumptions, forecastDataset]
+  )
+
+  const baselineOutlook = React.useMemo(
     () =>
-      activeOutlook != null
-        ? buildAssetForecastModel({
-            assetId,
-            scenario: activeOutlook,
-            assumptions,
-            modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
-            stackingPlanData: forecastDataset,
-          })
-        : null,
-    [activeBuildingVersion, activeOutlook, assetId, assumptions, forecastDataset]
+      outlooks.find((outlook) => outlook.id === "baseline") ??
+      defaultOutlooks.find((outlook) => outlook.id === "baseline") ??
+      null,
+    [defaultOutlooks, outlooks]
+  )
+
+  const model = React.useMemo(
+    () => (activeOutlook != null ? buildModelForSelection(activeOutlook) : null),
+    [activeOutlook, buildModelForSelection]
   )
 
   const includedModels = React.useMemo(
+    () => includedOutlooks.map((outlook) => buildModelForSelection(outlook)),
+    [buildModelForSelection, includedOutlooks]
+  )
+
+  const baselineScenarioModel = React.useMemo(
+    () => (baselineOutlook != null ? buildModelForSelection(baselineOutlook) : null),
+    [baselineOutlook, buildModelForSelection]
+  )
+
+  const baselineBuildingBaselineScenarioModel = React.useMemo(
     () =>
-      includedOutlooks.map((outlook) =>
-        buildAssetForecastModel({
-          assetId,
-          scenario: outlook,
-          assumptions,
-          modValues: activeBuildingVersion?.values ?? INITIAL_MOD_VALUES,
-          stackingPlanData: forecastDataset,
-        })
-      ),
-    [activeBuildingVersion, assetId, assumptions, forecastDataset, includedOutlooks]
+      baselineOutlook != null
+        ? buildModelForSelection(baselineOutlook, INITIAL_MOD_VALUES)
+        : null,
+    [baselineOutlook, buildModelForSelection]
   )
 
   const forecastSummaryItems = React.useMemo(() => {
     if (model == null) return []
 
-    const averageGrossRevenue = getStatementRowAverage(model.statementRows, "grossRevenue") * 4
-    const averageOpex = getStatementRowAverage(model.statementRows, "opex") * 4
-    const averageNoi = getStatementRowAverage(model.statementRows, "noi") * 4
-    const averageAssetValue = getStatementRowAverage(model.statementRows, "salePrice")
-    const averageCapRate = getStatementRowAverage(model.statementRows, "capRate")
+    const activeMetrics = getForecastSummaryMetricValues(model.statementRows)
+    const isBaselineOutlookActive =
+      activeOutlook != null &&
+      baselineOutlook != null &&
+      activeOutlook.id === baselineOutlook.id
+    const hasSelectedBuildingModification =
+      activeBuildingVersionId !== BASELINE_BUILDING_VERSION_ID
+    const comparisonModel =
+      activeOutlook == null || baselineOutlook == null
+        ? null
+        : isBaselineOutlookActive
+          ? hasSelectedBuildingModification
+            ? baselineBuildingBaselineScenarioModel
+            : null
+          : baselineScenarioModel
+    const comparisonMetrics = comparisonModel
+      ? getForecastSummaryMetricValues(comparisonModel.statementRows)
+      : null
+    const showScenarioComparison = comparisonMetrics != null
 
-    return [
+    const items: ForecastSummaryKpi[] = [
       {
         label: "Gross Revenue",
-        value: formatUsdPortfolioCompact(averageGrossRevenue),
-        valueSuffix: "/ yr",
+        value: formatUsdPortfolioCompact(activeMetrics.grossRevenue),
+        valueSuffix: "2-yr total",
+        ...(showScenarioComparison
+          ? {
+              baseFormatted: formatUsdPortfolioCompact(
+                comparisonMetrics.grossRevenue
+              ),
+              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.grossRevenue),
+              showScenario: true,
+              deltaLine: formatUsdDeltaCompact(
+                activeMetrics.grossRevenue - comparisonMetrics.grossRevenue
+              ),
+              pctLine: formatPctChange(
+                comparisonMetrics.grossRevenue,
+                activeMetrics.grossRevenue
+              ),
+              deltaDirection: scenarioDeltaDirection(
+                activeMetrics.grossRevenue - comparisonMetrics.grossRevenue
+              ),
+            }
+          : {}),
       },
       {
         label: "OpEx",
-        value: formatUsdPortfolioCompact(Math.abs(averageOpex)),
-        valueSuffix: "/ yr",
+        value: formatUsdPortfolioCompact(activeMetrics.opex),
+        valueSuffix: "2-yr total",
+        ...(showScenarioComparison
+          ? {
+              baseFormatted: formatUsdPortfolioCompact(comparisonMetrics.opex),
+              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.opex),
+              showScenario: true,
+              deltaLine: formatUsdDeltaCompact(activeMetrics.opex - comparisonMetrics.opex),
+              pctLine: formatPctChange(comparisonMetrics.opex, activeMetrics.opex),
+              deltaDirection: scenarioDeltaDirection(
+                activeMetrics.opex - comparisonMetrics.opex
+              ),
+            }
+          : {}),
       },
       {
         label: "NOI",
-        value: formatUsdPortfolioCompact(averageNoi),
-        valueSuffix: "/ yr",
+        value: formatUsdPortfolioCompact(activeMetrics.noi),
+        valueSuffix: "2-yr total",
+        ...(showScenarioComparison
+          ? {
+              baseFormatted: formatUsdPortfolioCompact(comparisonMetrics.noi),
+              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.noi),
+              showScenario: true,
+              deltaLine: formatUsdDeltaCompact(activeMetrics.noi - comparisonMetrics.noi),
+              pctLine: formatPctChange(comparisonMetrics.noi, activeMetrics.noi),
+              deltaDirection: scenarioDeltaDirection(
+                activeMetrics.noi - comparisonMetrics.noi
+              ),
+            }
+          : {}),
       },
       {
         label: "Asset Value",
-        value: formatUsdPortfolioCompact(averageAssetValue),
+        value: formatUsdPortfolioCompact(activeMetrics.assetValue),
+        valueSuffix: "terminal",
+        ...(showScenarioComparison
+          ? {
+              baseFormatted: formatUsdPortfolioCompact(
+                comparisonMetrics.assetValue
+              ),
+              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.assetValue),
+              showScenario: true,
+              deltaLine: formatUsdDeltaCompact(
+                activeMetrics.assetValue - comparisonMetrics.assetValue
+              ),
+              pctLine: formatPctChange(
+                comparisonMetrics.assetValue,
+                activeMetrics.assetValue
+              ),
+              deltaDirection: scenarioDeltaDirection(
+                activeMetrics.assetValue - comparisonMetrics.assetValue
+              ),
+            }
+          : {}),
       },
       {
         label: "Cap Rate",
-        value: `${averageCapRate.toFixed(2)}%`,
+        value: `${activeMetrics.capRate.toFixed(2)}%`,
+        valueSuffix: "terminal",
+        ...(showScenarioComparison
+          ? {
+              baseFormatted: `${comparisonMetrics.capRate.toFixed(2)}%`,
+              scenarioFormatted: `${activeMetrics.capRate.toFixed(2)}%`,
+              showScenario: true,
+              deltaLine: formatCapRatePts(
+                activeMetrics.capRate - comparisonMetrics.capRate
+              ),
+              deltaDirection: scenarioDeltaDirection(
+                activeMetrics.capRate - comparisonMetrics.capRate
+              ),
+            }
+          : {}),
       },
     ]
-  }, [model])
+    return items
+  }, [
+    activeBuildingVersionId,
+    activeOutlook,
+    baselineBuildingBaselineScenarioModel,
+    baselineOutlook,
+    baselineScenarioModel,
+    model,
+  ])
 
   const sortedOutlookSets = React.useMemo(
     () => [...outlookSets].sort((a, b) => a.name.localeCompare(b.name)),
@@ -1239,13 +1398,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <AssetForecastCharts
-          models={includedModels}
-          metricTab={forecastChartMetricTab}
-          onMetricTabChange={setForecastChartMetricTab}
-          metricToolbarInCard
-        />
-
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
           aria-label="Forecast statement"
@@ -1288,6 +1440,13 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             revenueBreakdown={model.revenueBreakdown}
           />
         </section>
+
+        <AssetForecastCharts
+          models={includedModels}
+          metricTab={forecastChartMetricTab}
+          onMetricTabChange={setForecastChartMetricTab}
+          metricToolbarInCard
+        />
       </div>
     </div>
   )

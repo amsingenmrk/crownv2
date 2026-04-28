@@ -23,14 +23,11 @@ export type ForecastSummaryKpi = {
   deltaDirection?: "up" | "down" | "neutral"
 }
 
-const SUMMARY_STRIP_FOOTNOTE_ID = "forecast-summary-strip-footnote"
-
 export function AssetForecastSummaryStrip({
   items,
 }: {
   items: ForecastSummaryKpi[]
 }) {
-  const footnoteInLastCard = items.length > 3
   const gridClassName =
     items.length >= 5
       ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
@@ -40,10 +37,8 @@ export function AssetForecastSummaryStrip({
     <section
       className={cn(metricStripSectionClassName, gridClassName)}
       aria-label="Forecast summary metrics"
-      aria-describedby={footnoteInLastCard ? SUMMARY_STRIP_FOOTNOTE_ID : undefined}
     >
-      {items.map((item, index) => {
-        const isFootnoteCard = footnoteInLastCard && index === items.length - 1
+      {items.map((item) => {
         const hasScenarioPair =
           item.baseFormatted != null &&
           item.scenarioFormatted != null &&
@@ -59,6 +54,11 @@ export function AssetForecastSummaryStrip({
                 pctLine={item.pctLine}
                 deltaDirection={item.deltaDirection}
               />
+              {item.valueSuffix != null && item.valueSuffix !== "" ? (
+                <MetricStripValueSuffix className="mt-1 block text-xs font-medium">
+                  {item.valueSuffix}
+                </MetricStripValueSuffix>
+              ) : null}
             </div>
           ) : (
             <MetricStripValueRow className={valueRowClassName}>
@@ -69,32 +69,10 @@ export function AssetForecastSummaryStrip({
             </MetricStripValueRow>
           )
 
-        if (!isFootnoteCard) {
-          return (
-            <MetricStripCell key={item.label}>
-              <MetricStripLabel>{item.label}</MetricStripLabel>
-              {valueRow()}
-            </MetricStripCell>
-          )
-        }
-
         return (
-          <MetricStripCell
-            key={item.label}
-            className="flex h-full min-h-0 flex-col"
-          >
+          <MetricStripCell key={item.label}>
             <MetricStripLabel>{item.label}</MetricStripLabel>
-            <div className="mt-auto w-full min-w-0">
-              <div className="mt-1 flex w-full min-w-0 items-baseline gap-x-2">
-                <div className="min-w-0 shrink">{valueRow("mt-0")}</div>
-                <p
-                  id={SUMMARY_STRIP_FOOTNOTE_ID}
-                  className="min-w-0 flex-1 text-right text-xs leading-snug text-muted-foreground"
-                >
-                  2-year average
-                </p>
-              </div>
-            </div>
+            {valueRow()}
           </MetricStripCell>
         )
       })}
