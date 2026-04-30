@@ -1,0 +1,265 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Briefcase, ChevronDown, ChevronRight, Plus } from "lucide-react"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
+import {
+  SidebarGroup,
+  SidebarGroupAction,
+  SidebarGroupLabel,
+  SidebarMenuAction,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
+import {
+  getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import {
+  ASSETS,
+  ASSET_GROUP_SIDEBAR_LABELS,
+  getAssetById,
+  PORTFOLIO_OVERVIEW_LABEL,
+  type AssetGroupId,
+  assetHref,
+  portfolioScopeIdFromRouteParam,
+  portfolioScopeHref,
+} from "@/lib/assets"
+
+const ASSET_GROUPS: { label: string; groupId: AssetGroupId }[] = [
+  { label: ASSET_GROUP_SIDEBAR_LABELS.office, groupId: "office" },
+  { label: ASSET_GROUP_SIDEBAR_LABELS.industrial, groupId: "industrial" },
+  { label: ASSET_GROUP_SIDEBAR_LABELS.retail, groupId: "retail" },
+]
+
+const INITIAL_GROUP_OPEN: Record<string, boolean> = {
+  office: false,
+  industrial: false,
+  retail: false,
+}
+
+export function NavAssets() {
+  const pathname = usePathname()
+  const [newScopeOpen, setNewScopeOpen] = React.useState(false)
+  const [openByGroup, setOpenByGroup] =
+    React.useState<Record<string, boolean>>(INITIAL_GROUP_OPEN)
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
+
+  const navAssetSections = React.useMemo(() => {
+    const custom = Object.entries(assetGroupData.customGroups)
+      .map(([groupId, label]) => ({ label, groupId }))
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+      )
+    return [...ASSET_GROUPS, ...custom]
+  }, [assetGroupData])
+
+  /** Accordion: only one property group expanded at a time. */
+  const openOnlyGroup = React.useCallback(
+    (groupId: string) => {
+      setOpenByGroup(() => {
+        const next: Record<string, boolean> = {}
+        for (const g of navAssetSections) {
+          next[g.groupId] = g.groupId === groupId
+        }
+        return next
+      })
+    },
+    [navAssetSections]
+  )
+
+  const activeScopeId = React.useMemo(() => {
+    if (pathname === "/portfolio") return "all"
+    const match = pathname.match(/^\/portfolio\/scopes\/([^/]+)/)
+    return match?.[1] ? portfolioScopeIdFromRouteParam(match[1]) : null
+  }, [pathname])
+
+  const activeAssetGroupId = React.useMemo(() => {
+    const match = pathname.match(/^\/assets\/([^/]+)/)
+    if (!match?.[1]) return null
+    return (
+      getAssetById(decodeURIComponent(match[1]), assetGroupData)?.groupId ?? null
+    )
+  }, [assetGroupData, pathname])
+
+  const closeAllPortfolioGroups = React.useCallback(() => {
+    setOpenByGroup((current) => {
+      const next: Record<string, boolean> = {}
+      for (const g of navAssetSections) {
+        next[g.groupId] = false
+      }
+      const keys = new Set([...Object.keys(current), ...Object.keys(next)])
+      let changed = false
+      for (const k of keys) {
+        if ((current[k] ?? false) !== (next[k] ?? false)) {
+          changed = true
+          break
+        }
+      }
+      return changed ? next : current
+    })
+  }, [navAssetSections])
+
+  React.useEffect(() => {
+    const nextOpenIds = [activeScopeId, activeAssetGroupId].filter(
+      (value): value is string => value != null && value !== "all"
+    )
+    setOpenByGroup((current) => {
+      const next: Record<string, boolean> = {}
+      for (const g of navAssetSections) {
+        next[g.groupId] =
+          nextOpenIds.length > 0 && nextOpenIds.includes(g.groupId)
+      }
+      const keys = new Set([...Object.keys(current), ...Object.keys(next)])
+      let changed = false
+      for (const k of keys) {
+        if ((current[k] ?? false) !== (next[k] ?? false)) {
+          changed = true
+          break
+        }
+      }
+      return changed ? next : current
+    })
+  }, [activeAssetGroupId, activeScopeId, navAssetSections])
+
+  return (
+    <>
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Portfolios</SidebarGroupLabel>
+        <SidebarGroupAction
+          type="button"
+          title="New portfolio scope"
+          aria-label="New portfolio scope"
+          onClick={() => setNewScopeOpen(true)}
+        >
+          <Plus />
+        </SidebarGroupAction>
+        <SidebarMenu className="gap-0">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={PORTFOLIO_OVERVIEW_LABEL}
+              isActive={pathname === "/portfolio"}
+              render={
+                <Link
+                  href="/portfolio"
+                  onClick={() => closeAllPortfolioGroups()}
+                />
+              }
+            >
+              <Briefcase />
+              <span>{PORTFOLIO_OVERVIEW_LABEL}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <li className="list-none group-data-[collapsible=icon]:hidden">
+            <SidebarMenuSub className="gap-0 py-0.5">
+              {navAssetSections.map((group) => {
+                const assets = ASSETS.filter(
+                  (a) => getAssetById(a.id, assetGroupData)?.groupId === group.groupId
+                )
+                return (
+                  <Collapsible
+                    key={group.groupId}
+                    open={openByGroup[group.groupId] ?? false}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        openOnlyGroup(group.groupId)
+                      } else {
+                        setOpenByGroup((s) => ({ ...s, [group.groupId]: false }))
+                      }
+                    }}
+                    className="group/collapsible"
+                    render={<SidebarMenuItem />}
+                  >
+                    <div className="relative">
+                      <SidebarMenuButton
+                        tooltip={group.label}
+                        className="h-8 pr-8"
+                        isActive={
+                          activeScopeId === group.groupId ||
+                          activeAssetGroupId === group.groupId
+                        }
+                        render={
+                          <Link href={portfolioScopeHref(group.groupId)} />
+                        }
+                      >
+                        <span className="truncate">{group.label}</span>
+                      </SidebarMenuButton>
+                      <CollapsibleTrigger
+                        render={
+                          <SidebarMenuAction
+                            aria-label={`${openByGroup[group.groupId] ? "Collapse" : "Expand"} ${group.label}`}
+                          />
+                        }
+                      >
+                        {openByGroup[group.groupId] ? (
+                          <ChevronDown
+                            className="size-4 shrink-0 transition-transform duration-200"
+                            aria-hidden
+                          />
+                        ) : (
+                          <ChevronRight
+                            className="size-4 shrink-0 transition-transform duration-200"
+                            aria-hidden
+                          />
+                        )}
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent>
+                      <SidebarMenuSub className="mt-0.5 gap-0 py-0.5">
+                        {assets.map((asset) => {
+                          const href = assetHref(asset.id)
+                          const active =
+                            pathname === href ||
+                            pathname.startsWith(`/assets/${asset.id}/`)
+                          return (
+                            <SidebarMenuSubItem key={asset.id}>
+                              <SidebarMenuSubButton
+                                size="sm"
+                                className="h-auto min-h-6 py-1 leading-snug"
+                                isActive={active}
+                                render={<Link href={href} />}
+                              >
+                                <span className="line-clamp-2 text-left">
+                                  {asset.name}
+                                </span>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )
+              })}
+            </SidebarMenuSub>
+          </li>
+        </SidebarMenu>
+      </SidebarGroup>
+
+      <NewPortfolioScopeDialog
+        open={newScopeOpen}
+        onOpenChange={setNewScopeOpen}
+      />
+    </>
+  )
+}

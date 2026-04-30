@@ -1,0 +1,22 @@
+"use client"
+
+import { useEffect } from "react"
+import { usePathname } from "next/navigation"
+import { getAssetById } from "@/lib/assets"
+import { recordRecentAsset } from "@/lib/recent-assets"
+
+/**
+ * Records asset detail visits in localStorage for the command palette.
+ */
+export function RecentAssetTracker() {
+  const pathname = usePathname()
+
+  useEffect(() => {
+    const match = pathname?.match(/^\/assets\/([^/]+)/)
+    const id = match?.[1]
+    if (!id || !getAssetById(id)) return
+    recordRecentAsset(id)
+  }, [pathname])
+
+  return null
+}

@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root {
+  /* Semantic tokens → Tailwind default theme (`@import "tailwindcss"` oklch values) */
+  --background: var(--color-neutral-50);
+  --foreground: var(--color-neutral-950);
+  --card: var(--color-zinc-50);
+  --card-foreground: var(--color-neutral-950);
+  --popover: var(--color-zinc-50);
+  --popover-foreground: var(--color-neutral-950);
+  --primary: var(--color-blue-600);
+  --primary-foreground: var(--color-blue-50);
+  --secondary: var(--color-neutral-100);
+  --secondary-foreground: var(--color-neutral-900);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-500);
+  --accent: var(--color-neutral-100);
+  --accent-foreground: var(--color-neutral-900);
+  --destructive: var(--color-red-600);
+  --border: var(--color-neutral-200);
+  --input: var(--color-neutral-200);
+  --ring: var(--color-neutral-400);
+  --chart-1: var(--color-blue-300);
+  --chart-2: var(--color-blue-500);
+  --chart-3: var(--color-blue-600);
+  --chart-4: var(--color-blue-700);
+  --chart-5: var(--color-blue-800);
+  /**
+   * Value drivers waterfall — Tailwind palette tints (same oklch as `theme.css`).
+   * Light: pastels + dark `foreground` labels.
+   */
+  --waterfall-baseline: var(--color-slate-200);
+  --waterfall-positive: var(--color-emerald-100);
+  --waterfall-negative: var(--color-red-100);
+  --waterfall-result: var(--color-blue-100);
+  --waterfall-bar-border: color-mix(in oklch, var(--color-neutral-950) 12%, transparent);
+  --radius: 0.625rem;
+  --sidebar: var(--color-zinc-50);
+  --sidebar-foreground: var(--color-neutral-950);
+  --sidebar-primary: var(--color-blue-600);
+  --sidebar-primary-foreground: var(--color-blue-50);
+  --sidebar-accent: var(--color-neutral-100);
+  --sidebar-accent-foreground: var(--color-neutral-900);
+  --sidebar-border: var(--color-neutral-200);
+  --sidebar-ring: var(--color-neutral-400);
+}
+
+.dark {
+  --background: var(--color-neutral-950);
+  --foreground: var(--color-zinc-50);
+  --card: var(--color-neutral-900);
+  --card-foreground: var(--color-zinc-50);
+  --popover: var(--color-neutral-900);
+  --popover-foreground: var(--color-zinc-50);
+  --primary: var(--color-blue-600);
+  --primary-foreground: var(--color-blue-50);
+  --secondary: var(--color-zinc-800);
+  --secondary-foreground: var(--color-zinc-50);
+  --muted: var(--color-zinc-800);
+  --muted-foreground: var(--color-zinc-400);
+  --accent: var(--color-zinc-700);
+  --accent-foreground: var(--color-zinc-50);
+  --destructive: var(--color-red-400);
+  --border: color-mix(in oklch, var(--color-zinc-50) 10%, transparent);
+  --input: color-mix(in oklch, var(--color-zinc-50) 15%, transparent);
+  --ring: var(--color-zinc-500);
+  --chart-1: var(--color-blue-300);
+  --chart-2: var(--color-blue-500);
+  --chart-3: var(--color-blue-600);
+  --chart-4: var(--color-blue-700);
+  --chart-5: var(--color-blue-800);
+  --waterfall-baseline: var(--color-slate-600);
+  --waterfall-positive: var(--color-emerald-400);
+  --waterfall-negative: var(--destructive);
+  --waterfall-result: var(--primary);
+  --waterfall-bar-border: color-mix(in oklch, var(--color-zinc-50) 18%, transparent);
+  --sidebar: var(--color-neutral-900);
+  --sidebar-foreground: var(--color-zinc-50);
+  --sidebar-primary: var(--color-blue-500);
+  --sidebar-primary-foreground: var(--color-blue-50);
+  --sidebar-accent: var(--color-zinc-800);
+  --sidebar-accent-foreground: var(--color-zinc-50);
+  --sidebar-border: color-mix(in oklch, var(--color-zinc-50) 10%, transparent);
+  --sidebar-ring: var(--color-zinc-500);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /*
+   * Wider than the scrollport when columns need it (horizontal scroll).
+   * min-width: 100% keeps short tables spanning the padded scroll area.
+   */
+  .portfolio-assets-table-scroll-inner {
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 100%;
+  }
+}
+
