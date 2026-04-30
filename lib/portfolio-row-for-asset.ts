@@ -65,7 +65,10 @@ export function portfolioAssetRowForAsset(
 ): PortfolioAssetRow {
   const seed = seedForAsset(asset, index)
   const fin = portfolioValueNoiCapFromSeed(seed)
-  const recommendation = getTopSingleModificationRecommendationForAsset(asset.id)
+  const recommendation = getTopSingleModificationRecommendationForAsset(
+    asset.id,
+    asset
+  )
   const typeLabel = sectorLabelForAsset(asset)
   const classLabel = portfolioClassLabelForSeed(seed, asset.occupiedPercent)
   const liftPercent = Number((recommendation?.averageLiftPct ?? 0).toFixed(1))

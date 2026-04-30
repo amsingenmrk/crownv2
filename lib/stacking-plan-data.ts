@@ -1,4 +1,4 @@
-import { getAssetById } from "@/lib/assets"
+import { getAssetById, type Asset } from "@/lib/assets"
 
 export type StackingViewMode = "detailed" | "simplified"
 
@@ -1078,8 +1078,8 @@ function buildSuiteSqfts(
   return sizes.sort((left, right) => right - left)
 }
 
-function buildFloorSeedsForAsset(assetId: string): FloorSeed[] {
-  const asset = getAssetById(assetId)
+function buildFloorSeedsForAsset(assetId: string, assetOverride?: Asset): FloorSeed[] {
+  const asset = assetOverride ?? getAssetById(assetId)
   const seed = hashText(`stacking:${assetId}`)
   const random = createPrng(seed)
   const floorCount = 12 + (seed % 17)
@@ -1151,10 +1151,11 @@ function buildFloorSeedsForAsset(assetId: string): FloorSeed[] {
 }
 
 export function getSampleStackingPlanData(
-  assetId: string
+  assetId: string,
+  assetOverride?: Asset
 ): StackingPlanDataset {
-  const asset = getAssetById(assetId)
-  const floorSeeds = buildFloorSeedsForAsset(assetId)
+  const asset = assetOverride ?? getAssetById(assetId)
+  const floorSeeds = buildFloorSeedsForAsset(assetId, asset)
   const address = asset?.address ?? "Address unavailable"
 
   const floors = floorSeeds

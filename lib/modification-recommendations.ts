@@ -8,6 +8,7 @@ import {
   buildModificationImpactDataset,
   deriveImpactMetrics,
 } from "@/lib/modifications-impact"
+import type { Asset } from "@/lib/assets"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 
 export const RECOMMENDED_MOD_ID_PARAM = "recommendedMod"
@@ -27,6 +28,16 @@ type SearchParamReader = {
 }
 
 const recommendationCache = new Map<string, ModificationRecommendation | null>()
+
+function recommendationCacheKey(assetId: string, assetOverride?: Asset): string {
+  if (assetOverride == null) return assetId
+  return [
+    assetId,
+    assetOverride.groupId,
+    String(assetOverride.occupiedPercent),
+    assetOverride.address,
+  ].join("\0")
+}
 
 function buildSingleSelectionValues(id: ModId, optionValue: string): ModValues {
   return {
@@ -49,13 +60,16 @@ function compareRecommendations(
 }
 
 export function getTopSingleModificationRecommendationForAsset(
-  assetId: string
+  assetId: string,
+  assetOverride?: Asset
 ): ModificationRecommendation | null {
-  if (recommendationCache.has(assetId)) {
-    return recommendationCache.get(assetId) ?? null
+  const cacheKey = recommendationCacheKey(assetId, assetOverride)
+
+  if (recommendationCache.has(cacheKey)) {
+    return recommendationCache.get(cacheKey) ?? null
   }
 
-  const dataset = getSampleStackingPlanData(assetId)
+  const dataset = getSampleStackingPlanData(assetId, assetOverride)
   let best: ModificationRecommendation | null = null
 
   for (const config of MOD_CONFIGS) {
@@ -88,7 +102,7 @@ export function getTopSingleModificationRecommendationForAsset(
     }
   }
 
-  recommendationCache.set(assetId, best)
+  recommendationCache.set(cacheKey, best)
   return best
 }
 

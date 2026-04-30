@@ -79,6 +79,7 @@ import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 type PortfolioKpi = {
@@ -543,16 +544,25 @@ function PortfolioDashboardInner({
   const [sorting, setSorting] = React.useState<SortingState>(() =>
     defaultPortfolioAssetsTableSorting(assetsTableVariant)
   )
+  const sortingHydrationKey = React.useMemo(
+    () => `${assetsTableVariant}\0${pathname}`,
+    [assetsTableVariant, pathname]
+  )
   const skipNextSortingPersistenceRef = React.useRef(true)
+  const [sortingReadyKey, setSortingReadyKey] = React.useState<string | null>(
+    null
+  )
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
+  const sortingReady = sortingReadyKey === sortingHydrationKey
 
   React.useEffect(() => {
     // Restore browser-persisted sorting only after hydration so the first
     // client render matches the server HTML and avoids row-order mismatches.
     skipNextSortingPersistenceRef.current = true
     setSorting(readPortfolioAssetsTableSorting(pathname, assetsTableVariant))
-  }, [assetsTableVariant, pathname])
+    setSortingReadyKey(sortingHydrationKey)
+  }, [assetsTableVariant, pathname, sortingHydrationKey])
 
   React.useEffect(() => {
     if (skipNextSortingPersistenceRef.current) {
@@ -583,8 +593,9 @@ function PortfolioDashboardInner({
   )
 
   React.useEffect(() => {
+    if (!sortingReady) return
     writePortfolioAssetsTableVisibleOrder(pathname, visibleRowOrder)
-  }, [pathname, visibleRowOrder])
+  }, [pathname, sortingReady, visibleRowOrder])
 
   React.useEffect(() => {
     const visible = new Set(visibleAssetRows.map((r) => r.id))
@@ -902,13 +913,28 @@ function PortfolioDashboardInner({
             </div>
           ) : (
             <div className="min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
-              <PortfolioAssetsDataTable
-                table={portfolioTable}
-                variant={assetsTableVariant}
-                liftExtent={liftPctExtent}
-                showScopeColumn={showScopeColumn}
-                customGroups={assetGroupData.customGroups}
-              />
+              {sortingReady ? (
+                <PortfolioAssetsDataTable
+                  table={portfolioTable}
+                  variant={assetsTableVariant}
+                  liftExtent={liftPctExtent}
+                  showScopeColumn={showScopeColumn}
+                  customGroups={assetGroupData.customGroups}
+                />
+              ) : (
+                <div
+                  className="flex flex-col gap-3 px-4 py-4"
+                  aria-busy="true"
+                  aria-live="polite"
+                >
+                  <Skeleton className="h-5 w-44" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              )}
             </div>
           )}
         </div>
