@@ -1316,10 +1316,9 @@ export function AssetStackingPlanWorkspace({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-lg"
                 onClick={() => downloadCsv(assetId, floors)}
               >
-                <Download className="size-3.5 text-primary" />
+                <Download className="size-3.5" aria-hidden />
                 Export
               </Button>
             </div>
@@ -1441,10 +1440,9 @@ export function AssetStackingPlanWorkspace({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="rounded-lg border-dashed border-border/55 bg-background/55 text-muted-foreground shadow-none hover:bg-muted/30 hover:text-foreground"
                       onClick={() => downloadCsv(assetId, floors)}
                     >
-                      <Download className="size-3.5 text-muted-foreground" />
+                      <Download className="size-3.5" aria-hidden />
                       Export
                     </Button>
                   </div>
