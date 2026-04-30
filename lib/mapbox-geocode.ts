@@ -27,7 +27,7 @@ export async function geocodeAddress(
 
   let res: Response
   try {
-    res = await fetch(url.toString(), { next: { revalidate: 0 } })
+    res = await fetch(url.toString(), { cache: "no-store" })
   } catch {
     return null
   }

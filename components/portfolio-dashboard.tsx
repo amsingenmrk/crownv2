@@ -543,16 +543,24 @@ function PortfolioDashboardInner({
   const [sorting, setSorting] = React.useState<SortingState>(() =>
     defaultPortfolioAssetsTableSorting(assetsTableVariant)
   )
+  const skipNextSortingPersistenceRef = React.useRef(true)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
+    // Restore browser-persisted sorting only after hydration so the first
+    // client render matches the server HTML and avoids row-order mismatches.
+    skipNextSortingPersistenceRef.current = true
     setSorting(readPortfolioAssetsTableSorting(pathname, assetsTableVariant))
   }, [assetsTableVariant, pathname])
 
   React.useEffect(() => {
+    if (skipNextSortingPersistenceRef.current) {
+      skipNextSortingPersistenceRef.current = false
+      return
+    }
     writePortfolioAssetsTableSorting(pathname, sorting)
-  }, [pathname, sorting])
+  }, [assetsTableVariant, pathname, sorting])
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
   const portfolioTable = useReactTable({
