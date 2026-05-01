@@ -82,7 +82,7 @@ function CompareEditorNewInner() {
         role="main"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 md:px-6"
       >
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="mx-auto w-full max-w-[1400px]">
           <PortfolioScenarioComparison
             slotKeys={slotKeys}
             onSlotKeysChange={setSlotKeys}
@@ -183,7 +183,7 @@ export function CompareEditorById({ id }: { id: string }) {
         role="main"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 md:px-6"
       >
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="mx-auto w-full max-w-[1400px]">
           <PortfolioScenarioComparison
             slotKeys={slotKeys}
             onSlotKeysChange={setSlotKeys}

@@ -184,114 +184,116 @@ export function CompareLanding() {
         role="main"
         className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-6 md:px-6"
       >
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Compare</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Compare anything from Portfolios, Assets, and Scenarios in a
-            side-by-side view.
-          </p>
-        </div>
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Compare</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Compare anything from Portfolios, Assets, and Scenarios in a
+              side-by-side view.
+            </p>
+          </div>
 
-        <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          <li
-            className={cn("min-w-0", isEmpty && "sm:col-span-2 lg:col-span-3")}
-          >
-            <NewComparisonCard prominent={isEmpty} className="h-full w-full" />
-          </li>
-          {!isEmpty
-            ? sorted.map((c: SavedComparison) => {
-                const chips = slotPreviewChips(c.slotKeys, userScenarios)
-                return (
-                  <li key={c.id} className="min-w-0">
-                    <div
-                      className={cn(
-                        "relative flex h-full min-h-[188px] flex-col rounded-lg border border-border",
-                        "transition-colors hover:bg-muted/30"
-                      )}
-                    >
-                      <Link
-                        href={`/compare/${c.id}`}
+          <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+            <li
+              className={cn("min-w-0", isEmpty && "sm:col-span-2 lg:col-span-3")}
+            >
+              <NewComparisonCard prominent={isEmpty} className="h-full w-full" />
+            </li>
+            {!isEmpty
+              ? sorted.map((c: SavedComparison) => {
+                  const chips = slotPreviewChips(c.slotKeys, userScenarios)
+                  return (
+                    <li key={c.id} className="min-w-0">
+                      <div
                         className={cn(
-                          "flex min-h-0 flex-1 flex-col gap-3 p-4 pr-12",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                          "relative flex h-full min-h-[188px] flex-col rounded-lg border border-border",
+                          "transition-colors hover:bg-muted/30"
                         )}
                       >
-                        <p className="min-w-0 font-semibold leading-snug text-foreground">
-                          {c.name}
-                        </p>
-                        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-                          <div className="flex min-w-0 flex-wrap gap-2">
-                            {c.slotKeys.map((slotKey, i) => {
-                              const label = chips[i] ?? ""
-                              const Icon = iconForCompareSlotKey(slotKey)
-                              return (
-                                <span
-                                  key={`${c.id}-${i}`}
-                                  className="inline-flex max-w-full items-center gap-2 rounded-lg bg-muted/70 px-3 py-1.5 text-sm text-foreground"
-                                >
-                                  <Icon
-                                    className="size-4 shrink-0 text-muted-foreground"
-                                    aria-hidden
-                                  />
-                                  <span className="min-w-0 truncate">
-                                    {label}
-                                  </span>
-                                </span>
-                              )
-                            })}
-                          </div>
-                          <p className="mt-auto text-xs text-muted-foreground">
-                            Updated {formatUpdatedRelative(c.updatedAt)}
+                        <Link
+                          href={`/compare/${c.id}`}
+                          className={cn(
+                            "flex min-h-0 flex-1 flex-col gap-3 p-4 pr-12",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                          )}
+                        >
+                          <p className="min-w-0 font-semibold leading-snug text-foreground">
+                            {c.name}
                           </p>
-                        </div>
-                      </Link>
-                      <div
-                        className="absolute top-2 right-2 z-10"
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground"
-                                aria-label={`More actions for ${c.name}`}
-                              />
-                            }
-                          >
-                            <MoreVertical className="size-4" aria-hidden />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" sideOffset={6}>
-                            <DropdownMenuItem
-                              onClick={() => openRename(c)}
-                            >
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                router.push(`/compare/new?from=${c.id}`)
+                          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+                            <div className="flex min-w-0 flex-wrap gap-2">
+                              {c.slotKeys.map((slotKey, i) => {
+                                const label = chips[i] ?? ""
+                                const Icon = iconForCompareSlotKey(slotKey)
+                                return (
+                                  <span
+                                    key={`${c.id}-${i}`}
+                                    className="inline-flex max-w-full items-center gap-2 rounded-lg bg-muted/70 px-3 py-1.5 text-sm text-foreground"
+                                  >
+                                    <Icon
+                                      className="size-4 shrink-0 text-muted-foreground"
+                                      aria-hidden
+                                    />
+                                    <span className="min-w-0 truncate">
+                                      {label}
+                                    </span>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                            <p className="mt-auto text-xs text-muted-foreground">
+                              Updated {formatUpdatedRelative(c.updatedAt)}
+                            </p>
+                          </div>
+                        </Link>
+                        <div
+                          className="absolute top-2 right-2 z-10"
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 text-muted-foreground"
+                                  aria-label={`More actions for ${c.name}`}
+                                />
                               }
                             >
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => openDelete(c)}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <MoreVertical className="size-4" aria-hidden />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" sideOffset={6}>
+                              <DropdownMenuItem
+                                onClick={() => openRename(c)}
+                              >
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/compare/new?from=${c.id}`)
+                                }
+                              >
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => openDelete(c)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                )
-              })
-            : null}
-        </ul>
+                    </li>
+                  )
+                })
+              : null}
+          </ul>
+        </div>
       </div>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

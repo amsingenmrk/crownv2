@@ -581,7 +581,10 @@ export function SearchComingSoon() {
 
   return (
     <>
-    <div role="main" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div
+      role="main"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Map region */}
         <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
