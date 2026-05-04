@@ -5,6 +5,7 @@
 import {
   readAssetGroupOverrides,
   readCustomAssetGroups,
+  readFundDisplayLabels,
 } from "@/lib/asset-group-overrides"
 
 const BUILDING_IMAGES = [
@@ -234,6 +235,12 @@ export function resolveAssetGroupLabel(
     groupId === "industrial" ||
     groupId === "retail"
   ) {
+    if (typeof window !== "undefined") {
+      const fundOverride = readFundDisplayLabels()[groupId]
+      if (fundOverride != null && fundOverride.trim() !== "") {
+        return fundOverride
+      }
+    }
     return ASSET_GROUP_SIDEBAR_LABELS[groupId]
   }
   if (customGroups != null) return customGroups[groupId] ?? groupId

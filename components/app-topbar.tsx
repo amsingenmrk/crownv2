@@ -53,13 +53,13 @@ import {
 import { useAppToast } from "@/components/app-toast"
 import {
   addCustomAssetGroup,
-  duplicateCustomAssetGroupFromId,
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
   removeCustomAssetGroupById,
   setAssetGroupOverride,
   subscribeAssetGroupOverrides,
   updateCustomAssetGroupNameById,
+  updateFundDisplayLabelByGroupId,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
@@ -409,6 +409,14 @@ export function AppTopbar() {
   const portfolioScopeBreadcrumbId =
     portfolioScopeIdFromPathname(pathname ?? null)
   const showPortfolioScopeBreadcrumb = portfolioScopeBreadcrumbId != null
+  const isBuiltInPortfolioScope = useMemo(
+    () =>
+      portfolioScopeBreadcrumbId != null &&
+      (BUILT_IN_ASSET_GROUP_IDS as readonly string[]).includes(
+        portfolioScopeBreadcrumbId
+      ),
+    [portfolioScopeBreadcrumbId]
+  )
   const showCompareSavedBreadcrumb = compareSavedId != null
   const showCompareMoreMenu = showCompareSavedBreadcrumb
   const showCompareNewBreadcrumb = pathname === "/compare/new"
@@ -442,9 +450,14 @@ export function AppTopbar() {
 
   const portfolioScopeLabels = useMemo(() => {
     const custom = assetGroupData.customGroups
+    const fundOv = assetGroupData.fundLabelOverrides
     const labels: Record<string, string> = {}
     for (const id of BUILT_IN_ASSET_GROUP_IDS) {
-      labels[id] = ASSET_GROUP_SIDEBAR_LABELS[id]
+      const override = fundOv[id]?.trim()
+      labels[id] =
+        override != null && override.length > 0
+          ? override
+          : ASSET_GROUP_SIDEBAR_LABELS[id]
     }
     for (const [id, label] of Object.entries(custom)) {
       labels[id] = label
@@ -487,13 +500,20 @@ export function AppTopbar() {
   }, [showScenarioBreadcrumb, scenarioSlug])
 
   useEffect(() => {
-    if (!showPortfolioScopeBreadcrumb || !canManageCurrentPortfolioScope) {
+    if (!showPortfolioScopeBreadcrumb) {
       queueMicrotask(() => {
         setPortfolioScopeRenameOpen(false)
         setDeletePortfolioScopeOpen(false)
       })
     }
-  }, [canManageCurrentPortfolioScope, showPortfolioScopeBreadcrumb])
+  }, [showPortfolioScopeBreadcrumb])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setPortfolioScopeRenameOpen(false)
+      setDeletePortfolioScopeOpen(false)
+    })
+  }, [portfolioScopeBreadcrumbId])
 
   return (
     <header className="grid h-12 min-w-0 w-full max-w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
@@ -926,9 +946,7 @@ export function AppTopbar() {
             </DropdownMenu>
           </>
         ) : null}
-        {showPortfolioScopeBreadcrumb &&
-        canManageCurrentPortfolioScope &&
-        portfolioScopeBreadcrumbId != null ? (
+        {showPortfolioScopeBreadcrumb && portfolioScopeBreadcrumbId != null ? (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -957,20 +975,15 @@ export function AppTopbar() {
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => {
-                    const id = portfolioScopeBreadcrumbId
-                    const created = duplicateCustomAssetGroupFromId(id)
-                    if (created != null) {
-                      router.push(portfolioScopeHref(created.id))
-                      showToast(`Portfolio scope “${created.label}” created.`)
-                    }
-                  }}
-                >
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
                   variant="destructive"
+                  disabled={isBuiltInPortfolioScope}
+                  title={
+                    isBuiltInPortfolioScope
+                      ? "Built-in funds cannot be deleted"
+                      : undefined
+                  }
                   onClick={() => {
+                    if (isBuiltInPortfolioScope) return
                     setDeletePortfolioScopeOpen(true)
                   }}
                 >
@@ -984,7 +997,7 @@ export function AppTopbar() {
             >
               <DialogContent showCloseButton className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Rename portfolio scope</DialogTitle>
+                  <DialogTitle>Rename portfolio</DialogTitle>
                 </DialogHeader>
                 <Input
                   value={portfolioScopeRenameDraft}
@@ -1004,12 +1017,11 @@ export function AppTopbar() {
                         setPortfolioScopeRenameOpen(false)
                         return
                       }
-                      if (
-                        updateCustomAssetGroupNameById(
-                          portfolioScopeBreadcrumbId,
-                          name
-                        )
-                      ) {
+                      const id = portfolioScopeBreadcrumbId
+                      const ok = isBuiltInPortfolioScope
+                        ? updateFundDisplayLabelByGroupId(id, name)
+                        : updateCustomAssetGroupNameById(id, name)
+                      if (ok) {
                         setPortfolioScopeRenameOpen(false)
                         showToast(`Renamed to “${name}”.`)
                       }
@@ -1038,12 +1050,11 @@ export function AppTopbar() {
                         setPortfolioScopeRenameOpen(false)
                         return
                       }
-                      if (
-                        updateCustomAssetGroupNameById(
-                          portfolioScopeBreadcrumbId,
-                          name
-                        )
-                      ) {
+                      const id = portfolioScopeBreadcrumbId
+                      const ok = isBuiltInPortfolioScope
+                        ? updateFundDisplayLabelByGroupId(id, name)
+                        : updateCustomAssetGroupNameById(id, name)
+                      if (ok) {
                         setPortfolioScopeRenameOpen(false)
                         showToast(`Renamed to “${name}”.`)
                       }

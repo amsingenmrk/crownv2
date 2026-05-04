@@ -68,17 +68,17 @@ export function NewPortfolioScopeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New portfolio scope</DialogTitle>
+          <DialogTitle>New portfolio</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2">
           <label htmlFor={inputId} className="sr-only">
-            Portfolio scope name
+            Portfolio name
           </label>
           <Input
             id={inputId}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. JV stabilization"
+            placeholder="e.g. Portfolio A"
             autoComplete="off"
             onKeyDown={(e) => {
               if (e.key === "Enter") {

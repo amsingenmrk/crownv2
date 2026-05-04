@@ -148,8 +148,8 @@ export function NavAssets() {
         <SidebarGroupLabel>Portfolios</SidebarGroupLabel>
         <SidebarGroupAction
           type="button"
-          title="New portfolio scope"
-          aria-label="New portfolio scope"
+          title="New portfolio"
+          aria-label="New portfolio"
           onClick={() => setNewScopeOpen(true)}
         >
           <Plus />

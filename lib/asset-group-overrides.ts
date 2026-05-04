@@ -1,7 +1,11 @@
 const STORAGE_KEY = "glassbox:asset-group-overrides"
 const CUSTOM_GROUPS_KEY = "glassbox:custom-asset-groups"
+/** Optional display names for built-in funds (`office` / `industrial` / `retail`). */
+const FUND_DISPLAY_LABELS_KEY = "glassbox:fund-display-labels"
 const CHANGED = "glassbox:asset-group-overrides-changed"
 const CUSTOM_CHANGED = "glassbox:custom-asset-groups-changed"
+
+const BUILT_IN_GROUP_IDS = new Set(["office", "industrial", "retail"])
 
 const RESERVED_GROUP_IDS = new Set([
   "office",
@@ -75,19 +79,69 @@ export function readCustomAssetGroups(): Record<string, string> {
   return parseCustomAssetGroups(raw)
 }
 
+function parseFundDisplayLabels(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {}
+    }
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (
+        typeof k === "string" &&
+        BUILT_IN_GROUP_IDS.has(k) &&
+        typeof v === "string" &&
+        v.length > 0 &&
+        v.length < 200
+      ) {
+        out[k] = v
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function readFundDisplayLabels(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(FUND_DISPLAY_LABELS_KEY)
+  if (raw == null || raw === "") return {}
+  return parseFundDisplayLabels(raw)
+}
+
+/**
+ * Sets the displayed name for a built-in fund scope (`office`, `industrial`, `retail`).
+ */
+export function updateFundDisplayLabelByGroupId(
+  groupId: string,
+  newName: string
+): boolean {
+  if (typeof window === "undefined") return false
+  if (!BUILT_IN_GROUP_IDS.has(groupId)) return false
+  const trimmed = newName.trim()
+  if (!trimmed) return false
+  const current = readFundDisplayLabels()
+  const next = { ...current, [groupId]: trimmed }
+  localStorage.setItem(FUND_DISPLAY_LABELS_KEY, JSON.stringify(next))
+  window.dispatchEvent(new Event(CHANGED))
+  return true
+}
+
 export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   overrides: Record<string, string>
   customGroups: Record<string, string>
+  fundLabelOverrides: Record<string, string>
 } {
-  const separatorIndex = snapshot.indexOf("\0")
-  const overridesRaw =
-    separatorIndex === -1 ? snapshot : snapshot.slice(0, separatorIndex)
-  const customGroupsRaw =
-    separatorIndex === -1 ? "" : snapshot.slice(separatorIndex + 1)
+  const parts = snapshot.split("\0")
+  const overridesRaw = parts[0] ?? ""
+  const customGroupsRaw = parts[1] ?? ""
+  const fundLabelsRaw = parts[2] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
     customGroups: customGroupsRaw ? parseCustomAssetGroups(customGroupsRaw) : {},
+    fundLabelOverrides: fundLabelsRaw ? parseFundDisplayLabels(fundLabelsRaw) : {},
   }
 }
 
@@ -223,7 +277,13 @@ export function subscribeAssetGroupOverrides(
   window.addEventListener(CHANGED, run)
   window.addEventListener(CUSTOM_CHANGED, run)
   const onStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY || e.key === CUSTOM_GROUPS_KEY) run()
+    if (
+      e.key === STORAGE_KEY ||
+      e.key === CUSTOM_GROUPS_KEY ||
+      e.key === FUND_DISPLAY_LABELS_KEY
+    ) {
+      run()
+    }
   }
   window.addEventListener("storage", onStorage)
   return () => {
@@ -235,5 +295,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}`
 }
