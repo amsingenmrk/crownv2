@@ -30,24 +30,39 @@ import {
 import { readScenarioTableSelections } from "@/lib/scenario-table-selections-storage"
 import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
 
-function assetHasSavedModificationSets(assetId: string): boolean {
-  if (typeof localStorage === "undefined") return false
-  const sets = parseStoredSets(
-    localStorage.getItem(storageKeyForAsset(assetId))
-  )
+function storageGetItem(ignoreLocalStorage: boolean, key: string): string | null {
+  if (ignoreLocalStorage || typeof localStorage === "undefined") return null
+  return localStorage.getItem(key)
+}
+
+function assetHasSavedModificationSets(
+  assetId: string,
+  ignoreLocalStorage: boolean
+): boolean {
+  const raw = storageGetItem(ignoreLocalStorage, storageKeyForAsset(assetId))
+  const sets = parseStoredSets(raw)
   return sets.length >= 1
 }
 
 function computeScenarioEligibleAssetIds(
   portfolioAssetRows: PortfolioAssetRow[],
-  scenarioRelaxedAssetFilter: boolean
+  scenarioRelaxedAssetFilter: boolean,
+  ignoreLocalStorage: boolean
 ): Set<string> | null {
   const ids = new Set<string>()
   for (const row of portfolioAssetRows) {
-    if (assetHasSavedModificationSets(row.id)) ids.add(row.id)
+    if (assetHasSavedModificationSets(row.id, ignoreLocalStorage)) ids.add(row.id)
   }
   const relax = scenarioRelaxedAssetFilter !== false && ids.size === 0
   return relax ? null : ids
+}
+
+export type ScenarioComparePortfolioRowsOptions = {
+  /**
+   * When true, skip all `localStorage` reads (same as SSR). Use on the client until
+   * after mount so the first paint matches server HTML and avoids hydration mismatches.
+   */
+  ignoreLocalStorage?: boolean
 }
 
 /**
@@ -56,9 +71,10 @@ function computeScenarioEligibleAssetIds(
  */
 export function scenarioComparePortfolioRows(
   slug: string,
-  portfolioAssetRows: PortfolioAssetRow[]
+  portfolioAssetRows: PortfolioAssetRow[],
+  options?: ScenarioComparePortfolioRowsOptions
 ): PortfolioAssetRow[] {
-  if (typeof localStorage === "undefined") return portfolioAssetRows
+  const ignoreLocalStorage = options?.ignoreLocalStorage === true
 
   const pathname = scenarioPathFromSlug(slug)
   const scenarioMembershipMode = scenarioMembershipModeFromPathname(pathname)
@@ -66,19 +82,22 @@ export function scenarioComparePortfolioRows(
 
   const scenarioEligibleAssetIds = computeScenarioEligibleAssetIds(
     portfolioAssetRows,
-    scenarioRelaxedAssetFilter
+    scenarioRelaxedAssetFilter,
+    ignoreLocalStorage
   )
 
   const scenarioExcludedAssetIds = parseScenarioExcludedAssetIds(
-    localStorage.getItem(`${EXCLUDED_PREFIX}${pathname}`)
+    storageGetItem(ignoreLocalStorage, `${EXCLUDED_PREFIX}${pathname}`)
   )
 
   let scenarioIncludedAssetIds: Set<string>
   if (scenarioMembershipMode === "explicit-inclusion") {
-    scenarioIncludedAssetIds = readIncludedAssetIdsWithV1Migration(pathname)
+    scenarioIncludedAssetIds = ignoreLocalStorage
+      ? new Set()
+      : readIncludedAssetIdsWithV1Migration(pathname)
   } else if (scenarioMembershipMode === "builtin") {
     scenarioIncludedAssetIds = parseScenarioIncludedAssetIds(
-      localStorage.getItem(`${INCLUDED_PREFIX}${pathname}`)
+      storageGetItem(ignoreLocalStorage, `${INCLUDED_PREFIX}${pathname}`)
     )
   } else {
     scenarioIncludedAssetIds = new Set()

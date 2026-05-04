@@ -142,15 +142,30 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   )
   const [snapshotVisibleOrder, setSnapshotVisibleOrder] = React.useState<string[]>([])
 
+  /**
+   * Scenario row membership reads `localStorage` (eligibility, exclusions). SSR has no
+   * storage; the old early-return used the full row list while the client filtered →
+   * hydration mismatch. Until mount, mirror SSR by ignoring storage on the client too.
+   */
+  const [scenarioCompareStorageReady, setScenarioCompareStorageReady] = React.useState(
+    () => typeof window === "undefined"
+  )
+
   React.useLayoutEffect(() => {
     setSnapshotSorting(readPortfolioAssetsTableSorting(snapshotPathname, snapshotSortVariant))
     setSnapshotVisibleOrder(readPortfolioAssetsTableVisibleOrder(snapshotPathname))
   }, [snapshotPathname, snapshotSortVariant])
 
+  React.useLayoutEffect(() => {
+    setScenarioCompareStorageReady(true)
+  }, [])
+
   const scopedRows = React.useMemo(() => {
     const baseRows = (() => {
       if (isScenarioScope && scenarioSlug != null) {
-        return scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows)
+        return scenarioComparePortfolioRows(scenarioSlug, portfolioAssetRows, {
+          ignoreLocalStorage: !scenarioCompareStorageReady,
+        })
       }
       if (portfolioScopeId != null) {
         return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
@@ -167,6 +182,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     isScenarioScope,
     portfolioAssetRows,
     portfolioScopeId,
+    scenarioCompareStorageReady,
     scenarioSlug,
     snapshotVisibleOrder,
     snapshotSorting,
