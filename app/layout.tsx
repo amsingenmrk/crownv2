@@ -1,15 +1,18 @@
-import { Inter } from "next/font/google"
+import localFont from "next/font/local"
 
 import "./globals.css"
 import { ToastProvider } from "@/components/app-toast"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-const inter = Inter({
-  subsets: ["latin"],
+/** Self-hosted Inter — avoids build-time fetches to fonts.gstatic.com (often blocked or TLS-broken on corp networks). */
+const inter = localFont({
+  src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
   variable: "--font-sans",
   display: "swap",
+  weight: "100 900",
   preload: true,
+  adjustFontFallback: "Arial",
 })
 
 export default function RootLayout({
