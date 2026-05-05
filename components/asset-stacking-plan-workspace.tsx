@@ -3428,7 +3428,7 @@ function SimplifiedFloorRow({
               const canSplitVacant = tenant.isVacant && tenant.sqft >= 2
 
               const vacantMenu =
-                tenant.isVacant ? (
+                interactionMode === "drawer" && tenant.isVacant ? (
                   <div
                     className="pointer-events-auto absolute inset-y-0 right-0 z-20 flex items-start justify-end pr-1 pt-0.5"
                     onClick={(event) => event.stopPropagation()}

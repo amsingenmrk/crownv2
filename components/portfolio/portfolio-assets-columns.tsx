@@ -130,10 +130,12 @@ function ScenarioAssetMetricCell({
   })()
 
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
-      <span>{baseDisplay}</span>
+    <span className="flex min-w-0 flex-col items-start gap-0.5">
+      <span className="truncate">{baseDisplay}</span>
       {delta != null ? (
-        <span className={deltaClassName(delta.value)}>{delta.text}</span>
+        <span className={cn("truncate text-[11px] leading-tight", deltaClassName(delta.value))}>
+          {delta.text}
+        </span>
       ) : null}
     </span>
   )
