@@ -2302,7 +2302,7 @@ function TenantSegment({
       </div>
 
       {!isCompact ? (
-        <div className="flex items-start justify-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
+        <div className="flex items-start justify-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
           <div className={cn("truncate", tone.metaClass)}>{tenant.space}</div>
           {!isSemiCompact ? (
             <div className={cn("truncate", tone.metaClass)}>{tenant.sqftLabel}</div>
@@ -2956,7 +2956,7 @@ function StackBandSegment({
           </div>
         ) : null}
         {showSupportingDetails ? (
-          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
+          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
             <div className={cn("truncate", tone.metaClass)}>
               {tenant.sqftLabel}
             </div>
@@ -2969,7 +2969,7 @@ function StackBandSegment({
         {showFullRateRow &&
         contractRateValue != null &&
         predictedRateValue != null ? (
-          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[9px] font-medium whitespace-nowrap">
+          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
             <div className={cn("truncate", tone.metaClass)}>
               Contract {formatCompactRate(contractRateValue)}
             </div>
@@ -2985,7 +2985,7 @@ function StackBandSegment({
           predictedRateValue != null ? (
           <div
             className={cn(
-              "w-full truncate text-[9px] font-medium whitespace-nowrap",
+              "w-full truncate text-[10px] font-medium whitespace-nowrap",
               tone.metaClass
             )}
           >
@@ -2995,7 +2995,7 @@ function StackBandSegment({
         ) : showVacantPredictedRow ? (
           <div
             className={cn(
-              "w-full truncate text-[9px] font-medium whitespace-nowrap",
+              "w-full truncate text-[10px] font-medium whitespace-nowrap",
               tone.metaClass
             )}
           >

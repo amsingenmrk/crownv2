@@ -848,16 +848,6 @@ export function AppTopbar() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              aria-label="Import documents"
-            >
-              <FileUp className="size-3.5 shrink-0" aria-hidden />
-              <span className="hidden lg:inline">Import Documents</span>
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -872,10 +862,30 @@ export function AppTopbar() {
               >
                 <MoreVertical className="size-4" aria-hidden />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={6}>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={6}
+                className="min-w-60 w-max max-w-[min(calc(100vw-1.5rem),22rem)]"
+              >
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => {
+                    router.push("/documents")
+                  }}
+                >
+                  <FileUp className="size-4 shrink-0 opacity-80" aria-hidden />
+                  <span className="min-w-0 flex-1">Import Documents</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Move</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-[10rem]">
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <Briefcase
+                      className="size-4 shrink-0 opacity-80"
+                      aria-hidden
+                    />
+                    Change Portfolio
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-64">
                     {BUILT_IN_ASSET_GROUP_IDS.map((gid) => {
                       const label = ASSET_GROUP_SIDEBAR_LABELS[gid]
                       const selected = asset.groupId === gid
@@ -894,7 +904,9 @@ export function AppTopbar() {
                               <Check className="size-4" aria-hidden />
                             ) : null}
                           </span>
-                          <span className="min-w-0 flex-1 truncate">{label}</span>
+                          <span className="min-w-0 flex-1 break-words">
+                            {label}
+                          </span>
                         </DropdownMenuItem>
                       )
                     })}
@@ -921,7 +933,7 @@ export function AppTopbar() {
                                 <Check className="size-4" aria-hidden />
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1 truncate">
+                            <span className="min-w-0 flex-1 break-words">
                               {label}
                             </span>
                           </DropdownMenuItem>
@@ -936,9 +948,7 @@ export function AppTopbar() {
                       }}
                     >
                       <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate">
-                        Create new group
-                      </span>
+                      <span className="min-w-0 flex-1">Create new group</span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
