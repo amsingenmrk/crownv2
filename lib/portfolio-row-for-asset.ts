@@ -12,7 +12,7 @@ const ASSET_STATUS_LABELS = [
   "Redevelopment",
 ] as const
 
-function formatRsfShort(sqft: number): string {
+export function formatRsfShort(sqft: number): string {
   if (sqft >= 1_000_000) {
     const m = sqft / 1_000_000
     const rounded = Math.round(m * 10) / 10

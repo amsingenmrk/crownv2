@@ -7,7 +7,7 @@ import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/components/building-modifications-sidebar"
-import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
+import { HeaderRsfOccupancyCluster } from "@/components/header-rsf-occupancy-cluster"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {
   getAssetGroupOverridesSnapshot,
@@ -29,6 +29,7 @@ import { readIncludedAssetIdsWithV1Migration } from "@/lib/scenario-included-ass
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { scenarioMembershipModeFromPathname } from "@/lib/scenario-membership"
@@ -264,6 +265,25 @@ export function ScenarioPageHeader() {
     () => weightedOccupiedPercentForRows(scenarioRows),
     [scenarioRows]
   )
+
+  const totalRsfSqft = React.useMemo(() => {
+    let t = 0
+    for (const row of scenarioRows) {
+      const fin = financialMetricsForAssetId(row.id)
+      if (fin != null && fin.rsfSqft > 0) t += fin.rsfSqft
+    }
+    return t
+  }, [scenarioRows])
+
+  const stackingSpaceTotal = React.useMemo(() => {
+    let t = 0
+    for (const row of scenarioRows) {
+      const asset = getAssetById(row.id, assetGroupData)
+      t += stackingPlanSpaceCountForAsset(row.id, asset ?? undefined)
+    }
+    return t
+  }, [scenarioRows, assetGroupData])
+
   const basePath = scenarioSlug != null ? `/scenarios/${scenarioSlug}` : "/scenarios"
   const navItems = React.useMemo(
     () => [
@@ -284,9 +304,11 @@ export function ScenarioPageHeader() {
             </div>
           </div>
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">
-            <OccupancySummaryBar
+            <HeaderRsfOccupancyCluster
+              totalRsfSqft={totalRsfSqft}
+              assetCount={scenarioRows.length}
+              spaceCount={stackingSpaceTotal}
               occupiedPercent={occupiedPercent}
-              className="h-full min-h-0"
             />
           </div>
         </div>

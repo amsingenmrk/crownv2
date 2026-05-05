@@ -3,7 +3,7 @@
 import * as React from "react"
 import { LayoutDashboard, LineChart } from "lucide-react"
 import { useParams } from "next/navigation"
-import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
+import { HeaderRsfOccupancyCluster } from "@/components/header-rsf-occupancy-cluster"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {
   getAssetGroupOverridesSnapshot,
@@ -19,6 +19,7 @@ import {
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
 function headerSubtitleForPortfolio({
   portfolioScopeId,
@@ -117,6 +118,24 @@ export function PortfolioPageHeader() {
     [scopedAssets]
   )
 
+  const totalRsfSqft = React.useMemo(() => {
+    let t = 0
+    for (const asset of scopedAssets) {
+      const fin = financialMetricsForAssetId(asset.id)
+      if (fin != null && fin.rsfSqft > 0) t += fin.rsfSqft
+    }
+    return t
+  }, [scopedAssets])
+
+  const stackingSpaceTotal = React.useMemo(() => {
+    let t = 0
+    for (const asset of scopedAssets) {
+      const resolved = getAssetById(asset.id, assetGroupData) ?? asset
+      t += stackingPlanSpaceCountForAsset(asset.id, resolved)
+    }
+    return t
+  }, [scopedAssets, assetGroupData])
+
   const basePath = scopeParam
     ? `/portfolio/scopes/${encodeURIComponent(scopeParam)}`
     : "/portfolio"
@@ -139,9 +158,11 @@ export function PortfolioPageHeader() {
             </div>
           </div>
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">
-            <OccupancySummaryBar
+            <HeaderRsfOccupancyCluster
+              totalRsfSqft={totalRsfSqft}
+              assetCount={scopedAssets.length}
+              spaceCount={stackingSpaceTotal}
               occupiedPercent={occupiedPercent}
-              className="h-full min-h-0"
             />
           </div>
         </div>

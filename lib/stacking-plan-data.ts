@@ -1305,3 +1305,12 @@ export function getSampleStackingPlanData(
     },
   }
 }
+
+/** Stacking-plan spaces: suite rows on every floor (occupied + vacant), summed for one asset. */
+export function stackingPlanSpaceCountForAsset(
+  assetId: string,
+  assetOverride?: Asset
+): number {
+  const data = getSampleStackingPlanData(assetId, assetOverride)
+  return data.floors.reduce((sum, floor) => sum + floor.tenants.length, 0)
+}

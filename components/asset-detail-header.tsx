@@ -7,6 +7,7 @@ import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { cn } from "@/lib/utils"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
+import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
 export const ASSET_TAB_PATHS = [
   { pathSegment: "stacking-plan", label: "Stacking Plan", icon: Layers },
@@ -41,6 +42,10 @@ export function AssetDetailHeader() {
   const keyMetrics = [
     { label: "Sector", value: tableRow.typeLabel },
     { label: "Class", value: tableRow.classLabel },
+    {
+      label: "Spaces",
+      value: String(stackingPlanSpaceCountForAsset(asset.id, asset)),
+    },
     { label: "RSF", value: tableRow.rsf },
   ] as const
 
@@ -55,7 +60,7 @@ export function AssetDetailHeader() {
             </div>
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch justify-start sm:self-stretch sm:items-end">
-            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:grid-cols-[auto_minmax(0,380px)] sm:items-stretch sm:justify-end sm:gap-2">
+            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:grid-cols-[auto_minmax(0,320px)] sm:items-stretch sm:justify-end sm:gap-2">
               <div
                 className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-end gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:max-w-none sm:shrink-0"
                 aria-label="Building key metrics"
