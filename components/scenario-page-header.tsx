@@ -283,8 +283,11 @@ export function ScenarioPageHeader() {
               <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
             </div>
           </div>
-          <div className="flex min-w-0 flex-col items-stretch justify-center sm:items-end">
-            <OccupancySummaryBar occupiedPercent={occupiedPercent} />
+          <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">
+            <OccupancySummaryBar
+              occupiedPercent={occupiedPercent}
+              className="h-full min-h-0"
+            />
           </div>
         </div>
       </div>

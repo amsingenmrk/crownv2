@@ -3,17 +3,10 @@
 import * as React from "react"
 import { useRouter, usePathname, useParams } from "next/navigation"
 import { Layers, Wrench, LineChart } from "lucide-react"
+import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { cn } from "@/lib/utils"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
-
-function formatVacancyPct(occupiedPercent: number): string {
-  const vacant = Math.max(0, Math.min(100, 100 - occupiedPercent))
-  const rounded = Math.round(vacant * 10) / 10
-  return rounded % 1 === 0
-    ? `${Math.round(rounded)}%`
-    : `${rounded.toFixed(1)}%`
-}
 
 export const ASSET_TAB_PATHS = [
   { pathSegment: "stacking-plan", label: "Stacking Plan", icon: Layers },
@@ -46,10 +39,9 @@ export function AssetDetailHeader() {
   const addressLabel = asset.address
 
   const keyMetrics = [
+    { label: "Sector", value: tableRow.typeLabel },
     { label: "Class", value: tableRow.classLabel },
     { label: "RSF", value: tableRow.rsf },
-    { label: "Occupancy", value: tableRow.occPct },
-    { label: "Vacancy", value: formatVacancyPct(asset.occupiedPercent) },
   ] as const
 
   return (
@@ -62,27 +54,30 @@ export function AssetDetailHeader() {
               <p className="text-sm text-muted-foreground truncate">{addressLabel}</p>
             </div>
           </div>
-          <div className="flex min-w-0 flex-col items-stretch justify-center sm:items-end">
-            <div
-              className="flex w-full max-w-full items-stretch justify-end gap-0 overflow-x-auto rounded-xl border border-border bg-muted/30 text-sm shadow-sm"
-              aria-label="Building key metrics"
-            >
-              {keyMetrics.map((k, i) => (
-                <div
-                  key={k.label}
-                  className={cn(
-                    "flex min-w-[9.25rem] flex-1 basis-0 flex-col justify-center px-3 py-2 sm:px-4 sm:py-2.5",
-                    i > 0 && "border-l border-border"
-                  )}
-                >
-                  <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
-                    {k.label}
-                  </span>
-                  <span className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums text-foreground">
-                    {k.value}
-                  </span>
-                </div>
-              ))}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch justify-start sm:self-stretch sm:items-end">
+            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:grid-cols-[auto_minmax(0,380px)] sm:items-stretch sm:justify-end sm:gap-2">
+              <div
+                className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-end gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:max-w-none sm:shrink-0"
+                aria-label="Building key metrics"
+              >
+                {keyMetrics.map((k, i) => (
+                  <div
+                    key={k.label}
+                    className={cn(
+                      "flex min-h-0 max-w-[9.5rem] shrink-0 flex-col justify-center self-stretch px-2 py-0.5 sm:max-w-[10rem] sm:px-2 sm:py-1",
+                      i > 0 && "border-l border-border"
+                    )}
+                  >
+                    <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+                      {k.label}
+                    </span>
+                    <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+                      {k.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <OccupancySummaryBar occupiedPercent={asset.occupiedPercent} />
             </div>
           </div>
         </div>

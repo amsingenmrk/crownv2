@@ -1,32 +1,51 @@
 "use client"
 
 import * as React from "react"
+import { cn } from "@/lib/utils"
 
 export function OccupancySummaryBar({
   occupiedPercent,
+  className,
 }: {
   occupiedPercent: number
+  /** e.g. `h-full` when the bar sits alone in a column (portfolio) — omit beside metrics so flex/grid stretch sets height */
+  className?: string
 }) {
   const clampedOccupiedPercent = Math.max(0, Math.min(100, occupiedPercent))
   const occupiedLabel = Math.round(clampedOccupiedPercent)
   const vacantLabel = Math.max(0, 100 - occupiedLabel)
 
   return (
-    <div className="flex h-full w-[480px] max-w-full items-center gap-0 rounded-full border border-border bg-muted/30 px-2 py-1.5 text-sm">
-      <span className="rounded-full px-3 font-medium whitespace-nowrap text-muted-foreground">
-        {occupiedLabel}% Occupied
-      </span>
-      <div className="mx-2 flex min-w-0 flex-1 items-center">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+    <div
+      className={cn(
+        "mx-auto flex min-h-0 w-[380px] max-w-full shrink-0 items-stretch gap-0 self-stretch rounded-lg border border-border bg-muted/30 px-1 py-0.5 text-xs sm:mx-0 sm:min-h-0 sm:px-2 sm:py-1",
+        className
+      )}
+    >
+      <div className="flex min-h-0 shrink-0 flex-col justify-center px-2 py-0.5 sm:px-2 sm:py-1">
+        <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+          Occupied
+        </span>
+        <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+          {occupiedLabel}%
+        </span>
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center px-1 sm:px-2">
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted sm:h-3">
           <div
             className="h-full rounded-full bg-primary/70 transition-[width] duration-300"
             style={{ width: `${clampedOccupiedPercent}%` }}
           />
         </div>
       </div>
-      <span className="rounded-full px-3 font-medium whitespace-nowrap text-muted-foreground">
-        {vacantLabel}% Vacant
-      </span>
+      <div className="flex min-h-0 shrink-0 flex-col justify-center px-2 py-0.5 sm:px-2 sm:py-1">
+        <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+          Vacant
+        </span>
+        <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+          {vacantLabel}%
+        </span>
+      </div>
     </div>
   )
 }

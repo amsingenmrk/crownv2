@@ -1154,7 +1154,8 @@ export function getSampleStackingPlanData(
   assetId: string,
   assetOverride?: Asset
 ): StackingPlanDataset {
-  const asset = assetOverride ?? getAssetById(assetId)
+  /** Deterministic across SSR and hydration: avoid `getAssetById(id)` reading localStorage group overrides on the client. */
+  const asset = assetOverride ?? getAssetById(assetId, { overrides: {} })
   const floorSeeds = buildFloorSeedsForAsset(assetId, asset)
   const address = asset?.address ?? "Address unavailable"
 
