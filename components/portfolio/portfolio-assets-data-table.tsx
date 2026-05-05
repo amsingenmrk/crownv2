@@ -77,11 +77,17 @@ function mobileModeledFieldsProvenanceLabel(
   return parts.join(" ")
 }
 function gridTemplateForVisibleColumns(
-  table: Table<PortfolioAssetRow>
+  table: Table<PortfolioAssetRow>,
+  variant: PortfolioAssetsTableVariant
 ): string {
   return table
     .getVisibleLeafColumns()
-    .map((c) => PORTFOLIO_ASSETS_COLUMN_GRID_TRACK[c.id] ?? "auto")
+    .map((c) => {
+      if (variant === "scenarios" && c.id === "classLabel") {
+        return "minmax(5.25rem, 6rem)"
+      }
+      return PORTFOLIO_ASSETS_COLUMN_GRID_TRACK[c.id] ?? "auto"
+    })
     .join(" ")
 }
 
@@ -176,7 +182,7 @@ export function PortfolioAssetsDataTable({
 
   const sortedRows = table.getRowModel().rows
 
-  const gridTemplateColumns = gridTemplateForVisibleColumns(table)
+  const gridTemplateColumns = gridTemplateForVisibleColumns(table, variant)
 
   const gridRowStyle = React.useMemo(
     () =>
