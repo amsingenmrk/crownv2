@@ -296,7 +296,8 @@ function buildPortfolioOutlookBreakdownRows({
   }))
 }
 
-const FIRST_COLUMN_WIDTH_PX = 180
+/** Wide enough for full building names (aligns with portfolio snapshot `building` grid track intent). */
+const FIRST_COLUMN_WIDTH_PX = 280
 const SELECTOR_COLUMN_WIDTH_PX = 128
 const PERIOD_COLUMN_WIDTH_PX = 108
 
@@ -446,7 +447,7 @@ export function ScopedForecastsPortfolioTotalsTable({
           <TableRow className="border-b border-border bg-muted/80 hover:bg-muted/80">
             <TableHead
               scope="col"
-              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-4 py-2 text-left text-sm font-medium text-foreground"
+              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-2 py-2 text-left text-sm font-medium text-foreground"
               style={firstColumnStyle}
             >
               Line Item
@@ -468,7 +469,7 @@ export function ScopedForecastsPortfolioTotalsTable({
             <TableRow key={row.id} className={rowClassName(row.original)}>
               <TableCell
                 className={cn(
-                  "sticky left-0 z-10 border-r border-border/60 px-4",
+                  "sticky left-0 z-10 border-r border-border/60 px-2",
                   row.original.rowType === "asset" ? "py-3" : "py-2.5",
                   firstColumnSurfaceClassName(row.original)
                 )}
@@ -811,11 +812,16 @@ function buildFlatScopedForecastTableRows({
   return out
 }
 
+/** Matches expand-row control: `size-4` chevron (16px) + `gap-2` (8px) before label text. */
+const LINE_ITEM_DEPTH_INDENT_PX = 24
+
 function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   const item = row.original
   const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
   const indentationStyle =
-    row.depth === 0 ? undefined : { paddingLeft: `${row.depth * 16}px` }
+    row.depth === 0
+      ? undefined
+      : { paddingLeft: `${row.depth * LINE_ITEM_DEPTH_INDENT_PX}px` }
   const summaryLabelClassName = item.isSummaryRow
     ? "whitespace-normal leading-snug"
     : "truncate"
@@ -828,14 +834,21 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
           <Link
             href={item.href}
             className={cn(
-              "group/asset-link inline-flex min-w-0 max-w-full truncate rounded-sm text-left text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "group/asset-link block min-w-0 max-w-full whitespace-normal break-words rounded-sm text-left text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               firstRowWeight
             )}
           >
             {item.label}
           </Link>
         ) : (
-          <span className={cn("truncate text-foreground", firstRowWeight)}>{item.label}</span>
+          <span
+            className={cn(
+              "block min-w-0 whitespace-normal break-words text-foreground",
+              firstRowWeight
+            )}
+          >
+            {item.label}
+          </span>
         )}
       </div>
     )
@@ -888,19 +901,19 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
 
 function rowClassName(item: ScopedForecastTableRow) {
   if (item.isSummaryRow) {
-    return "group border-b border-border/80 bg-primary/[0.05] hover:bg-primary/[0.06]"
+    return "group border-b border-border bg-background hover:bg-muted/25"
   }
 
   if (item.rowType === "asset") {
-    return "group bg-muted/20 hover:bg-muted/25"
+    return "group border-b border-border bg-muted/20 hover:bg-muted/25"
   }
 
   if (item.rowType === "outlook") {
-    return "group bg-muted/10 hover:bg-muted/15"
+    return "group border-b border-border bg-muted/10 hover:bg-muted/15"
   }
 
   return cn(
-    "group",
+    "group border-b border-border",
     "hover:bg-transparent",
     item.startsSection && "border-t border-border/80"
   )
@@ -912,7 +925,7 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
   }
 
   if (item.isSummaryRow) {
-    return "bg-primary/[0.05] group-hover:bg-primary/[0.06]"
+    return "bg-background group-hover:bg-muted/25"
   }
 
   if (item.rowType === "asset") {
@@ -933,7 +946,7 @@ function selectorColumnsSurfaceClassName(item?: ScopedForecastTableRow) {
   }
 
   if (item.isSummaryRow) {
-    return "bg-primary/[0.05] group-hover:bg-primary/[0.06]"
+    return "bg-background group-hover:bg-muted/25"
   }
 
   if (item.rowType === "asset") {
@@ -1346,15 +1359,15 @@ export function ScopedForecastsTable({
                     className={cn(
                       "h-auto min-w-0 bg-muted py-2 align-middle text-sm font-medium text-foreground",
                       isLineItemColumn &&
-                        "sticky left-0 z-20 border-r border-border/60 px-4 text-left",
+                        "sticky left-0 z-20 border-r border-border/60 px-2 text-left",
                       isModificationsColumn &&
-                        "sticky z-[19] border-r border-border/60 px-2 text-left",
+                        "sticky z-[19] px-2 text-left",
                       isOutlookColumn &&
-                        "sticky z-[18] border-r border-border/60 px-2 text-left",
+                        "sticky z-[18] px-2 text-left",
                       !isLineItemColumn &&
                         !isModificationsColumn &&
                         !isOutlookColumn &&
-                        "px-3 text-right"
+                        "px-2 text-right"
                     )}
                     style={
                       isLineItemColumn
@@ -1392,20 +1405,19 @@ export function ScopedForecastsTable({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      isLineItemColumn && "sticky left-0 z-10 border-r border-border/60 px-4",
-                      isModificationsColumn &&
-                        "sticky z-[9] border-r border-border/60 px-2 py-1.5",
-                      isOutlookColumn && "sticky z-[8] border-r border-border/60 px-2 py-1.5",
+                      isLineItemColumn && "sticky left-0 z-10 border-r border-border/60 px-2",
+                      isModificationsColumn && "sticky z-[9] px-2 py-2",
+                      isOutlookColumn && "sticky z-[8] px-2 py-2",
                       !isLineItemColumn &&
                         !isModificationsColumn &&
                         !isOutlookColumn &&
-                        "px-3",
+                        "px-2",
                       row.original.rowType === "asset" &&
                         !isModificationsColumn &&
                         !isOutlookColumn
-                        ? "py-3"
+                        ? "py-2"
                         : !isModificationsColumn && !isOutlookColumn
-                          ? "py-2.5"
+                          ? "py-2"
                           : undefined,
                       isLineItemColumn && firstColumnSurfaceClassName(row.original),
                       (isModificationsColumn || isOutlookColumn) &&

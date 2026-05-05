@@ -3,7 +3,7 @@
 import { type ReactNode, useState } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Trash2, Wrench } from "lucide-react"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -588,7 +588,13 @@ export function createPortfolioAssetColumns(
     columns.splice(2, 0, {
       id: "modifications",
       enableHiding: false,
-      header: "Modifications",
+      meta: { columnLabel: "Modifications" },
+      header: () => (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <Wrench className="size-3.5 shrink-0 opacity-80" aria-hidden />
+          Modifications
+        </span>
+      ),
       cell: ({ row }) =>
         isMarketListingRowId(row.original.id) ? (
           <span className="text-xs text-muted-foreground">—</span>

@@ -18,7 +18,7 @@ export function OccupancySummaryBar({
   return (
     <div
       className={cn(
-        "mx-auto flex min-h-0 w-[320px] max-w-full shrink-0 items-stretch gap-0 self-stretch rounded-lg border border-border bg-muted/30 px-1 py-0.5 text-xs sm:mx-0 sm:min-h-0 sm:px-2 sm:py-1",
+        "mx-auto flex h-full min-h-0 w-full max-w-full shrink-0 items-stretch gap-0 self-stretch rounded-lg border border-border bg-muted/30 px-1 py-0.5 text-xs sm:mx-0 sm:min-h-0 sm:max-w-[min(100%,22rem)] sm:px-2 sm:py-1",
         className
       )}
     >

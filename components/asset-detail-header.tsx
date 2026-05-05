@@ -82,7 +82,10 @@ export function AssetDetailHeader() {
                   </div>
                 ))}
               </div>
-              <OccupancySummaryBar occupiedPercent={asset.occupiedPercent} />
+              <OccupancySummaryBar
+                occupiedPercent={asset.occupiedPercent}
+                className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
+              />
             </div>
           </div>
         </div>

@@ -796,7 +796,7 @@ export function ScopedForecastsWorkspace({
     if (scope.kind !== "scenario") return undefined
 
     const activeMetricLabel = activeModel.statementRows.find((row) => row.id === altMetricTab)?.label
-    return activeMetricLabel == null ? undefined : `Scenario Total: ${activeMetricLabel}`
+    return activeMetricLabel == null ? undefined : `Total ${activeMetricLabel}`
   }, [activeModel.statementRows, altMetricTab, scope.kind])
   const altProjectionChartMeta = React.useMemo(
     () => getForecastStatementChartMeta(altProjectionMetricTab),
