@@ -18,7 +18,7 @@ import {
   type ModificationSetRecord,
 } from "@/components/building-modifications-sidebar"
 import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel, INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -280,9 +280,7 @@ function AssumptionField({
 }) {
   return (
     <label className="min-w-0 space-y-0.5">
-      <div className="truncate text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </div>
+      <div className={cn("truncate", INPUT_LABEL_TEXT_CLASS)}>{label}</div>
       <div className="relative">
         <Input
           type="number"

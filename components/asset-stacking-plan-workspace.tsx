@@ -28,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -1859,7 +1860,7 @@ export function AssetStackingPlanWorkspace({
             />
           </div>
         ) : (
-          <div className="bg-background">
+          <div className="bg-background py-3 sm:py-4">
             <div className="mx-auto w-full max-w-[800px]">
               {displayedFloors.map((floor) => (
                 <SimplifiedFloorRow
@@ -1909,11 +1910,11 @@ export function AssetStackingPlanWorkspace({
             >
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-4">
-                <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                <p className="text-sm font-semibold leading-none text-muted-foreground">
                   Space 1
                 </p>
                 <label className="block space-y-1.5">
-                  <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                  <span className={INPUT_LABEL_TEXT_CLASS}>
                     Suite
                   </span>
                   <Input
@@ -1929,7 +1930,7 @@ export function AssetStackingPlanWorkspace({
                   />
                 </label>
                 <label className="block space-y-1.5">
-                  <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                  <span className={INPUT_LABEL_TEXT_CLASS}>
                     SF
                   </span>
                   <Input
@@ -1969,11 +1970,11 @@ export function AssetStackingPlanWorkspace({
               </div>
 
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-4">
-                <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                <p className="text-sm font-semibold leading-none text-muted-foreground">
                   Space 2
                 </p>
                 <label className="block space-y-1.5">
-                  <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                  <span className={INPUT_LABEL_TEXT_CLASS}>
                     Suite
                   </span>
                   <Input
@@ -1989,7 +1990,7 @@ export function AssetStackingPlanWorkspace({
                   />
                 </label>
                 <label className="block space-y-1.5">
-                  <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+                  <span className={INPUT_LABEL_TEXT_CLASS}>
                     SF
                   </span>
                   <Input
@@ -2133,9 +2134,7 @@ function DetailedColumnHeaders({
         </button>
       </div>
       <div className="flex flex-1 items-center justify-center gap-[10px] px-3 py-3">
-        <div className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-          Stack
-        </div>
+        <div className={INPUT_LABEL_TEXT_CLASS}>Stack</div>
       </div>
     </div>
   )
@@ -2468,7 +2467,7 @@ function DetailedStackingMatrix({
   return (
     <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
       <StackFirstHeaderRow headerControls={headerControls} />
-      <div className="bg-background">
+      <div className="bg-background py-3 sm:py-4">
         {floors.map((floor) => (
           <StackFirstRow
             key={floor.floor}
@@ -3079,7 +3078,7 @@ function CompactTenantEditor({
       >
         {!tenant.isVacant ? (
           <label className="space-y-1.5">
-            <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+            <span className={INPUT_LABEL_TEXT_CLASS}>
               Tenant
             </span>
             <Input
@@ -3091,7 +3090,7 @@ function CompactTenantEditor({
         ) : null}
 
         <label className="space-y-1.5">
-          <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+          <span className={INPUT_LABEL_TEXT_CLASS}>
             Suite
           </span>
           <Input
@@ -3102,7 +3101,7 @@ function CompactTenantEditor({
         </label>
 
         <label className="space-y-1.5">
-          <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+          <span className={INPUT_LABEL_TEXT_CLASS}>
             SF
           </span>
           <Input
@@ -3116,7 +3115,7 @@ function CompactTenantEditor({
         </label>
 
         <label className="space-y-1.5">
-          <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+          <span className={INPUT_LABEL_TEXT_CLASS}>
             Buildout
           </span>
           <Select
@@ -3146,7 +3145,7 @@ function CompactTenantEditor({
 
         {tenant.isVacant ? (
           <label className="space-y-1.5">
-            <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+            <span className={INPUT_LABEL_TEXT_CLASS}>
               Availability
             </span>
             <Input
@@ -3160,7 +3159,7 @@ function CompactTenantEditor({
         ) : (
           <>
             <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+              <span className={INPUT_LABEL_TEXT_CLASS}>
                 Lease Type
               </span>
               <Input
@@ -3173,7 +3172,7 @@ function CompactTenantEditor({
             </label>
 
             <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+              <span className={INPUT_LABEL_TEXT_CLASS}>
                 Commencement
               </span>
               <Input
@@ -3186,7 +3185,7 @@ function CompactTenantEditor({
             </label>
 
             <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+              <span className={INPUT_LABEL_TEXT_CLASS}>
                 Expiration
               </span>
               <Input
@@ -3199,7 +3198,7 @@ function CompactTenantEditor({
             </label>
 
             <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+              <span className={INPUT_LABEL_TEXT_CLASS}>
                 Contract Rate
               </span>
               <Input
@@ -3217,7 +3216,7 @@ function CompactTenantEditor({
         )}
 
         <label className="space-y-1.5">
-          <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+          <span className={INPUT_LABEL_TEXT_CLASS}>
             Time to Lease
           </span>
           <Input
@@ -3235,7 +3234,7 @@ function CompactTenantEditor({
 
         {!tenant.isVacant ? (
           <label className="space-y-1.5">
-            <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
+            <span className={INPUT_LABEL_TEXT_CLASS}>
               Renewal Probability
             </span>
             <Input

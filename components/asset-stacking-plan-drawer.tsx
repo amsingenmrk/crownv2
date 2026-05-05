@@ -15,10 +15,12 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import {
   formatLongDate,
   type StackingPlanTenant,
 } from "@/lib/stacking-plan-data"
+import { cn } from "@/lib/utils"
 
 type AssetStackingPlanDrawerProps = {
   open: boolean
@@ -207,9 +209,7 @@ function MetricGrid({
           key={item.label}
           className="rounded-lg border border-border bg-card px-4 py-3"
         >
-          <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-            {item.label}
-          </div>
+          <div className={INPUT_LABEL_TEXT_CLASS}>{item.label}</div>
           <div className="mt-1 text-base font-semibold tracking-tight text-foreground tabular-nums">
             {item.value}
           </div>
@@ -304,7 +304,7 @@ function SummaryCell({
         withTopBorder ? "border-t border-border" : ""
       }`}
     >
-      <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+      <div className={cn("flex items-center gap-2", INPUT_LABEL_TEXT_CLASS)}>
         <Icon className="h-3.5 w-3.5" />
         <span>{label}</span>
       </div>

@@ -4,6 +4,7 @@ import * as React from "react"
 import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -52,9 +53,7 @@ export function ScopedForecastSelectorPanel({
       <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Building Selections
-            </p>
+            <p className={INPUT_LABEL_TEXT_CLASS}>Building selections</p>
             <p className="text-xs text-muted-foreground">
               {assetSelections.length} building{assetSelections.length === 1 ? "" : "s"} in scope
             </p>
@@ -79,8 +78,8 @@ export function ScopedForecastSelectorPanel({
 
                 <div className="grid gap-3">
                   <label className="space-y-1">
-                    <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                      Saved Modification Set
+                    <span className={INPUT_LABEL_TEXT_CLASS}>
+                      Saved modification set
                     </span>
                     <Select
                       items={modificationItemsRecord(selection.buildingVersionOptions)}
@@ -108,9 +107,7 @@ export function ScopedForecastSelectorPanel({
                   </label>
 
                   <label className="space-y-1">
-                    <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-                      Outlook
-                    </span>
+                    <span className={INPUT_LABEL_TEXT_CLASS}>Outlook</span>
                     <Select
                       items={outlookSetItemsRecord(selection.outlookSetOptions)}
                       value={selection.selectedOutlookSetId}
@@ -147,9 +144,7 @@ export function ScopedForecastSelectorPanel({
       </section>
 
       <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          Leasing Assumptions
-        </p>
+        <p className={INPUT_LABEL_TEXT_CLASS}>Leasing assumptions</p>
         <div className="grid gap-3">
           {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
             <ScopedForecastLeasingAssumptionField

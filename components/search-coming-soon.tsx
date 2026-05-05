@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
@@ -307,9 +308,7 @@ function SearchListingPreviewCard({
         >
           {SEARCH_CARD_PORTFOLIO_METRICS.map(({ label, get }) => (
             <div key={label} className="min-w-0">
-              <dt className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {label}
-              </dt>
+              <dt className={cn("truncate", INPUT_LABEL_TEXT_CLASS)}>{label}</dt>
               <dd className="truncate text-xs font-medium tabular-nums text-foreground">
                 {get(portfolioRow)}
               </dd>

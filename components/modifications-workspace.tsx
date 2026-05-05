@@ -27,6 +27,7 @@ import {
   metricStripSectionClassName,
 } from "@/components/metric-strip"
 import { Button } from "@/components/ui/button"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -460,7 +461,7 @@ function ImpactFilters({
         {isExpanded ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <label className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
+              <span className={INPUT_LABEL_TEXT_CLASS}>
                 Tenant or suite
               </span>
               <div className="relative">
@@ -636,9 +637,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1.5">
-      <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
-        {label}
-      </span>
+      <span className={INPUT_LABEL_TEXT_CLASS}>{label}</span>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="w-full">
           <SelectValue />

@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useScopedForecastState } from "@/hooks/use-scoped-forecast-state"
@@ -57,6 +58,7 @@ import {
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
 import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
+import { cn } from "@/lib/utils"
 
 function sumSeries(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0)
@@ -187,9 +189,7 @@ function AssetForecastSidebarNumberField({
 }) {
   return (
     <label className="min-w-0 space-y-0.5">
-      <div className="truncate text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </div>
+      <div className={cn("truncate", INPUT_LABEL_TEXT_CLASS)}>{label}</div>
       <div className="relative">
         <Input
           type="number"
@@ -332,7 +332,12 @@ function PortfolioForecastControlCenter({
       <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
         <h3 className="text-sm font-semibold text-foreground">Outlook Probabilities</h3>
         <div className="px-0.5 pt-1">
-          <div className="mb-2 grid grid-cols-3 gap-1 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+          <div
+            className={cn(
+              "mb-2 grid grid-cols-3 gap-1",
+              INPUT_LABEL_TEXT_CLASS
+            )}
+          >
             <span className="text-left">Pessimistic</span>
             <span className="text-center">Baseline</span>
             <span className="text-right">Optimistic</span>

@@ -54,6 +54,10 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Text for `<label>` children above inputs/selects when not using `FieldLabel`. */
+export const INPUT_LABEL_TEXT_CLASS =
+  "text-sm font-medium leading-none text-muted-foreground"
+
 function FieldLabel({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label

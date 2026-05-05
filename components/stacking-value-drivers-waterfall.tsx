@@ -11,6 +11,7 @@ import type {
   StackingFloorValueDrivers,
   StackingValueDriverFactor,
 } from "@/lib/stacking-plan-data"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { cn } from "@/lib/utils"
 
 const HighchartsNamespace = HighchartsCore as unknown as typeof Highcharts
@@ -235,9 +236,7 @@ function SummaryMetric({
 }) {
   return (
     <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground/75 uppercase">
-        {label}
-      </span>
+      <span className={INPUT_LABEL_TEXT_CLASS}>{label}</span>
       <span
         className={cn(
           "text-[13px] font-semibold text-foreground tabular-nums",
@@ -581,9 +580,7 @@ export function StackingValueDriversWaterfall({
             aria-expanded={otherFactorsOpen}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase">
-                Other Factors
-              </span>
+              <span className={INPUT_LABEL_TEXT_CLASS}>Other factors</span>
               <span className="text-sm font-medium text-foreground">
                 {otherFactors.length} hidden drivers
               </span>
