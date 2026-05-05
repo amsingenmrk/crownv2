@@ -1,4 +1,4 @@
-import type { ModValues } from "@/components/building-modifications-sidebar"
+import type { ModValues } from "@/lib/building-modifications"
 
 const MOD_KEYS: (keyof ModValues)[] = [
   "gym",

@@ -23,7 +23,6 @@ export default async function PortfolioScopeForecastsPage({
   return (
     <ScopedForecastsWorkspace
       scope={{ kind: "portfolio", portfolioScopeId: resolvedScopeId }}
-      layout="alt"
     />
   )
 }

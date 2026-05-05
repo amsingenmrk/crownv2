@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   parseStoredSets,
   storageKeyForAsset,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import { HeaderRsfOccupancyCluster } from "@/components/header-rsf-occupancy-cluster"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {

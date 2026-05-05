@@ -1,7 +1,7 @@
 import {
   parseStoredSets,
   storageKeyForAsset,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"

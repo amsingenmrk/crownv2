@@ -10,7 +10,6 @@ export default async function ScenarioForecastsPage({
   return (
     <ScopedForecastsWorkspace
       scope={{ kind: "scenario", scenarioSlug: slug }}
-      layout="alt"
     />
   )
 }

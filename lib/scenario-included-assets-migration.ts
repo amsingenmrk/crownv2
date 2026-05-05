@@ -2,7 +2,7 @@ import { ASSETS } from "@/lib/assets"
 import {
   parseStoredSets,
   storageKeyForAsset,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import {
   EXCLUDED_PREFIX,
   parseScenarioExcludedAssetIds,

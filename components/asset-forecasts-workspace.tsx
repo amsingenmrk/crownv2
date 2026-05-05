@@ -12,11 +12,11 @@ import {
 } from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
 import {
-  INITIAL_MOD_VALUES,
   parseStoredSets,
   storageKeyForAsset,
   type ModificationSetRecord,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
+import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel, INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import {

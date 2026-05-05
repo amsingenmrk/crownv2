@@ -10,11 +10,8 @@ import {
 } from "lucide-react"
 import { useParams, useSearchParams } from "next/navigation"
 
-import {
-  BuildingModificationsSidebar,
-  INITIAL_MOD_VALUES,
-  type ModValues,
-} from "@/components/building-modifications-sidebar"
+import { BuildingModificationsSidebar } from "@/components/building-modifications-sidebar"
+import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import {
   AssetStackingPlanWorkspace,
   type SimplifiedTenantVisualOverride,

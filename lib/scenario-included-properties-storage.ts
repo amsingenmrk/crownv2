@@ -1,3 +1,4 @@
+import { readJsonArrayFromLocalStorage, persistJsonToLocalStorage } from "@/lib/local-storage-json"
 import { scenarioPathFromSlug } from "@/lib/scenario-membership"
 
 export const SCENARIO_PROPERTIES_STORAGE_PREFIX =
@@ -29,16 +30,10 @@ function isTrackedProperty(v: unknown): v is ScenarioTrackedProperty {
 }
 
 export function readScenarioIncludedProperties(pathname: string): ScenarioTrackedProperty[] {
-  if (typeof localStorage === "undefined") return []
-  try {
-    const raw = localStorage.getItem(scenarioPropertiesStorageKey(pathname))
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(isTrackedProperty)
-  } catch {
-    return []
-  }
+  return readJsonArrayFromLocalStorage(
+    scenarioPropertiesStorageKey(pathname),
+    isTrackedProperty
+  )
 }
 
 export function readScenarioIncludedPropertiesBySlug(
@@ -51,20 +46,18 @@ export function persistScenarioIncludedProperties(
   pathname: string,
   items: ScenarioTrackedProperty[]
 ): void {
-  if (typeof localStorage === "undefined") return
   const key = scenarioPropertiesStorageKey(pathname)
-  try {
-    if (items.length === 0) localStorage.removeItem(key)
-    else localStorage.setItem(key, JSON.stringify(items))
-    window.dispatchEvent(
-      new CustomEvent<ScenarioIncludedPropertiesChangedDetail>(
-        SCENARIO_INCLUDED_PROPERTIES_CHANGED_EVENT,
-        { detail: { pathname } }
+  persistJsonToLocalStorage(
+    key,
+    items.length === 0 ? null : items,
+    () =>
+      window.dispatchEvent(
+        new CustomEvent<ScenarioIncludedPropertiesChangedDetail>(
+          SCENARIO_INCLUDED_PROPERTIES_CHANGED_EVENT,
+          { detail: { pathname } }
+        )
       )
-    )
-  } catch {
-    /* quota */
-  }
+  )
 }
 
 export function addScenarioIncludedProperty(

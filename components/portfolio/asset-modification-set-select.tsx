@@ -5,7 +5,7 @@ import {
   parseStoredSets,
   storageKeyForAsset,
   type ModificationSetRecord,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import {
   Select,
   SelectContent,

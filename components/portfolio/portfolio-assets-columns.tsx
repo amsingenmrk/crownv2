@@ -7,7 +7,7 @@ import { ArrowDown, ArrowUp, Trash2, Wrench } from "lucide-react"
 import {
   parseStoredSets,
   storageKeyForAsset,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"

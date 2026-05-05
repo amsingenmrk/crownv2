@@ -1,8 +1,5 @@
 import { getAssetById } from "@/lib/assets"
-import {
-  INITIAL_MOD_VALUES,
-  type ModValues,
-} from "@/components/building-modifications-sidebar"
+import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import {

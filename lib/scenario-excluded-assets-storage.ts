@@ -1,3 +1,5 @@
+import { persistJsonToLocalStorage } from "@/lib/local-storage-json"
+
 /** localStorage key prefix; full key is `${EXCLUDED_PREFIX}${pathname}` (e.g. `/scenarios/my-slug`). */
 export const EXCLUDED_PREFIX = "glassbox:scenario-excluded-assets:" as const
 
@@ -30,13 +32,7 @@ export function persistScenarioExcludedAssetIds(
   key: string,
   ids: Set<string>
 ): void {
-  if (typeof localStorage === "undefined") return
-  try {
-    if (ids.size === 0) localStorage.removeItem(key)
-    else localStorage.setItem(key, JSON.stringify([...ids]))
-  } catch {
-    /* quota / private mode */
-  }
+  persistJsonToLocalStorage(key, ids.size === 0 ? null : [...ids])
 }
 
 /** Removes assets from this scenario’s exclusion list so they can appear in that scenario. */

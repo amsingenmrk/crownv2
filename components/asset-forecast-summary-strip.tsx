@@ -8,20 +8,10 @@ import {
   metricStripSectionClassName,
 } from "@/components/metric-strip"
 import { ScenarioMetricInlinePair } from "@/components/portfolio/scenario-comparative-kpis"
+import type { ForecastSummaryKpi } from "@/lib/forecast-summary-kpi"
 import { cn } from "@/lib/utils"
 
-export type ForecastSummaryKpi = {
-  label: string
-  value: string
-  valueSuffix?: string
-  /** Optional: render base → scenario + delta line (scenario overview treatment). */
-  baseFormatted?: string
-  scenarioFormatted?: string
-  showScenario?: boolean
-  deltaLine?: string
-  pctLine?: string
-  deltaDirection?: "up" | "down" | "neutral"
-}
+export type { ForecastSummaryKpi } from "@/lib/forecast-summary-kpi"
 
 export function AssetForecastSummaryStrip({
   items,

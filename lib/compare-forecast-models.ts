@@ -1,4 +1,4 @@
-import { INITIAL_MOD_VALUES } from "@/components/building-modifications-sidebar"
+import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
 import { ASSETS } from "@/lib/assets"
 import {
   buildAssetForecastModel,

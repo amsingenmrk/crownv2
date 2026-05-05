@@ -6,7 +6,7 @@ const SEED_VERSION = "1" as const
 
 const MOD_SETS_PREFIX = "glassbox:modification-sets:" as const
 
-/** Matches `ModValues` in `building-modifications-sidebar` (valid option ids). */
+/** Matches `ModValues` in `lib/building-modifications` (valid option ids). */
 const DEMO_PLANNING_VALUES = {
   gym: "yoga-pilates",
   bar: "traditional-pubs",

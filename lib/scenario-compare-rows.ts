@@ -1,7 +1,7 @@
 import {
   parseStoredSets,
   storageKeyForAsset,
-} from "@/components/building-modifications-sidebar"
+} from "@/lib/building-modification-sets-storage"
 import {
   ASSETS,
   getAssetById,
