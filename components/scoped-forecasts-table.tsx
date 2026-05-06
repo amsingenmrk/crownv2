@@ -326,6 +326,111 @@ const periodColumnStyle: React.CSSProperties = {
 const selectedScopedForecastSelectorTriggerClassName =
   "border-violet-500/45 bg-violet-500/[0.09] font-medium text-violet-800 shadow-sm hover:bg-violet-500/[0.12] hover:border-violet-500/55 focus-visible:border-violet-500 focus-visible:ring-violet-500/25 dark:border-violet-400/40 dark:bg-violet-500/[0.14] dark:text-violet-200 dark:hover:bg-violet-500/20 dark:hover:border-violet-400/55 dark:focus-visible:border-violet-400 dark:focus-visible:ring-violet-400/30 [&_svg]:text-violet-600 dark:[&_svg]:text-violet-400"
 
+function collectPortfolioTotalsRowIdToRootId(
+  roots: ScopedForecastTableRow[]
+): Map<string, string> {
+  const map = new Map<string, string>()
+  const visit = (nodes: ScopedForecastTableRow[], rootId: string) => {
+    for (const node of nodes) {
+      map.set(node.id, rootId)
+      if (node.subRows?.length) visit(node.subRows, rootId)
+    }
+  }
+  for (const root of roots) {
+    map.set(root.id, root.id)
+    if (root.subRows?.length) visit(root.subRows, root.id)
+  }
+  return map
+}
+
+function resolvePortfolioTotalsRootRowIdForMetric(
+  metricFocus: ForecastChartTab,
+  roots: ScopedForecastTableRow[]
+): string | null {
+  const portfolioPrefixed = `portfolio-total-${metricFocus}`
+  if (roots.some((r) => r.id === portfolioPrefixed)) return portfolioPrefixed
+  if (roots.some((r) => r.id === metricFocus)) return metricFocus
+  return null
+}
+
+function forecastChartTabFromRootRowId(rootId: string): ForecastChartTab | null {
+  if (rootId.startsWith("portfolio-total-")) {
+    const suffix = rootId.slice("portfolio-total-".length)
+    if ((PORTFOLIO_SUMMARY_ROW_IDS as readonly string[]).includes(suffix)) {
+      return suffix as ForecastChartTab
+    }
+  }
+  if ((PORTFOLIO_SUMMARY_ROW_IDS as readonly string[]).includes(rootId)) {
+    return rootId as ForecastChartTab
+  }
+  return null
+}
+
+function forecastChartTabFromExpandedRecord(
+  expanded: Record<string, boolean>,
+  rowIdToRootId: Map<string, string>
+): ForecastChartTab | null {
+  for (const [rowId, open] of Object.entries(expanded)) {
+    if (!open) continue
+    const rootId = rowIdToRootId.get(rowId) ?? rowId
+    const tab = forecastChartTabFromRootRowId(rootId)
+    if (tab != null) return tab
+  }
+  return null
+}
+
+function expandedStateToRecord(state: ExpandedState): Record<string, boolean> {
+  if (state === true) return {}
+  return { ...(state ?? {}) }
+}
+
+function applyExpandedUpdater(
+  updater: ExpandedState | ((old: ExpandedState) => ExpandedState),
+  old: ExpandedState
+): ExpandedState {
+  return typeof updater === "function" ? updater(old) : updater
+}
+
+/** At most one top-level line item expanded; nested rows stay under that root. */
+function collapseExpandedToSingleRoot(
+  next: Record<string, boolean>,
+  prev: Record<string, boolean>,
+  rowIdToRootId: Map<string, string>
+): Record<string, boolean> {
+  const rootsWithOpenRows = new Set<string>()
+  for (const [rowId, open] of Object.entries(next)) {
+    if (!open) continue
+    const root = rowIdToRootId.get(rowId)
+    if (root != null) rootsWithOpenRows.add(root)
+  }
+  if (rootsWithOpenRows.size <= 1) return next
+
+  const newlyOpenRowIds: string[] = []
+  for (const [rowId, open] of Object.entries(next)) {
+    if (open && !prev[rowId]) newlyOpenRowIds.push(rowId)
+  }
+  let winnerRoot: string | undefined
+  for (let i = newlyOpenRowIds.length - 1; i >= 0; i -= 1) {
+    const id = newlyOpenRowIds[i]
+    if (id == null) continue
+    const root = rowIdToRootId.get(id)
+    if (root != null) {
+      winnerRoot = root
+      break
+    }
+  }
+  if (winnerRoot == null) {
+    winnerRoot = [...rootsWithOpenRows][rootsWithOpenRows.size - 1]
+  }
+
+  const out: Record<string, boolean> = {}
+  for (const [rowId, open] of Object.entries(next)) {
+    if (!open) continue
+    if (rowIdToRootId.get(rowId) === winnerRoot) out[rowId] = true
+  }
+  return out
+}
+
 /** Portfolio-level quarterly roll-up; can be rendered below the statement table or elsewhere (e.g. under the chart). */
 export function ScopedForecastsPortfolioTotalsTable({
   periods,
@@ -334,6 +439,8 @@ export function ScopedForecastsPortfolioTotalsTable({
   outlookModels,
   metricFocus,
   periodGranularity = "quarterly",
+  singleRootExpansion = false,
+  onExpandedRootMetricChange,
 }: {
   periods: ForecastPeriod[]
   rows: ForecastStatementRow[]
@@ -341,32 +448,14 @@ export function ScopedForecastsPortfolioTotalsTable({
   outlookModels?: readonly ScopedForecastPortfolioOutlookModel[]
   metricFocus?: ForecastChartTab
   periodGranularity?: ForecastStatementPeriodGranularity
+  /** When true, expanding one statement line collapses other top-level sections (accordion). */
+  singleRootExpansion?: boolean
+  /** When expansion implies a different chart metric than `metricFocus`, e.g. user opened another line. */
+  onExpandedRootMetricChange?: (tab: ForecastChartTab) => void
 }) {
   const hasOutlookBreakdown =
     outlookModels != null && outlookModels.length > 0
   const [expanded, setExpanded] = React.useState<ExpandedState>({})
-
-  React.useEffect(() => {
-    if (metricFocus == null) return
-    setExpanded((current) => ({
-      ...(current === true ? {} : current),
-      [metricFocus]: true,
-    }))
-  }, [metricFocus])
-
-  const displayPeriods = React.useMemo((): ForecastPeriod[] => {
-    if (periodGranularity === "quarterly") return periods
-    const anchor = periods[0]
-    return [
-      {
-        index: 0,
-        label: "2 Year Total",
-        quarter: anchor?.quarter ?? 0,
-        year: anchor?.year ?? 0,
-        startDate: anchor?.startDate ?? "",
-      },
-    ]
-  }, [periodGranularity, periods])
 
   const tableRows = React.useMemo(() => {
     if (hasOutlookBreakdown) {
@@ -384,10 +473,77 @@ export function ScopedForecastsPortfolioTotalsTable({
       ? nestedRows
       : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
   }, [assetModels, hasOutlookBreakdown, outlookModels, periodGranularity, rows])
+
+  const rowIdToRootId = React.useMemo(
+    () => collectPortfolioTotalsRowIdToRootId(tableRows),
+    [tableRows]
+  )
+
+  React.useEffect(() => {
+    if (metricFocus == null) return
+    const rootRowId = resolvePortfolioTotalsRootRowIdForMetric(metricFocus, tableRows)
+    if (rootRowId == null) return
+    if (singleRootExpansion) {
+      setExpanded({ [rootRowId]: true })
+      return
+    }
+    setExpanded((current) => ({
+      ...expandedStateToRecord(current),
+      [rootRowId]: true,
+    }))
+  }, [metricFocus, singleRootExpansion, tableRows])
+
+  React.useEffect(() => {
+    if (!singleRootExpansion || onExpandedRootMetricChange == null) return
+    const tab = forecastChartTabFromExpandedRecord(
+      expandedStateToRecord(expanded),
+      rowIdToRootId
+    )
+    if (tab == null || tab === metricFocus) return
+    onExpandedRootMetricChange(tab)
+  }, [
+    expanded,
+    metricFocus,
+    onExpandedRootMetricChange,
+    rowIdToRootId,
+    singleRootExpansion,
+  ])
+
+  const displayPeriods = React.useMemo((): ForecastPeriod[] => {
+    if (periodGranularity === "quarterly") return periods
+    const anchor = periods[0]
+    return [
+      {
+        index: 0,
+        label: "2 Year Total",
+        quarter: anchor?.quarter ?? 0,
+        year: anchor?.year ?? 0,
+        startDate: anchor?.startDate ?? "",
+      },
+    ]
+  }, [periodGranularity, periods])
+
   const hasExpandableRows = React.useMemo(
     () => tableRows.some((row) => (row.subRows?.length ?? 0) > 0),
     [tableRows]
   )
+
+  const handleExpandedChange = React.useMemo(() => {
+    if (!hasExpandableRows) return undefined
+    if (!singleRootExpansion) return setExpanded
+    return (updater: ExpandedState | ((old: ExpandedState) => ExpandedState)) => {
+      setExpanded((old) => {
+        const prev = expandedStateToRecord(old)
+        const next = applyExpandedUpdater(updater, old)
+        if (next === true) return true
+        return collapseExpandedToSingleRoot(
+          next as Record<string, boolean>,
+          prev,
+          rowIdToRootId
+        )
+      })
+    }
+  }, [hasExpandableRows, rowIdToRootId, singleRootExpansion])
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
     () => [
@@ -427,7 +583,7 @@ export function ScopedForecastsPortfolioTotalsTable({
     data: tableRows,
     columns,
     state: hasExpandableRows ? { expanded } : {},
-    onExpandedChange: hasExpandableRows ? setExpanded : undefined,
+    onExpandedChange: handleExpandedChange,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getSubRows: hasExpandableRows

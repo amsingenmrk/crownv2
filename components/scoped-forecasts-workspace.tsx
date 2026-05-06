@@ -506,6 +506,24 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     [projectionMetricTab]
   )
 
+  const handleProjectionMetricTabChange = React.useCallback(
+    (tab: ForecastChartTab) => {
+      setProjectionMetricTab(tab)
+      if (scope.kind === "scenario") {
+        setMetricTab(tab)
+      }
+    },
+    [scope.kind]
+  )
+
+  const handlePortfolioTotalsExpansionMetricChange = React.useCallback(
+    (tab: ForecastChartTab) => {
+      setMetricTab(tab)
+      setProjectionMetricTab(tab)
+    },
+    []
+  )
+
   if (isPortfolioScope && rollup.portfolioOverview != null) {
       return (
         <TooltipProvider delay={120}>
@@ -574,9 +592,35 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
       <section
         className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+        aria-label={`${scopeLabel} ${projectionChartMeta.title}`}
+      >
+        <div className="border-b border-border/60 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              {projectionChartMeta.title}
+            </h2>
+            <AssetForecastChartMetricToggleGroup
+              models={forecastChartModels}
+              metricTab={projectionMetricTab}
+              onMetricTabChange={handleProjectionMetricTabChange}
+              aria-label="Forecast metric for projection chart"
+              className="shrink-0"
+            />
+          </div>
+        </div>
+        <AssetForecastCharts
+          models={forecastChartModels}
+          metricTab={projectionMetricTab}
+          onMetricTabChange={handleProjectionMetricTabChange}
+          embedded
+        />
+      </section>
+
+      <section
+        className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
         aria-label={
           scope.kind === "scenario"
-            ? `${scopeLabel} portfolio quarterly totals`
+            ? `${scopeLabel} assets forecast`
             : `${scopeLabel} asset forecast statement`
         }
       >
@@ -585,7 +629,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold tracking-tight text-foreground">
-                  Portfolio totals
+                  Assets Forecast
                 </h2>
                 {!scenarioForecastsQuarterlyOnly ? (
                   <StatementPeriodGranularitySelect
@@ -634,6 +678,8 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             assetModels={activeAssetModels}
             metricFocus={metricTab}
             periodGranularity={statementPeriodGranularity}
+            singleRootExpansion
+            onExpandedRootMetricChange={handlePortfolioTotalsExpansionMetricChange}
           />
         ) : (
           <ScopedForecastsTable
@@ -660,32 +706,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             }
           />
         )}
-      </section>
-
-      <section
-        className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-        aria-label={`${scopeLabel} ${projectionChartMeta.title}`}
-      >
-        <div className="border-b border-border/60 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">
-              {projectionChartMeta.title}
-            </h2>
-            <AssetForecastChartMetricToggleGroup
-              models={forecastChartModels}
-              metricTab={projectionMetricTab}
-              onMetricTabChange={setProjectionMetricTab}
-              aria-label="Forecast metric for projection chart"
-              className="shrink-0"
-            />
-          </div>
-        </div>
-        <AssetForecastCharts
-          models={forecastChartModels}
-          metricTab={projectionMetricTab}
-          onMetricTabChange={setProjectionMetricTab}
-          embedded
-        />
       </section>
 
       {scope.kind !== "scenario" ? (
