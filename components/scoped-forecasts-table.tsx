@@ -405,9 +405,8 @@ export function ScopedForecastsPortfolioTotalsTable({
           return (
             <div
               className={cn(
-                "text-right tabular-nums",
-                item.highlightValue ? "font-semibold" : "font-normal",
-                item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                "text-right tabular-nums text-foreground",
+                isScopedForecastTotalRow(item) ? "font-semibold" : "font-normal",
               )}
             >
               {formatStatementValue(item.kind, item.values[index] ?? 0)}
@@ -485,11 +484,10 @@ export function ScopedForecastsPortfolioTotalsTable({
                 >
                   <div
                     className={cn(
-                      "text-right tabular-nums",
-                      row.original.highlightValue ? "font-semibold" : "font-normal",
-                      row.original.kind === "expense"
-                        ? "text-muted-foreground"
-                        : "text-foreground"
+                      "text-right tabular-nums text-foreground",
+                      isScopedForecastTotalRow(row.original)
+                        ? "font-semibold"
+                        : "font-normal",
                     )}
                   >
                     {formatStatementValue(
@@ -534,6 +532,15 @@ type ScopedForecastTableRow = {
   highlightValue?: boolean
   startsSection?: boolean
   subRows?: ScopedForecastTableRow[]
+}
+
+/** Portfolio / outlook roll-up rows (not per-asset contributions). */
+function isScopedForecastTotalRow(item: ScopedForecastTableRow): boolean {
+  return (
+    item.rowType === "statement" ||
+    item.rowType === "outlook" ||
+    item.isSummaryRow === true
+  )
 }
 
 /** Column order for total-horizon pivot (one column per metric, one row per asset + portfolio). */
@@ -817,7 +824,6 @@ const LINE_ITEM_DEPTH_INDENT_PX = 24
 
 function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
   const item = row.original
-  const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
   const indentationStyle =
     row.depth === 0
       ? undefined
@@ -833,20 +839,12 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         {item.href != null ? (
           <Link
             href={item.href}
-            className={cn(
-              "group/asset-link block min-w-0 max-w-full whitespace-normal break-words rounded-sm text-left text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              firstRowWeight
-            )}
+            className="group/asset-link block min-w-0 max-w-full whitespace-normal break-words rounded-sm text-left font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             {item.label}
           </Link>
         ) : (
-          <span
-            className={cn(
-              "block min-w-0 whitespace-normal break-words text-foreground",
-              firstRowWeight
-            )}
-          >
+          <span className="block min-w-0 whitespace-normal break-words font-medium text-foreground">
             {item.label}
           </span>
         )}
@@ -875,7 +873,7 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
           className={cn(
             summaryLabelClassName,
             item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
-            row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
+            isScopedForecastTotalRow(item) ? "font-semibold" : "font-medium",
           )}
         >
           {item.label}
@@ -890,7 +888,7 @@ function lineItemCellContent(row: Row<ScopedForecastTableRow>) {
         className={cn(
           summaryLabelClassName,
           item.rowType === "outlook" ? "text-muted-foreground" : "text-foreground",
-          row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
+          isScopedForecastTotalRow(item) ? "font-semibold" : "font-medium",
         )}
       >
         {item.label}
@@ -1247,14 +1245,13 @@ export function ScopedForecastsTable({
             header: () => statementRowForMetric(rows, metricId)?.label ?? metricId,
             cell: (info) => {
               const item = info.row.original
-              const isFirstRow = info.row.index === 0
               const kind = item.periodCellKinds?.[index] ?? item.kind
               return (
                 <div
                   className={cn(
                     "text-right tabular-nums",
-                    isFirstRow ? "font-semibold" : "font-normal",
-                    kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                    isScopedForecastTotalRow(item) ? "font-semibold" : "font-normal",
+                    kind === "expense" ? "text-muted-foreground" : "text-foreground",
                   )}
                 >
                   {formatStatementValue(kind, item.values[index] ?? 0)}
@@ -1275,15 +1272,14 @@ export function ScopedForecastsTable({
         header: () => period.label,
         cell: (info) => {
           const item = info.row.original
-          const isFirstRow = info.row.index === 0
           const kind = item.periodCellKinds?.[index] ?? item.kind
 
           return (
             <div
               className={cn(
                 "text-right tabular-nums",
-                isFirstRow ? "font-semibold" : "font-normal",
-                kind === "expense" ? "text-muted-foreground" : "text-foreground"
+                isScopedForecastTotalRow(item) ? "font-semibold" : "font-normal",
+                kind === "expense" ? "text-muted-foreground" : "text-foreground",
               )}
             >
               {formatStatementValue(kind, item.values[index] ?? 0)}

@@ -24,6 +24,12 @@ import {
   SCENARIO_INCLUDED_CHANGED_EVENT,
   type ScenarioIncludedChangedDetail,
 } from "@/lib/scenario-included-assets-storage"
+import {
+  parseScenarioTableOutlookSelectionsRaw,
+  readScenarioTableOutlookSelections,
+  scenarioTableOutlookSelectionsKey,
+  type ScenarioTableOutlookSelections,
+} from "@/lib/scenario-table-outlook-selections-storage"
 
 export type ScenarioTableSelections = Record<string, string>
 
@@ -33,6 +39,8 @@ type Ctx = {
   scenarioMembershipMode: ScenarioMembershipMode
   selections: ScenarioTableSelections
   setTableSelection: (assetId: string, setId: string) => void
+  outlookSelections: ScenarioTableOutlookSelections
+  setOutlookTableSelection: (assetId: string, outlookSetId: string) => void
   /** Built-in scenario: assets hidden via exclusion list. */
   scenarioExcludedAssetIds: ReadonlySet<string>
   /** User scenario: full membership. Built-in: portfolio “add” overlay (eligible ∪ overlay). */
@@ -50,6 +58,13 @@ function storageKeySelections(pathname: string | null): string | null {
   const base = scenarioModificationsTableStoragePathname(pathname)
   if (base == null) return null
   return scenarioTableSelectionsKey(base)
+}
+
+function storageKeyOutlookSelections(pathname: string | null): string | null {
+  if (pathname == null || !pathname.startsWith("/scenarios/")) return null
+  const base = scenarioModificationsTableStoragePathname(pathname)
+  if (base == null) return null
+  return scenarioTableOutlookSelectionsKey(base)
 }
 
 function persistJson(key: string | null, value: unknown) {
@@ -89,6 +104,8 @@ export function ScenarioModificationSelectionsProvider({
   const [included, setIncluded] = React.useState<Set<string>>(
     () => new Set()
   )
+  const [outlookSelections, setOutlookSelections] =
+    React.useState<ScenarioTableOutlookSelections>({})
 
   React.useLayoutEffect(() => {
     const selKey = storageKeySelections(pathname)
@@ -96,11 +113,13 @@ export function ScenarioModificationSelectionsProvider({
     const inKey = includedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) {
       setSelections({})
+      setOutlookSelections({})
       setExcluded(new Set())
       setIncluded(new Set())
       return
     }
     setSelections(readScenarioTableSelections(pathname))
+    setOutlookSelections(readScenarioTableOutlookSelections(pathname))
     setExcluded(parseScenarioExcludedAssetIds(localStorage.getItem(exKey)))
     if (inKey != null && membershipMode === "explicit-inclusion") {
       setIncluded(readIncludedAssetIdsWithV1Migration(pathname))
@@ -136,12 +155,38 @@ export function ScenarioModificationSelectionsProvider({
     [pathname]
   )
 
+  const setOutlookTableSelection = React.useCallback(
+    (assetId: string, outlookSetId: string) => {
+      setOutlookSelections((prev) => {
+        let next: ScenarioTableOutlookSelections
+        if (outlookSetId === "") {
+          if (!(assetId in prev)) return prev
+          next = { ...prev }
+          delete next[assetId]
+        } else {
+          if (prev[assetId] === outlookSetId) return prev
+          next = { ...prev, [assetId]: outlookSetId }
+        }
+
+        const key = storageKeyOutlookSelections(pathname)
+        persistJson(
+          key,
+          Object.keys(next).length === 0 ? null : next
+        )
+
+        return next
+      })
+    },
+    [pathname]
+  )
+
   const excludeAssetsFromScenario = React.useCallback(
     (assetIds: readonly string[]) => {
       if (assetIds.length === 0) return
       const exKey = excludedStorageKeyForScenarioPathname(pathname)
       const inKey = includedStorageKeyForScenarioPathname(pathname)
       const selKey = storageKeySelections(pathname)
+      const outlookKey = storageKeyOutlookSelections(pathname)
       if (exKey == null) return
 
       setSelections((prev) => {
@@ -150,6 +195,18 @@ export function ScenarioModificationSelectionsProvider({
         if (selKey != null) {
           persistJson(
             selKey,
+            Object.keys(next).length === 0 ? null : next
+          )
+        }
+        return next
+      })
+
+      setOutlookSelections((prev) => {
+        const next = { ...prev }
+        for (const id of assetIds) delete next[id]
+        if (outlookKey != null) {
+          persistJson(
+            outlookKey,
             Object.keys(next).length === 0 ? null : next
           )
         }
@@ -244,6 +301,7 @@ export function ScenarioModificationSelectionsProvider({
 
   React.useEffect(() => {
     const selKey = storageKeySelections(pathname)
+    const outlookKey = storageKeyOutlookSelections(pathname)
     const exKey = excludedStorageKeyForScenarioPathname(pathname)
     const inKey = includedStorageKeyForScenarioPathname(pathname)
     if (selKey == null || exKey == null) return
@@ -251,6 +309,9 @@ export function ScenarioModificationSelectionsProvider({
     const onStorage = (e: StorageEvent) => {
       if (e.key === selKey) {
         setSelections(parseScenarioTableSelectionsRaw(e.newValue))
+      }
+      if (outlookKey != null && e.key === outlookKey) {
+        setOutlookSelections(parseScenarioTableOutlookSelectionsRaw(e.newValue))
       }
       if (e.key === exKey) {
         setExcluded(parseScenarioExcludedAssetIds(e.newValue))
@@ -311,6 +372,8 @@ export function ScenarioModificationSelectionsProvider({
       scenarioMembershipMode: membershipMode,
       selections,
       setTableSelection,
+      outlookSelections,
+      setOutlookTableSelection,
       scenarioExcludedAssetIds: excluded,
       scenarioIncludedAssetIds: included,
       excludeAssetsFromScenario,
@@ -320,6 +383,8 @@ export function ScenarioModificationSelectionsProvider({
       membershipMode,
       selections,
       setTableSelection,
+      outlookSelections,
+      setOutlookTableSelection,
       excluded,
       included,
       excludeAssetsFromScenario,

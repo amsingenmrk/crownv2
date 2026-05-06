@@ -251,14 +251,16 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
         })
       )
     }
-    setSelectedOutlookSetIds((previous) =>
-      syncSelectedIdsWithOptions({
-        previous,
-        assetIds,
-        optionsByAssetId,
-        baselineId: SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
-      })
-    )
+    if (!useScenarioTableModificationSelections) {
+      setSelectedOutlookSetIds((previous) =>
+        syncSelectedIdsWithOptions({
+          previous,
+          assetIds,
+          optionsByAssetId,
+          baselineId: SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
+        })
+      )
+    }
   }, [optionsByAssetId, scopedRows, useScenarioTableModificationSelections])
 
   const defaultAssumptions = React.useMemo(
@@ -303,6 +305,10 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       useScenarioTableModificationSelections && scenarioModificationsCtx != null
         ? scenarioModificationsCtx.selections
         : null
+    const outlookTableSelections =
+      useScenarioTableModificationSelections && scenarioModificationsCtx != null
+        ? scenarioModificationsCtx.outlookSelections
+        : null
 
     return scopedRows.map((row) => {
       const rowOptions = optionsByAssetId[row.id] ?? {
@@ -317,13 +323,22 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
               return SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID
             })()
           : selectedBuildingVersionIds[row.id]
+      const resolvedOutlookSetId =
+        outlookTableSelections != null
+          ? (() => {
+              const fromTable = outlookTableSelections[row.id]
+              if (fromTable != null && fromTable !== "") return fromTable
+              return SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID
+            })()
+          : (selectedOutlookSetIds[row.id] ??
+            SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID)
       const selectedBuildingVersion =
         rowOptions.buildingVersionOptions.find(
           (option) => option.id === resolvedBuildingVersionId
         ) ?? rowOptions.buildingVersionOptions[0]!
       const selectedOutlookSet =
         rowOptions.outlookSetOptions.find(
-          (option) => option.id === selectedOutlookSetIds[row.id]
+          (option) => option.id === resolvedOutlookSetId
         ) ?? rowOptions.outlookSetOptions[0]!
 
       return {
@@ -365,12 +380,19 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   const setSelectedOutlookSetId = React.useCallback(
     (assetId: string, nextId: string) => {
+      if (isScenarioScope && scenarioModificationsCtx != null) {
+        scenarioModificationsCtx.setOutlookTableSelection(
+          assetId,
+          nextId === SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID ? "" : nextId
+        )
+        return
+      }
       setSelectedOutlookSetIds((current) => ({
         ...current,
         [assetId]: nextId,
       }))
     },
-    []
+    [isScenarioScope, scenarioModificationsCtx]
   )
 
   const setPortfolioScenarioProbability = React.useCallback(
@@ -410,6 +432,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     if (useScenarioTableModificationSelections && scenarioModificationsCtx != null) {
       for (const row of scopedRows) {
         scenarioModificationsCtx.setTableSelection(row.id, "")
+        scenarioModificationsCtx.setOutlookTableSelection(row.id, "")
       }
     } else {
       const nextBuildingSelections: Record<string, string> = {}

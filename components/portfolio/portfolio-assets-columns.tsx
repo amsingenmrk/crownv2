@@ -3,7 +3,7 @@
 import { type ReactNode, useState } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowDown, ArrowUp, Trash2, Wrench } from "lucide-react"
+import { ArrowDown, ArrowUp, Sun, Trash2, Wrench } from "lucide-react"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
@@ -603,6 +604,27 @@ export function createPortfolioAssetColumns(
             assetId={row.original.id}
             building={row.original.building}
             matchOutlookRowSelect
+          />
+        ),
+      enableSorting: false,
+    })
+    columns.splice(3, 0, {
+      id: "outlook",
+      enableHiding: false,
+      meta: { columnLabel: "Outlook" },
+      header: () => (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <Sun className="size-3.5 shrink-0 opacity-80" aria-hidden />
+          Outlook
+        </span>
+      ),
+      cell: ({ row }) =>
+        isMarketListingRowId(row.original.id) ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <AssetOutlookSetSelect
+            assetId={row.original.id}
+            building={row.original.building}
           />
         ),
       enableSorting: false,

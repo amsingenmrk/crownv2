@@ -550,14 +550,18 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
       <section
         className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-        aria-label={`${scopeLabel} asset forecast statement`}
+        aria-label={
+          scope.kind === "scenario"
+            ? `${scopeLabel} portfolio quarterly totals`
+            : `${scopeLabel} asset forecast statement`
+        }
       >
         {scope.kind === "scenario" ? (
-          <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="border-b border-border/60 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold tracking-tight text-foreground">
-                  Asset Forecast
+                  Portfolio totals
                 </h2>
                 {!scenarioForecastsQuarterlyOnly ? (
                   <StatementPeriodGranularitySelect
@@ -566,26 +570,11 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
                   />
                 ) : null}
               </div>
-            </div>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
-              <div className="min-w-0 flex-1">
-                <ScopedForecastLeasingAssumptionsBar
-                  assumptions={assumptions}
-                  onAssumptionsChange={updateAssumptions}
-                  showTitle={false}
-                />
-              </div>
-              {statementPeriodGranularity === "quarterly" ? (
-                <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 lg:justify-end">
-                  <AssetForecastChartMetricToggleGroup
-                    models={forecastChartModels}
-                    metricTab={metricTab}
-                    onMetricTabChange={setMetricTab}
-                    aria-label="Forecast metric for chart and table"
-                    className="shrink-0"
-                  />
-                </div>
-              ) : null}
+              <ScopedForecastLeasingAssumptionsBar
+                assumptions={assumptions}
+                onAssumptionsChange={updateAssumptions}
+                showTitle={false}
+              />
             </div>
           </div>
         ) : (
@@ -613,32 +602,40 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             ) : null}
           </div>
         )}
-        <ScopedForecastsTable
-          key={activeComparisonId}
-          periods={activeModel.periods}
-          rows={activeModel.statementRows}
-          assetModels={activeAssetModels}
-          metricFilter={metricTab}
-          filteredMetricSummaryLabel={scenarioFilteredMetricSummaryLabel}
-          assetSelections={assetSelections}
-          onSelectBuildingVersion={setSelectedBuildingVersionId}
-          onSelectOutlookSet={setSelectedOutlookSetId}
-          portfolioTotalsPlacement="none"
-          statementToolbar="none"
-          periodGranularity={statementPeriodGranularity}
-          onPeriodGranularityChange={
-            scenarioForecastsQuarterlyOnly ? undefined : setStatementGranularity
-          }
-          useScenarioOverviewModificationSelect={scope.kind === "scenario"}
-          topAccessory={
-            scope.kind === "scenario" ? undefined : (
+        {scope.kind === "scenario" ? (
+          <ScopedForecastsPortfolioTotalsTable
+            key={activeComparisonId}
+            periods={activeModel.periods}
+            rows={activeModel.statementRows}
+            assetModels={activeAssetModels}
+            metricFocus={metricTab}
+            periodGranularity={statementPeriodGranularity}
+          />
+        ) : (
+          <ScopedForecastsTable
+            key={activeComparisonId}
+            periods={activeModel.periods}
+            rows={activeModel.statementRows}
+            assetModels={activeAssetModels}
+            metricFilter={metricTab}
+            filteredMetricSummaryLabel={scenarioFilteredMetricSummaryLabel}
+            assetSelections={assetSelections}
+            onSelectBuildingVersion={setSelectedBuildingVersionId}
+            onSelectOutlookSet={setSelectedOutlookSetId}
+            portfolioTotalsPlacement="none"
+            statementToolbar="none"
+            periodGranularity={statementPeriodGranularity}
+            onPeriodGranularityChange={
+              scenarioForecastsQuarterlyOnly ? undefined : setStatementGranularity
+            }
+            topAccessory={
               <ScopedForecastLeasingAssumptionsBar
                 assumptions={assumptions}
                 onAssumptionsChange={updateAssumptions}
               />
-            )
-          }
-        />
+            }
+          />
+        )}
       </section>
 
       <section
@@ -667,19 +664,25 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
         />
       </section>
 
-      <section
-        className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-        aria-label={`${scopeLabel} portfolio quarterly totals`}
-      >
-        <div className="border-b border-border/60 px-4 py-3">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">Portfolio totals</h2>
-        </div>
-        <ScopedForecastsPortfolioTotalsTable
-          periods={activeModel.periods}
-          rows={activeModel.statementRows}
-          assetModels={activeAssetModels}
-        />
-      </section>
+      {scope.kind !== "scenario" ? (
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+          aria-label={`${scopeLabel} portfolio quarterly totals`}
+        >
+          <div className="border-b border-border/60 px-4 py-3">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              Portfolio totals
+            </h2>
+          </div>
+          <ScopedForecastsPortfolioTotalsTable
+            periods={activeModel.periods}
+            rows={activeModel.statementRows}
+            assetModels={activeAssetModels}
+            metricFocus={metricTab}
+            periodGranularity={statementPeriodGranularity}
+          />
+        </section>
+      ) : null}
     </div>
   )
 }

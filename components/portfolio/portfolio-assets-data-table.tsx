@@ -19,6 +19,7 @@ import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
+import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import {
   ScenarioRemoveFromScenarioCell,
   type PortfolioAssetsTableVariant,
@@ -456,6 +457,19 @@ export function PortfolioAssetsDataTable({
                           assetId={row.id}
                           building={row.building}
                           matchOutlookRowSelect
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                  {variant === "scenarios" ? (
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      <span className="text-muted-foreground">Outlook</span>
+                      {isMarketListingRowId(row.id) ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <AssetOutlookSetSelect
+                          assetId={row.id}
+                          building={row.building}
                         />
                       )}
                     </div>

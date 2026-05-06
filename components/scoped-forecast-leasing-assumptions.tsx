@@ -64,13 +64,13 @@ export function ScopedForecastLeasingAssumptionField({
   return (
     <label
       className={cn(
-        "flex min-h-9 w-full min-w-0 items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/80 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40",
+        "flex h-8 min-h-8 w-full min-w-0 items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/80 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40",
         className,
       )}
     >
       <span
         className={cn(
-          "flex shrink-0 items-center border-r border-border/60 bg-muted/30 px-2.5 py-2 text-[12px] font-medium leading-snug text-muted-foreground normal-case",
+          "flex shrink-0 items-center self-stretch border-r border-border/60 bg-muted/30 px-2.5 text-[12px] font-medium leading-none text-muted-foreground normal-case",
           nowrapLabel
             ? "max-w-none"
             : "max-w-[46%] sm:max-w-[55%]",
@@ -86,14 +86,14 @@ export function ScopedForecastLeasingAssumptionField({
         min={min}
         max={max}
         step={step}
-        className="h-9 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-1 text-[12px] tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-[12px]"
+        className="h-8 min-h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-0 text-[12px] leading-none tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-[12px]"
         onChange={(event) => {
           const next = Number(event.target.value)
           if (Number.isNaN(next)) return
           onChange(clamp(next, min, max))
         }}
       />
-      <span className="flex shrink-0 items-center border-l border-border/60 bg-muted/15 px-2.5 text-[12px] font-medium tabular-nums text-muted-foreground">
+      <span className="flex shrink-0 items-center self-stretch border-l border-border/60 bg-muted/15 px-2.5 text-[12px] font-medium leading-none tabular-nums text-muted-foreground">
         {suffix}
       </span>
     </label>
@@ -113,8 +113,8 @@ export function ScopedForecastLeasingAssumptionsBar({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 flex-col gap-3 max-sm:justify-center sm:flex-row sm:items-center sm:gap-6",
-        showTitle ? "items-end sm:justify-end" : "items-start sm:justify-start",
+        "flex min-w-0 flex-col gap-3 max-sm:justify-center sm:flex-row sm:items-center sm:gap-6",
+        showTitle ? "w-full items-end sm:justify-end" : "w-auto max-w-full items-start sm:justify-start",
       )}
     >
       {showTitle ? (
@@ -124,8 +124,8 @@ export function ScopedForecastLeasingAssumptionsBar({
       ) : null}
       <div
         className={cn(
-          "grid min-w-0 w-full max-w-full grid-cols-1 gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)]",
-          showTitle ? "justify-items-end sm:justify-items-start" : "justify-items-start",
+          "grid min-w-0 max-w-full grid-cols-1 gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)]",
+          showTitle ? "w-full justify-items-end sm:justify-items-start" : "w-full justify-items-start sm:w-max",
         )}
       >
         {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
