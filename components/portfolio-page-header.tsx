@@ -20,6 +20,8 @@ import {
   resolvePortfolioScopeDescription,
 } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { aggregatePortfolioRows } from "@/lib/portfolio-kpi-aggregate"
+import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
 function weightedOccupiedPercentForAssets(
@@ -76,6 +78,19 @@ export function PortfolioPageHeader() {
     if (portfolioScopeId == null) return effectiveAssets
     return effectiveAssets.filter((asset) => asset.groupId === portfolioScopeId)
   }, [effectiveAssets, portfolioScopeId])
+
+  const scopedPortfolioRows = React.useMemo(() => {
+    const rows = ASSETS.map((asset, index) =>
+      portfolioAssetRowForAsset(getAssetById(asset.id, assetGroupData) ?? asset, index)
+    )
+    if (portfolioScopeId == null) return rows
+    return rows.filter((row) => row.groupId === portfolioScopeId)
+  }, [assetGroupData, portfolioScopeId])
+
+  const scopedPortfolioAggregate = React.useMemo(
+    () => aggregatePortfolioRows(scopedPortfolioRows),
+    [scopedPortfolioRows]
+  )
 
   const title = React.useMemo(() => {
     if (portfolioScopeId == null) return PORTFOLIO_OVERVIEW_LABEL
@@ -161,6 +176,7 @@ export function PortfolioPageHeader() {
               assetCount={scopedAssets.length}
               spaceCount={stackingSpaceTotal}
               occupiedPercent={occupiedPercent}
+              waleYears={scopedPortfolioAggregate?.avgWaleYears ?? null}
             />
           </div>
         </div>

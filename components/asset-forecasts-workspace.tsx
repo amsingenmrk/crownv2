@@ -11,6 +11,7 @@ import {
   type ForecastSummaryKpi,
 } from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
+import { ValuationConditionToggle } from "@/components/valuation-condition-toggle"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -73,6 +74,14 @@ import {
   parseStackingPlanTenantForecastOverrideSnapshot,
   subscribeStackingPlanTenantForecastOverrides,
 } from "@/lib/stacking-plan-tenant-forecast-overrides"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
+import {
+  buildValuationConditionMetricMap,
+  scaleDisplayedMetricsForValuationCondition,
+} from "@/lib/valuation-condition-metrics"
 import { cn } from "@/lib/utils"
 
 const macroAverageFormatter = new Intl.NumberFormat("en-US", {
@@ -349,6 +358,8 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const [activeOutlookId, setActiveOutlookId] = React.useState<ForecastScenarioId>(
     defaultOutlooks[0]?.id ?? "baseline"
   )
+  const [selectedValuationCondition, setSelectedValuationCondition] =
+    React.useState<ValuationConditionId>(DEFAULT_VALUATION_CONDITION_ID)
   const [forecastChartMetricTab, setForecastChartMetricTab] =
     React.useState<ForecastChartTab>("grossRevenue")
   const [editingOutlookId, setEditingOutlookId] = React.useState<ForecastScenarioId | null>(null)
@@ -564,7 +575,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const forecastSummaryItems = React.useMemo(() => {
     if (model == null) return []
 
-    const activeMetrics = getForecastSummaryMetricValues(model.statementRows)
+    const activeBaseMetrics = getForecastSummaryMetricValues(model.statementRows)
     const isBaselineOutlookActive =
       activeOutlook != null &&
       baselineOutlook != null &&
@@ -579,9 +590,59 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             ? baselineBuildingBaselineScenarioModel
             : null
           : baselineScenarioModel
-    const comparisonMetrics = comparisonModel
-      ? getForecastSummaryMetricValues(comparisonModel.statementRows)
-      : null
+    const comparisonScenario =
+      activeOutlook == null || baselineOutlook == null
+        ? null
+        : isBaselineOutlookActive
+          ? hasSelectedBuildingModification
+            ? baselineOutlook
+            : null
+          : baselineOutlook
+    const comparisonModValues =
+      comparisonScenario == null
+        ? null
+        : isBaselineOutlookActive
+          ? INITIAL_MOD_VALUES
+          : activeModValues
+
+    const activeMetricMap = buildValuationConditionMetricMap({
+      assetId,
+      dataset: forecastDataset,
+      assumptions,
+      scenario: activeOutlook!,
+      baseCapRatePct: model.summary.exitCapRatePct,
+      modValues: activeModValues,
+    })
+    const activeMetrics = scaleDisplayedMetricsForValuationCondition({
+      displayedMetrics: activeBaseMetrics,
+      marketAnnualMetrics: activeMetricMap.market,
+      selectedAnnualMetrics: activeMetricMap[selectedValuationCondition],
+    })
+
+    const comparisonMetricMap =
+      comparisonScenario != null && comparisonModValues != null
+        ? buildValuationConditionMetricMap({
+            assetId,
+            dataset: forecastDataset,
+            assumptions,
+            scenario: comparisonScenario,
+            baseCapRatePct:
+              comparisonModel?.summary.exitCapRatePct ??
+              model.summary.exitCapRatePct,
+            modValues: comparisonModValues,
+          })
+        : null
+    const comparisonMetrics =
+      comparisonModel != null && comparisonMetricMap != null
+        ? scaleDisplayedMetricsForValuationCondition({
+            displayedMetrics: getForecastSummaryMetricValues(
+              comparisonModel.statementRows
+            ),
+            marketAnnualMetrics: comparisonMetricMap.market,
+            selectedAnnualMetrics:
+              comparisonMetricMap[selectedValuationCondition],
+          })
+        : null
     const showScenarioComparison = comparisonMetrics != null
 
     const items: ForecastSummaryKpi[] = [
@@ -688,12 +749,17 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     ]
     return items
   }, [
+    activeModValues,
     activeBuildingVersionId,
     activeOutlook,
+    assumptions,
+    assetId,
     baselineBuildingBaselineScenarioModel,
     baselineOutlook,
     baselineScenarioModel,
+    forecastDataset,
     model,
+    selectedValuationCondition,
   ])
 
   const sortedOutlookSets = React.useMemo(
@@ -1427,6 +1493,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 </div>
               )}
             </div>
+
+            <ValuationConditionToggle
+              value={selectedValuationCondition}
+              onValueChange={setSelectedValuationCondition}
+              className="max-w-full"
+            />
 
             <AssetForecastSummaryStrip items={forecastSummaryItems} />
           </div>

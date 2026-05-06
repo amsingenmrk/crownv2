@@ -264,7 +264,7 @@ function scaleSeries(values: number[], factors: number[]) {
   return values.map((value, index) => value * (factors[index] ?? 1))
 }
 
-function deriveLeaseUpShare(
+export function deriveLeaseUpShare(
   currentOccupancyPct: number,
   targetOccupancyPct: number
 ) {
@@ -279,7 +279,7 @@ function deriveLeaseUpShare(
   return clamp((targetOccupancy - currentOccupancy) / currentVacancy, 0, 1)
 }
 
-function defaultContractRateForVacancy(tenant: StackingPlanTenant) {
+export function defaultContractRateForVacancy(tenant: StackingPlanTenant) {
   if (tenant.predictedRentPsfValue != null)
     return tenant.predictedRentPsfValue * 0.9
   return 38
@@ -294,7 +294,7 @@ function macroPeriodForIndex(
   ]!
 }
 
-function scenarioEffectsForPeriod(macroPeriod: ForecastScenarioMacroPeriod): {
+export function scenarioEffectsForPeriod(macroPeriod: ForecastScenarioMacroPeriod): {
   rentFactor: number
   releaseFactor: number
   opexFactor: number

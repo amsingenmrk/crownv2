@@ -9,12 +9,18 @@ export function HeaderRsfOccupancyCluster({
   assetCount,
   spaceCount,
   occupiedPercent,
+  waleYears,
 }: {
   totalRsfSqft: number
   assetCount: number
   spaceCount: number
   occupiedPercent: number
+  waleYears?: number | null
 }) {
+  const waleDisplay =
+    typeof waleYears === "number" && Number.isFinite(waleYears) && waleYears > 0
+      ? `${waleYears.toFixed(1)} yrs`
+      : "—"
   const stats = [
     {
       key: "assets",
@@ -63,6 +69,8 @@ export function HeaderRsfOccupancyCluster({
       <OccupancySummaryBar
         occupiedPercent={occupiedPercent}
         className="h-full min-h-0"
+        secondaryMetricLabel="WALE / WALT"
+        secondaryMetricValue={waleDisplay}
       />
     </div>
   )

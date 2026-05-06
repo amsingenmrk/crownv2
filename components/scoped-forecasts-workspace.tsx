@@ -11,6 +11,7 @@ import {
   AssetForecastSummaryStrip,
   type ForecastSummaryKpi,
 } from "@/components/asset-forecast-summary-strip"
+import { ValuationConditionToggle } from "@/components/valuation-condition-toggle"
 import {
   SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS,
   type ScopedForecastLeasingAssumptionFieldKey,
@@ -55,6 +56,10 @@ import {
   subscribeUserScenarios,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
 import { cn } from "@/lib/utils"
 
 const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
@@ -436,6 +441,9 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     [setAssumptions]
   )
 
+  const [selectedValuationCondition, setSelectedValuationCondition] =
+    React.useState<ValuationConditionId>(DEFAULT_VALUATION_CONDITION_ID)
+
   const forecastSummaryItems = React.useMemo(
     () =>
       buildScopedForecastSummaryKpis({
@@ -448,8 +456,12 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
         baselineModelStatementRows: rollup.baselineModel.statementRows,
         activeVariant,
         assetSelections,
+        selectedValuationCondition,
+        activeAssetModels,
+        baselineAssetModels: rollup.baselineAssetModels,
       }),
     [
+      activeAssetModels,
       activeModel.statementRows,
       activeVariant,
       assetSelections,
@@ -457,6 +469,8 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
       portfolioModificationMode,
       portfolioScenarioProbabilities,
       rollup.baselineModel.statementRows,
+      rollup.baselineAssetModels,
+      selectedValuationCondition,
       rollup.portfolioOverview,
       scope.kind,
     ]
@@ -507,6 +521,11 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
+              <ValuationConditionToggle
+                value={selectedValuationCondition}
+                onValueChange={setSelectedValuationCondition}
+                className="max-w-full"
+              />
               <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
 
               <section
@@ -546,6 +565,11 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-6">
+      <ValuationConditionToggle
+        value={selectedValuationCondition}
+        onValueChange={setSelectedValuationCondition}
+        className="max-w-full"
+      />
       <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
 
       <section
