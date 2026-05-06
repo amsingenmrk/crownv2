@@ -29,6 +29,7 @@ import {
 } from "@/components/portfolio/scenario-comparative-kpis"
 import { PortfolioAssetsDataTable } from "@/components/portfolio/portfolio-assets-data-table"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
+import { ValuationConditionToggle } from "@/components/valuation-condition-toggle"
 import { PortfolioAssetsViewOptions } from "@/components/portfolio/portfolio-assets-view-options"
 import {
   createPortfolioAssetColumns,
@@ -77,6 +78,10 @@ import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -90,26 +95,11 @@ type PortfolioKpi = {
 }
 
 const KPIS: PortfolioKpi[] = [
-  {
-    label: "Est. Value",
-    value: "$1.24B",
-    subLabel: "Est. Value / SF",
-    subValue: "$485 / SF",
-  },
-  {
-    label: "Occupancy",
-    value: "91.60%",
-    subLabel: "Vacancy",
-    subValue: "8.40%",
-  },
-  {
-    label: "NOI",
-    value: "$74.2M / yr",
-    subLabel: "NOI / SF",
-    subValue: "$29.10 / SF",
-  },
+  { label: "Gross Revenue", value: "$118.4M / yr" },
+  { label: "OpEx", value: "$44.2M / yr" },
+  { label: "NOI", value: "$74.2M / yr" },
+  { label: "Asset Value", value: "$1.24B" },
   { label: "Cap Rate", value: "6.00%" },
-  { label: "WALE / WALT", value: "5.8 yrs" },
 ]
 
 function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
@@ -209,6 +199,8 @@ function PortfolioDashboardInner({
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
     "table"
   )
+  const [selectedValuationCondition, setSelectedValuationCondition] =
+    React.useState<ValuationConditionId>(DEFAULT_VALUATION_CONDITION_ID)
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
   /** Portfolio: driven by route (`/portfolio` vs `/portfolio/scopes/...`). Scenarios: always entire portfolio. */
   const effectivePortfolioGroupFilter =
@@ -462,8 +454,11 @@ function PortfolioDashboardInner({
 
   const portfolioKpiStrip = React.useMemo(() => {
     if (assetsTableVariant !== "portfolio") return null
-    return portfolioKpiStripFromRows(visibleAssetRows)
-  }, [assetsTableVariant, visibleAssetRows])
+    return portfolioKpiStripFromRows(
+      visibleAssetRows,
+      selectedValuationCondition
+    )
+  }, [assetsTableVariant, selectedValuationCondition, visibleAssetRows])
 
   const visibleMapPins = React.useMemo(
     () => mapPinsForRows(visibleAssetRows),
@@ -627,10 +622,12 @@ function PortfolioDashboardInner({
     return computeScenarioPortfolioAggregate(
       visibleAssetRows,
       selections,
-      typeof window !== "undefined"
+      typeof window !== "undefined",
+      selectedValuationCondition
     )
   }, [
     assetsTableVariant,
+    selectedValuationCondition,
     visibleAssetRows,
     selections,
     scenarioModSetsTick,
@@ -639,163 +636,236 @@ function PortfolioDashboardInner({
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-[24px]">
       {/* KPI row — same strip pattern as asset stat cards */}
-      <section
-        className={cn(
-          metricStripSectionClassName,
-          "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
-          /* Don’t let flex-1 parents shrink this row; overflow-hidden would clip metrics. */
-          "h-fit shrink-0"
-        )}
-      >
-        {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
-          <>
-            <MetricStripCell>
-              <MetricStripLabel>Est. Value</MetricStripLabel>
-              <ScenarioMetricInlinePair
-                baseFormatted={formatUsdPortfolioCompact(
-                  scenarioAggregate.baseValueUsd
-                )}
-                scenarioFormatted={formatUsdPortfolioCompact(
-                  scenarioAggregate.scenarioValueUsd
-                )}
-                showScenario={scenarioAggregate.hasTableSelection}
-                deltaLine={
-                  scenarioAggregate.hasTableSelection
-                    ? `${formatUsdDeltaCompact(
-                        scenarioAggregate.scenarioValueUsd -
-                          scenarioAggregate.baseValueUsd
-                      )}`
-                    : undefined
-                }
-                pctLine={
-                  scenarioAggregate.hasTableSelection
-                    ? formatPctChange(
-                        scenarioAggregate.baseValueUsd,
-                        scenarioAggregate.scenarioValueUsd
-                      )
-                    : undefined
-                }
-                deltaDirection={
-                  scenarioAggregate.hasTableSelection
-                    ? scenarioDeltaDirection(
-                        scenarioAggregate.scenarioValueUsd -
-                          scenarioAggregate.baseValueUsd
-                      )
-                    : undefined
-                }
-              />
-            </MetricStripCell>
-            <MetricStripCell>
-              <MetricStripLabel>{KPIS[2]!.label}</MetricStripLabel>
-              <ScenarioMetricInlinePair
-                baseFormatted={formatUsdPortfolioCompact(
-                  scenarioAggregate.baseNoiUsd
-                )}
-                scenarioFormatted={formatUsdPortfolioCompact(
-                  scenarioAggregate.scenarioNoiUsd
-                )}
-                showScenario={scenarioAggregate.hasTableSelection}
-                deltaLine={
-                  scenarioAggregate.hasTableSelection
-                    ? `${formatUsdDeltaCompact(
-                        scenarioAggregate.scenarioNoiUsd -
-                          scenarioAggregate.baseNoiUsd
-                      )}`
-                    : undefined
-                }
-                pctLine={
-                  scenarioAggregate.hasTableSelection
-                    ? formatPctChange(
-                        scenarioAggregate.baseNoiUsd,
-                        scenarioAggregate.scenarioNoiUsd
-                      )
-                    : undefined
-                }
-                deltaDirection={
-                  scenarioAggregate.hasTableSelection
-                    ? scenarioDeltaDirection(
-                        scenarioAggregate.scenarioNoiUsd -
-                          scenarioAggregate.baseNoiUsd
-                      )
-                    : undefined
-                }
-              />
-            </MetricStripCell>
-            <MetricStripCell>
-              <MetricStripLabel>{KPIS[3]!.label}</MetricStripLabel>
-              <ScenarioMetricInlinePair
-                baseFormatted={`${scenarioAggregate.baseCapPct.toFixed(2)}%`}
-                scenarioFormatted={`${scenarioAggregate.scenarioCapPct.toFixed(2)}%`}
-                showScenario={scenarioAggregate.hasTableSelection}
-                deltaLine={
-                  scenarioAggregate.hasTableSelection
-                    ? `${formatCapRatePts(
-                        scenarioAggregate.scenarioCapPct -
-                          scenarioAggregate.baseCapPct
-                      )}`
-                    : undefined
-                }
-                pctLine={
-                  scenarioAggregate.hasTableSelection
-                    ? formatPctChange(
-                        scenarioAggregate.baseCapPct,
-                        scenarioAggregate.scenarioCapPct
-                      )
-                    : undefined
-                }
-                deltaDirection={
-                  scenarioAggregate.hasTableSelection
-                    ? scenarioDeltaDirection(
-                        scenarioAggregate.scenarioCapPct -
-                          scenarioAggregate.baseCapPct
-                      )
-                    : undefined
-                }
-              />
-            </MetricStripCell>
-            <MetricStripCell>
-              <MetricStripLabel>{KPIS[4]!.label}</MetricStripLabel>
-              <MetricStripValueRow>
-                <span className="text-foreground">{KPIS[4]!.value}</span>
-              </MetricStripValueRow>
-            </MetricStripCell>
-          </>
-        ) : portfolioKpiStrip != null ? (
-          portfolioKpiStrip.map((kpi) => (
-            <MetricStripCell key={kpi.label}>
-              <MetricStripLabel>{kpi.label}</MetricStripLabel>
-              <MetricStripValueRow>
-                <span className="text-foreground">{kpi.value}</span>
-              </MetricStripValueRow>
-              {kpi.subLabel != null && kpi.subValue != null ? (
-                <MetricStripSubStack>
-                  <MetricStripSubRow
-                    label={kpi.subLabel}
-                    value={kpi.subValue}
-                  />
-                </MetricStripSubStack>
-              ) : null}
-            </MetricStripCell>
-          ))
-        ) : (
-          KPIS.map((kpi) => (
-            <MetricStripCell key={kpi.label}>
-              <MetricStripLabel>{kpi.label}</MetricStripLabel>
-              <MetricStripValueRow>
-                <span className="text-foreground">{kpi.value}</span>
-              </MetricStripValueRow>
-              {kpi.subLabel != null && kpi.subValue != null ? (
-                <MetricStripSubStack>
-                  <MetricStripSubRow
-                    label={kpi.subLabel}
-                    value={kpi.subValue}
-                  />
-                </MetricStripSubStack>
-              ) : null}
-            </MetricStripCell>
-          ))
-        )}
-      </section>
+      <div className="flex min-w-0 flex-col gap-3">
+        <ValuationConditionToggle
+          value={selectedValuationCondition}
+          onValueChange={setSelectedValuationCondition}
+          className="max-w-full"
+        />
+        <section
+          className={cn(
+            metricStripSectionClassName,
+            "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+            /* Don’t let flex-1 parents shrink this row; overflow-hidden would clip metrics. */
+            "h-fit shrink-0"
+          )}
+        >
+          {assetsTableVariant === "scenarios" && scenarioAggregate != null ? (
+            <>
+              <MetricStripCell>
+                <MetricStripLabel>{KPIS[0]!.label}</MetricStripLabel>
+                <ScenarioMetricInlinePair
+                  baseFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.baseRevenueUsd
+                  )}
+                  scenarioFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.scenarioRevenueUsd
+                  )}
+                  showScenario={scenarioAggregate.hasTableSelection}
+                  deltaLine={
+                    scenarioAggregate.hasTableSelection
+                      ? `${formatUsdDeltaCompact(
+                          scenarioAggregate.scenarioRevenueUsd -
+                            scenarioAggregate.baseRevenueUsd
+                        )}`
+                      : undefined
+                  }
+                  pctLine={
+                    scenarioAggregate.hasTableSelection
+                      ? formatPctChange(
+                          scenarioAggregate.baseRevenueUsd,
+                          scenarioAggregate.scenarioRevenueUsd
+                        )
+                      : undefined
+                  }
+                  deltaDirection={
+                    scenarioAggregate.hasTableSelection
+                      ? scenarioDeltaDirection(
+                          scenarioAggregate.scenarioRevenueUsd -
+                            scenarioAggregate.baseRevenueUsd
+                        )
+                      : undefined
+                  }
+                />
+              </MetricStripCell>
+              <MetricStripCell>
+                <MetricStripLabel>{KPIS[1]!.label}</MetricStripLabel>
+                <ScenarioMetricInlinePair
+                  baseFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.baseOpexUsd
+                  )}
+                  scenarioFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.scenarioOpexUsd
+                  )}
+                  showScenario={scenarioAggregate.hasTableSelection}
+                  deltaLine={
+                    scenarioAggregate.hasTableSelection
+                      ? `${formatUsdDeltaCompact(
+                          scenarioAggregate.scenarioOpexUsd -
+                            scenarioAggregate.baseOpexUsd
+                        )}`
+                      : undefined
+                  }
+                  pctLine={
+                    scenarioAggregate.hasTableSelection
+                      ? formatPctChange(
+                          scenarioAggregate.baseOpexUsd,
+                          scenarioAggregate.scenarioOpexUsd
+                        )
+                      : undefined
+                  }
+                  deltaDirection={
+                    scenarioAggregate.hasTableSelection
+                      ? scenarioDeltaDirection(
+                          scenarioAggregate.scenarioOpexUsd -
+                            scenarioAggregate.baseOpexUsd
+                        )
+                      : undefined
+                  }
+                />
+              </MetricStripCell>
+              <MetricStripCell>
+                <MetricStripLabel>{KPIS[2]!.label}</MetricStripLabel>
+                <ScenarioMetricInlinePair
+                  baseFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.baseNoiUsd
+                  )}
+                  scenarioFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.scenarioNoiUsd
+                  )}
+                  showScenario={scenarioAggregate.hasTableSelection}
+                  deltaLine={
+                    scenarioAggregate.hasTableSelection
+                      ? `${formatUsdDeltaCompact(
+                          scenarioAggregate.scenarioNoiUsd -
+                            scenarioAggregate.baseNoiUsd
+                        )}`
+                      : undefined
+                  }
+                  pctLine={
+                    scenarioAggregate.hasTableSelection
+                      ? formatPctChange(
+                          scenarioAggregate.baseNoiUsd,
+                          scenarioAggregate.scenarioNoiUsd
+                        )
+                      : undefined
+                  }
+                  deltaDirection={
+                    scenarioAggregate.hasTableSelection
+                      ? scenarioDeltaDirection(
+                          scenarioAggregate.scenarioNoiUsd -
+                            scenarioAggregate.baseNoiUsd
+                        )
+                      : undefined
+                  }
+                />
+              </MetricStripCell>
+              <MetricStripCell>
+                <MetricStripLabel>{KPIS[3]!.label}</MetricStripLabel>
+                <ScenarioMetricInlinePair
+                  baseFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.baseValueUsd
+                  )}
+                  scenarioFormatted={formatUsdPortfolioCompact(
+                    scenarioAggregate.scenarioValueUsd
+                  )}
+                  showScenario={scenarioAggregate.hasTableSelection}
+                  deltaLine={
+                    scenarioAggregate.hasTableSelection
+                      ? `${formatUsdDeltaCompact(
+                          scenarioAggregate.scenarioValueUsd -
+                            scenarioAggregate.baseValueUsd
+                        )}`
+                      : undefined
+                  }
+                  pctLine={
+                    scenarioAggregate.hasTableSelection
+                      ? formatPctChange(
+                          scenarioAggregate.baseValueUsd,
+                          scenarioAggregate.scenarioValueUsd
+                        )
+                      : undefined
+                  }
+                  deltaDirection={
+                    scenarioAggregate.hasTableSelection
+                      ? scenarioDeltaDirection(
+                          scenarioAggregate.scenarioValueUsd -
+                            scenarioAggregate.baseValueUsd
+                        )
+                      : undefined
+                  }
+                />
+              </MetricStripCell>
+              <MetricStripCell>
+                <MetricStripLabel>{KPIS[4]!.label}</MetricStripLabel>
+                <ScenarioMetricInlinePair
+                  baseFormatted={`${scenarioAggregate.baseCapPct.toFixed(2)}%`}
+                  scenarioFormatted={`${scenarioAggregate.scenarioCapPct.toFixed(2)}%`}
+                  showScenario={scenarioAggregate.hasTableSelection}
+                  deltaLine={
+                    scenarioAggregate.hasTableSelection
+                      ? `${formatCapRatePts(
+                          scenarioAggregate.scenarioCapPct -
+                            scenarioAggregate.baseCapPct
+                        )}`
+                      : undefined
+                  }
+                  pctLine={
+                    scenarioAggregate.hasTableSelection
+                      ? formatPctChange(
+                          scenarioAggregate.baseCapPct,
+                          scenarioAggregate.scenarioCapPct
+                        )
+                      : undefined
+                  }
+                  deltaDirection={
+                    scenarioAggregate.hasTableSelection
+                      ? scenarioDeltaDirection(
+                          scenarioAggregate.scenarioCapPct -
+                            scenarioAggregate.baseCapPct
+                        )
+                      : undefined
+                  }
+                />
+              </MetricStripCell>
+            </>
+          ) : portfolioKpiStrip != null ? (
+            portfolioKpiStrip.map((kpi) => (
+              <MetricStripCell key={kpi.label}>
+                <MetricStripLabel>{kpi.label}</MetricStripLabel>
+                <MetricStripValueRow>
+                  <span className="text-foreground">{kpi.value}</span>
+                </MetricStripValueRow>
+                {kpi.subLabel != null && kpi.subValue != null ? (
+                  <MetricStripSubStack>
+                    <MetricStripSubRow
+                      label={kpi.subLabel}
+                      value={kpi.subValue}
+                    />
+                  </MetricStripSubStack>
+                ) : null}
+              </MetricStripCell>
+            ))
+          ) : (
+            KPIS.map((kpi) => (
+              <MetricStripCell key={kpi.label}>
+                <MetricStripLabel>{kpi.label}</MetricStripLabel>
+                <MetricStripValueRow>
+                  <span className="text-foreground">{kpi.value}</span>
+                </MetricStripValueRow>
+                {kpi.subLabel != null && kpi.subValue != null ? (
+                  <MetricStripSubStack>
+                    <MetricStripSubRow
+                      label={kpi.subLabel}
+                      value={kpi.subValue}
+                    />
+                  </MetricStripSubStack>
+                ) : null}
+              </MetricStripCell>
+            ))
+          )}
+        </section>
+      </div>
 
       {/* Same assets as sidebar (Office / Industrial / Retail order) */}
       <section

@@ -8,13 +8,24 @@ import {
   type ScopedForecastPortfolioModificationMode,
   type ScopedForecastPortfolioScenarioProbabilities,
 } from "@/lib/scoped-forecast"
-import type { ScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
+import type {
+  ScopedForecastPortfolioOutlookModel,
+  ScopedForecastResolvedAssetModel,
+  ScopedForecastRollup,
+} from "@/lib/scoped-forecast-rollup"
 import {
   formatCapRatePts,
   formatPctChange,
   formatUsdDeltaCompact,
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
+import type { ValuationConditionId } from "@/lib/valuation-condition-config"
+import {
+  aggregateValuationConditionMetrics,
+  buildValuationConditionMetricMap,
+  probabilityWeightedValuationConditionMetrics,
+  scaleDisplayedMetricsForValuationCondition,
+} from "@/lib/valuation-condition-metrics"
 
 function sumSeries(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0)
@@ -75,6 +86,40 @@ function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
   return "neutral"
 }
 
+function valuationMetricsForResolvedAssetModels(
+  assetModels: readonly ScopedForecastResolvedAssetModel[],
+  valuationCondition: ValuationConditionId
+) {
+  return aggregateValuationConditionMetrics(
+    assetModels.map((entry) => {
+      const metricMap = buildValuationConditionMetricMap({
+        assetId: entry.selection.row.id,
+        dataset: entry.stackingPlanData,
+        assumptions: entry.model.assumptions,
+        scenario: entry.model.scenario,
+        baseCapRatePct: entry.model.summary.exitCapRatePct,
+        modValues: entry.modValues,
+      })
+      return metricMap[valuationCondition]
+    })
+  )
+}
+
+function probabilityWeightedValuationMetricsForOutlooks(
+  outlookModels: readonly ScopedForecastPortfolioOutlookModel[],
+  valuationCondition: ValuationConditionId
+) {
+  return probabilityWeightedValuationConditionMetrics({
+    metrics: outlookModels.map((outlook) =>
+      valuationMetricsForResolvedAssetModels(
+        outlook.assetModels,
+        valuationCondition
+      )
+    ),
+    weights: outlookModels.map((outlook) => outlook.probabilityPct),
+  })
+}
+
 export function buildScopedForecastSummaryKpis({
   isPortfolioScope,
   scopeKind,
@@ -85,6 +130,9 @@ export function buildScopedForecastSummaryKpis({
   baselineModelStatementRows,
   activeVariant,
   assetSelections,
+  selectedValuationCondition,
+  activeAssetModels,
+  baselineAssetModels,
 }: {
   isPortfolioScope: boolean
   scopeKind: "portfolio" | "scenario"
@@ -95,16 +143,41 @@ export function buildScopedForecastSummaryKpis({
   baselineModelStatementRows: ForecastStatementRow[]
   activeVariant: "baseline" | "selected"
   assetSelections: readonly ScopedForecastAssetSelection[]
+  selectedValuationCondition: ValuationConditionId
+  activeAssetModels: readonly ScopedForecastResolvedAssetModel[]
+  baselineAssetModels: readonly ScopedForecastResolvedAssetModel[]
 }): ForecastSummaryKpi[] {
   if (isPortfolioScope && portfolioOverview != null) {
-    const currentMetrics = getForecastSummaryMetricValues(
+    const currentBaseMetrics = getForecastSummaryMetricValues(
       portfolioOverview.expectedModel.statementRows,
       true
     )
-    const referenceMetrics = getForecastSummaryMetricValues(
+    const referenceBaseMetrics = getForecastSummaryMetricValues(
       portfolioOverview.referenceExpectedModel.statementRows,
       true
     )
+    const currentMetrics = scaleDisplayedMetricsForValuationCondition({
+      displayedMetrics: currentBaseMetrics,
+      marketAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
+        portfolioOverview.outlookModels,
+        "market"
+      ),
+      selectedAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
+        portfolioOverview.outlookModels,
+        selectedValuationCondition
+      ),
+    })
+    const referenceMetrics = scaleDisplayedMetricsForValuationCondition({
+      displayedMetrics: referenceBaseMetrics,
+      marketAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
+        portfolioOverview.referenceOutlookModels,
+        "market"
+      ),
+      selectedAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
+        portfolioOverview.referenceOutlookModels,
+        selectedValuationCondition
+      ),
+    })
     const showPortfolioPair =
       portfolioModificationMode !== "baseline" ||
       !portfolioProbabilitiesMatchDefault(portfolioScenarioProbabilities)
@@ -210,8 +283,31 @@ export function buildScopedForecastSummaryKpis({
     return portfolioItems
   }
 
-  const selectedMetrics = getForecastSummaryMetricValues(activeModelStatementRows, true)
-  const baselineMetrics = getForecastSummaryMetricValues(baselineModelStatementRows, true)
+  const selectedMetrics = scaleDisplayedMetricsForValuationCondition({
+    displayedMetrics: getForecastSummaryMetricValues(activeModelStatementRows, true),
+    marketAnnualMetrics: valuationMetricsForResolvedAssetModels(
+      activeAssetModels,
+      "market"
+    ),
+    selectedAnnualMetrics: valuationMetricsForResolvedAssetModels(
+      activeAssetModels,
+      selectedValuationCondition
+    ),
+  })
+  const baselineMetrics = scaleDisplayedMetricsForValuationCondition({
+    displayedMetrics: getForecastSummaryMetricValues(
+      baselineModelStatementRows,
+      true
+    ),
+    marketAnnualMetrics: valuationMetricsForResolvedAssetModels(
+      baselineAssetModels,
+      "market"
+    ),
+    selectedAnnualMetrics: valuationMetricsForResolvedAssetModels(
+      baselineAssetModels,
+      selectedValuationCondition
+    ),
+  })
 
   const hasAnySelectedModifications =
     scopeKind === "scenario" &&

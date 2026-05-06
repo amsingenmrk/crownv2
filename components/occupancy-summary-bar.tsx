@@ -6,14 +6,22 @@ import { cn } from "@/lib/utils"
 export function OccupancySummaryBar({
   occupiedPercent,
   className,
+  secondaryMetricLabel,
+  secondaryMetricValue,
 }: {
   occupiedPercent: number
   /** e.g. `h-full` when the bar sits alone in a column (portfolio) — omit beside metrics so flex/grid stretch sets height */
   className?: string
+  secondaryMetricLabel?: string
+  secondaryMetricValue?: string
 }) {
   const clampedOccupiedPercent = Math.max(0, Math.min(100, occupiedPercent))
   const occupiedLabel = Math.round(clampedOccupiedPercent)
   const vacantLabel = Math.max(0, 100 - occupiedLabel)
+  const showSecondaryMetric =
+    secondaryMetricLabel != null &&
+    secondaryMetricValue != null &&
+    secondaryMetricValue !== ""
 
   return (
     <div
@@ -46,6 +54,16 @@ export function OccupancySummaryBar({
           {vacantLabel}%
         </span>
       </div>
+      {showSecondaryMetric ? (
+        <div className="flex min-h-0 shrink-0 flex-col justify-center border-l border-border/60 px-2 py-0.5 sm:px-2 sm:py-1">
+          <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+            {secondaryMetricLabel}
+          </span>
+          <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+            {secondaryMetricValue}
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }

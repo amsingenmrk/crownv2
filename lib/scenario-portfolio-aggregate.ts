@@ -2,15 +2,33 @@ import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/lib/building-modification-sets-storage"
+import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
+import {
+  buildDefaultForecastScenarios,
+  defaultForecastAssumptionsForAsset,
+} from "@/lib/forecast-data"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
+import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  aggregateValuationConditionMetrics,
+  buildValuationConditionMetricMap,
+  type ValuationConditionMetrics,
+} from "@/lib/valuation-condition-metrics"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
 
 export type ScenarioPortfolioAggregate = {
-  baseValueUsd: number
-  scenarioValueUsd: number
+  baseRevenueUsd: number
+  scenarioRevenueUsd: number
+  baseOpexUsd: number
+  scenarioOpexUsd: number
   baseNoiUsd: number
   scenarioNoiUsd: number
+  baseValueUsd: number
+  scenarioValueUsd: number
   baseCapPct: number
   scenarioCapPct: number
   totalRsfSqft: number
@@ -21,51 +39,88 @@ export type ScenarioPortfolioAggregate = {
 export function computeScenarioPortfolioAggregate(
   rows: PortfolioAssetRow[],
   selections: Record<string, string>,
-  readStorage: boolean
+  readStorage: boolean,
+  valuationCondition: ValuationConditionId = DEFAULT_VALUATION_CONDITION_ID
 ): ScenarioPortfolioAggregate {
-  let baseV = 0
-  let baseN = 0
-  let scenV = 0
-  let scenN = 0
   let totalRsf = 0
   let hasTableSelection = false
+  const baselineScenario = buildDefaultForecastScenarios()[0]
+
+  if (baselineScenario == null) {
+    return {
+      baseRevenueUsd: 0,
+      scenarioRevenueUsd: 0,
+      baseOpexUsd: 0,
+      scenarioOpexUsd: 0,
+      baseNoiUsd: 0,
+      scenarioNoiUsd: 0,
+      baseValueUsd: 0,
+      scenarioValueUsd: 0,
+      baseCapPct: 0,
+      scenarioCapPct: 0,
+      totalRsfSqft: 0,
+      hasTableSelection: false,
+    }
+  }
+
+  const baselineMetrics: ValuationConditionMetrics[] = []
+  const scenarioMetrics: ValuationConditionMetrics[] = []
 
   for (const row of rows) {
     const m = financialMetricsForAssetId(row.id)
     if (m == null) continue
-    baseV += m.valueUsd
-    baseN += m.noiUsd
     totalRsf += m.rsfSqft
 
-    let vm = 1
-    let nm = 1
+    const assumptions = defaultForecastAssumptionsForAsset(row.id)
+    const dataset = getSampleStackingPlanData(row.id)
+    const baselineMetricMap = buildValuationConditionMetricMap({
+      assetId: row.id,
+      dataset,
+      assumptions,
+      scenario: baselineScenario,
+      baseCapRatePct: m.capRatePct,
+      modValues: INITIAL_MOD_VALUES,
+    })
+
+    let scenarioModValues = INITIAL_MOD_VALUES
     const setId = selections[row.id]
     if (setId && readStorage && typeof localStorage !== "undefined") {
       const rec = parseStoredSets(
         localStorage.getItem(storageKeyForAsset(row.id))
       ).find((s) => s.id === setId)
       if (rec != null) {
-        const u = upliftFromModValues(rec.values)
-        vm = u.valueMult
-        nm = u.noiMult
+        scenarioModValues = rec.values
         hasTableSelection = true
       }
     }
 
-    scenV += m.valueUsd * vm
-    scenN += m.noiUsd * nm
+    const scenarioMetricMap = buildValuationConditionMetricMap({
+      assetId: row.id,
+      dataset,
+      assumptions,
+      scenario: baselineScenario,
+      baseCapRatePct: m.capRatePct,
+      modValues: scenarioModValues,
+    })
+
+    baselineMetrics.push(baselineMetricMap[valuationCondition])
+    scenarioMetrics.push(scenarioMetricMap[valuationCondition])
   }
 
-  const baseCap = baseV > 0 ? (baseN / baseV) * 100 : 0
-  const scenCap = scenV > 0 ? (scenN / scenV) * 100 : 0
+  const baseAggregate = aggregateValuationConditionMetrics(baselineMetrics)
+  const scenarioAggregate = aggregateValuationConditionMetrics(scenarioMetrics)
 
   return {
-    baseValueUsd: baseV,
-    scenarioValueUsd: scenV,
-    baseNoiUsd: baseN,
-    scenarioNoiUsd: scenN,
-    baseCapPct: baseCap,
-    scenarioCapPct: scenCap,
+    baseRevenueUsd: baseAggregate.grossRevenue,
+    scenarioRevenueUsd: scenarioAggregate.grossRevenue,
+    baseOpexUsd: baseAggregate.opex,
+    scenarioOpexUsd: scenarioAggregate.opex,
+    baseNoiUsd: baseAggregate.noi,
+    scenarioNoiUsd: scenarioAggregate.noi,
+    baseValueUsd: baseAggregate.assetValue,
+    scenarioValueUsd: scenarioAggregate.assetValue,
+    baseCapPct: baseAggregate.capRate,
+    scenarioCapPct: scenarioAggregate.capRate,
     totalRsfSqft: totalRsf,
     hasTableSelection,
   }

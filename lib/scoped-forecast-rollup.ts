@@ -26,13 +26,18 @@ import {
   getStackingPlanTenantForecastOverrideSnapshot,
   parseStackingPlanTenantForecastOverrideSnapshot,
 } from "@/lib/stacking-plan-tenant-forecast-overrides"
-import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  getSampleStackingPlanData,
+  type StackingPlanDataset,
+} from "@/lib/stacking-plan-data"
 
 type ScopedForecastVariant = "baseline" | "selected"
 
 export type ScopedForecastResolvedAssetModel = {
   selection: ScopedForecastAssetSelection
   model: AssetForecastModel
+  stackingPlanData: StackingPlanDataset
+  modValues: typeof INITIAL_MOD_VALUES
 }
 
 export type ScopedForecastPortfolioOutlookModel = {
@@ -52,6 +57,7 @@ export type ScopedForecastRollup = {
     expectedModel: AssetForecastModel
     referenceExpectedModel: AssetForecastModel
     outlookModels: ScopedForecastPortfolioOutlookModel[]
+    referenceOutlookModels: ScopedForecastPortfolioOutlookModel[]
     chartModels: AssetForecastModel[]
   }
 }
@@ -459,12 +465,13 @@ function buildResolvedAssetModel({
   scenario: ForecastEconomicOutlookScenario
   modValues: typeof INITIAL_MOD_VALUES
 }): ScopedForecastResolvedAssetModel {
+  const stackingPlanData = stackingPlanDataForAsset(selection.row.id)
   const model = buildAssetForecastModel({
     assetId: selection.row.id,
     scenario,
     assumptions,
     modValues,
-    stackingPlanData: stackingPlanDataForAsset(selection.row.id),
+    stackingPlanData,
   })
 
   return {
@@ -473,6 +480,8 @@ function buildResolvedAssetModel({
       ...model,
       assetName: selection.row.building,
     },
+    stackingPlanData,
+    modValues,
   }
 }
 
@@ -755,6 +764,7 @@ export function buildScopedForecastRollup({
             expectedModel,
             referenceExpectedModel,
             outlookModels: portfolioOutlookModels,
+            referenceOutlookModels,
             chartModels: [
               expectedModel,
               ...portfolioOutlookModels.map((entry) => entry.portfolioModel),

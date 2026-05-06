@@ -1,4 +1,9 @@
 import { getAssetById } from "@/lib/assets"
+import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
+import {
+  buildDefaultForecastScenarios,
+  defaultForecastAssumptionsForAsset,
+} from "@/lib/forecast-data"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import type {
@@ -9,6 +14,15 @@ import {
   formatUsdPerSf,
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
+import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  buildValuationConditionMetricMap,
+  aggregateValuationConditionMetrics,
+} from "@/lib/valuation-condition-metrics"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
 
 export type PortfolioKpiDisplay = {
   label: string
@@ -17,28 +31,37 @@ export type PortfolioKpiDisplay = {
   subValue?: string
 }
 
-function emptyKpiStrip(): PortfolioKpiDisplay[] {
-  const dash = "—"
-  return [
-    { label: "Est. Value", value: dash },
-    { label: "NOI", value: dash },
-    { label: "Cap Rate", value: dash },
-    { label: "WALE / WALT", value: dash },
-  ]
-}
-
-function aggregateFromRows(rows: PortfolioAssetRow[]): {
-  totalValueUsd: number
+export type PortfolioRowAggregate = {
+  totalRevenueUsd: number
+  totalOpexUsd: number
   totalNoiUsd: number
+  totalValueUsd: number
   totalRsfSqft: number
   weightedOccPct: number
   avgWaleYears: number
   portfolioCapPct: number
-} | null {
+}
+
+function emptyKpiStrip(): PortfolioKpiDisplay[] {
+  const dash = "—"
+  return [
+    { label: "Gross Revenue", value: dash },
+    { label: "OpEx", value: dash },
+    { label: "NOI", value: dash },
+    { label: "Asset Value", value: dash },
+    { label: "Cap Rate", value: dash },
+  ]
+}
+
+export function aggregatePortfolioRows(
+  rows: PortfolioAssetRow[]
+): PortfolioRowAggregate | null {
   if (rows.length === 0) return null
 
-  let totalValueUsd = 0
+  let totalRevenueUsd = 0
+  let totalOpexUsd = 0
   let totalNoiUsd = 0
+  let totalValueUsd = 0
   let totalRsfSqft = 0
   let occWeightedSum = 0
   let waleSum = 0
@@ -48,8 +71,10 @@ function aggregateFromRows(rows: PortfolioAssetRow[]): {
     const fin = financialMetricsForAssetId(row.id)
     if (!fin) continue
 
-    totalValueUsd += fin.valueUsd
+    totalRevenueUsd += fin.annualRevenueUsd
+    totalOpexUsd += fin.annualOpexUsd
     totalNoiUsd += fin.noiUsd
+    totalValueUsd += fin.valueUsd
     totalRsfSqft += fin.rsfSqft
 
     const asset = getAssetById(row.id)
@@ -74,8 +99,10 @@ function aggregateFromRows(rows: PortfolioAssetRow[]): {
   const avgWaleYears = waleN > 0 ? waleSum / waleN : 0
 
   return {
-    totalValueUsd,
+    totalRevenueUsd,
+    totalOpexUsd,
     totalNoiUsd,
+    totalValueUsd,
     totalRsfSqft,
     weightedOccPct,
     avgWaleYears,
@@ -85,21 +112,50 @@ function aggregateFromRows(rows: PortfolioAssetRow[]): {
 
 /** KPI strip for the portfolio dashboard, derived from the currently visible table rows (fund filter + search). */
 export function portfolioKpiStripFromRows(
-  rows: PortfolioAssetRow[]
+  rows: PortfolioAssetRow[],
+  valuationCondition: ValuationConditionId = DEFAULT_VALUATION_CONDITION_ID
 ): PortfolioKpiDisplay[] {
-  const agg = aggregateFromRows(rows)
-  if (!agg) return emptyKpiStrip()
+  if (rows.length === 0) return emptyKpiStrip()
+
+  const baselineScenario = buildDefaultForecastScenarios()[0]
+  if (baselineScenario == null) return emptyKpiStrip()
+
+  const valuationMetrics = aggregateValuationConditionMetrics(
+    rows.map((row) => {
+      const assumptions = defaultForecastAssumptionsForAsset(row.id)
+      const financials = financialMetricsForAssetId(row.id)
+      const metricMap = buildValuationConditionMetricMap({
+        assetId: row.id,
+        dataset: getSampleStackingPlanData(row.id),
+        assumptions,
+        scenario: baselineScenario,
+        baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
+        modValues: INITIAL_MOD_VALUES,
+      })
+      return metricMap[valuationCondition]
+    })
+  )
 
   return [
-    { label: "Est. Value", value: formatUsdPortfolioCompact(agg.totalValueUsd) },
-    { label: "NOI", value: `${formatUsdPortfolioCompact(agg.totalNoiUsd)} / yr` },
     {
-      label: "Cap Rate",
-      value: `${agg.portfolioCapPct.toFixed(2)}%`,
+      label: "Gross Revenue",
+      value: `${formatUsdPortfolioCompact(valuationMetrics.grossRevenue)} / yr`,
     },
     {
-      label: "WALE / WALT",
-      value: `${agg.avgWaleYears.toFixed(1)} yrs`,
+      label: "OpEx",
+      value: `${formatUsdPortfolioCompact(valuationMetrics.opex)} / yr`,
+    },
+    {
+      label: "NOI",
+      value: `${formatUsdPortfolioCompact(valuationMetrics.noi)} / yr`,
+    },
+    {
+      label: "Asset Value",
+      value: formatUsdPortfolioCompact(valuationMetrics.assetValue),
+    },
+    {
+      label: "Cap Rate",
+      value: `${valuationMetrics.capRate.toFixed(2)}%`,
     },
   ]
 }
@@ -131,7 +187,7 @@ export function headerKpiFromPortfolioRows(rows: PortfolioAssetRow[]): {
   metrics: HeaderKpiMetrics
   numeric: HeaderKpiNumeric
 } {
-  const agg = aggregateFromRows(rows)
+  const agg = aggregatePortfolioRows(rows)
   if (!agg) {
     return { metrics: { ...EMPTY_HEADER_METRICS }, numeric: { ...EMPTY_HEADER_NUMERIC } }
   }

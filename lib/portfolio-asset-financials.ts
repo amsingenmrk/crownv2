@@ -17,6 +17,8 @@ export function portfolioValueNoiCapFromSeed(seed: number): {
   valueUsd: number
   noiTenthM: number
   noiUsd: number
+  annualRevenueUsd: number
+  annualOpexUsd: number
   capRatePct: number
   rsfSqft: number
   pricePerSfN: number
@@ -25,6 +27,10 @@ export function portfolioValueNoiCapFromSeed(seed: number): {
   const valueUsd = valueMills * 1_000_000
   const noiTenthM = (seed % 95) / 10
   const noiUsd = noiTenthM * 1_000_000
+  // Keep seeded revenue aligned with the forecast model's typical NOI margin band.
+  const noiMargin = 0.56 + (seed % 7) * 0.025
+  const annualRevenueUsd = noiMargin > 0 ? noiUsd / noiMargin : noiUsd
+  const annualOpexUsd = Math.max(annualRevenueUsd - noiUsd, 0)
   const capRatePct = 4.2 + (seed % 28) / 10
   const rsfSqft = 120_000 + (seed * 97_331) % 3_800_000
   const pricePerSfN = 38 + (seed % 68)
@@ -33,6 +39,8 @@ export function portfolioValueNoiCapFromSeed(seed: number): {
     valueUsd,
     noiTenthM,
     noiUsd,
+    annualRevenueUsd,
+    annualOpexUsd,
     capRatePct,
     rsfSqft,
     pricePerSfN,

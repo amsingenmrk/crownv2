@@ -29,6 +29,7 @@ import { readIncludedAssetIdsWithV1Migration } from "@/lib/scenario-included-ass
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { aggregatePortfolioRows } from "@/lib/portfolio-kpi-aggregate"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
@@ -239,6 +240,11 @@ export function ScenarioPageHeader() {
     scenarioMembershipMode,
   ])
 
+  const scenarioAggregate = React.useMemo(
+    () => aggregatePortfolioRows(scenarioRows),
+    [scenarioRows]
+  )
+
   const title = React.useMemo(() => {
     if (scenarioSlug == null) return "Scenario"
     return scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
@@ -301,6 +307,7 @@ export function ScenarioPageHeader() {
               assetCount={scenarioRows.length}
               spaceCount={stackingSpaceTotal}
               occupiedPercent={occupiedPercent}
+              waleYears={scenarioAggregate?.avgWaleYears ?? null}
             />
           </div>
         </div>
