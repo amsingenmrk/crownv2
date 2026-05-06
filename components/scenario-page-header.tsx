@@ -33,10 +33,10 @@ import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { scenarioMembershipModeFromPathname } from "@/lib/scenario-membership"
-import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
-  BUILTIN_SCENARIO,
   getUserScenariosStoreSnapshot,
+  scenarioDescriptionForDisplay,
+  scenarioDisplayTitleForSlug,
   subscribeUserScenarios,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
@@ -45,16 +45,6 @@ function scenarioSlugFromPathname(pathname: string | null): string | null {
   if (pathname == null || !pathname.startsWith("/scenarios/")) return null
   const slug = pathname.slice("/scenarios/".length).split("/")[0]
   return slug || null
-}
-
-function propertySubtitle(propertyCount: number, scopeCount: number) {
-  if (propertyCount === 0) {
-    return "No properties in this scenario"
-  }
-
-  return `${propertyCount} propert${propertyCount === 1 ? "y" : "ies"} across ${scopeCount} portfolio ${
-    scopeCount === 1 ? "scope" : "scopes"
-  }`
 }
 
 function weightedOccupiedPercentForRows(rows: readonly PortfolioAssetRow[]) {
@@ -251,15 +241,13 @@ export function ScenarioPageHeader() {
 
   const title = React.useMemo(() => {
     if (scenarioSlug == null) return "Scenario"
-    if (scenarioSlug === BUILTIN_SCENARIO.slug) return BUILTIN_SCENARIO.name
-    return userScenarios.find((scenario) => scenario.slug === scenarioSlug)?.name ??
-      humanizeScenarioSlug(scenarioSlug)
+    return scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
   }, [scenarioSlug, userScenarios])
 
-  const subtitle = React.useMemo(() => {
-    const scopeCount = new Set(scenarioRows.map((row) => row.groupId)).size
-    return propertySubtitle(scenarioRows.length, scopeCount)
-  }, [scenarioRows])
+  const scopeDescription = React.useMemo(
+    () => scenarioDescriptionForDisplay(scenarioSlug ?? null, userScenarios),
+    [scenarioSlug, userScenarios]
+  )
 
   const occupiedPercent = React.useMemo(
     () => weightedOccupiedPercentForRows(scenarioRows),
@@ -298,9 +286,13 @@ export function ScenarioPageHeader() {
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="flex min-w-0 items-start">
-            <div className="min-w-0 self-center">
+            <div className="min-w-0 self-center space-y-1">
               <h2 className="truncate text-xl font-semibold">{title}</h2>
-              <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+              {scopeDescription ? (
+                <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
+                  {scopeDescription}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">

@@ -32,7 +32,10 @@ import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useScopedForecastState } from "@/hooks/use-scoped-forecast-state"
-import { resolveAssetGroupLabel } from "@/lib/assets"
+import {
+  PORTFOLIO_OVERVIEW_LABEL,
+  resolveAssetGroupLabel,
+} from "@/lib/assets"
 import {
   getForecastStatementChartMeta,
   type ForecastChartTab,
@@ -44,10 +47,14 @@ import {
   type ScopedForecastScope,
   outlookWeightSliderToProbabilities,
 } from "@/lib/scoped-forecast"
-import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import { buildScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
 import { buildScopedForecastSummaryKpis } from "@/lib/scoped-forecast-summary-kpis"
-import { BUILTIN_SCENARIO } from "@/lib/user-scenarios"
+import {
+  getUserScenariosStoreSnapshot,
+  scenarioDisplayTitleForSlug,
+  subscribeUserScenarios,
+  USER_SCENARIOS_SERVER_SNAPSHOT,
+} from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
 
 const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
@@ -352,17 +359,21 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
   } = useScopedForecastState(scope)
   const isPortfolioScope = scope.kind === "portfolio"
 
+  const userScenarios = React.useSyncExternalStore(
+    subscribeUserScenarios,
+    getUserScenariosStoreSnapshot,
+    () => USER_SCENARIOS_SERVER_SNAPSHOT
+  )
+
   const scopeLabel = React.useMemo(() => {
     if (scope.kind === "scenario") {
-      return scope.scenarioSlug === BUILTIN_SCENARIO.slug
-        ? BUILTIN_SCENARIO.name
-        : humanizeScenarioSlug(scope.scenarioSlug)
+      return scenarioDisplayTitleForSlug(scope.scenarioSlug, userScenarios)
     }
     if (scope.portfolioScopeId != null) {
       return resolveAssetGroupLabel(scope.portfolioScopeId)
     }
-    return "Portfolio Overview"
-  }, [scope])
+    return PORTFOLIO_OVERVIEW_LABEL
+  }, [scope, userScenarios])
 
   const rollup = React.useMemo(
     () =>

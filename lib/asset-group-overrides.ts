@@ -1,7 +1,11 @@
 const STORAGE_KEY = "glassbox:asset-group-overrides"
 const CUSTOM_GROUPS_KEY = "glassbox:custom-asset-groups"
+/** Optional per-custom-scope descriptions (muted subtitles in headers). */
+const CUSTOM_GROUP_DESCRIPTIONS_KEY = "glassbox:custom-asset-group-descriptions"
 /** Optional display names for built-in funds (`office` / `industrial` / `retail`). */
 const FUND_DISPLAY_LABELS_KEY = "glassbox:fund-display-labels"
+/** Optional descriptions for built-in fund scopes (override default copy in `lib/assets`). */
+const FUND_DESCRIPTION_OVERRIDES_KEY = "glassbox:fund-description-overrides"
 const CHANGED = "glassbox:asset-group-overrides-changed"
 const CUSTOM_CHANGED = "glassbox:custom-asset-groups-changed"
 
@@ -65,6 +69,45 @@ export function parseCustomAssetGroups(raw: string): Record<string, string> {
   }
 }
 
+function parseCustomGroupDescriptions(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {}
+    }
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (
+        typeof k === "string" &&
+        k.length > 0 &&
+        k.length < 128 &&
+        typeof v === "string" &&
+        v.length > 0 &&
+        v.length <= 600
+      ) {
+        out[k] = v
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function readCustomGroupDescriptions(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY)
+  if (raw == null || raw === "") return {}
+  return parseCustomGroupDescriptions(raw)
+}
+
+function writeCustomGroupDescriptions(next: Record<string, string>): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(CUSTOM_GROUP_DESCRIPTIONS_KEY, JSON.stringify(next))
+  window.dispatchEvent(new Event(CUSTOM_CHANGED))
+  window.dispatchEvent(new Event(CHANGED))
+}
+
 export function readAssetGroupOverrides(): Record<string, string> {
   if (typeof window === "undefined") return {}
   const raw = localStorage.getItem(STORAGE_KEY)
@@ -110,6 +153,78 @@ export function readFundDisplayLabels(): Record<string, string> {
   return parseFundDisplayLabels(raw)
 }
 
+function parseFundDescriptionOverrides(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {}
+    }
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (
+        typeof k === "string" &&
+        BUILT_IN_GROUP_IDS.has(k) &&
+        typeof v === "string" &&
+        v.length > 0 &&
+        v.length <= 600
+      ) {
+        out[k] = v
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function readFundDescriptionOverrides(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY)
+  if (raw == null || raw === "") return {}
+  return parseFundDescriptionOverrides(raw)
+}
+
+/**
+ * Updates display name and optionally description for a built-in fund scope
+ * (`office` / `industrial` / `retail`). Omit `description` to leave it unchanged.
+ * Pass `description: ""` to clear an override (revert to default copy in code).
+ */
+export function updateFundByGroupId(
+  groupId: string,
+  updates: { name: string; description?: string }
+): boolean {
+  if (typeof window === "undefined") return false
+  if (!BUILT_IN_GROUP_IDS.has(groupId)) return false
+  const trimmedName = updates.name.trim()
+  if (!trimmedName) return false
+
+  const currentLabels = readFundDisplayLabels()
+  const nextLabels = { ...currentLabels, [groupId]: trimmedName }
+  localStorage.setItem(FUND_DISPLAY_LABELS_KEY, JSON.stringify(nextLabels))
+
+  if (Object.hasOwn(updates, "description")) {
+    const descTrim = (updates.description ?? "").trim().slice(0, 600)
+    const currentDesc = readFundDescriptionOverrides()
+    const nextDesc = { ...currentDesc }
+    if (descTrim.length === 0) {
+      delete nextDesc[groupId]
+    } else {
+      nextDesc[groupId] = descTrim
+    }
+    if (Object.keys(nextDesc).length === 0) {
+      localStorage.removeItem(FUND_DESCRIPTION_OVERRIDES_KEY)
+    } else {
+      localStorage.setItem(
+        FUND_DESCRIPTION_OVERRIDES_KEY,
+        JSON.stringify(nextDesc)
+      )
+    }
+  }
+
+  window.dispatchEvent(new Event(CHANGED))
+  return true
+}
+
 /**
  * Sets the displayed name for a built-in fund scope (`office`, `industrial`, `retail`).
  */
@@ -117,31 +232,33 @@ export function updateFundDisplayLabelByGroupId(
   groupId: string,
   newName: string
 ): boolean {
-  if (typeof window === "undefined") return false
-  if (!BUILT_IN_GROUP_IDS.has(groupId)) return false
-  const trimmed = newName.trim()
-  if (!trimmed) return false
-  const current = readFundDisplayLabels()
-  const next = { ...current, [groupId]: trimmed }
-  localStorage.setItem(FUND_DISPLAY_LABELS_KEY, JSON.stringify(next))
-  window.dispatchEvent(new Event(CHANGED))
-  return true
+  return updateFundByGroupId(groupId, { name: newName })
 }
 
 export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   overrides: Record<string, string>
   customGroups: Record<string, string>
   fundLabelOverrides: Record<string, string>
+  customGroupDescriptions: Record<string, string>
+  fundDescriptionOverrides: Record<string, string>
 } {
   const parts = snapshot.split("\0")
   const overridesRaw = parts[0] ?? ""
   const customGroupsRaw = parts[1] ?? ""
   const fundLabelsRaw = parts[2] ?? ""
+  const descriptionsRaw = parts[3] ?? ""
+  const fundDescriptionsRaw = parts[4] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
     customGroups: customGroupsRaw ? parseCustomAssetGroups(customGroupsRaw) : {},
     fundLabelOverrides: fundLabelsRaw ? parseFundDisplayLabels(fundLabelsRaw) : {},
+    customGroupDescriptions: descriptionsRaw
+      ? parseCustomGroupDescriptions(descriptionsRaw)
+      : {},
+    fundDescriptionOverrides: fundDescriptionsRaw
+      ? parseFundDescriptionOverrides(fundDescriptionsRaw)
+      : {},
   }
 }
 
@@ -159,7 +276,8 @@ function slugifyForGroupId(text: string): string {
  * IDs are prefixed with `grp-` so they do not collide with built-in groups.
  */
 export function addCustomAssetGroup(
-  displayName: string
+  displayName: string,
+  description?: string
 ): { id: string; label: string } | null {
   if (typeof window === "undefined") return null
   const trimmed = displayName.trim()
@@ -178,6 +296,13 @@ export function addCustomAssetGroup(
   localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(next))
   window.dispatchEvent(new Event(CUSTOM_CHANGED))
   window.dispatchEvent(new Event(CHANGED))
+
+  const descTrimmed = description?.trim()
+  if (descTrimmed) {
+    const descMap = readCustomGroupDescriptions()
+    writeCustomGroupDescriptions({ ...descMap, [id]: descTrimmed.slice(0, 600) })
+  }
+
   return { id, label: trimmed }
 }
 
@@ -195,25 +320,51 @@ function writeAssetGroupOverrides(overrides: Record<string, string>): void {
 }
 
 /**
- * Renames a user-defined portfolio scope (custom asset group) in place. Built-in
- * `office` / `industrial` / `retail` scopes are not stored here and cannot be
- * updated via this helper.
+ * Updates a custom portfolio scope display name and optionally description.
+ * Omit `description` to leave the stored description unchanged. Pass `description: ""` to clear it.
+ */
+export function updateCustomAssetGroupById(
+  groupId: string,
+  updates: { name: string; description?: string }
+): boolean {
+  if (typeof window === "undefined") return false
+  const trimmedName = updates.name.trim()
+  if (!trimmedName) return false
+  const custom = readCustomAssetGroups()
+  if (!isCustomGroupId(groupId, custom)) return false
+
+  if (custom[groupId] !== trimmedName) {
+    const next = { ...custom, [groupId]: trimmedName }
+    localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(next))
+    window.dispatchEvent(new Event(CUSTOM_CHANGED))
+    window.dispatchEvent(new Event(CHANGED))
+  }
+
+  if (Object.hasOwn(updates, "description")) {
+    const d = (updates.description ?? "").trim().slice(0, 600)
+    const dm = readCustomGroupDescriptions()
+    if (d.length > 0) {
+      if ((dm[groupId] ?? "").trim() !== d) {
+        writeCustomGroupDescriptions({ ...dm, [groupId]: d })
+      }
+    } else if (Object.hasOwn(dm, groupId)) {
+      const { [groupId]: _rm, ...rest } = dm
+      writeCustomGroupDescriptions(rest)
+    }
+  }
+
+  return true
+}
+
+/**
+ * Renames a user-defined portfolio scope (custom asset group) in place.
+ * @deprecated Prefer {@link updateCustomAssetGroupById} when editing description too.
  */
 export function updateCustomAssetGroupNameById(
   groupId: string,
   newName: string
 ): boolean {
-  if (typeof window === "undefined") return false
-  const trimmed = newName.trim()
-  if (!trimmed) return false
-  const custom = readCustomAssetGroups()
-  if (!isCustomGroupId(groupId, custom)) return false
-  if (custom[groupId] === trimmed) return true
-  const next = { ...custom, [groupId]: trimmed }
-  localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(next))
-  window.dispatchEvent(new Event(CUSTOM_CHANGED))
-  window.dispatchEvent(new Event(CHANGED))
-  return true
+  return updateCustomAssetGroupById(groupId, { name: newName })
 }
 
 /**
@@ -228,6 +379,11 @@ export function removeCustomAssetGroupById(groupId: string): boolean {
   const { [groupId]: _, ...rest } = custom
   localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(rest))
   window.dispatchEvent(new Event(CUSTOM_CHANGED))
+  const descMap = readCustomGroupDescriptions()
+  if (Object.hasOwn(descMap, groupId)) {
+    const { [groupId]: __rm, ...descRest } = descMap
+    writeCustomGroupDescriptions(descRest)
+  }
   const overrides = readAssetGroupOverrides()
   const nextOverrides: Record<string, string> = {}
   for (const [assetId, gid] of Object.entries(overrides)) {
@@ -253,6 +409,14 @@ export function duplicateCustomAssetGroupFromId(
   const duplicateName = `Copy of ${sourceLabel}`
   const created = addCustomAssetGroup(duplicateName)
   if (created == null) return null
+  const sourceDesc = readCustomGroupDescriptions()[sourceGroupId]?.trim()
+  if (sourceDesc) {
+    const dm = readCustomGroupDescriptions()
+    writeCustomGroupDescriptions({
+      ...dm,
+      [created.id]: sourceDesc.slice(0, 600),
+    })
+  }
   const overrides = readAssetGroupOverrides()
   const nextOverrides = { ...overrides }
   for (const [assetId, gid] of Object.entries(overrides)) {
@@ -280,7 +444,9 @@ export function subscribeAssetGroupOverrides(
     if (
       e.key === STORAGE_KEY ||
       e.key === CUSTOM_GROUPS_KEY ||
-      e.key === FUND_DISPLAY_LABELS_KEY
+      e.key === FUND_DISPLAY_LABELS_KEY ||
+      e.key === FUND_DESCRIPTION_OVERRIDES_KEY ||
+      e.key === CUSTOM_GROUP_DESCRIPTIONS_KEY
     ) {
       run()
     }
@@ -295,5 +461,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}`
 }

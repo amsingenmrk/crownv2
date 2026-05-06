@@ -21,6 +21,7 @@ import {
 import { readScenarioIncludedPropertiesBySlug } from "@/lib/scenario-included-properties-storage"
 import {
   BUILTIN_SCENARIO,
+  scenarioDisplayTitleForSlug,
   type UserScenario,
 } from "@/lib/user-scenarios"
 
@@ -329,7 +330,7 @@ function scenarioCompareColumn(slug: string, userScenarios: readonly UserScenari
   let name: string
   let address: string
   if (slug === BUILTIN_SCENARIO.slug) {
-    name = BUILTIN_SCENARIO.name
+    name = scenarioDisplayTitleForSlug(slug, userScenarios)
     address = "Scenario workspace · capital planning"
   } else {
     const u = userScenarios.find((s) => s.slug === slug)
@@ -459,11 +460,10 @@ export function columnForEntityKey(
 
   const prop = parsePropertySlotKey(key)
   if (prop != null) {
-    const scenarioLabel =
-      prop.scenarioSlug === BUILTIN_SCENARIO.slug
-        ? BUILTIN_SCENARIO.name
-        : userScenarios.find((s) => s.slug === prop.scenarioSlug)?.name ??
-          prop.scenarioSlug.replace(/-/g, " ")
+    const scenarioLabel = scenarioDisplayTitleForSlug(
+      prop.scenarioSlug,
+      userScenarios
+    )
     return propertyCompareColumn(
       prop.scenarioSlug,
       prop.assetId,
@@ -486,15 +486,6 @@ export type ComparePickerOption = {
   label: string
   group: string
   keywords?: string
-}
-
-function scenarioDisplayName(
-  slug: string,
-  userScenarios: readonly UserScenario[]
-): string {
-  if (slug === BUILTIN_SCENARIO.slug) return BUILTIN_SCENARIO.name
-  const u = userScenarios.find((s) => s.slug === slug)
-  return u?.name ?? slug.replace(/-/g, " ")
 }
 
 export function buildComparePickerOptions(
@@ -532,7 +523,7 @@ export function buildComparePickerOptions(
 
   out.push({
     value: scenarioKey(BUILTIN_SCENARIO.slug),
-    label: BUILTIN_SCENARIO.name,
+    label: scenarioDisplayTitleForSlug(BUILTIN_SCENARIO.slug, userScenarios),
     group: "Scenarios",
     keywords: "builtin capital planning",
   })
@@ -560,7 +551,7 @@ export function buildComparePickerOptions(
   ]
   for (const slug of scenarioSlugs) {
     const tracked = readScenarioIncludedPropertiesBySlug(slug)
-    const scenarioLabel = scenarioDisplayName(slug, userScenarios)
+    const scenarioLabel = scenarioDisplayTitleForSlug(slug, userScenarios)
     for (const { assetId, tenantId } of tracked) {
       const asset = getAssetById(assetId)
       const data = getSampleStackingPlanData(assetId)
@@ -619,7 +610,7 @@ export function labelForCompareSlotKey(
   }
   if (key.startsWith("scenario:")) {
     const slug = key.slice("scenario:".length)
-    return scenarioDisplayName(slug, userScenarios)
+    return scenarioDisplayTitleForSlug(slug, userScenarios)
   }
   return "Compare"
 }

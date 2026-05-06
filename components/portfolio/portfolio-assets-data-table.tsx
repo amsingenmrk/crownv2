@@ -46,7 +46,10 @@ import {
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 import {
   BUILTIN_SCENARIO,
+  BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT,
+  BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY,
   readUserScenarios,
+  scenarioDisplayTitleForSlug,
   USER_SCENARIOS_CHANGED_EVENT,
   type UserScenario,
 } from "@/lib/user-scenarios"
@@ -122,13 +125,20 @@ export function PortfolioAssetsDataTable({
     const sync = () => setUserScenarios(readUserScenarios())
     sync()
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== "glassbox:user-scenarios") return
+      if (
+        e.key !== "glassbox:user-scenarios" &&
+        e.key !== BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY
+      ) {
+        return
+      }
       sync()
     }
     window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+    window.addEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
     window.addEventListener("storage", onStorage)
     return () => {
       window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+      window.removeEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
       window.removeEventListener("storage", onStorage)
     }
   }, [])
@@ -138,7 +148,10 @@ export function PortfolioAssetsDataTable({
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
     )
     return [
-      { name: BUILTIN_SCENARIO.name, slug: BUILTIN_SCENARIO.slug },
+      {
+        name: scenarioDisplayTitleForSlug(BUILTIN_SCENARIO.slug, userScenarios),
+        slug: BUILTIN_SCENARIO.slug,
+      },
       ...userSorted,
     ]
   }, [userScenarios])

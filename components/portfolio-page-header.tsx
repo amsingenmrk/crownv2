@@ -17,32 +17,10 @@ import {
   getAssetById,
   portfolioScopeIdFromRouteParam,
   resolveAssetGroupLabel,
+  resolvePortfolioScopeDescription,
 } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
-
-function headerSubtitleForPortfolio({
-  portfolioScopeId,
-  assetCount,
-  scopeCount,
-}: {
-  portfolioScopeId: string | null
-  assetCount: number
-  scopeCount: number
-}) {
-  if (portfolioScopeId != null) {
-    const scopeNoun = BUILT_IN_ASSET_GROUP_IDS.includes(
-      portfolioScopeId as (typeof BUILT_IN_ASSET_GROUP_IDS)[number]
-    )
-      ? "fund"
-      : "portfolio scope"
-    return `${assetCount} asset${assetCount === 1 ? "" : "s"} in this ${scopeNoun}`
-  }
-
-  return `${assetCount} asset${assetCount === 1 ? "" : "s"} across ${scopeCount} portfolio ${
-    scopeCount === 1 ? "scope" : "scopes"
-  }`
-}
 
 function weightedOccupiedPercentForAssets(
   assets: readonly ReturnType<typeof getAssetById>[]
@@ -104,14 +82,26 @@ export function PortfolioPageHeader() {
     return resolveAssetGroupLabel(portfolioScopeId, assetGroupData.customGroups)
   }, [assetGroupData.customGroups, portfolioScopeId])
 
-  const subtitle = React.useMemo(() => {
-    const scopeCount = new Set(effectiveAssets.map((asset) => asset.groupId)).size
-    return headerSubtitleForPortfolio({
+  const scopeDescription = React.useMemo(
+    () =>
+      resolvePortfolioScopeDescription(
+        portfolioScopeId,
+        assetGroupData.customGroupDescriptions,
+        assetGroupData.fundDescriptionOverrides
+      ),
+    [
+      assetGroupData.customGroupDescriptions,
+      assetGroupData.fundDescriptionOverrides,
       portfolioScopeId,
-      assetCount: scopedAssets.length,
-      scopeCount,
-    })
-  }, [effectiveAssets, portfolioScopeId, scopedAssets.length])
+    ]
+  )
+
+  const overviewPortfolioSubtitle = React.useMemo(() => {
+    const n =
+      BUILT_IN_ASSET_GROUP_IDS.length +
+      Object.keys(assetGroupData.customGroups).length
+    return n === 1 ? "1 portfolio" : `${n} portfolios`
+  }, [assetGroupData.customGroups])
 
   const occupiedPercent = React.useMemo(
     () => weightedOccupiedPercentForAssets(scopedAssets),
@@ -152,9 +142,17 @@ export function PortfolioPageHeader() {
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="flex min-w-0 items-start">
-            <div className="min-w-0 self-center">
+            <div className="min-w-0 self-center space-y-1">
               <h2 className="truncate text-xl font-semibold">{title}</h2>
-              <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+              {portfolioScopeId == null ? (
+                <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
+                  {overviewPortfolioSubtitle}
+                </p>
+              ) : scopeDescription ? (
+                <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
+                  {scopeDescription}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">

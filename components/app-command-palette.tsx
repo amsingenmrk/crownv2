@@ -34,7 +34,11 @@ import {
 } from "@/lib/asset-group-overrides"
 import { ASSETS, assetHref, getAssetById } from "@/lib/assets"
 import { getRecentAssetIds, recordRecentAsset } from "@/lib/recent-assets"
-import { BUILTIN_SCENARIO, readUserScenarios } from "@/lib/user-scenarios"
+import {
+  BUILTIN_SCENARIO,
+  readUserScenarios,
+  scenarioDisplayTitleForSlug,
+} from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
 
 const ROUTES = [
@@ -133,11 +137,15 @@ export function AppCommandPalette({
       .sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       )
+    const builtinTitle = scenarioDisplayTitleForSlug(
+      BUILTIN_SCENARIO.slug,
+      user
+    )
     return [
       {
-        name: BUILTIN_SCENARIO.name,
+        name: builtinTitle,
         href: `/scenarios/${BUILTIN_SCENARIO.slug}`,
-        value: `scenario ${BUILTIN_SCENARIO.name.toLowerCase()}`,
+        value: `scenario ${builtinTitle.toLowerCase()}`,
       },
       ...user.map((s) => ({
         name: s.name,

@@ -15,7 +15,10 @@ import {
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import {
   BUILTIN_SCENARIO,
+  BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT,
+  BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY,
   readUserScenarios,
+  scenarioDisplayTitleForSlug,
   USER_SCENARIOS_CHANGED_EVENT,
   type UserScenario,
 } from "@/lib/user-scenarios"
@@ -42,16 +45,28 @@ export function NavScenarios() {
     const sync = () => setUserScenarios(readUserScenarios())
     sync()
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== "glassbox:user-scenarios") return
+      if (
+        e.key !== "glassbox:user-scenarios" &&
+        e.key !== BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY
+      ) {
+        return
+      }
       sync()
     }
     window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+    window.addEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
     window.addEventListener("storage", onStorage)
     return () => {
       window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
+      window.removeEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
       window.removeEventListener("storage", onStorage)
     }
   }, [])
+
+  const builtinTitle = scenarioDisplayTitleForSlug(
+    BUILTIN_SCENARIO.slug,
+    userScenarios
+  )
 
   return (
     <>
@@ -68,12 +83,12 @@ export function NavScenarios() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip={BUILTIN_SCENARIO.name}
+              tooltip={builtinTitle}
               isActive={builtinActive}
               render={<Link href={BUILTIN_HREF} />}
             >
               <Diff />
-              <span>{BUILTIN_SCENARIO.name}</span>
+              <span>{builtinTitle}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {userScenariosSorted.map((s) => {

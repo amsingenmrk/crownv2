@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,8 +57,8 @@ import {
   removeCustomAssetGroupById,
   setAssetGroupOverride,
   subscribeAssetGroupOverrides,
-  updateCustomAssetGroupNameById,
-  updateFundDisplayLabelByGroupId,
+  updateCustomAssetGroupById,
+  updateFundByGroupId,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
@@ -68,8 +67,8 @@ import {
   getAssetById,
   portfolioScopeHref,
   portfolioScopeIdFromRouteParam,
+  resolvePortfolioScopeDescription,
 } from "@/lib/assets"
-import { humanizeScenarioSlug } from "@/lib/scenario-slug"
 import {
   getSavedComparisonsStoreSnapshot,
   removeSavedComparison,
@@ -82,8 +81,11 @@ import {
   duplicateScenarioFromSourceSlug,
   getUserScenariosStoreSnapshot,
   removeUserScenarioBySlug,
+  scenarioDescriptionForDisplay,
+  scenarioDisplayTitleForSlug,
   subscribeUserScenarios,
-  updateUserScenarioNameBySlug,
+  updateBuiltinScenarioDisplay,
+  updateUserScenarioBySlug,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
 import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridge"
@@ -141,9 +143,7 @@ function titleForPathname(
   if (pathname.startsWith("/scenarios/")) {
     const slug = pathname.slice("/scenarios/".length).split("/")[0]
     if (slug) {
-      const user = userScenarios.find((s) => s.slug === slug)
-      if (user) return user.name
-      return humanizeScenarioSlug(slug)
+      return scenarioDisplayTitleForSlug(slug, userScenarios)
     }
   }
   if (pathname.startsWith("/compare/")) {
@@ -158,77 +158,17 @@ function titleForPathname(
 }
 
 function ScenarioBreadcrumbCurrentPage({
-  scenarioSlug,
   pageTitle,
   canRenameInline,
-  showToast,
+  onOpenRename,
 }: {
-  scenarioSlug: string
   pageTitle: string
   canRenameInline: boolean
-  showToast: (message: string) => void
+  onOpenRename: () => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState("")
-  const inputId = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useLayoutEffect(() => {
-    if (!editing) return
-    const id = requestAnimationFrame(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    })
-    return () => cancelAnimationFrame(id)
-  }, [editing])
-
-  const commit = useCallback(() => {
-    if (!canRenameInline) {
-      setEditing(false)
-      return
-    }
-    const trimmed = draft.trim()
-    if (!trimmed || trimmed === pageTitle) {
-      setEditing(false)
-      setDraft("")
-      return
-    }
-    if (updateUserScenarioNameBySlug(scenarioSlug, trimmed)) {
-      showToast(`Renamed to “${trimmed}”.`)
-    }
-    setEditing(false)
-    setDraft("")
-  }, [canRenameInline, draft, pageTitle, scenarioSlug, showToast])
-
-  const cancel = useCallback(() => {
-    setEditing(false)
-    setDraft("")
-  }, [])
-
   return (
     <BreadcrumbItem className="min-w-0">
-      {editing && canRenameInline ? (
-        <Input
-          ref={inputRef}
-          id={inputId}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              commit()
-            }
-            if (e.key === "Escape") {
-              e.preventDefault()
-              cancel()
-            }
-          }}
-          autoComplete="off"
-          aria-label="Scenario name"
-          className="h-8 min-w-[10rem] max-w-[min(28rem,calc(100vw-8rem))] text-sm font-medium"
-        />
-      ) : canRenameInline ? (
+      {canRenameInline ? (
         <span
           data-slot="breadcrumb-page"
           role="link"
@@ -242,11 +182,8 @@ function ScenarioBreadcrumbCurrentPage({
               "underline-offset-4 outline-none hover:bg-muted/80 hover:underline",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             )}
-            title="Click to rename"
-            onClick={() => {
-              setDraft(pageTitle)
-              setEditing(true)
-            }}
+            title="Edit name and description"
+            onClick={onOpenRename}
           >
             {pageTitle}
           </button>
@@ -259,94 +196,33 @@ function ScenarioBreadcrumbCurrentPage({
 }
 
 function PortfolioScopeBreadcrumbCurrentPage({
-  scopeId,
   pageTitle,
-  showToast,
+  onOpenRename,
 }: {
-  scopeId: string
   pageTitle: string
-  showToast: (message: string) => void
+  onOpenRename: () => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState("")
-  const inputId = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useLayoutEffect(() => {
-    if (!editing) return
-    const id = requestAnimationFrame(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    })
-    return () => cancelAnimationFrame(id)
-  }, [editing])
-
-  const commit = useCallback(() => {
-    const trimmed = draft.trim()
-    if (!trimmed || trimmed === pageTitle) {
-      setEditing(false)
-      setDraft("")
-      return
-    }
-    if (updateCustomAssetGroupNameById(scopeId, trimmed)) {
-      showToast(`Renamed to “${trimmed}”.`)
-    }
-    setEditing(false)
-    setDraft("")
-  }, [draft, pageTitle, scopeId, showToast])
-
-  const cancel = useCallback(() => {
-    setEditing(false)
-    setDraft("")
-  }, [])
-
   return (
     <BreadcrumbItem className="min-w-0">
-      {editing ? (
-        <Input
-          ref={inputRef}
-          id={inputId}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              commit()
-            }
-            if (e.key === "Escape") {
-              e.preventDefault()
-              cancel()
-            }
-          }}
-          autoComplete="off"
-          aria-label="Portfolio scope name"
-          className="h-8 min-w-[10rem] max-w-[min(28rem,calc(100vw-8rem))] text-sm font-medium"
-        />
-      ) : (
-        <span
-          data-slot="breadcrumb-page"
-          role="link"
-          aria-current="page"
-          className="inline-flex min-w-0 max-w-full items-center"
+      <span
+        data-slot="breadcrumb-page"
+        role="link"
+        aria-current="page"
+        className="inline-flex min-w-0 max-w-full items-center"
+      >
+        <button
+          type="button"
+          className={cn(
+            "truncate rounded-sm px-1 py-0.5 text-left text-sm font-medium text-foreground -mx-1",
+            "underline-offset-4 outline-none hover:bg-muted/80 hover:underline",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          )}
+          title="Edit name and description"
+          onClick={onOpenRename}
         >
-          <button
-            type="button"
-            className={cn(
-              "truncate rounded-sm px-1 py-0.5 text-left text-sm font-medium text-foreground -mx-1",
-              "underline-offset-4 outline-none hover:bg-muted/80 hover:underline",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            )}
-            title="Click to rename"
-            onClick={() => {
-              setDraft(pageTitle)
-              setEditing(true)
-            }}
-          >
-            {pageTitle}
-          </button>
-        </span>
-      )}
+          {pageTitle}
+        </button>
+      </span>
     </BreadcrumbItem>
   )
 }
@@ -380,6 +256,8 @@ export function AppTopbar() {
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
   const [scenarioRenameOpen, setScenarioRenameOpen] = useState(false)
   const [scenarioRenameDraft, setScenarioRenameDraft] = useState("")
+  const [scenarioRenameDescriptionDraft, setScenarioRenameDescriptionDraft] =
+    useState("")
   const [compareRenameOpen, setCompareRenameOpen] = useState(false)
   const [compareDeleteOpen, setCompareDeleteOpen] = useState(false)
   const [compareRenameDraft, setCompareRenameDraft] = useState("")
@@ -391,6 +269,12 @@ export function AppTopbar() {
     useState(false)
   const [portfolioScopeRenameDraft, setPortfolioScopeRenameDraft] =
     useState("")
+  const [portfolioScopeRenameDescriptionDraft, setPortfolioScopeRenameDescriptionDraft] =
+    useState("")
+  const scenarioRenameNameFieldId = useId()
+  const scenarioRenameDescriptionFieldId = useId()
+  const portfolioRenameNameFieldId = useId()
+  const portfolioRenameDescriptionFieldId = useId()
   const newAssetGroupInputId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
@@ -427,14 +311,10 @@ export function AppTopbar() {
   )
   const canDeleteCurrentScenario =
     scenarioSlug != null && userScenarioSlugs.includes(scenarioSlug)
-  const canRenameScenarioInline = canDeleteCurrentScenario
-  const canManageCurrentPortfolioScope = useMemo(() => {
-    if (portfolioScopeBreadcrumbId == null) return false
-    return Object.hasOwn(
-      assetGroupData.customGroups,
-      portfolioScopeBreadcrumbId
-    )
-  }, [assetGroupData.customGroups, portfolioScopeBreadcrumbId])
+  const canRenameScenarioInline =
+    scenarioSlug != null &&
+    (userScenarioSlugs.includes(scenarioSlug) ||
+      scenarioSlug === BUILTIN_SCENARIO.slug)
 
   const filteredAssets = useMemo(() => {
     const merged = ASSETS.map((a) => getAssetById(a.id, assetGroupData) ?? a)
@@ -472,6 +352,212 @@ export function AppTopbar() {
     portfolioScopeLabels
   )
 
+  const openScenarioRename = useCallback(() => {
+    if (scenarioSlug == null || !canRenameScenarioInline) return
+    if (scenarioSlug === BUILTIN_SCENARIO.slug) {
+      setScenarioRenameDraft(
+        scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+      )
+      setScenarioRenameDescriptionDraft(
+        scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
+      )
+    } else {
+      const row = userScenarios.find((s) => s.slug === scenarioSlug)
+      setScenarioRenameDraft(row?.name ?? pageTitle)
+      setScenarioRenameDescriptionDraft(row?.description ?? "")
+    }
+    setScenarioRenameOpen(true)
+  }, [canRenameScenarioInline, pageTitle, scenarioSlug, userScenarios])
+
+  const openPortfolioScopeRename = useCallback(() => {
+    if (portfolioScopeBreadcrumbId == null) return
+    const id = portfolioScopeBreadcrumbId
+    setPortfolioScopeRenameDraft(portfolioScopeLabels[id] ?? id)
+    if (isBuiltInPortfolioScope) {
+      setPortfolioScopeRenameDescriptionDraft(
+        resolvePortfolioScopeDescription(
+          id,
+          assetGroupData.customGroupDescriptions,
+          assetGroupData.fundDescriptionOverrides
+        ) ?? ""
+      )
+    } else {
+      setPortfolioScopeRenameDescriptionDraft(
+        assetGroupData.customGroupDescriptions[id] ?? ""
+      )
+    }
+    setPortfolioScopeRenameOpen(true)
+  }, [
+    assetGroupData.customGroupDescriptions,
+    assetGroupData.fundDescriptionOverrides,
+    isBuiltInPortfolioScope,
+    portfolioScopeBreadcrumbId,
+    portfolioScopeLabels,
+  ])
+
+  const commitScenarioRename = useCallback(() => {
+    const name = scenarioRenameDraft.trim()
+    if (!name || scenarioSlug == null) return
+    if (scenarioSlug === BUILTIN_SCENARIO.slug) {
+      const prevName = scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+      const prevDesc = (
+        scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
+      ).trim()
+      const nextDesc = scenarioRenameDescriptionDraft.trim()
+      if (name === prevName.trim() && nextDesc === prevDesc) {
+        setScenarioRenameOpen(false)
+        return
+      }
+      if (
+        updateBuiltinScenarioDisplay({
+          name,
+          description: scenarioRenameDescriptionDraft,
+        })
+      ) {
+        setScenarioRenameOpen(false)
+        showToast("Saved.")
+      }
+      return
+    }
+    const row = userScenarios.find((s) => s.slug === scenarioSlug)
+    const prevName = row?.name ?? ""
+    const prevDesc = (row?.description ?? "").trim()
+    const nextDesc = scenarioRenameDescriptionDraft.trim()
+    if (name === prevName && nextDesc === prevDesc) {
+      setScenarioRenameOpen(false)
+      return
+    }
+    if (
+      updateUserScenarioBySlug(scenarioSlug, {
+        name,
+        description: scenarioRenameDescriptionDraft,
+      }) != null
+    ) {
+      setScenarioRenameOpen(false)
+      showToast("Saved.")
+    }
+  }, [
+    scenarioRenameDescriptionDraft,
+    scenarioRenameDraft,
+    scenarioSlug,
+    showToast,
+    userScenarios,
+  ])
+
+  const commitPortfolioScopeRename = useCallback(() => {
+    const name = portfolioScopeRenameDraft.trim()
+    if (!name || portfolioScopeBreadcrumbId == null) return
+    const id = portfolioScopeBreadcrumbId
+    if (isBuiltInPortfolioScope) {
+      const prevName = portfolioScopeLabels[id] ?? id
+      const prevDesc = (
+        resolvePortfolioScopeDescription(
+          id,
+          assetGroupData.customGroupDescriptions,
+          assetGroupData.fundDescriptionOverrides
+        ) ?? ""
+      ).trim()
+      const nextDesc = portfolioScopeRenameDescriptionDraft.trim()
+      if (name === prevName && nextDesc === prevDesc) {
+        setPortfolioScopeRenameOpen(false)
+        return
+      }
+      if (
+        updateFundByGroupId(id, {
+          name,
+          description: portfolioScopeRenameDescriptionDraft,
+        })
+      ) {
+        setPortfolioScopeRenameOpen(false)
+        showToast("Saved.")
+      }
+      return
+    }
+    const prevName = portfolioScopeLabels[id] ?? id
+    const prevDesc = (assetGroupData.customGroupDescriptions[id] ?? "").trim()
+    const nextDesc = portfolioScopeRenameDescriptionDraft.trim()
+    if (name === prevName && nextDesc === prevDesc) {
+      setPortfolioScopeRenameOpen(false)
+      return
+    }
+    if (
+      updateCustomAssetGroupById(id, {
+        name,
+        description: portfolioScopeRenameDescriptionDraft,
+      })
+    ) {
+      setPortfolioScopeRenameOpen(false)
+      showToast("Saved.")
+    }
+  }, [
+    assetGroupData.customGroupDescriptions,
+    assetGroupData.fundDescriptionOverrides,
+    isBuiltInPortfolioScope,
+    portfolioScopeBreadcrumbId,
+    portfolioScopeLabels,
+    portfolioScopeRenameDescriptionDraft,
+    portfolioScopeRenameDraft,
+    showToast,
+  ])
+
+  const scenarioRenameSaveDisabled = useMemo(() => {
+    if (!scenarioRenameDraft.trim() || scenarioSlug == null) return true
+    if (scenarioSlug === BUILTIN_SCENARIO.slug) {
+      const effName = scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+      const effDesc = (
+        scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
+      ).trim()
+      return (
+        scenarioRenameDraft.trim() === effName.trim() &&
+        scenarioRenameDescriptionDraft.trim() === effDesc
+      )
+    }
+    const row = userScenarios.find((s) => s.slug === scenarioSlug)
+    if (!row) return true
+    return (
+      scenarioRenameDraft.trim() === row.name &&
+      scenarioRenameDescriptionDraft.trim() === (row.description ?? "").trim()
+    )
+  }, [
+    scenarioRenameDescriptionDraft,
+    scenarioRenameDraft,
+    scenarioSlug,
+    userScenarios,
+  ])
+
+  const portfolioRenameSaveDisabled = useMemo(() => {
+    if (!portfolioScopeRenameDraft.trim() || portfolioScopeBreadcrumbId == null) {
+      return true
+    }
+    const id = portfolioScopeBreadcrumbId
+    if (isBuiltInPortfolioScope) {
+      const prevName = portfolioScopeLabels[id] ?? id
+      const prevDesc = (
+        resolvePortfolioScopeDescription(
+          id,
+          assetGroupData.customGroupDescriptions,
+          assetGroupData.fundDescriptionOverrides
+        ) ?? ""
+      ).trim()
+      return (
+        portfolioScopeRenameDraft.trim() === prevName &&
+        portfolioScopeRenameDescriptionDraft.trim() === prevDesc
+      )
+    }
+    const prevName = portfolioScopeLabels[id] ?? id
+    const prevDesc = (assetGroupData.customGroupDescriptions[id] ?? "").trim()
+    const nextDesc = portfolioScopeRenameDescriptionDraft.trim()
+    return portfolioScopeRenameDraft.trim() === prevName && nextDesc === prevDesc
+  }, [
+    assetGroupData.customGroupDescriptions,
+    assetGroupData.fundDescriptionOverrides,
+    isBuiltInPortfolioScope,
+    portfolioScopeBreadcrumbId,
+    portfolioScopeLabels,
+    portfolioScopeRenameDescriptionDraft,
+    portfolioScopeRenameDraft,
+  ])
+
   useEffect(() => {
     if (!assetMenuOpen) return
     const id = requestAnimationFrame(() => {
@@ -495,6 +581,7 @@ export function AppTopbar() {
       queueMicrotask(() => {
         setScenarioRenameOpen(false)
         setDeleteScenarioOpen(false)
+        setScenarioRenameDescriptionDraft("")
       })
     }
   }, [showScenarioBreadcrumb, scenarioSlug])
@@ -504,6 +591,7 @@ export function AppTopbar() {
       queueMicrotask(() => {
         setPortfolioScopeRenameOpen(false)
         setDeletePortfolioScopeOpen(false)
+        setPortfolioScopeRenameDescriptionDraft("")
       })
     }
   }, [showPortfolioScopeBreadcrumb])
@@ -512,6 +600,7 @@ export function AppTopbar() {
     queueMicrotask(() => {
       setPortfolioScopeRenameOpen(false)
       setDeletePortfolioScopeOpen(false)
+      setPortfolioScopeRenameDescriptionDraft("")
     })
   }, [portfolioScopeBreadcrumbId])
 
@@ -654,10 +743,9 @@ export function AppTopbar() {
               <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
               <ScenarioBreadcrumbCurrentPage
                 key={scenarioSlug}
-                scenarioSlug={scenarioSlug}
                 pageTitle={pageTitle}
                 canRenameInline={canRenameScenarioInline}
-                showToast={showToast}
+                onOpenRename={openScenarioRename}
               />
             </BreadcrumbList>
           </Breadcrumb>
@@ -723,24 +811,14 @@ export function AppTopbar() {
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
-              {canManageCurrentPortfolioScope ? (
-                <PortfolioScopeBreadcrumbCurrentPage
-                  key={portfolioScopeBreadcrumbId}
-                  scopeId={portfolioScopeBreadcrumbId}
-                  pageTitle={
-                    portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                    portfolioScopeBreadcrumbId
-                  }
-                  showToast={showToast}
-                />
-              ) : (
-                <BreadcrumbItem className="min-w-0">
-                  <BreadcrumbPage className="truncate font-medium">
-                    {portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                      portfolioScopeBreadcrumbId}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              )}
+              <PortfolioScopeBreadcrumbCurrentPage
+                key={portfolioScopeBreadcrumbId}
+                pageTitle={
+                  portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
+                  portfolioScopeBreadcrumbId
+                }
+                onOpenRename={openPortfolioScopeRename}
+              />
             </BreadcrumbList>
           </Breadcrumb>
         ) : (
@@ -973,15 +1051,7 @@ export function AppTopbar() {
                 <MoreVertical className="size-4" aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={6}>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setPortfolioScopeRenameDraft(
-                      portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                        portfolioScopeBreadcrumbId
-                    )
-                    setPortfolioScopeRenameOpen(true)
-                  }}
-                >
+                <DropdownMenuItem onClick={openPortfolioScopeRename}>
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1003,41 +1073,65 @@ export function AppTopbar() {
             </DropdownMenu>
             <Dialog
               open={portfolioScopeRenameOpen}
-              onOpenChange={setPortfolioScopeRenameOpen}
+              onOpenChange={(open) => {
+                setPortfolioScopeRenameOpen(open)
+                if (!open) {
+                  setPortfolioScopeRenameDraft("")
+                  setPortfolioScopeRenameDescriptionDraft("")
+                }
+              }}
             >
               <DialogContent showCloseButton className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Rename portfolio</DialogTitle>
                 </DialogHeader>
-                <Input
-                  value={portfolioScopeRenameDraft}
-                  onChange={(e) => setPortfolioScopeRenameDraft(e.target.value)}
-                  placeholder="Name"
-                  autoComplete="off"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      const name = portfolioScopeRenameDraft.trim()
-                      if (!name || portfolioScopeBreadcrumbId == null) return
-                      if (
-                        name ===
-                        (portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                          portfolioScopeBreadcrumbId)
-                      ) {
-                        setPortfolioScopeRenameOpen(false)
-                        return
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={portfolioRenameNameFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id={portfolioRenameNameFieldId}
+                      value={portfolioScopeRenameDraft}
+                      onChange={(e) => setPortfolioScopeRenameDraft(e.target.value)}
+                      placeholder="e.g. Fund I"
+                      autoComplete="off"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          commitPortfolioScopeRename()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={portfolioRenameDescriptionFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Description{" "}
+                      <span className="font-normal text-muted-foreground">
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      id={portfolioRenameDescriptionFieldId}
+                      value={portfolioScopeRenameDescriptionDraft}
+                      onChange={(e) =>
+                        setPortfolioScopeRenameDescriptionDraft(e.target.value)
                       }
-                      const id = portfolioScopeBreadcrumbId
-                      const ok = isBuiltInPortfolioScope
-                        ? updateFundDisplayLabelByGroupId(id, name)
-                        : updateCustomAssetGroupNameById(id, name)
-                      if (ok) {
-                        setPortfolioScopeRenameOpen(false)
-                        showToast(`Renamed to “${name}”.`)
-                      }
-                    }
-                  }}
-                />
+                      placeholder="How this portfolio scope is used…"
+                      rows={3}
+                      maxLength={600}
+                      className={cn(
+                        "min-h-[4.5rem] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                      )}
+                    />
+                  </div>
+                </div>
                 <DialogFooter>
                   <Button
                     type="button"
@@ -1048,27 +1142,8 @@ export function AppTopbar() {
                   </Button>
                   <Button
                     type="button"
-                    disabled={!portfolioScopeRenameDraft.trim()}
-                    onClick={() => {
-                      const name = portfolioScopeRenameDraft.trim()
-                      if (!name || portfolioScopeBreadcrumbId == null) return
-                      if (
-                        name ===
-                        (portfolioScopeLabels[portfolioScopeBreadcrumbId] ??
-                          portfolioScopeBreadcrumbId)
-                      ) {
-                        setPortfolioScopeRenameOpen(false)
-                        return
-                      }
-                      const id = portfolioScopeBreadcrumbId
-                      const ok = isBuiltInPortfolioScope
-                        ? updateFundDisplayLabelByGroupId(id, name)
-                        : updateCustomAssetGroupNameById(id, name)
-                      if (ok) {
-                        setPortfolioScopeRenameOpen(false)
-                        showToast(`Renamed to “${name}”.`)
-                      }
-                    }}
+                    disabled={portfolioRenameSaveDisabled}
+                    onClick={commitPortfolioScopeRename}
                   >
                     Save
                   </Button>
@@ -1137,15 +1212,9 @@ export function AppTopbar() {
               <DropdownMenuContent align="end" sideOffset={6}>
                 <DropdownMenuItem
                   disabled={!canRenameScenarioInline}
-                  title={
-                    canRenameScenarioInline
-                      ? undefined
-                      : "Built-in scenarios cannot be renamed"
-                  }
                   onClick={() => {
-                    if (!canRenameScenarioInline || scenarioSlug == null) return
-                    setScenarioRenameDraft(pageTitle)
-                    setScenarioRenameOpen(true)
+                    if (!canRenameScenarioInline) return
+                    openScenarioRename()
                   }}
                 >
                   Rename
@@ -1181,35 +1250,65 @@ export function AppTopbar() {
             </DropdownMenu>
             <Dialog
               open={scenarioRenameOpen}
-              onOpenChange={setScenarioRenameOpen}
+              onOpenChange={(open) => {
+                setScenarioRenameOpen(open)
+                if (!open) {
+                  setScenarioRenameDraft("")
+                  setScenarioRenameDescriptionDraft("")
+                }
+              }}
             >
               <DialogContent showCloseButton className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Rename scenario</DialogTitle>
                 </DialogHeader>
-                <Input
-                  value={scenarioRenameDraft}
-                  onChange={(e) => setScenarioRenameDraft(e.target.value)}
-                  placeholder="Name"
-                  autoComplete="off"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      const name = scenarioRenameDraft.trim()
-                      if (!name || scenarioSlug == null) return
-                      if (name === pageTitle) {
-                        setScenarioRenameOpen(false)
-                        return
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={scenarioRenameNameFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id={scenarioRenameNameFieldId}
+                      value={scenarioRenameDraft}
+                      onChange={(e) => setScenarioRenameDraft(e.target.value)}
+                      placeholder="e.g. Q3 disposition plan"
+                      autoComplete="off"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          commitScenarioRename()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={scenarioRenameDescriptionFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Description{" "}
+                      <span className="font-normal text-muted-foreground">
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      id={scenarioRenameDescriptionFieldId}
+                      value={scenarioRenameDescriptionDraft}
+                      onChange={(e) =>
+                        setScenarioRenameDescriptionDraft(e.target.value)
                       }
-                      if (
-                        updateUserScenarioNameBySlug(scenarioSlug, name) != null
-                      ) {
-                        setScenarioRenameOpen(false)
-                        showToast(`Renamed to “${name}”.`)
-                      }
-                    }
-                  }}
-                />
+                      placeholder="What this scenario is for…"
+                      rows={3}
+                      maxLength={600}
+                      className={cn(
+                        "min-h-[4.5rem] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                      )}
+                    />
+                  </div>
+                </div>
                 <DialogFooter>
                   <Button
                     type="button"
@@ -1220,21 +1319,8 @@ export function AppTopbar() {
                   </Button>
                   <Button
                     type="button"
-                    disabled={!scenarioRenameDraft.trim()}
-                    onClick={() => {
-                      const name = scenarioRenameDraft.trim()
-                      if (!name || scenarioSlug == null) return
-                      if (name === pageTitle) {
-                        setScenarioRenameOpen(false)
-                        return
-                      }
-                      if (
-                        updateUserScenarioNameBySlug(scenarioSlug, name) != null
-                      ) {
-                        setScenarioRenameOpen(false)
-                        showToast(`Renamed to “${name}”.`)
-                      }
-                    }}
+                    disabled={scenarioRenameSaveDisabled}
+                    onClick={commitScenarioRename}
                   >
                     Save
                   </Button>

@@ -41,13 +41,23 @@ const BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
   retail: "retail",
 }
 
-export const PORTFOLIO_OVERVIEW_LABEL = "Portfolio overview"
+export const PORTFOLIO_OVERVIEW_LABEL = "All Portfolios"
 
 /** Labels used in the sidebar asset groups and portfolio group filter. */
 export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
   office: "Fund I",
   industrial: "Fund II",
   retail: "Fund III",
+}
+
+/** Default subtitles for built-in fund scopes (Fund I–III). */
+export const ASSET_GROUP_DESCRIPTIONS: Record<AssetGroupId, string> = {
+  office:
+    "Core and core-plus office in gateway metros—Manhattan and Hudson Yards weighted.",
+  industrial:
+    "National logistics and light industrial—Chicago hub plus Sun Belt exposure.",
+  retail:
+    "Urban high-street and lifestyle centers—coastal markets with stable foot traffic.",
 }
 
 export interface Asset {
@@ -299,4 +309,25 @@ export function portfolioScopeIdFromRouteParam(scopeParam: string): string {
 
 export function portfolioScopeHref(scopeId: string): string {
   return `/portfolio/scopes/${encodeURIComponent(portfolioScopeSlug(scopeId))}`
+}
+
+/** Description line under a scoped portfolio title (headers). Overview uses a count subtitle in the page header instead. */
+export function resolvePortfolioScopeDescription(
+  portfolioScopeId: string | null,
+  customGroupDescriptions: Record<string, string>,
+  fundDescriptionOverrides?: Record<string, string>
+): string | null {
+  if (portfolioScopeId == null) return null
+  if (
+    portfolioScopeId === "office" ||
+    portfolioScopeId === "industrial" ||
+    portfolioScopeId === "retail"
+  ) {
+    const base = ASSET_GROUP_DESCRIPTIONS[portfolioScopeId]
+    const ov = fundDescriptionOverrides?.[portfolioScopeId]?.trim()
+    if (ov != null && ov.length > 0) return ov.slice(0, 600)
+    return base ?? null
+  }
+  const custom = customGroupDescriptions[portfolioScopeId]?.trim()
+  return custom ? custom : null
 }
