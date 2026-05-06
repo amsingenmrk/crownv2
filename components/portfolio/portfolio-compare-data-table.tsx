@@ -254,8 +254,8 @@ function createCompareColumns(
           deltaNumeric == null || Math.abs(deltaNumeric) < deltaEps
             ? "text-muted-foreground tabular-nums"
             : deltaNumeric > 0
-              ? "tabular-nums text-emerald-600 dark:text-emerald-400"
-              : "tabular-nums text-rose-600 dark:text-rose-400"
+              ? "tabular-nums text-emerald-700 dark:text-emerald-500"
+              : "tabular-nums text-rose-700 dark:text-rose-500"
 
         return (
           <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">

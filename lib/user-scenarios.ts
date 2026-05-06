@@ -23,8 +23,7 @@ export type UserScenario = { name: string; slug: string; description?: string }
 export const BUILTIN_SCENARIO = {
   name: "2026 Capital Planning",
   slug: "2026-capital-planning",
-  description:
-    "Primary underwriting case for 2026—base rent growth, capex timing, and disposition options across the book.",
+  description: "2026 base case: rents, capex timing, and exits across the book.",
 } as const
 
 const STORAGE_KEY = "glassbox:user-scenarios"

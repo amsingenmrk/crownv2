@@ -70,8 +70,8 @@ function deltaClassName(delta: number) {
     return "text-muted-foreground tabular-nums"
   }
   return delta > 0
-    ? "tabular-nums text-emerald-600 dark:text-emerald-400"
-    : "tabular-nums text-rose-600 dark:text-rose-400"
+    ? "tabular-nums text-emerald-700 dark:text-emerald-500"
+    : "tabular-nums text-rose-700 dark:text-rose-500"
 }
 
 function ScenarioAssetMetricCell({

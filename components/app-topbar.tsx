@@ -1123,7 +1123,7 @@ export function AppTopbar() {
                       onChange={(e) =>
                         setPortfolioScopeRenameDescriptionDraft(e.target.value)
                       }
-                      placeholder="How this portfolio scope is used…"
+                      placeholder="Optional: mandate, sleeve, or geography."
                       rows={3}
                       maxLength={600}
                       className={cn(
@@ -1300,7 +1300,7 @@ export function AppTopbar() {
                       onChange={(e) =>
                         setScenarioRenameDescriptionDraft(e.target.value)
                       }
-                      placeholder="What this scenario is for…"
+                      placeholder="Optional: thesis, horizon, or key assumptions."
                       rows={3}
                       maxLength={600}
                       className={cn(

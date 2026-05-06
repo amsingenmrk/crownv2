@@ -52,12 +52,9 @@ export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
 
 /** Default subtitles for built-in fund scopes (Fund I–III). */
 export const ASSET_GROUP_DESCRIPTIONS: Record<AssetGroupId, string> = {
-  office:
-    "Core and core-plus office in gateway metros—Manhattan and Hudson Yards weighted.",
-  industrial:
-    "National logistics and light industrial—Chicago hub plus Sun Belt exposure.",
-  retail:
-    "Urban high-street and lifestyle centers—coastal markets with stable foot traffic.",
+  office: "Core office, NYC-weighted.",
+  industrial: "Logistics and light industrial, Chicago + Sun Belt.",
+  retail: "Urban retail: high-street and lifestyle, coastal.",
 }
 
 export interface Asset {

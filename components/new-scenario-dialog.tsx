@@ -124,7 +124,7 @@ export function NewScenarioDialog({
               id={descriptionId}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this scenario is for…"
+              placeholder="Optional: thesis, horizon, or key assumptions."
               rows={3}
               maxLength={600}
               className={cn(

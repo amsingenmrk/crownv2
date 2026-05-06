@@ -108,7 +108,7 @@ export function NewPortfolioScopeDialog({
               id={descriptionId}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="How this portfolio scope is used…"
+              placeholder="Optional: mandate, sleeve, or geography."
               rows={3}
               maxLength={600}
               className={cn(
