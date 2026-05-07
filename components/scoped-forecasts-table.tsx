@@ -493,22 +493,6 @@ export function ScopedForecastsPortfolioTotalsTable({
     }))
   }, [metricFocus, singleRootExpansion, tableRows])
 
-  React.useEffect(() => {
-    if (!singleRootExpansion || onExpandedRootMetricChange == null) return
-    const tab = forecastChartTabFromExpandedRecord(
-      expandedStateToRecord(expanded),
-      rowIdToRootId
-    )
-    if (tab == null || tab === metricFocus) return
-    onExpandedRootMetricChange(tab)
-  }, [
-    expanded,
-    metricFocus,
-    onExpandedRootMetricChange,
-    rowIdToRootId,
-    singleRootExpansion,
-  ])
-
   const displayPeriods = React.useMemo((): ForecastPeriod[] => {
     if (periodGranularity === "quarterly") return periods
     const anchor = periods[0]
@@ -534,16 +518,31 @@ export function ScopedForecastsPortfolioTotalsTable({
     return (updater: ExpandedState | ((old: ExpandedState) => ExpandedState)) => {
       setExpanded((old) => {
         const prev = expandedStateToRecord(old)
-        const next = applyExpandedUpdater(updater, old)
-        if (next === true) return true
-        return collapseExpandedToSingleRoot(
-          next as Record<string, boolean>,
+        const nextRaw = applyExpandedUpdater(updater, old)
+        if (nextRaw === true) return true
+        const next = collapseExpandedToSingleRoot(
+          nextRaw as Record<string, boolean>,
           prev,
           rowIdToRootId
         )
+        if (onExpandedRootMetricChange != null) {
+          const tab = forecastChartTabFromExpandedRecord(next, rowIdToRootId)
+          if (tab != null && tab !== metricFocus) {
+            queueMicrotask(() => {
+              onExpandedRootMetricChange(tab)
+            })
+          }
+        }
+        return next
       })
     }
-  }, [hasExpandableRows, rowIdToRootId, singleRootExpansion])
+  }, [
+    hasExpandableRows,
+    metricFocus,
+    onExpandedRootMetricChange,
+    rowIdToRootId,
+    singleRootExpansion,
+  ])
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
     () => [
