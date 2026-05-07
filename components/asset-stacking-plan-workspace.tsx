@@ -6,9 +6,11 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Eraser,
   Merge,
   MoreVertical,
   Split,
+  Upload,
 } from "lucide-react"
 
 import { AssetStackingPlanDrawer } from "@/components/asset-stacking-plan-drawer"
@@ -66,6 +68,7 @@ import {
   stackingSegmentToneFromHex,
   type StackingSegmentToneClasses,
 } from "@/lib/stacking-plan-visual-tokens"
+import { isMarketListingPinId } from "@/lib/market-search-demo-listings"
 import { cn } from "@/lib/utils"
 
 type AssetStackingPlanWorkspaceProps = {
@@ -520,13 +523,18 @@ function applyVacantSpaceSplit(
   }
 }
 
+/** Plate SF from tenants when present; otherwise parse {@link StackingPlanFloor.sqft} label (e.g. empty rent-roll rows). */
+function plateSqftFromFloorRow(floor: StackingPlanFloor): number {
+  const tenantTotal = floor.tenants.reduce((sum, tenant) => sum + tenant.sqft, 0)
+  if (tenantTotal > 0) return tenantTotal
+  const digitsOnly = floor.sqft.replace(/\D/g, "")
+  if (digitsOnly === "") return 0
+  const parsed = Number.parseInt(digitsOnly, 10)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function summarizeFloors(floors: readonly StackingPlanFloor[]) {
-  const totalSqft = floors.reduce(
-    (sum, floor) =>
-      sum +
-      floor.tenants.reduce((floorSum, tenant) => floorSum + tenant.sqft, 0),
-    0
-  )
+  const totalSqft = floors.reduce((sum, floor) => sum + plateSqftFromFloorRow(floor), 0)
   const occupiedSqft = floors.reduce(
     (sum, floor) =>
       sum +
@@ -550,6 +558,35 @@ function summarizeFloors(floors: readonly StackingPlanFloor[]) {
       totalSqft === 0
         ? 0
         : Number(((occupiedSqft / totalSqft) * 100).toFixed(2)),
+  }
+}
+
+function marketRentRollImportedStorageKey(assetId: string) {
+  return `glassbox:market-rent-roll-imported:${assetId}`
+}
+
+/** Same floors / plate sizes as full demo data, but no suites or tenants (rent roll not imported). */
+function buildEmptyMarketFloors(
+  floors: readonly StackingPlanFloor[]
+): StackingPlanFloor[] {
+  return floors.map((floor) => ({
+    ...floor,
+    tenants: [],
+    occupancyPercent: 0,
+    vacancyPercent: 100,
+    occupancy: "—",
+  }))
+}
+
+function readRentRollImportedFlag(assetId: string): boolean {
+  if (!isMarketListingPinId(assetId)) return true
+  if (typeof window === "undefined") return false
+  try {
+    return (
+      localStorage.getItem(marketRentRollImportedStorageKey(assetId)) === "1"
+    )
+  } catch {
+    return false
   }
 }
 
@@ -1077,14 +1114,45 @@ export function AssetStackingPlanWorkspace({
       ),
     [assetId, tenantForecastOverrides]
   )
+  const isMarketProperty = isMarketListingPinId(assetId)
+  const [rentRollImported, setRentRollImported] = React.useState(() =>
+    readRentRollImportedFlag(assetId)
+  )
+  React.useEffect(() => {
+    setRentRollImported(readRentRollImportedFlag(assetId))
+  }, [assetId])
+  const stackingPlaceholderActive =
+    isMarketProperty && !rentRollImported
+  const derivedFloorsFromDataset = React.useMemo(() => {
+    if (!stackingPlaceholderActive) return baseDataset.floors
+    return buildEmptyMarketFloors(baseDataset.floors)
+  }, [baseDataset.floors, stackingPlaceholderActive])
   const [viewMode, setViewMode] =
     React.useState<StackingWorkspaceViewMode>("matrix")
   const [vizMode, setVizMode] =
     React.useState<StackingVizMode>("leaseExpiration")
   const [isDesc, setIsDesc] = React.useState(true)
   const [floors, setFloors] = React.useState<StackingPlanFloor[]>(
-    baseDataset.floors
+    derivedFloorsFromDataset
   )
+
+  const handleImportRentRoll = React.useCallback(() => {
+    setRentRollImported(true)
+    try {
+      localStorage.setItem(marketRentRollImportedStorageKey(assetId), "1")
+    } catch {
+      // ignore quota / private mode
+    }
+  }, [assetId])
+
+  const handleClearRentRoll = React.useCallback(() => {
+    setRentRollImported(false)
+    try {
+      localStorage.removeItem(marketRentRollImportedStorageKey(assetId))
+    } catch {
+      // ignore
+    }
+  }, [assetId])
   const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(
     null
   )
@@ -1233,6 +1301,42 @@ export function AssetStackingPlanWorkspace({
     [floors, isDesc]
   )
   const matrixSummaryMetrics = React.useMemo<StackSummaryMetric[]>(() => {
+    if (stackingPlaceholderActive) {
+      return [
+        {
+          id: "occ",
+          label: getFloorMetricLongLabel("occ"),
+          value: "—",
+        },
+        {
+          id: "vac",
+          label: getFloorMetricLongLabel("vac"),
+          value: "—",
+        },
+        {
+          id: "pred",
+          label: getFloorMetricLongLabel("pred"),
+          value: formatCompactRate(averagePredictedRentPsf),
+        },
+        {
+          id: "contract",
+          label: getFloorMetricLongLabel("contract"),
+          value: "—",
+        },
+        {
+          id: "sun",
+          label: getFloorMetricLongLabel("sun"),
+          value: formatCompactScore(averageSunScore),
+          valueClassName: qualityScoreValueClass(averageSunScore),
+        },
+        {
+          id: "view",
+          label: getFloorMetricLongLabel("view"),
+          value: formatCompactScore(averageViewScore),
+          valueClassName: qualityScoreValueClass(averageViewScore),
+        },
+      ]
+    }
     const vacancyPercent = Math.max(0, 100 - summary.overallOccupancyPercent)
     return [
       {
@@ -1273,6 +1377,7 @@ export function AssetStackingPlanWorkspace({
     averagePredictedRentPsf,
     averageSunScore,
     averageViewScore,
+    stackingPlaceholderActive,
     summary.overallOccupancyPercent,
   ])
   const shouldShowViewToggle = lockedViewMode == null && showViewToggle
@@ -1648,14 +1753,14 @@ export function AssetStackingPlanWorkspace({
   ])
 
   React.useEffect(() => {
-    setFloors(baseDataset.floors)
+    setFloors(derivedFloorsFromDataset)
     setIsDrawerOpen(false)
     setSelectedTenantId(null)
     setTenantEditorDraft(null)
     setExpandedFloor(null)
     setVacantSplitModal(null)
     setVacantSplitSaveError(null)
-  }, [baseDataset.floors])
+  }, [derivedFloorsFromDataset])
 
   return (
     <>
@@ -1736,6 +1841,29 @@ export function AssetStackingPlanWorkspace({
                 </SelectContent>
               </Select>
               <StackingPlanLegend mode={vizMode} />
+              {isMarketProperty ? (
+                rentRollImported ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearRentRoll}
+                  >
+                    <Eraser className="size-3.5" aria-hidden />
+                    Clear rent roll
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleImportRentRoll}
+                  >
+                    <Upload className="size-3.5" aria-hidden />
+                    Import rent roll
+                  </Button>
+                )
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -1759,11 +1887,13 @@ export function AssetStackingPlanWorkspace({
               summaryMetrics={matrixSummaryMetrics}
               totalSqft={summary.totalSqft}
               overallOccupancyPercent={summary.overallOccupancyPercent}
+              stackingPlaceholderActive={stackingPlaceholderActive}
               onVacantSpaceCombine={handleVacantSpaceCombine}
               onVacantSpaceSplit={handleVacantSpaceSplitOpen}
               headerControls={
                 <div className="flex w-full flex-col gap-3">
                   <StackingPlanRentSummary
+                    metricsPlaceholder={stackingPlaceholderActive}
                     averageContractRatePsf={averageContractRatePsf}
                     averagePredictedRentPsf={averagePredictedRentPsf}
                     predictedRentLiftPct={predictedRentLiftPct}
@@ -1868,6 +1998,29 @@ export function AssetStackingPlanWorkspace({
                           </div>
                         </>
                       ) : null}
+                      {isMarketProperty ? (
+                        rentRollImported ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleClearRentRoll}
+                          >
+                            <Eraser className="size-3.5" aria-hidden />
+                            Clear rent roll
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleImportRentRoll}
+                          >
+                            <Upload className="size-3.5" aria-hidden />
+                            Import rent roll
+                          </Button>
+                        )
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
@@ -1908,6 +2061,7 @@ export function AssetStackingPlanWorkspace({
                   selectedTenantId={selectedTenantId}
                   interactionMode={simplifiedTenantInteraction}
                   tenantVisualOverrides={simplifiedTenantVisualOverrides}
+                  showRentRollPlaceholder={stackingPlaceholderActive}
                 />
               ))}
             </div>
@@ -2463,6 +2617,7 @@ function DetailedStackingMatrix({
   summaryMetrics,
   totalSqft,
   overallOccupancyPercent,
+  stackingPlaceholderActive,
   onVacantSpaceCombine,
   onVacantSpaceSplit,
   headerControls,
@@ -2484,6 +2639,7 @@ function DetailedStackingMatrix({
   summaryMetrics: StackSummaryMetric[]
   totalSqft: number
   overallOccupancyPercent: number
+  stackingPlaceholderActive: boolean
   onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
   onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
   headerControls: React.ReactNode
@@ -2509,6 +2665,7 @@ function DetailedStackingMatrix({
             floor={floor}
             vizMode={vizMode}
             averagePredictedRentPsf={averagePredictedRentPsf}
+            metricsPlaceholder={stackingPlaceholderActive}
             isExpanded={expandedFloor === floor.floor}
             onToggleExpanded={() => onToggleFloor(floor.floor)}
             onTenantSelect={onTenantSelect}
@@ -2547,14 +2704,22 @@ function StackFirstHeaderRow({
 }
 
 function StackingPlanRentSummary({
+  metricsPlaceholder = false,
   averageContractRatePsf,
   averagePredictedRentPsf,
   predictedRentLiftPct,
 }: {
+  metricsPlaceholder?: boolean
   averageContractRatePsf: number | null
   averagePredictedRentPsf: number | null
   predictedRentLiftPct: number | null
 }) {
+  const contractDisplay = metricsPlaceholder
+    ? "—"
+    : formatCompactRatePerSf(averageContractRatePsf)
+  const predictedDisplay = metricsPlaceholder
+    ? "—"
+    : formatCompactRatePerSf(averagePredictedRentPsf)
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-background/75 px-3 py-2 shadow-sm">
       <div className="flex items-baseline gap-2 whitespace-nowrap">
@@ -2562,7 +2727,7 @@ function StackingPlanRentSummary({
           In-Place Rent
         </span>
         <span className="text-sm font-semibold tabular-nums text-foreground">
-          {formatCompactRatePerSf(averageContractRatePsf)}
+          {contractDisplay}
         </span>
       </div>
       <div className="hidden h-5 w-px shrink-0 bg-border/60 sm:block" />
@@ -2571,9 +2736,9 @@ function StackingPlanRentSummary({
           Predicted Rent
         </span>
         <span className="text-sm font-semibold tabular-nums text-foreground">
-          {formatCompactRatePerSf(averagePredictedRentPsf)}
+          {predictedDisplay}
         </span>
-        {predictedRentLiftPct != null ? (
+        {!metricsPlaceholder && predictedRentLiftPct != null ? (
           <span
             className={cn(
               "text-[10px] font-medium tabular-nums",
@@ -2595,6 +2760,7 @@ function StackFirstRow({
   floor,
   vizMode,
   averagePredictedRentPsf,
+  metricsPlaceholder,
   isExpanded,
   onToggleExpanded,
   onTenantSelect,
@@ -2612,6 +2778,7 @@ function StackFirstRow({
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
+  metricsPlaceholder: boolean
   isExpanded: boolean
   onToggleExpanded: () => void
   onTenantSelect: (tenant: StackingPlanTenant) => void
@@ -2663,12 +2830,17 @@ function StackFirstRow({
           >
             <div className="min-w-0 px-3 py-2.5">
               <div className="space-y-2">
-                <FloorMetricRibbon floor={floor} vizMode={vizMode} />
+                <FloorMetricRibbon
+                  floor={floor}
+                  vizMode={vizMode}
+                  metricsPlaceholder={metricsPlaceholder}
+                />
                 <StackBand
                   floor={floor}
                   vizMode={vizMode}
                   averagePredictedRentPsf={averagePredictedRentPsf}
                   selectedTenantId={selectedTenantId}
+                  showEmptyPlaceholder={metricsPlaceholder}
                   onTenantSelect={onTenantSelect}
                   onVacantSpaceCombine={onVacantSpaceCombine}
                   onVacantSpaceSplit={onVacantSpaceSplit}
@@ -2724,9 +2896,11 @@ function StackFirstRow({
 function FloorMetricRibbon({
   floor,
   vizMode,
+  metricsPlaceholder,
 }: {
   floor: StackingPlanFloor
   vizMode: StackingVizMode
+  metricsPlaceholder: boolean
 }) {
   const averagePredictedRate = getWeightedFloorAverageRate(
     floor,
@@ -2751,12 +2925,16 @@ function FloorMetricRibbon({
     {
       id: "occ",
       label: getFloorMetricLongLabel("occ"),
-      value: formatPercentValue(floor.occupancyPercent),
+      value: metricsPlaceholder
+        ? "—"
+        : formatPercentValue(floor.occupancyPercent),
     },
     {
       id: "vac",
       label: getFloorMetricLongLabel("vac"),
-      value: formatPercentValue(floor.vacancyPercent),
+      value: metricsPlaceholder
+        ? "—"
+        : formatPercentValue(floor.vacancyPercent),
     },
     {
       id: "pred",
@@ -2766,7 +2944,7 @@ function FloorMetricRibbon({
     {
       id: "contract",
       label: getFloorMetricLongLabel("contract"),
-      value: formatCompactRate(averageContractRate),
+      value: metricsPlaceholder ? "—" : formatCompactRate(averageContractRate),
     },
     {
       id: "sun",
@@ -2869,6 +3047,7 @@ function StackBand({
   vizMode,
   averagePredictedRentPsf,
   selectedTenantId,
+  showEmptyPlaceholder,
   onTenantSelect,
   onVacantSpaceCombine,
   onVacantSpaceSplit,
@@ -2877,6 +3056,7 @@ function StackBand({
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
   selectedTenantId: string | null
+  showEmptyPlaceholder: boolean
   onTenantSelect: (tenant: StackingPlanTenant) => void
   onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
   onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
@@ -2886,6 +3066,20 @@ function StackBand({
     vizMode === "contractRate" ||
     vizMode === "occupancy" ||
     vizMode === "vacancy"
+
+  if (showEmptyPlaceholder && floor.tenants.length === 0) {
+    return (
+      <div
+        className={cn(
+          "isolate flex h-[36px] w-full items-stretch overflow-hidden rounded-lg border border-border/50 bg-muted/10 ring-1 ring-inset ring-border/30",
+          isMetricDrivenView &&
+            "border-border/60 bg-background/55 ring-border/40"
+        )}
+      >
+        <div className="h-full w-full rounded-md bg-muted/55" aria-hidden />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -3403,6 +3597,21 @@ function SelectedTenantEditorRow({
 }
 
 function ExpandedFloorDetails({ floor }: { floor: StackingPlanFloor }) {
+  if (floor.tenants.length === 0) {
+    return (
+      <div className={cn(MATRIX_ROW_GRID_CLASS, "bg-muted/10")}>
+        <div />
+        <div className={MATRIX_ROW_CONTENT_CLASS}>
+          <div className="rounded-xl border border-border/55 bg-background/70 px-3 py-4">
+            <p className="text-sm text-muted-foreground">
+              Import a rent roll to see suite-level detail and floor value
+              drivers.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className={cn(MATRIX_ROW_GRID_CLASS, "bg-muted/10")}>
       <div />
@@ -3430,6 +3639,7 @@ function SimplifiedFloorRow({
   selectedTenantId,
   interactionMode,
   tenantVisualOverrides,
+  showRentRollPlaceholder = false,
 }: {
   floor: StackingPlanFloor
   vizMode: StackingVizMode
@@ -3440,6 +3650,7 @@ function SimplifiedFloorRow({
   selectedTenantId: string | null
   interactionMode: "drawer" | "none"
   tenantVisualOverrides?: Record<string, SimplifiedTenantVisualOverride>
+  showRentRollPlaceholder?: boolean
 }) {
   return (
     <div className="flex h-6 items-center bg-background transition-colors hover:bg-muted/10">
@@ -3454,7 +3665,13 @@ function SimplifiedFloorRow({
       <div className="flex flex-1 items-center px-1">
         <div className="flex w-full">
           <div className="flex h-5 w-full items-stretch overflow-hidden rounded-sm border border-border/70 bg-muted/20 shadow-sm">
-            {floor.tenants.map((tenant, index) => {
+            {showRentRollPlaceholder && floor.tenants.length === 0 ? (
+              <div
+                className="my-auto h-2 w-full rounded-sm bg-muted/60"
+                aria-hidden
+              />
+            ) : (
+              floor.tenants.map((tenant, index) => {
               const visualOverride = tenantVisualOverrides?.[tenant.id]
               const overrideBg = visualOverride?.backgroundColor
               const themeHex = getTenantVisualColor({
@@ -3622,7 +3839,8 @@ function SimplifiedFloorRow({
                   }. Open details.`}
                 />
               )
-            })}
+            })
+            )}
           </div>
         </div>
       </div>
