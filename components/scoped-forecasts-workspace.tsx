@@ -23,6 +23,7 @@ import {
   ScopedForecastsTable,
   StatementPeriodGranularitySelect,
 } from "@/components/scoped-forecasts-table"
+import { ScenarioAssetForecastsTable } from "@/components/scenario-asset-forecasts-table"
 import {
   Tooltip,
   TooltipContent,
@@ -671,15 +672,13 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
           </div>
         )}
         {scope.kind === "scenario" ? (
-          <ScopedForecastsPortfolioTotalsTable
+          <ScenarioAssetForecastsTable
             key={activeComparisonId}
             periods={activeModel.periods}
             rows={activeModel.statementRows}
             assetModels={activeAssetModels}
             metricFocus={metricTab}
-            periodGranularity={statementPeriodGranularity}
-            singleRootExpansion
-            onExpandedRootMetricChange={handlePortfolioTotalsExpansionMetricChange}
+            onExpandedMetricChange={handlePortfolioTotalsExpansionMetricChange}
           />
         ) : (
           <ScopedForecastsTable
