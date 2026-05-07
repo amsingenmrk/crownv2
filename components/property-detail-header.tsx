@@ -1,0 +1,119 @@
+"use client"
+
+import * as React from "react"
+import { usePathname, useParams, useRouter } from "next/navigation"
+import { Layers, Wrench, LineChart } from "lucide-react"
+
+import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
+import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
+import { cn } from "@/lib/utils"
+
+export const PROPERTY_TAB_PATHS = [
+  { pathSegment: "stacking-plan", label: "Stacking Plan", icon: Layers },
+  { pathSegment: "modifications", label: "Modifications", icon: Wrench },
+  { pathSegment: "forecasts", label: "Forecasts", icon: LineChart },
+] as const
+
+function parseOccPct(text: string | null | undefined): number {
+  if (!text) return 0
+  const n = Number(String(text).replace("%", "").trim())
+  return Number.isFinite(n) ? n : 0
+}
+
+export function PropertyDetailHeader() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useParams()
+  const id = typeof params?.id === "string" ? params.id : null
+
+  const pin = React.useMemo(() => (id ? getMarketListingPinById(id) : null), [id])
+  const tableRow = React.useMemo(
+    () => (pin ? portfolioAssetRowForMarketPin(pin) : null),
+    [pin]
+  )
+
+  if (!id || !pin || tableRow == null) return null
+
+  const basePath = `/properties/${encodeURIComponent(id)}`
+  const buildingLabel = pin.building
+  const addressLabel = pin.location ?? "—"
+
+  const keyMetrics = [
+    { label: "Sector", value: tableRow.typeLabel },
+    { label: "Class", value: tableRow.classLabel },
+    { label: "RSF", value: tableRow.rsf },
+    { label: "WALE", value: tableRow.wale },
+  ] as const
+
+  return (
+    <>
+      <div className="border-b border-border bg-background px-6 py-4">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
+          <div className="flex min-w-0 items-start">
+            <div className="h-fit self-center min-w-0">
+              <h2 className="truncate text-xl font-semibold">{buildingLabel}</h2>
+              <p className="truncate text-sm text-muted-foreground">{addressLabel}</p>
+            </div>
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch justify-start sm:self-stretch sm:items-end">
+            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:grid-cols-[auto_minmax(0,320px)] sm:items-stretch sm:justify-end sm:gap-2">
+              <div
+                className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-end gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:max-w-none sm:shrink-0"
+                aria-label="Property key metrics"
+              >
+                {keyMetrics.map((k, i) => (
+                  <div
+                    key={k.label}
+                    className={cn(
+                      "flex min-h-0 max-w-[9.5rem] shrink-0 flex-col justify-center self-stretch px-2 py-0.5 sm:max-w-[10rem] sm:px-2 sm:py-1",
+                      i > 0 && "border-l border-border"
+                    )}
+                  >
+                    <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+                      {k.label}
+                    </span>
+                    <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+                      {k.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <OccupancySummaryBar
+                occupiedPercent={parseOccPct(tableRow.occPct)}
+                className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <nav className="overflow-x-auto overflow-y-hidden border-b border-border bg-background px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-fit items-center gap-1 -mb-px">
+          {PROPERTY_TAB_PATHS.map((tab) => {
+            const Icon = tab.icon
+            const tabPath = `${basePath}/${tab.pathSegment}`
+            const isActive = pathname === tabPath || pathname?.startsWith(`${tabPath}/`)
+            return (
+              <button
+                key={tab.pathSegment}
+                type="button"
+                className={cn(
+                  "flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "border-b-2 border-primary text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => router.push(tabPath)}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+    </>
+  )
+}
+

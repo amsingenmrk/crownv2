@@ -284,6 +284,10 @@ export function assetHref(id: string): string {
   return `/assets/${id}/stacking-plan`
 }
 
+export function propertyHref(id: string): string {
+  return `/properties/${encodeURIComponent(id)}`
+}
+
 export function assetForecastHref(id: string): string {
   return `/assets/${id}/forecasts`
 }
