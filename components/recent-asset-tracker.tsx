@@ -12,7 +12,7 @@ export function RecentAssetTracker() {
   const pathname = usePathname()
 
   useEffect(() => {
-    const match = pathname?.match(/^\/assets\/([^/]+)/)
+    const match = pathname?.match(/^\/properties\/([^/]+)/)
     const id = match?.[1]
     if (!id || !getAssetById(id)) return
     recordRecentAsset(id)

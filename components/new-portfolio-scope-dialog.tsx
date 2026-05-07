@@ -57,7 +57,7 @@ export function NewPortfolioScopeDialog({
     if (!trimmed) return
     const created = addCustomAssetGroup(trimmed, description.trim() || undefined)
     if (!created) {
-      showToast("Could not create portfolio scope.")
+      showToast("Could not create portfolio group.")
       return
     }
     setName("")
@@ -68,14 +68,14 @@ export function NewPortfolioScopeDialog({
       return
     }
     router.push(portfolioScopeHref(created.id))
-    showToast(`Portfolio scope “${trimmed}” created.`)
+    showToast(`Portfolio group “${trimmed}” created.`)
   }, [afterCreate, description, name, onOpenChange, router, showToast])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New portfolio</DialogTitle>
+          <DialogTitle>New portfolio group</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">

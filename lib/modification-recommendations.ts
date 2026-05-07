@@ -110,7 +110,7 @@ export function buildRecommendedModificationHref(
   assetId: string,
   recommendation: Pick<ModificationRecommendation, "id" | "optionValue"> | null
 ) {
-  const baseHref = `/assets/${encodeURIComponent(assetId)}/modifications`
+  const baseHref = `/properties/${encodeURIComponent(assetId)}/modifications`
   if (recommendation == null) {
     return baseHref
   }

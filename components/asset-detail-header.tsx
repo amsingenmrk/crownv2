@@ -52,7 +52,7 @@ export function AssetDetailHeader() {
 
   if (!id || tableRow == null) return null
 
-  const basePath = `/assets/${id}`
+  const basePath = `/properties/${id}`
   const buildingLabel = asset?.name ?? marketPin?.building ?? id
   const addressLabel = asset?.address ?? marketPin?.location ?? "—"
 

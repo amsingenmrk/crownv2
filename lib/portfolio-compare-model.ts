@@ -248,7 +248,7 @@ function entirePortfolioCompareColumn(): CompareColumn {
   return {
     id: PORTFOLIO_KEY,
     kind: "portfolio",
-    name: "Entire Portfolio",
+    name: "All portfolio groups",
     address: `Consolidated holdings, ${flagship?.address ?? "full portfolio"}`,
     image:
       flagship?.imageUrl ??
@@ -495,8 +495,8 @@ export function buildComparePickerOptions(
 
   out.push({
     value: PORTFOLIO_KEY,
-    label: "Entire Portfolio",
-    group: "Portfolio",
+    label: "All portfolio groups",
+    group: "Portfolio groups",
     keywords: "portfolio entire full all assets",
   })
 
@@ -586,7 +586,7 @@ export function labelForCompareSlotKey(
   key: string,
   userScenarios: readonly UserScenario[]
 ): string {
-  if (key === PORTFOLIO_KEY) return "Entire Portfolio"
+  if (key === PORTFOLIO_KEY) return "All portfolio groups"
   if (key.startsWith(GROUP_KEY_PREFIX)) {
     return resolveAssetGroupLabel(key.slice(GROUP_KEY_PREFIX.length))
   }
@@ -628,7 +628,7 @@ export function compareGridTemplateColumns(slotCount: number): string {
   return `${COMPARE_ROW_LABEL_COL_PX}px repeat(${n}, minmax(0, 1fr))`
 }
 
-/** Default columns when starting a new comparison: Entire Portfolio + built-in scenario. */
+/** Default columns when starting a new comparison: all portfolio groups + built-in scenario. */
 export function defaultCompareSlotKeys(): string[] {
   return [PORTFOLIO_KEY, scenarioKey(BUILTIN_SCENARIO.slug)]
 }

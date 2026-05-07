@@ -41,7 +41,7 @@ const BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
   retail: "retail",
 }
 
-export const PORTFOLIO_OVERVIEW_LABEL = "All Portfolios"
+export const PORTFOLIO_OVERVIEW_LABEL = "Entire portfolio"
 
 /** Labels used in the sidebar asset groups and portfolio group filter. */
 export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
@@ -281,11 +281,11 @@ export function getAssetById(
 }
 
 export function assetHref(id: string): string {
-  return `/assets/${id}/stacking-plan`
+  return `/properties/${id}/stacking-plan`
 }
 
 export function assetForecastHref(id: string): string {
-  return `/assets/${id}/forecasts`
+  return `/properties/${id}/forecasts`
 }
 
 export function portfolioScopeSlug(scopeId: string): string {

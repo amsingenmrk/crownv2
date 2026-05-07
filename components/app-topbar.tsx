@@ -9,14 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-import {
-  Briefcase,
-  Check,
-  ChevronDown,
-  FileUp,
-  MoreVertical,
-  Plus,
-} from "lucide-react"
+import { Check, ChevronDown, MoreVertical } from "lucide-react"
 import Link from "next/link"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -24,10 +17,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -51,11 +40,9 @@ import {
 } from "@/components/ui/dialog"
 import { useAppToast } from "@/components/app-toast"
 import {
-  addCustomAssetGroup,
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
   removeCustomAssetGroupById,
-  setAssetGroupOverride,
   subscribeAssetGroupOverrides,
   updateCustomAssetGroupById,
   updateFundByGroupId,
@@ -89,14 +76,16 @@ import {
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
 import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridge"
+import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { PortfolioGroupBadgeDropdown } from "@/components/portfolio-group-badge-dropdown"
 import { cn } from "@/lib/utils"
 
 function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string {
-  if (!pathname?.startsWith("/assets/")) {
-    return `/assets/${newAssetId}/stacking-plan`
+  if (!pathname?.startsWith("/properties/")) {
+    return `/properties/${newAssetId}/stacking-plan`
   }
-  const tail = pathname.replace(/^\/assets\/[^/]+/, "") || "/stacking-plan"
-  return `/assets/${newAssetId}${tail.startsWith("/") ? tail : `/${tail}`}`
+  const tail = pathname.replace(/^\/properties\/[^/]+/, "") || "/stacking-plan"
+  return `/properties/${newAssetId}${tail.startsWith("/") ? tail : `/${tail}`}`
 }
 
 const TITLES: Record<string, string> = {
@@ -261,8 +250,6 @@ export function AppTopbar() {
   const [compareRenameOpen, setCompareRenameOpen] = useState(false)
   const [compareDeleteOpen, setCompareDeleteOpen] = useState(false)
   const [compareRenameDraft, setCompareRenameDraft] = useState("")
-  const [createAssetGroupOpen, setCreateAssetGroupOpen] = useState(false)
-  const [newAssetGroupName, setNewAssetGroupName] = useState("")
   const [deletePortfolioScopeOpen, setDeletePortfolioScopeOpen] =
     useState(false)
   const [portfolioScopeRenameOpen, setPortfolioScopeRenameOpen] =
@@ -275,7 +262,6 @@ export function AppTopbar() {
   const scenarioRenameDescriptionFieldId = useId()
   const portfolioRenameNameFieldId = useId()
   const portfolioRenameDescriptionFieldId = useId()
-  const newAssetGroupInputId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
@@ -283,8 +269,16 @@ export function AppTopbar() {
     () => (assetId ? getAssetById(assetId, assetGroupData) : null),
     [assetGroupData, assetId]
   )
+  const marketListingPin = useMemo(
+    () => (assetId ? getMarketListingPinById(assetId) : null),
+    [assetId]
+  )
   const showAssetBreadcrumb =
-    pathname?.startsWith("/assets/") === true && asset != null
+    pathname?.startsWith("/properties/") === true && asset != null
+  const showNonAssetPropertyBreadcrumb =
+    pathname?.startsWith("/properties/") === true &&
+    asset == null &&
+    marketListingPin != null
   const showScenarioBreadcrumb =
     pathname != null && pathname.startsWith("/scenarios/")
   const scenarioSlug = scenarioSlugFromPathname(pathname ?? null)
@@ -344,6 +338,20 @@ export function AppTopbar() {
     }
     return labels
   }, [assetGroupData])
+
+  const marketListingPortfolioGroupId =
+    marketListingPin != null && assetId != null
+      ? assetGroupData.overrides[assetId] ?? null
+      : null
+  const marketListingPortfolioGroupLabel =
+    marketListingPortfolioGroupId != null
+      ? portfolioScopeLabels[marketListingPortfolioGroupId] ??
+        marketListingPortfolioGroupId
+      : null
+
+  const propertyStandaloneNav =
+    assetId != null &&
+    assetGroupData.standalonePropertyNavIds.has(assetId)
 
   const pageTitle = titleForPathname(
     pathname ?? null,
@@ -612,7 +620,7 @@ export function AppTopbar() {
           orientation="vertical"
           className="mr-2 shrink-0 data-vertical:h-4 data-vertical:self-auto"
         />
-        {showAssetBreadcrumb && asset != null ? (
+        {showAssetBreadcrumb && asset != null && !propertyStandaloneNav ? (
           <Breadcrumb className="min-w-0 flex-1">
             <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
               <BreadcrumbItem className="shrink-0">
@@ -732,6 +740,101 @@ export function AppTopbar() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+        ) : showAssetBreadcrumb && asset != null && propertyStandaloneNav ? (
+          <Breadcrumb className="min-w-0 flex-1">
+            <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/search"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
+                >
+                  Properties
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <BreadcrumbItem className="min-w-0 max-w-[min(100%,18rem)]">
+                <BreadcrumbPage
+                  className="truncate font-medium"
+                  title={asset.address}
+                >
+                  {asset.address}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        ) : showNonAssetPropertyBreadcrumb && marketListingPin != null ? (
+          marketListingPortfolioGroupId != null &&
+          marketListingPortfolioGroupLabel != null ? (
+            <Breadcrumb className="min-w-0 flex-1">
+              <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
+                <BreadcrumbItem className="shrink-0">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        href="/portfolio"
+                        className="font-medium text-muted-foreground"
+                      />
+                    }
+                  >
+                    Portfolio
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+                <BreadcrumbItem className="min-w-0 max-w-[min(12rem,32vw)] shrink">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        href={portfolioScopeHref(marketListingPortfolioGroupId)}
+                        className="block truncate font-medium text-muted-foreground"
+                      />
+                    }
+                    title={marketListingPortfolioGroupLabel}
+                  >
+                    {marketListingPortfolioGroupLabel}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+                <BreadcrumbItem className="min-w-0 max-w-[min(100%,18rem)]">
+                  <BreadcrumbPage
+                    className="truncate font-medium"
+                    title={marketListingPin.location}
+                  >
+                    {marketListingPin.building}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          ) : (
+            <Breadcrumb className="min-w-0 flex-1">
+              <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
+                <BreadcrumbItem className="shrink-0">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        href="/search"
+                        className="font-medium text-muted-foreground"
+                      />
+                    }
+                  >
+                    Properties
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+                <BreadcrumbItem className="min-w-0 max-w-[min(100%,18rem)]">
+                  <BreadcrumbPage
+                    className="truncate font-medium"
+                    title={marketListingPin.location}
+                  >
+                    {marketListingPin.location}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          )
         ) : showScenarioBreadcrumb && scenarioSlug != null ? (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
@@ -839,200 +942,18 @@ export function AppTopbar() {
           </Button>
         ) : null}
         {showAssetBreadcrumb && asset != null ? (
-          <>
-            <div
-              className="inline-flex max-w-[min(100%,12rem)] shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2.5 py-1 text-xs font-medium text-foreground"
-              title={`Portfolio: ${asset.groupLabel}`}
-              aria-label={`Current portfolio: ${asset.groupLabel}`}
-            >
-              <Briefcase
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <span className="min-w-0 truncate">{asset.groupLabel}</span>
-            </div>
-            <Dialog
-              open={createAssetGroupOpen}
-              onOpenChange={(open) => {
-                setCreateAssetGroupOpen(open)
-                if (!open) setNewAssetGroupName("")
-              }}
-            >
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>New asset group</DialogTitle>
-                  <DialogDescription>
-                    Name this group. The current property will be moved into it.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-2 py-1">
-                  <label
-                    htmlFor={newAssetGroupInputId}
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Group name
-                  </label>
-                  <Input
-                    id={newAssetGroupInputId}
-                    value={newAssetGroupName}
-                    onChange={(e) => setNewAssetGroupName(e.target.value)}
-                    placeholder="e.g. West Coast logistics"
-                    autoComplete="off"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        const created = addCustomAssetGroup(newAssetGroupName)
-                        if (created != null && asset != null) {
-                          setAssetGroupOverride(asset.id, created.id)
-                          showToast(`Group “${created.label}” created.`)
-                          setCreateAssetGroupOpen(false)
-                          setNewAssetGroupName("")
-                        } else if (newAssetGroupName.trim() === "") {
-                          showToast("Enter a group name.")
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setCreateAssetGroupOpen(false)
-                      setNewAssetGroupName("")
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      const created = addCustomAssetGroup(newAssetGroupName)
-                      if (created == null) {
-                        showToast("Enter a group name.")
-                        return
-                      }
-                      if (asset != null) {
-                        setAssetGroupOverride(asset.id, created.id)
-                        showToast(`Group “${created.label}” created.`)
-                      }
-                      setCreateAssetGroupOpen(false)
-                      setNewAssetGroupName("")
-                    }}
-                  >
-                    Create group
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    aria-label="Property actions"
-                  />
-                }
-              >
-                <MoreVertical className="size-4" aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={6}
-                className="min-w-60 w-max max-w-[min(calc(100vw-1.5rem),22rem)]"
-              >
-                <DropdownMenuItem
-                  className="gap-2"
-                  onClick={() => {
-                    router.push("/documents")
-                  }}
-                >
-                  <FileUp className="size-4 shrink-0 opacity-80" aria-hidden />
-                  <span className="min-w-0 flex-1">Import Documents</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="gap-2">
-                    <Briefcase
-                      className="size-4 shrink-0 opacity-80"
-                      aria-hidden
-                    />
-                    Change Portfolio
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-64">
-                    {BUILT_IN_ASSET_GROUP_IDS.map((gid) => {
-                      const label = ASSET_GROUP_SIDEBAR_LABELS[gid]
-                      const selected = asset.groupId === gid
-                      return (
-                        <DropdownMenuItem
-                          key={gid}
-                          className="gap-2"
-                          disabled={selected}
-                          onClick={() => {
-                            if (selected) return
-                            setAssetGroupOverride(asset.id, gid)
-                          }}
-                        >
-                          <span className="flex size-4 shrink-0 items-center justify-center">
-                            {selected ? (
-                              <Check className="size-4" aria-hidden />
-                            ) : null}
-                          </span>
-                          <span className="min-w-0 flex-1 break-words">
-                            {label}
-                          </span>
-                        </DropdownMenuItem>
-                      )
-                    })}
-                    {Object.entries(assetGroupData.customGroups)
-                      .sort((a, b) =>
-                        a[1].localeCompare(b[1], undefined, {
-                          sensitivity: "base",
-                        })
-                      )
-                      .map(([gid, label]) => {
-                        const selected = asset.groupId === gid
-                        return (
-                          <DropdownMenuItem
-                            key={gid}
-                            className="gap-2"
-                            disabled={selected}
-                            onClick={() => {
-                              if (selected) return
-                              setAssetGroupOverride(asset.id, gid)
-                            }}
-                          >
-                            <span className="flex size-4 shrink-0 items-center justify-center">
-                              {selected ? (
-                                <Check className="size-4" aria-hidden />
-                              ) : null}
-                            </span>
-                            <span className="min-w-0 flex-1 break-words">
-                              {label}
-                            </span>
-                          </DropdownMenuItem>
-                        )
-                      })}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="gap-2"
-                      onClick={() => {
-                        setNewAssetGroupName("")
-                        setCreateAssetGroupOpen(true)
-                      }}
-                    >
-                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-                      <span className="min-w-0 flex-1">Create new portfolio</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
+          <PortfolioGroupBadgeDropdown
+            assetId={asset.id}
+            resolvedGroupId={propertyStandaloneNav ? null : asset.groupId}
+          />
+        ) : showNonAssetPropertyBreadcrumb &&
+          marketListingPin != null &&
+          assetId != null ? (
+          <PortfolioGroupBadgeDropdown
+            assetId={assetId}
+            resolvedGroupId={assetGroupData.overrides[assetId] ?? null}
+            propertyDisplayName={marketListingPin.building}
+          />
         ) : null}
         {showPortfolioScopeBreadcrumb && portfolioScopeBreadcrumbId != null ? (
           <>
@@ -1044,7 +965,7 @@ export function AppTopbar() {
                     variant="ghost"
                     size="icon"
                     className="shrink-0"
-                    aria-label="Portfolio scope actions"
+                    aria-label="Portfolio group actions"
                   />
                 }
               >
@@ -1083,7 +1004,7 @@ export function AppTopbar() {
             >
               <DialogContent showCloseButton className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Rename portfolio</DialogTitle>
+                  <DialogTitle>Rename portfolio group</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-3">
                   <div className="grid gap-1.5">
@@ -1156,10 +1077,10 @@ export function AppTopbar() {
             >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Delete portfolio scope</DialogTitle>
+                  <DialogTitle>Delete portfolio group</DialogTitle>
                   <DialogDescription>
                     This removes &ldquo;{pageTitle}&rdquo; and clears
-                    which assets were assigned to this custom scope. Assets
+                    which assets were assigned to this portfolio group. Assets
                     return to their default fund groups. This cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
@@ -1182,7 +1103,7 @@ export function AppTopbar() {
                       setDeletePortfolioScopeOpen(false)
                       if (ok) {
                         router.push("/portfolio")
-                        showToast("Portfolio scope deleted.")
+                        showToast("Portfolio group deleted.")
                       }
                     }}
                   >

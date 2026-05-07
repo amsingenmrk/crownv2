@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Briefcase, Check, ChevronDown, CircleX, Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -37,19 +37,19 @@ import {
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { cn } from "@/lib/utils"
 
-type AssetScopeSelectProps = {
+export type PortfolioGroupBadgeDropdownProps = {
   assetId: string
-  building: string
-  groupId: string
-  className?: string
+  /** Current portfolio group id, or `null` if not assigned (market listings). */
+  resolvedGroupId: string | null
+  /** Optional building/property name for the create-group dialog. */
+  propertyDisplayName?: string
 }
 
-export function AssetScopeSelect({
+export function PortfolioGroupBadgeDropdown({
   assetId,
-  building,
-  groupId,
-  className,
-}: AssetScopeSelectProps) {
+  resolvedGroupId,
+  propertyDisplayName,
+}: PortfolioGroupBadgeDropdownProps) {
   const showToast = useAppToast()
   const newAssetGroupInputId = React.useId()
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = React.useState(false)
@@ -83,48 +83,79 @@ export function AssetScopeSelect({
     return labels
   }, [assetGroupData])
 
-  const displayLabel = portfolioScopeLabels[groupId] ?? groupId
+  const displayLabel =
+    resolvedGroupId != null
+      ? (portfolioScopeLabels[resolvedGroupId] ?? resolvedGroupId)
+      : null
 
   const showRemoveFromPortfolio =
     !assetGroupData.standalonePropertyNavIds.has(assetId) &&
     (Object.hasOwn(assetGroupData.overrides, assetId) ||
       !isMarketListingRowId(assetId))
 
+  const createDialogDescription =
+    propertyDisplayName != null && propertyDisplayName.trim() !== ""
+      ? `Name this portfolio group. ${propertyDisplayName.trim()} will be moved into it.`
+      : "Name this portfolio group. The current property will be moved into it."
+
   return (
-    <span
-      className={cn("block min-w-0 w-full max-w-full", className)}
-      onClick={(event) => event.stopPropagation()}
-      onPointerDown={(event) => event.stopPropagation()}
-    >
+    <>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <button
               type="button"
               className={cn(
-                "inline-flex w-full min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2.5 py-1 text-left text-xs font-medium text-foreground outline-none transition-colors",
-                "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                resolvedGroupId != null
+                  ? cn(
+                      "inline-flex max-w-[min(100%,14rem)] shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2.5 py-1 text-xs font-medium text-foreground outline-none transition-colors",
+                      "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )
+                  : cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "shrink-0 justify-between gap-1.5 font-normal"
+                    )
               )}
-              title={`Portfolio group: ${displayLabel}`}
-              aria-label={`Current portfolio group: ${displayLabel}. Choose portfolio group`}
+              title={
+                resolvedGroupId != null
+                  ? `Portfolio group: ${displayLabel ?? ""}`
+                  : undefined
+              }
+              aria-label={
+                resolvedGroupId != null
+                  ? `Current portfolio group: ${displayLabel ?? ""}. Choose portfolio group`
+                  : "Add property to portfolio group"
+              }
             />
           }
         >
-          <Briefcase
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-          <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
-          <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
+          {resolvedGroupId != null ? (
+            <>
+              <Briefcase
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <span className="min-w-0 truncate">{displayLabel}</span>
+              <ChevronDown
+                className="size-3 shrink-0 opacity-60"
+                aria-hidden
+              />
+            </>
+          ) : (
+            <>
+              Add to portfolio
+              <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
+            </>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="start"
+          align="end"
           sideOffset={6}
           className="min-w-60 w-max max-w-[min(calc(100vw-1.5rem),22rem)]"
         >
           {BUILT_IN_ASSET_GROUP_IDS.map((gid) => {
             const label = portfolioScopeLabels[gid] ?? ASSET_GROUP_SIDEBAR_LABELS[gid]
-            const selected = groupId === gid
+            const selected = resolvedGroupId === gid
             return (
               <DropdownMenuItem
                 key={gid}
@@ -147,7 +178,7 @@ export function AssetScopeSelect({
               a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
             )
             .map(([gid, label]) => {
-              const selected = groupId === gid
+              const selected = resolvedGroupId === gid
               return (
                 <DropdownMenuItem
                   key={gid}
@@ -205,10 +236,7 @@ export function AssetScopeSelect({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New portfolio group</DialogTitle>
-            <DialogDescription>
-              Name this portfolio group. This property ({building}) will be moved
-              into it.
-            </DialogDescription>
+            <DialogDescription>{createDialogDescription}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-1">
             <label
@@ -275,9 +303,9 @@ export function AssetScopeSelect({
           <DialogHeader>
             <DialogTitle>Remove from portfolio?</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-foreground">{building}</span>{" "}
-              will no longer be assigned to this portfolio group. You can add it
-              again anytime.
+              {propertyDisplayName != null && propertyDisplayName.trim() !== ""
+                ? `${propertyDisplayName.trim()} will no longer be assigned to this portfolio group. You can add it again anytime.`
+                : "This property will no longer be assigned to this portfolio group. You can add it again anytime."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -303,6 +331,6 @@ export function AssetScopeSelect({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </span>
+    </>
   )
 }

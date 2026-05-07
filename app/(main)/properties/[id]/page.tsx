@@ -6,5 +6,5 @@ export default async function AssetIndexPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  redirect(`/assets/${id}/stacking-plan`)
+  redirect(`/properties/${id}/stacking-plan`)
 }

@@ -5,7 +5,7 @@ export type PortfolioAssetRow = {
   groupId: string
   building: string
   location: string
-  /** Display label for the Ownership column (e.g. badge text). */
+  /** Owned vs market listing label (e.g. dashboard export). */
   ownership: string
   typeLabel: string
   classLabel: string

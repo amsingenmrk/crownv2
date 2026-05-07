@@ -101,13 +101,11 @@ type PortfolioMenuOption = { name: string; groupId: string }
 
 function SearchListingCardActions({
   assetId,
-  isMarket,
   portfolioCurrentGroupId,
   portfoliosForMenu,
   scenariosForMenu,
 }: {
   assetId: string
-  isMarket: boolean
   portfolioCurrentGroupId: string | null
   portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
@@ -123,7 +121,7 @@ function SearchListingCardActions({
             variant="outline"
             size="icon-sm"
             className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Add to portfolio or scenario"
+            aria-label="Add to portfolio group or scenario"
           />
         }
       >
@@ -137,43 +135,34 @@ function SearchListingCardActions({
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            Portfolios
+            Portfolio groups
           </DropdownMenuLabel>
-          {isMarket ? (
-            <DropdownMenuItem
-              className="text-muted-foreground"
-              disabled
-            >
-              <span className="text-pretty">Not available for market listings</span>
-            </DropdownMenuItem>
-          ) : (
-            portfoliosForMenu.map((p) => {
-              const selected = portfolioCurrentGroupId === p.groupId
-              return (
-                <DropdownMenuItem
-                  key={p.groupId}
-                  disabled={selected}
-                  onClick={() => {
-                    if (selected) return
-                    setAssetGroupOverride(assetId, p.groupId)
-                    queueMicrotask(() =>
-                      showToast(`Property moved to “${p.name}”.`)
-                    )
-                  }}
-                >
-                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                  {selected ? (
-                    <span
-                      className="ml-2 text-xs text-muted-foreground"
-                      aria-hidden
-                    >
-                      Current
-                    </span>
-                  ) : null}
-                </DropdownMenuItem>
-              )
-            })
-          )}
+          {portfoliosForMenu.map((p) => {
+            const selected = portfolioCurrentGroupId === p.groupId
+            return (
+              <DropdownMenuItem
+                key={p.groupId}
+                disabled={selected}
+                onClick={() => {
+                  if (selected) return
+                  setAssetGroupOverride(assetId, p.groupId)
+                  queueMicrotask(() =>
+                    showToast(`Property moved to “${p.name}”.`)
+                  )
+                }}
+              >
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                {selected ? (
+                  <span
+                    className="ml-2 text-xs text-muted-foreground"
+                    aria-hidden
+                  >
+                    Current
+                  </span>
+                ) : null}
+              </DropdownMenuItem>
+            )
+          })}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -229,7 +218,9 @@ function SearchListingPreviewCard({
     return portfolioAssetRowForAsset(a, index)
   }, [assetGroupData, isMarket, pin.id])
   const portfolioCurrentGroupId = React.useMemo(() => {
-    if (isMarket) return null
+    if (isMarket) {
+      return assetGroupData.overrides[pin.id] ?? null
+    }
     return getAssetById(pin.id, assetGroupData)?.groupId ?? null
   }, [assetGroupData, isMarket, pin.id])
   const liftText =
@@ -324,7 +315,6 @@ function SearchListingPreviewCard({
       <div className="shrink-0">
         <SearchListingCardActions
           assetId={pin.id}
-          isMarket={isMarket}
           portfolioCurrentGroupId={portfolioCurrentGroupId}
           portfoliosForMenu={portfoliosForMenu}
           scenariosForMenu={scenariosForMenu}

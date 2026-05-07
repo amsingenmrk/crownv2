@@ -8,6 +8,8 @@ const FUND_DISPLAY_LABELS_KEY = "glassbox:fund-display-labels"
 const FUND_DESCRIPTION_OVERRIDES_KEY = "glassbox:fund-description-overrides"
 const CHANGED = "glassbox:asset-group-overrides-changed"
 const CUSTOM_CHANGED = "glassbox:custom-asset-groups-changed"
+/** Property IDs shown under Properties / address breadcrumbs after “Remove from portfolio”. */
+const STANDALONE_PROPERTY_NAV_KEY = "glassbox:standalone-property-nav"
 
 const BUILT_IN_GROUP_IDS = new Set(["office", "industrial", "retail"])
 
@@ -235,12 +237,58 @@ export function updateFundDisplayLabelByGroupId(
   return updateFundByGroupId(groupId, { name: newName })
 }
 
+function parseStandalonePropertyNavIds(raw: string): ReadonlySet<string> {
+  if (raw === "") return new Set()
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set()
+    const out = new Set<string>()
+    for (const x of parsed) {
+      if (typeof x === "string" && x.length > 0 && x.length < 200) out.add(x)
+    }
+    return out
+  } catch {
+    return new Set()
+  }
+}
+
+function readStandalonePropertyNavIds(): Set<string> {
+  if (typeof window === "undefined") return new Set()
+  return new Set(parseStandalonePropertyNavIds(
+    localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""
+  ))
+}
+
+function writeStandalonePropertyNavIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(
+    STANDALONE_PROPERTY_NAV_KEY,
+    JSON.stringify([...ids])
+  )
+  window.dispatchEvent(new Event(CHANGED))
+}
+
+/** Marks an asset as a standalone property in nav (Properties / address breadcrumbs). */
+export function markPropertyStandaloneNav(assetId: string): void {
+  const next = readStandalonePropertyNavIds()
+  if (next.has(assetId)) return
+  next.add(assetId)
+  writeStandalonePropertyNavIds(next)
+}
+
+function clearStandalonePropertyNav(assetId: string): void {
+  const next = readStandalonePropertyNavIds()
+  if (!next.delete(assetId)) return
+  writeStandalonePropertyNavIds(next)
+}
+
 export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   overrides: Record<string, string>
   customGroups: Record<string, string>
   fundLabelOverrides: Record<string, string>
   customGroupDescriptions: Record<string, string>
   fundDescriptionOverrides: Record<string, string>
+  standalonePropertyNavIds: ReadonlySet<string>
 } {
   const parts = snapshot.split("\0")
   const overridesRaw = parts[0] ?? ""
@@ -248,6 +296,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   const fundLabelsRaw = parts[2] ?? ""
   const descriptionsRaw = parts[3] ?? ""
   const fundDescriptionsRaw = parts[4] ?? ""
+  const standaloneRaw = parts[5] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
@@ -259,6 +308,9 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
     fundDescriptionOverrides: fundDescriptionsRaw
       ? parseFundDescriptionOverrides(fundDescriptionsRaw)
       : {},
+    standalonePropertyNavIds: standaloneRaw
+      ? parseStandalonePropertyNavIds(standaloneRaw)
+      : new Set(),
   }
 }
 
@@ -428,9 +480,20 @@ export function duplicateCustomAssetGroupFromId(
 
 export function setAssetGroupOverride(assetId: string, groupId: string): void {
   if (typeof window === "undefined") return
+  clearStandalonePropertyNav(assetId)
   const next = { ...readAssetGroupOverrides(), [assetId]: groupId }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   window.dispatchEvent(new Event(CHANGED))
+}
+
+/** Clears a stored portfolio-group assignment so the asset falls back to seed data. */
+export function removeAssetGroupOverride(assetId: string): boolean {
+  if (typeof window === "undefined") return false
+  const current = readAssetGroupOverrides()
+  if (!(assetId in current)) return false
+  const { [assetId]: _removed, ...rest } = current
+  writeAssetGroupOverrides(rest)
+  return true
 }
 
 export function subscribeAssetGroupOverrides(
@@ -446,7 +509,8 @@ export function subscribeAssetGroupOverrides(
       e.key === CUSTOM_GROUPS_KEY ||
       e.key === FUND_DISPLAY_LABELS_KEY ||
       e.key === FUND_DESCRIPTION_OVERRIDES_KEY ||
-      e.key === CUSTOM_GROUP_DESCRIPTIONS_KEY
+      e.key === CUSTOM_GROUP_DESCRIPTIONS_KEY ||
+      e.key === STANDALONE_PROPERTY_NAV_KEY
     ) {
       run()
     }
@@ -461,5 +525,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}`
 }

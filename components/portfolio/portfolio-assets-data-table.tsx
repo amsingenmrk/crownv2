@@ -100,13 +100,11 @@ export function PortfolioAssetsDataTable({
   variant,
   liftExtent,
   showScopeColumn = false,
-  customGroups = {},
 }: {
   table: Table<PortfolioAssetRow>
   variant: PortfolioAssetsTableVariant
   liftExtent: { min: number; max: number }
   showScopeColumn?: boolean
-  customGroups?: Record<string, string>
 }) {
   const data = table.options.data
   const router = useRouter()
@@ -474,25 +472,14 @@ export function PortfolioAssetsDataTable({
                       )}
                     </div>
                   ) : null}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Ownership</span>
-                    {isMarketListingRowId(row.id) ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
-                        {row.ownership}
-                      </span>
-                    )}
-                  </div>
                   {variant === "portfolio" && showScopeColumn ? (
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>Scope</span>
+                      <span>Portfolio group</span>
                       <span className="min-w-0">
                         <AssetScopeSelect
                           assetId={row.id}
                           building={row.building}
                           groupId={row.groupId}
-                          customGroups={customGroups}
                         />
                       </span>
                     </div>

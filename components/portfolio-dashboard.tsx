@@ -109,7 +109,7 @@ function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
 }
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
-const ALL_PORTFOLIO_GROUPS_LABEL = "Entire Portfolio"
+const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
 
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
 function toCssPercent(n: number): string {
@@ -527,14 +527,8 @@ function PortfolioDashboardInner({
     () =>
       createPortfolioAssetColumns(assetsTableVariant, liftPctExtent, {
         showScopeColumn,
-        customGroups: assetGroupData.customGroups,
       }),
-    [
-      assetGroupData.customGroups,
-      assetsTableVariant,
-      liftPctExtent,
-      showScopeColumn,
-    ]
+    [assetsTableVariant, liftPctExtent, showScopeColumn]
   )
 
   const [sorting, setSorting] = React.useState<SortingState>(() =>
@@ -990,7 +984,6 @@ function PortfolioDashboardInner({
                   variant={assetsTableVariant}
                   liftExtent={liftPctExtent}
                   showScopeColumn={showScopeColumn}
-                  customGroups={assetGroupData.customGroups}
                 />
               ) : (
                 <div

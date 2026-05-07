@@ -43,7 +43,6 @@ export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
 
 type PortfolioAssetColumnOptions = {
   showScopeColumn?: boolean
-  customGroups?: Record<string, string>
 }
 
 const CLASS_SOURCE_LABEL =
@@ -271,7 +270,6 @@ export function createPortfolioAssetColumns(
   liftExtent: { min: number; max: number },
   {
     showScopeColumn = false,
-    customGroups = {},
   }: PortfolioAssetColumnOptions = {}
 ): ColumnDef<PortfolioAssetRow>[] {
   const liftStrength = (liftPercent: number) =>
@@ -323,21 +321,6 @@ export function createPortfolioAssetColumns(
           </div>
         </div>
       ),
-    },
-    {
-      accessorKey: "ownership",
-      enableHiding: true,
-      meta: { columnLabel: "Ownership" },
-      header: () => <div className="font-medium">Ownership</div>,
-      enableSorting: false,
-      cell: ({ row }) =>
-        isMarketListingRowId(row.original.id) ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-foreground">
-            {row.original.ownership}
-          </span>
-        ),
     },
     {
       accessorKey: "typeLabel",
@@ -519,18 +502,17 @@ export function createPortfolioAssetColumns(
   ]
 
   if (variant === "portfolio" && showScopeColumn) {
-    columns.splice(3, 0, {
+    columns.splice(2, 0, {
       id: "scope",
       accessorFn: (row) => row.groupId,
       enableHiding: true,
-      meta: { columnLabel: "Scope" },
-      header: () => <div className="font-medium">Scope</div>,
+      meta: { columnLabel: "Portfolio group" },
+      header: () => <div className="font-medium">Portfolio group</div>,
       cell: ({ row }) => (
         <AssetScopeSelect
           assetId={row.original.id}
           building={row.original.building}
           groupId={row.original.groupId}
-          customGroups={customGroups}
         />
       ),
       enableSorting: false,

@@ -115,7 +115,7 @@ export function PortfolioPageHeader() {
     const n =
       BUILT_IN_ASSET_GROUP_IDS.length +
       Object.keys(assetGroupData.customGroups).length
-    return n === 1 ? "1 portfolio" : `${n} portfolios`
+    return n === 1 ? "1 portfolio group" : `${n} portfolio groups`
   }, [assetGroupData.customGroups])
 
   const occupiedPercent = React.useMemo(

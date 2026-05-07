@@ -95,7 +95,7 @@ export function NavAssets() {
   }, [pathname])
 
   const activeAssetGroupId = React.useMemo(() => {
-    const match = pathname.match(/^\/assets\/([^/]+)/)
+    const match = pathname.match(/^\/properties\/([^/]+)/)
     if (!match?.[1]) return null
     return (
       getAssetById(decodeURIComponent(match[1]), assetGroupData)?.groupId ?? null
@@ -145,11 +145,11 @@ export function NavAssets() {
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Portfolios</SidebarGroupLabel>
+        <SidebarGroupLabel>Portfolio</SidebarGroupLabel>
         <SidebarGroupAction
           type="button"
-          title="New portfolio"
-          aria-label="New portfolio"
+          title="New portfolio group"
+          aria-label="New portfolio group"
           onClick={() => setNewScopeOpen(true)}
         >
           <Plus />
@@ -230,7 +230,7 @@ export function NavAssets() {
                           const href = assetHref(asset.id)
                           const active =
                             pathname === href ||
-                            pathname.startsWith(`/assets/${asset.id}/`)
+                            pathname.startsWith(`/properties/${asset.id}/`)
                           return (
                             <SidebarMenuSubItem key={asset.id}>
                               <SidebarMenuSubButton

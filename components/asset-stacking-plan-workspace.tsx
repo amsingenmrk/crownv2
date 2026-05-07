@@ -561,7 +561,7 @@ function summarizeFloors(floors: readonly StackingPlanFloor[]) {
   }
 }
 
-function marketRentRollImportedStorageKey(assetId: string) {
+function rentRollImportedStorageKey(assetId: string) {
   return `glassbox:market-rent-roll-imported:${assetId}`
 }
 
@@ -579,14 +579,17 @@ function buildEmptyMarketFloors(
 }
 
 function readRentRollImportedFlag(assetId: string): boolean {
-  if (!isMarketListingPinId(assetId)) return true
-  if (typeof window === "undefined") return false
+  const market = isMarketListingPinId(assetId)
+  if (typeof window === "undefined") {
+    return !market
+  }
   try {
-    return (
-      localStorage.getItem(marketRentRollImportedStorageKey(assetId)) === "1"
-    )
+    const v = localStorage.getItem(rentRollImportedStorageKey(assetId))
+    if (v === "1") return true
+    if (v === "0") return false
+    return !market
   } catch {
-    return false
+    return !market
   }
 }
 
@@ -1114,15 +1117,13 @@ export function AssetStackingPlanWorkspace({
       ),
     [assetId, tenantForecastOverrides]
   )
-  const isMarketProperty = isMarketListingPinId(assetId)
   const [rentRollImported, setRentRollImported] = React.useState(() =>
     readRentRollImportedFlag(assetId)
   )
   React.useEffect(() => {
     setRentRollImported(readRentRollImportedFlag(assetId))
   }, [assetId])
-  const stackingPlaceholderActive =
-    isMarketProperty && !rentRollImported
+  const stackingPlaceholderActive = !rentRollImported
   const derivedFloorsFromDataset = React.useMemo(() => {
     if (!stackingPlaceholderActive) return baseDataset.floors
     return buildEmptyMarketFloors(baseDataset.floors)
@@ -1139,7 +1140,7 @@ export function AssetStackingPlanWorkspace({
   const handleImportRentRoll = React.useCallback(() => {
     setRentRollImported(true)
     try {
-      localStorage.setItem(marketRentRollImportedStorageKey(assetId), "1")
+      localStorage.setItem(rentRollImportedStorageKey(assetId), "1")
     } catch {
       // ignore quota / private mode
     }
@@ -1148,7 +1149,7 @@ export function AssetStackingPlanWorkspace({
   const handleClearRentRoll = React.useCallback(() => {
     setRentRollImported(false)
     try {
-      localStorage.removeItem(marketRentRollImportedStorageKey(assetId))
+      localStorage.setItem(rentRollImportedStorageKey(assetId), "0")
     } catch {
       // ignore
     }
@@ -1165,6 +1166,8 @@ export function AssetStackingPlanWorkspace({
   const [vacantSplitSaveError, setVacantSplitSaveError] = React.useState<
     string | null
   >(null)
+  const [clearRentRollConfirmOpen, setClearRentRollConfirmOpen] =
+    React.useState(false)
   const effectiveViewMode = lockedViewMode ?? viewMode
   const summary = React.useMemo(() => summarizeFloors(floors), [floors])
   const selectedTenant = React.useMemo(
@@ -1841,29 +1844,27 @@ export function AssetStackingPlanWorkspace({
                 </SelectContent>
               </Select>
               <StackingPlanLegend mode={vizMode} />
-              {isMarketProperty ? (
-                rentRollImported ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearRentRoll}
-                  >
-                    <Eraser className="size-3.5" aria-hidden />
-                    Clear rent roll
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleImportRentRoll}
-                  >
-                    <Upload className="size-3.5" aria-hidden />
-                    Import rent roll
-                  </Button>
-                )
-              ) : null}
+              {rentRollImported ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setClearRentRollConfirmOpen(true)}
+                >
+                  <Eraser className="size-3.5" aria-hidden />
+                  Clear rent roll
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImportRentRoll}
+                >
+                  <Upload className="size-3.5" aria-hidden />
+                  Import rent roll
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -1998,29 +1999,27 @@ export function AssetStackingPlanWorkspace({
                           </div>
                         </>
                       ) : null}
-                      {isMarketProperty ? (
-                        rentRollImported ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleClearRentRoll}
-                          >
-                            <Eraser className="size-3.5" aria-hidden />
-                            Clear rent roll
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleImportRentRoll}
-                          >
-                            <Upload className="size-3.5" aria-hidden />
-                            Import rent roll
-                          </Button>
-                        )
-                      ) : null}
+                      {rentRollImported ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setClearRentRollConfirmOpen(true)}
+                        >
+                          <Eraser className="size-3.5" aria-hidden />
+                          Clear rent roll
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleImportRentRoll}
+                        >
+                          <Upload className="size-3.5" aria-hidden />
+                          Import rent roll
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -2068,6 +2067,41 @@ export function AssetStackingPlanWorkspace({
           </div>
         )}
       </section>
+
+      <Dialog
+        open={clearRentRollConfirmOpen}
+        onOpenChange={setClearRentRollConfirmOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear rent roll?</DialogTitle>
+            <DialogDescription>
+              This removes suite-level tenants and lease detail from the stacking
+              plan. You can import a rent roll again later, but unsaved local
+              edits tied to this view will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearRentRollConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                handleClearRentRoll()
+                setClearRentRollConfirmOpen(false)
+              }}
+            >
+              Clear rent roll
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {vacantSplitModal != null ? (
         <Dialog
