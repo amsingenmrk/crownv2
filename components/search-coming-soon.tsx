@@ -338,14 +338,13 @@ function SearchListingPreviewCard({
 
   const mainSurfaceClass = cn(
     "min-w-0",
-    !isMarket &&
-      pin.assetDetailHref &&
+    pin.assetDetailHref &&
       "transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
   )
 
   return (
     <article className={articleClass}>
-      {!isMarket && pin.assetDetailHref ? (
+      {pin.assetDetailHref ? (
         <Link href={pin.assetDetailHref} className={mainSurfaceClass}>
           {cardTop}
         </Link>

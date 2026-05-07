@@ -154,6 +154,7 @@ export function marketSearchDemoPinsBase(
       liftPercent: liftPct,
       liftStrength,
       listingScope: "market",
+      assetDetailHref: `/assets/${encodeURIComponent(`mkt-${i}`)}/stacking-plan`,
       imageUrl: DEMO_BUILDING_IMAGES[i % DEMO_BUILDING_IMAGES.length],
       location: `${Math.floor(100 + u01(`mkt:${i}:addr`) * 900)} Main St · ${cityLine}`,
     }

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
+import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 
 export const ASSET_TAB_PATHS = [
   { pathSegment: "stacking-plan", label: "Stacking Plan", icon: Layers },
@@ -15,12 +17,22 @@ export const ASSET_TAB_PATHS = [
   { pathSegment: "forecasts", label: "Forecasts", icon: LineChart },
 ] as const
 
+function parseOccPct(text: string | null | undefined): number {
+  if (!text) return 0
+  const n = Number(String(text).replace("%", "").trim())
+  return Number.isFinite(n) ? n : 0
+}
+
 export function AssetDetailHeader() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useParams()
   const id = typeof params?.id === "string" ? params.id : null
   const asset = React.useMemo(() => (id ? getAssetById(id) : null), [id])
+  const marketPin = React.useMemo(
+    () => (id ? getMarketListingPinById(id) : null),
+    [id]
+  )
 
   const assetIndex = React.useMemo(
     () => (asset ? ASSETS.findIndex((a) => a.id === asset.id) : -1),
@@ -28,26 +40,38 @@ export function AssetDetailHeader() {
   )
 
   const tableRow = React.useMemo(() => {
-    if (!asset) return null
-    const index = assetIndex >= 0 ? assetIndex : 0
-    return portfolioAssetRowForAsset(asset, index)
-  }, [asset, assetIndex])
+    if (asset) {
+      const index = assetIndex >= 0 ? assetIndex : 0
+      return portfolioAssetRowForAsset(asset, index)
+    }
+    if (marketPin) {
+      return portfolioAssetRowForMarketPin(marketPin)
+    }
+    return null
+  }, [asset, assetIndex, marketPin])
 
-  if (!id || !asset || tableRow == null) return null
+  if (!id || tableRow == null) return null
 
   const basePath = `/assets/${id}`
-  const buildingLabel = asset.name
-  const addressLabel = asset.address
+  const buildingLabel = asset?.name ?? marketPin?.building ?? id
+  const addressLabel = asset?.address ?? marketPin?.location ?? "—"
 
-  const keyMetrics = [
-    { label: "Sector", value: tableRow.typeLabel },
-    { label: "Class", value: tableRow.classLabel },
-    {
-      label: "Spaces",
-      value: String(stackingPlanSpaceCountForAsset(asset.id, asset)),
-    },
-    { label: "RSF", value: tableRow.rsf },
-  ] as const
+  const keyMetrics = asset
+    ? ([
+        { label: "Sector", value: tableRow.typeLabel },
+        { label: "Class", value: tableRow.classLabel },
+        {
+          label: "Spaces",
+          value: String(stackingPlanSpaceCountForAsset(asset.id, asset)),
+        },
+        { label: "RSF", value: tableRow.rsf },
+      ] as const)
+    : ([
+        { label: "Sector", value: tableRow.typeLabel },
+        { label: "Class", value: tableRow.classLabel },
+        { label: "RSF", value: tableRow.rsf },
+        { label: "WALE", value: tableRow.wale },
+      ] as const)
 
   return (
     <>
@@ -83,7 +107,7 @@ export function AssetDetailHeader() {
                 ))}
               </div>
               <OccupancySummaryBar
-                occupiedPercent={asset.occupiedPercent}
+                occupiedPercent={asset ? asset.occupiedPercent : parseOccPct(tableRow.occPct)}
                 className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
               />
             </div>

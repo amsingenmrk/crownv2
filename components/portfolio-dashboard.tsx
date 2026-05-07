@@ -481,6 +481,7 @@ function PortfolioDashboardInner({
           liftPercent: row.liftPercent,
           liftStrength: liftStrengthForRow(row.liftPercent),
           listingScope: "market" as const,
+          assetDetailHref: assetHref(row.id),
           imageUrl: marketPin.imageUrl,
           location: row.location,
           value: row.value,
