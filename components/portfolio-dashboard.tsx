@@ -45,7 +45,6 @@ import {
   PORTFOLIO_OVERVIEW_LABEL,
   assetHref,
   getAssetById,
-  propertyHref,
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
@@ -489,7 +488,6 @@ function PortfolioDashboardInner({
           noi: row.noi,
           capRate: row.capRate,
           wale: row.wale,
-          assetDetailHref: propertyHref(row.id),
         }
       }
       const [longitude, latitude] = lngLatForPortfolioAsset(

@@ -22,7 +22,7 @@ import {
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
-import { assetHref, propertyHref } from "@/lib/assets"
+import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -303,12 +303,9 @@ export function createPortfolioAssetColumns(
         <div className="flex min-w-0 items-start gap-2 text-left">
           <div className="min-w-0 flex flex-col gap-0.5 text-left">
             {isMarketListingRowId(row.original.id) ? (
-              <Link
-                href={propertyHref(row.original.id)}
-                className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
+              <span className="inline-flex w-fit max-w-full font-semibold leading-snug text-foreground">
                 <span className="truncate">{row.original.building}</span>
-              </Link>
+              </span>
             ) : (
               <Link
                 href={assetHref(row.original.id)}

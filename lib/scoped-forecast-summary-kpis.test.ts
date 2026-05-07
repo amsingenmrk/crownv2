@@ -8,7 +8,6 @@ import {
   type ScopedForecastAssetSelection,
 } from "@/lib/scoped-forecast"
 import { buildScopedForecastSummaryKpis } from "@/lib/scoped-forecast-summary-kpis"
-import { DEFAULT_VALUATION_CONDITION_ID } from "@/lib/valuation-condition-config"
 
 function sampleStatementRows(): ForecastStatementRow[] {
   return [
@@ -38,9 +37,6 @@ describe("buildScopedForecastSummaryKpis", () => {
       baselineModelStatementRows: rows,
       activeVariant: "baseline",
       assetSelections: [baselineSelection],
-      selectedValuationCondition: DEFAULT_VALUATION_CONDITION_ID,
-      activeAssetModels: [],
-      baselineAssetModels: [],
     })
     expect(items.map((i) => i.label)).toEqual([
       "Gross Revenue",

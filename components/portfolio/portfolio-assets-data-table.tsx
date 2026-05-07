@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
-import { assetHref, propertyHref } from "@/lib/assets"
+import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
@@ -420,9 +420,7 @@ export function PortfolioAssetsDataTable({
         ) : (
           sortedRows.map((tableRow) => {
             const row = tableRow.original
-            const href = isMarketListingRowId(row.id)
-              ? propertyHref(row.id)
-              : assetHref(row.id)
+            const href = assetHref(row.id)
             const selected = tableRow.getIsSelected()
             return (
               <li key={tableRow.id}>
