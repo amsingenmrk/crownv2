@@ -647,6 +647,11 @@ function formatPercentValue(value: number) {
   return `${value.toFixed(1)}%`
 }
 
+function formatSignedPercentDelta(value: number) {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
+  return `${sign}${Math.abs(value).toFixed(1)}%`
+}
+
 function formatSqftValue(value: number) {
   return `${value.toLocaleString()} SF`
 }
@@ -868,6 +873,14 @@ function formatCompactRate(value: number | null) {
   }
 
   return `$${value.toFixed(2)}`
+}
+
+function formatCompactRatePerSf(value: number | null) {
+  if (value == null) {
+    return "N/A"
+  }
+
+  return `${formatCompactRate(value)} / SF`
 }
 
 function formatCompactScore(value: number | null) {
@@ -1152,6 +1165,20 @@ export function AssetStackingPlanWorkspace({
 
     return weightedTotal / totalSqft
   }, [floors])
+  const predictedRentLiftPct = React.useMemo(() => {
+    if (
+      averagePredictedRentPsf == null ||
+      averageContractRatePsf == null ||
+      averageContractRatePsf <= 0
+    ) {
+      return null
+    }
+
+    return (
+      ((averagePredictedRentPsf - averageContractRatePsf) / averageContractRatePsf) *
+      100
+    )
+  }, [averageContractRatePsf, averagePredictedRentPsf])
   const averageSunScore = React.useMemo(() => {
     const scoredTenants = floors
       .flatMap((floor) => floor.tenants)
@@ -1735,115 +1762,122 @@ export function AssetStackingPlanWorkspace({
               onVacantSpaceCombine={handleVacantSpaceCombine}
               onVacantSpaceSplit={handleVacantSpaceSplitOpen}
               headerControls={
-                <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {shouldShowViewToggle ? (
-                      <div className="flex items-center">
-                        <ToggleGroup
-                          value={[effectiveViewMode]}
-                          onValueChange={(values) => {
-                            const next = values[0]
-                            if (next === "matrix" || next === "simplified") {
-                              setViewMode(next)
-                            }
-                          }}
-                          aria-label="Switch stacking plan view"
-                        >
-                          <ToggleGroupItem value="matrix">
-                            {STACKING_DETAILED_VIEW_LABEL}
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="simplified">
-                            Floor
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                      </div>
-                    ) : (
-                      <>
-                        <Select
-                          value={vizMode}
-                          onValueChange={(value) => {
-                            if (
-                              value === "leaseExpiration" ||
-                              value === "predictedRent" ||
-                              value === "contractRate"
-                            ) {
-                              setVizMode(value)
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
-                            aria-label="Select stacking visualization mode"
-                          >
-                            <span className="truncate">
-                              {getLegendLabelForMode(vizMode)}
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent align="start">
-                            {STACKING_VIZ_MODE_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                <div className="flex w-full flex-col gap-3">
+                  <StackingPlanRentSummary
+                    averageContractRatePsf={averageContractRatePsf}
+                    averagePredictedRentPsf={averagePredictedRentPsf}
+                    predictedRentLiftPct={predictedRentLiftPct}
+                  />
+                  <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {shouldShowViewToggle ? (
                         <div className="flex items-center">
-                          <StackingPlanLegend mode={vizMode} />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
-                    {shouldShowViewToggle ? (
-                      <>
-                        <Select
-                          value={vizMode}
-                          onValueChange={(value) => {
-                            if (
-                              value === "leaseExpiration" ||
-                              value === "predictedRent" ||
-                              value === "contractRate"
-                            ) {
-                              setVizMode(value)
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
-                            aria-label="Select stacking visualization mode"
+                          <ToggleGroup
+                            value={[effectiveViewMode]}
+                            onValueChange={(values) => {
+                              const next = values[0]
+                              if (next === "matrix" || next === "simplified") {
+                                setViewMode(next)
+                              }
+                            }}
+                            aria-label="Switch stacking plan view"
                           >
-                            <span className="truncate">
-                              {getLegendLabelForMode(vizMode)}
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent align="start">
-                            {STACKING_VIZ_MODE_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center">
-                          <StackingPlanLegend mode={vizMode} />
+                            <ToggleGroupItem value="matrix">
+                              {STACKING_DETAILED_VIEW_LABEL}
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="simplified">
+                              Floor
+                            </ToggleGroupItem>
+                          </ToggleGroup>
                         </div>
-                      </>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadCsv(assetId, floors)}
-                    >
-                      <Download className="size-3.5" aria-hidden />
-                      Export
-                    </Button>
+                      ) : (
+                        <>
+                          <Select
+                            value={vizMode}
+                            onValueChange={(value) => {
+                              if (
+                                value === "leaseExpiration" ||
+                                value === "predictedRent" ||
+                                value === "contractRate"
+                              ) {
+                                setVizMode(value)
+                              }
+                            }}
+                          >
+                            <SelectTrigger
+                              className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                              aria-label="Select stacking visualization mode"
+                            >
+                              <span className="truncate">
+                                {getLegendLabelForMode(vizMode)}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                              {STACKING_VIZ_MODE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center">
+                            <StackingPlanLegend mode={vizMode} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
+                      {shouldShowViewToggle ? (
+                        <>
+                          <Select
+                            value={vizMode}
+                            onValueChange={(value) => {
+                              if (
+                                value === "leaseExpiration" ||
+                                value === "predictedRent" ||
+                                value === "contractRate"
+                              ) {
+                                setVizMode(value)
+                              }
+                            }}
+                          >
+                            <SelectTrigger
+                              className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                              aria-label="Select stacking visualization mode"
+                            >
+                              <span className="truncate">
+                                {getLegendLabelForMode(vizMode)}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                              {STACKING_VIZ_MODE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center">
+                            <StackingPlanLegend mode={vizMode} />
+                          </div>
+                        </>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadCsv(assetId, floors)}
+                      >
+                        <Download className="size-3.5" aria-hidden />
+                        Export
+                      </Button>
+                    </div>
                   </div>
                 </div>
               }
@@ -2508,6 +2542,50 @@ function StackFirstHeaderRow({
   return (
     <div className={cn("border-b", MATRIX_SURFACE_BAND_CLASS, "px-3 py-3")}>
       <div className="flex flex-wrap items-center gap-3">{headerControls}</div>
+    </div>
+  )
+}
+
+function StackingPlanRentSummary({
+  averageContractRatePsf,
+  averagePredictedRentPsf,
+  predictedRentLiftPct,
+}: {
+  averageContractRatePsf: number | null
+  averagePredictedRentPsf: number | null
+  predictedRentLiftPct: number | null
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-background/75 px-3 py-2 shadow-sm">
+      <div className="flex items-baseline gap-2 whitespace-nowrap">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          In-Place Rent
+        </span>
+        <span className="text-sm font-semibold tabular-nums text-foreground">
+          {formatCompactRatePerSf(averageContractRatePsf)}
+        </span>
+      </div>
+      <div className="hidden h-5 w-px shrink-0 bg-border/60 sm:block" />
+      <div className="flex items-baseline gap-2 whitespace-nowrap">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Predicted Rent
+        </span>
+        <span className="text-sm font-semibold tabular-nums text-foreground">
+          {formatCompactRatePerSf(averagePredictedRentPsf)}
+        </span>
+        {predictedRentLiftPct != null ? (
+          <span
+            className={cn(
+              "text-[10px] font-medium tabular-nums",
+              predictedRentLiftPct >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            )}
+          >
+            ({formatSignedPercentDelta(predictedRentLiftPct)})
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }

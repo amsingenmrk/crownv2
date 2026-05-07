@@ -1,4 +1,4 @@
-import { AssetStatCards } from "@/components/asset-stat-cards"
+import { AssetOverviewKpiStrip } from "@/components/asset-overview-kpi-strip"
 import { AssetStackingPlanWorkspace } from "@/components/asset-stacking-plan-workspace"
 
 export default async function AssetStackingPlanPage({
@@ -10,7 +10,7 @@ export default async function AssetStackingPlanPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <AssetStatCards />
+      <AssetOverviewKpiStrip assetId={id} />
       <AssetStackingPlanWorkspace
         assetId={id}
         lockedViewMode="matrix"

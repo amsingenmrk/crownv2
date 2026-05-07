@@ -73,6 +73,12 @@ export function AssetDetailHeader() {
         { label: "WALE", value: tableRow.wale },
       ] as const)
 
+  const waleDisplay = React.useMemo(() => {
+    const waleMatch = tableRow.wale.match(/^([\d.]+)/)
+    if (waleMatch == null) return tableRow.wale
+    return `${parseFloat(waleMatch[1]!).toFixed(1)} yrs`
+  }, [tableRow.wale])
+
   return (
     <>
       <div className="border-b border-border bg-background px-6 py-4">
@@ -109,6 +115,8 @@ export function AssetDetailHeader() {
               <OccupancySummaryBar
                 occupiedPercent={asset ? asset.occupiedPercent : parseOccPct(tableRow.occPct)}
                 className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
+                secondaryMetricLabel="WALE / WALT"
+                secondaryMetricValue={waleDisplay}
               />
             </div>
           </div>

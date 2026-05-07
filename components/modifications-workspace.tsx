@@ -2,27 +2,20 @@
 
 import * as React from "react"
 import {
-  ChevronDown,
-  ChevronRight,
+  Filter,
   FilterX,
   Layers3,
   Search,
 } from "lucide-react"
 import { useParams, useSearchParams } from "next/navigation"
 
+import { AssetOverviewKpiStrip } from "@/components/asset-overview-kpi-strip"
 import { BuildingModificationsSidebar } from "@/components/building-modifications-sidebar"
 import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import {
   AssetStackingPlanWorkspace,
   type SimplifiedTenantVisualOverride,
 } from "@/components/asset-stacking-plan-workspace"
-import {
-  MetricStripCell,
-  MetricStripLabel,
-  MetricStripValueRow,
-  MetricStripValueSuffix,
-  metricStripSectionClassName,
-} from "@/components/metric-strip"
 import { Button } from "@/components/ui/button"
 import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -42,15 +35,11 @@ import {
   type ModificationImpactFilters,
   type ModificationImpactSpace,
 } from "@/lib/modifications-impact"
-import { deriveBaseAnnualOpex } from "@/lib/forecast-data"
 import {
   buildRecommendedModificationValues,
   parseRecommendedModificationSelection,
 } from "@/lib/modification-recommendations"
-import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
-import { cn } from "@/lib/utils"
 
 export function ModificationsWorkspace() {
   const params = useParams()
@@ -102,14 +91,6 @@ export function ModificationsWorkspace() {
     () => deriveImpactMetrics(matchingSpaces),
     [matchingSpaces]
   )
-  const scenarioKpis = React.useMemo(() => {
-    return deriveFilteredScenarioKpis({
-      assetId,
-      allSpaces,
-      matchingSpaces,
-      values,
-    })
-  }, [allSpaces, assetId, matchingSpaces, values])
   const tenantVisualOverrides = React.useMemo<
     Record<string, SimplifiedTenantVisualOverride>
   >(() => {
@@ -176,11 +157,12 @@ export function ModificationsWorkspace() {
             </div>
           </section>
 
-          <ImpactMetricsStrip metrics={metrics} scenarioKpis={scenarioKpis} />
+          <AssetOverviewKpiStrip assetId={assetId} compareModValues={values} />
 
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex flex-col gap-4">
               <ImpactFilters
+                metrics={metrics}
                 filters={filters}
                 floorOptions={floorOptions}
                 hasActiveFilters={hasActiveFilters}
@@ -209,181 +191,14 @@ export function ModificationsWorkspace() {
   )
 }
 
-function ImpactMetricsStrip({
-  metrics,
-  scenarioKpis,
-}: {
-  metrics: ReturnType<typeof deriveImpactMetrics>
-  scenarioKpis: {
-    valueLift: number | null
-    valueLiftPct: number | null
-    noiImpact: number | null
-    noiImpactPct: number | null
-    opexImpact: number | null
-    opexImpactPct: number | null
-  }
-}) {
-  return (
-    <section
-      className={cn(
-        metricStripSectionClassName,
-        "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6"
-      )}
-      aria-label="Modification impact metrics"
-    >
-      <MetricStripCell>
-        <MetricStripLabel>Average rent lift</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedRate(metrics.averageLiftPsf)}
-          </span>
-          {metrics.averageLiftPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(metrics.averageLiftPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-
-      <MetricStripCell>
-        <MetricStripLabel>Min rent lift</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedRate(metrics.minLiftPsf)}
-          </span>
-          {metrics.minLiftPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(metrics.minLiftPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-
-      <MetricStripCell>
-        <MetricStripLabel>Max rent lift</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedRate(metrics.maxLiftPsf)}
-          </span>
-          {metrics.maxLiftPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(metrics.maxLiftPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-
-      <MetricStripCell>
-        <MetricStripLabel>Value lift</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedCurrencyCompact(scenarioKpis.valueLift)}
-          </span>
-          {scenarioKpis.valueLiftPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(scenarioKpis.valueLiftPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-
-      <MetricStripCell>
-        <MetricStripLabel>Opex impact</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedCurrencyAnnual(scenarioKpis.opexImpact)}
-          </span>
-          {scenarioKpis.opexImpactPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(scenarioKpis.opexImpactPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-
-      <MetricStripCell>
-        <MetricStripLabel>NOI impact</MetricStripLabel>
-        <MetricStripValueRow>
-          <span className="text-foreground">
-            {formatSignedCurrencyAnnual(scenarioKpis.noiImpact)}
-          </span>
-          {scenarioKpis.noiImpactPct != null ? (
-            <MetricStripValueSuffix>
-              ({formatSignedPercent(scenarioKpis.noiImpactPct)})
-            </MetricStripValueSuffix>
-          ) : null}
-        </MetricStripValueRow>
-      </MetricStripCell>
-    </section>
-  )
-}
-
-function deriveFilteredScenarioKpis({
-  assetId,
-  allSpaces,
-  matchingSpaces,
-  values,
-}: {
-  assetId: string
-  allSpaces: ModificationImpactSpace[]
-  matchingSpaces: ModificationImpactSpace[]
-  values: ModValues
-}) {
-  if (matchingSpaces.length === 0) {
-    return {
-      valueLift: null,
-      valueLiftPct: null,
-      noiImpact: null,
-      noiImpactPct: null,
-      opexImpact: null,
-      opexImpactPct: null,
-    }
-  }
-
-  const financials = financialMetricsForAssetId(assetId)
-  const uplift = upliftFromModValues(values)
-  const matchingSqft = matchingSpaces.reduce((sum, tenant) => sum + tenant.sqft, 0)
-  const totalSqft = allSpaces.reduce((sum, tenant) => sum + tenant.sqft, 0)
-  const sqftShare = totalSqft > 0 ? matchingSqft / totalSqft : 0
-  const baseAnnualRevenue = matchingSpaces.reduce(
-    (sum, tenant) => sum + tenant.sqft * tenant.baselineRentPsf,
-    0
-  )
-  const modifiedAnnualRevenue = matchingSpaces.reduce(
-    (sum, tenant) => sum + tenant.sqft * tenant.modifiedRentPsf,
-    0
-  )
-  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseAnnualRevenue)
-  const opexImpact = uplift.annualOpexDeltaUsd * sqftShare
-  const noiImpact = modifiedAnnualRevenue - baseAnnualRevenue - opexImpact
-  const baseAnnualNoi = baseAnnualRevenue - baseAnnualOpex
-  const capRatePct = financials?.capRatePct ?? null
-  const valueLift =
-    capRatePct != null && capRatePct > 0 ? noiImpact / (capRatePct / 100) : null
-  const baseValue =
-    capRatePct != null && capRatePct > 0 ? baseAnnualNoi / (capRatePct / 100) : null
-
-  return {
-    valueLift,
-    valueLiftPct:
-      valueLift == null || baseValue == null || baseValue === 0
-        ? null
-        : roundToTenths((valueLift / baseValue) * 100),
-    noiImpact: roundToHundredths(noiImpact),
-    noiImpactPct:
-      baseAnnualNoi === 0 ? null : roundToTenths((noiImpact / baseAnnualNoi) * 100),
-    opexImpact: roundToHundredths(opexImpact),
-    opexImpactPct:
-      baseAnnualOpex === 0 ? null : roundToTenths((opexImpact / baseAnnualOpex) * 100),
-  }
-}
-
 function ImpactFilters({
+  metrics,
   filters,
   floorOptions,
   hasActiveFilters,
   onChange,
 }: {
+  metrics: ReturnType<typeof deriveImpactMetrics>
   filters: ModificationImpactFilters
   floorOptions: string[]
   hasActiveFilters: boolean
@@ -396,178 +211,249 @@ function ImpactFilters({
   )
 
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/[0.18] p-3">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="px-1.5 text-foreground"
-              onClick={() => setIsExpanded((current) => !current)}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? (
-                <ChevronDown className="size-3.5" aria-hidden />
-              ) : (
-                <ChevronRight className="size-3.5" aria-hidden />
-              )}
-              Filters
-            </Button>
-
-            {hasActiveFilters ? (
-              <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[11px] font-medium text-foreground">
-                {activeFilterBadges.length} active
-              </span>
-            ) : null}
-          </div>
-
-          {hasActiveFilters ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => onChange(createDefaultModificationImpactFilters())}
-            >
-              <FilterX className="size-3.5" aria-hidden />
-              Clear filters
-            </Button>
-          ) : null}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <InlineLiftMetric
+            label="Average rent lift"
+            value={formatSignedRate(metrics.averageLiftPsf)}
+            suffix={
+              metrics.averageLiftPct != null
+                ? `(${formatSignedPercent(metrics.averageLiftPct)})`
+                : undefined
+            }
+          />
+          <InlineLiftMetric
+            label="Rent lift range"
+            value={formatSignedRateRange(metrics.minLiftPsf, metrics.maxLiftPsf)}
+          />
         </div>
-
-        {activeFilterBadges.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {activeFilterBadges.slice(0, 4).map((badge) => (
-              <span
-                key={badge}
-                className="rounded-full border border-border/70 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground"
-              >
-                {badge}
-              </span>
-            ))}
-            {activeFilterBadges.length > 4 ? (
-              <span className="text-[11px] text-muted-foreground">
-                +{activeFilterBadges.length - 4} more
+        <div className="flex items-center justify-end gap-2">
+          {hasActiveFilters ? (
+            <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[11px] font-medium text-foreground">
+              {activeFilterBadges.length} active
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+          className="relative aria-expanded:border-primary/40 aria-expanded:bg-primary/[0.08] aria-expanded:text-foreground aria-expanded:shadow-sm aria-expanded:ring-2 aria-expanded:ring-primary/15 dark:aria-expanded:border-primary/30 dark:aria-expanded:bg-primary/[0.14]"
+            onClick={() => setIsExpanded((current) => !current)}
+            aria-expanded={isExpanded}
+            aria-label={
+              hasActiveFilters
+                ? `${isExpanded ? "Hide" : "Open"} filters, ${activeFilterBadges.length} active`
+                : isExpanded
+                  ? "Hide filters"
+                  : "Open filters"
+            }
+          >
+            <Filter className="size-3.5" aria-hidden />
+            {activeFilterBadges.length > 0 ? (
+              <span className="absolute -top-1 -right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+                {activeFilterBadges.length}
               </span>
             ) : null}
-          </div>
-        ) : null}
-
-        {isExpanded ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <label className="flex min-w-0 flex-col gap-1.5">
-              <span className={INPUT_LABEL_TEXT_CLASS}>
-                Tenant or suite
-              </span>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  value={filters.query}
-                  onChange={(event) =>
-                    onChange((current) => ({
-                      ...current,
-                      query: event.target.value,
-                    }))
-                  }
-                  className="pl-8"
-                  placeholder="Search spaces"
-                />
-              </div>
-            </label>
-
-            <FilterSelect
-              label="Floor"
-              value={filters.floor}
-              onValueChange={(value) =>
-                onChange((current) => ({ ...current, floor: value ?? "all" }))
-              }
-              options={[
-                { value: "all", label: "All floors" },
-                ...floorOptions.map((floor) => ({
-                  value: floor,
-                  label: `Floor ${floor}`,
-                })),
-              ]}
-            />
-
-            <FilterSelect
-              label="Occupancy"
-              value={filters.vacancy}
-              onValueChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  vacancy: (value ??
-                    "all") as ModificationImpactFilters["vacancy"],
-                }))
-              }
-              options={[
-                { value: "all", label: "All spaces" },
-                { value: "occupied", label: "Occupied only" },
-                { value: "vacant", label: "Vacant only" },
-              ]}
-            />
-
-            <FilterSelect
-              label="Lease timing"
-              value={filters.leaseTiming}
-              onValueChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  leaseTiming: (value ??
-                    "all") as ModificationImpactFilters["leaseTiming"],
-                }))
-              }
-              options={[
-                { value: "all", label: "All timing" },
-                { value: "available", label: "Available now" },
-                { value: "near_term", label: "0-12 months" },
-                { value: "medium_term", label: "1-3 years" },
-                { value: "long_term", label: "3+ years" },
-              ]}
-            />
-
-            <FilterSelect
-              label="Rent impact"
-              value={filters.rentGap}
-              onValueChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  rentGap: (value ??
-                    "all") as ModificationImpactFilters["rentGap"],
-                }))
-              }
-              options={[
-                { value: "all", label: "Any lift" },
-                { value: "low", label: "Under $0.75 / SF" },
-                { value: "medium", label: "$0.75-$1.49 / SF" },
-                { value: "high", label: "$1.50+ / SF" },
-              ]}
-            />
-
-            <FilterSelect
-              label="Size"
-              value={filters.size}
-              onValueChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  size: (value ?? "all") as ModificationImpactFilters["size"],
-                }))
-              }
-              options={[
-                { value: "all", label: "All sizes" },
-                { value: "small", label: "Up to 6K SF" },
-                { value: "medium", label: "6K-12K SF" },
-                { value: "large", label: "12K+ SF" },
-              ]}
-            />
-          </div>
-        ) : null}
+          </Button>
+        </div>
       </div>
+
+      {activeFilterBadges.length > 0 || isExpanded ? (
+        <div className="rounded-xl border border-border/70 bg-muted/[0.18] p-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {hasActiveFilters ? (
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Active filters
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">
+                  Refine which spaces are emphasized in the rent impact stack.
+                </span>
+              )}
+
+              {hasActiveFilters ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => onChange(createDefaultModificationImpactFilters())}
+                >
+                  <FilterX className="size-3.5" aria-hidden />
+                  Clear filters
+                </Button>
+              ) : null}
+            </div>
+
+            {activeFilterBadges.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {activeFilterBadges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="rounded-full border border-border/70 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {isExpanded ? (
+              <ImpactFilterFields
+                filters={filters}
+                floorOptions={floorOptions}
+                onChange={onChange}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function InlineLiftMetric({
+  label,
+  value,
+  suffix,
+}: {
+  label: string
+  value: string
+  suffix?: string
+}) {
+  return (
+    <div className="flex items-baseline gap-2 rounded-lg border border-border/60 bg-background/75 px-3 py-2 shadow-sm">
+      <span className="text-[11px] font-medium text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
+      {suffix ? (
+        <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+          {suffix}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+function ImpactFilterFields({
+  filters,
+  floorOptions,
+  onChange,
+}: {
+  filters: ModificationImpactFilters
+  floorOptions: string[]
+  onChange: React.Dispatch<React.SetStateAction<ModificationImpactFilters>>
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <label className="flex min-w-0 flex-col gap-1.5">
+        <span className={INPUT_LABEL_TEXT_CLASS}>Tenant or suite</span>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={filters.query}
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+            className="pl-8"
+            placeholder="Search spaces"
+          />
+        </div>
+      </label>
+
+      <FilterSelect
+        label="Floor"
+        value={filters.floor}
+        onValueChange={(value) =>
+          onChange((current) => ({ ...current, floor: value ?? "all" }))
+        }
+        options={[
+          { value: "all", label: "All floors" },
+          ...floorOptions.map((floor) => ({
+            value: floor,
+            label: `Floor ${floor}`,
+          })),
+        ]}
+      />
+
+      <FilterSelect
+        label="Occupancy"
+        value={filters.vacancy}
+        onValueChange={(value) =>
+          onChange((current) => ({
+            ...current,
+            vacancy: (value ?? "all") as ModificationImpactFilters["vacancy"],
+          }))
+        }
+        options={[
+          { value: "all", label: "All spaces" },
+          { value: "occupied", label: "Occupied only" },
+          { value: "vacant", label: "Vacant only" },
+        ]}
+      />
+
+      <FilterSelect
+        label="Lease timing"
+        value={filters.leaseTiming}
+        onValueChange={(value) =>
+          onChange((current) => ({
+            ...current,
+            leaseTiming: (value ?? "all") as ModificationImpactFilters["leaseTiming"],
+          }))
+        }
+        options={[
+          { value: "all", label: "All timing" },
+          { value: "available", label: "Available now" },
+          { value: "near_term", label: "0-12 months" },
+          { value: "medium_term", label: "1-3 years" },
+          { value: "long_term", label: "3+ years" },
+        ]}
+      />
+
+      <FilterSelect
+        label="Rent impact"
+        value={filters.rentGap}
+        onValueChange={(value) =>
+          onChange((current) => ({
+            ...current,
+            rentGap: (value ?? "all") as ModificationImpactFilters["rentGap"],
+          }))
+        }
+        options={[
+          { value: "all", label: "Any lift" },
+          { value: "low", label: "Under $0.75 / SF" },
+          { value: "medium", label: "$0.75-$1.49 / SF" },
+          { value: "high", label: "$1.50+ / SF" },
+        ]}
+      />
+
+      <FilterSelect
+        label="Size"
+        value={filters.size}
+        onValueChange={(value) =>
+          onChange((current) => ({
+            ...current,
+            size: (value ?? "all") as ModificationImpactFilters["size"],
+          }))
+        }
+        options={[
+          { value: "all", label: "All sizes" },
+          { value: "small", label: "Up to 6K SF" },
+          { value: "medium", label: "6K-12K SF" },
+          { value: "large", label: "12K+ SF" },
+        ]}
+      />
     </div>
   )
 }
@@ -784,6 +670,23 @@ function formatSignedRate(value: number | null) {
   return `${prefix}$${value.toFixed(2)} / SF`
 }
 
+function formatSignedRateAmount(value: number | null) {
+  if (value == null) {
+    return "N/A"
+  }
+
+  const prefix = value > 0 ? "+" : ""
+  return `${prefix}$${value.toFixed(2)}`
+}
+
+function formatSignedRateRange(min: number | null, max: number | null) {
+  if (min == null || max == null) {
+    return "N/A"
+  }
+
+  return `${formatSignedRateAmount(min)} to ${formatSignedRateAmount(max)} / SF`
+}
+
 function formatSignedPercent(value: number | null) {
   if (value == null) {
     return "N/A"
@@ -791,34 +694,4 @@ function formatSignedPercent(value: number | null) {
 
   const prefix = value > 0 ? "+" : ""
   return `${prefix}${value.toFixed(1)}%`
-}
-
-function formatSignedCurrencyCompact(value: number | null) {
-  if (value == null) {
-    return "N/A"
-  }
-
-  const prefix = value > 0 ? "+" : value < 0 ? "-" : ""
-  return `${prefix}${Math.abs(value).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  })}`
-}
-
-function formatSignedCurrencyAnnual(value: number | null) {
-  if (value == null) {
-    return "N/A"
-  }
-
-  return `${formatSignedCurrencyCompact(value)} / yr`
-}
-
-function roundToHundredths(value: number) {
-  return Math.round(value * 100) / 100
-}
-
-function roundToTenths(value: number) {
-  return Math.round(value * 10) / 10
 }

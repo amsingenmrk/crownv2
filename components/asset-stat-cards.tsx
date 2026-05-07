@@ -28,16 +28,9 @@ export type AssetStatCardsVariant =
 
 /** Stacking plan header metrics (per asset view). */
 const ASSET_STACKING_PLAN_KPIS: AssetStatKpi[] = [
-  { label: "In-Place Rent", value: "$42.50 / SF" },
-  {
-    label: "Predicted Rent",
-    value: "$46.00 / SF",
-    valueSuffix: "(+8.2%)",
-  },
   { label: "NOI", value: "$6.8M / yr" },
   { label: "Est. Value", value: "$112.0M" },
   { label: "Cap Rate", value: "6.10%" },
-  { label: "WALE / WALT", value: "5.4 yrs" },
 ]
 
 /** Modifications workspace — scenario / lift vs baseline. */
@@ -74,7 +67,7 @@ const VARIANT_KPIS: Record<AssetStatCardsVariant, AssetStatKpi[]> = {
 
 /** Mobile → tablet grid; `xl` = one horizontal strip (all stats in one row). */
 const VARIANT_GRID_CLASS: Record<AssetStatCardsVariant, string> = {
-  "stacking-plan": "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6",
+  "stacking-plan": "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
   modifications: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-6",
   forecasts: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
 }
