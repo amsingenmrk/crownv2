@@ -32,6 +32,12 @@ export function formatUsdPerSf(usd: number, sqft: number): string {
 }
 
 /** Signed change in $/SF between two portfolio-level USD totals over the same RSF. */
+export function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
+  if (d > 1e-6) return "up"
+  if (d < -1e-6) return "down"
+  return "neutral"
+}
+
 export function formatUsdPerSfDelta(
   baseUsd: number,
   scenarioUsd: number,

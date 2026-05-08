@@ -17,25 +17,25 @@ export const VALUATION_CONDITION_OPTIONS: readonly ValuationConditionOption[] = 
     id: "grossPotential",
     label: "Gross Potential",
     description:
-      "Shows the KPI strip at a full-occupancy, market-rent ceiling case to frame top-end revenue, expense, NOI, value, and cap rate potential.",
+      "Full occupancy at market rent—a ceiling case for revenue, expense, NOI, value, and cap rate.",
   },
   {
     id: "stabilized",
     label: "Stabilized",
     description:
-      "Shows the KPI strip at a healthy steady-state operating level with normal frictional vacancy across revenue, expense, NOI, value, and cap rate.",
+      "Steady-state operations with normal frictional vacancy across revenue, expense, NOI, value, and cap rate.",
   },
   {
     id: "market",
     label: "Market",
     description:
-      "Shows the KPI strip as the asset is viewed in today’s market, in its current condition, across the operating and valuation metrics.",
+      "How the asset reads in today’s market at its current condition—operating and valuation metrics together.",
   },
   {
     id: "markToMarket",
     label: "Mark-to-Market",
     description:
-      "Shows the KPI strip as if current leases were repriced to market today, surfacing embedded rollover upside or downside across the KPI row.",
+      "Current leases repriced to market today—highlights embedded rollover upside or downside across the row.",
   },
 ] as const
 

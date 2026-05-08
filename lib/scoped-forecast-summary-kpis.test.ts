@@ -7,8 +7,14 @@ import {
   SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
   type ScopedForecastAssetSelection,
 } from "@/lib/scoped-forecast"
-import { buildScopedForecastSummaryKpis } from "@/lib/scoped-forecast-summary-kpis"
-import { DEFAULT_VALUATION_CONDITION_ID } from "@/lib/valuation-condition-config"
+import {
+  buildScopedForecastSummaryKpis,
+  buildScopedForecastValuationKpiStripRows,
+} from "@/lib/scoped-forecast-summary-kpis"
+import {
+  DEFAULT_VALUATION_CONDITION_ID,
+  VALUATION_CONDITION_OPTIONS,
+} from "@/lib/valuation-condition-config"
 
 function sampleStatementRows(): ForecastStatementRow[] {
   return [
@@ -49,5 +55,37 @@ describe("buildScopedForecastSummaryKpis", () => {
       "Asset Value",
       "Cap Rate",
     ])
+  })
+})
+
+describe("buildScopedForecastValuationKpiStripRows", () => {
+  it("returns five strip rows with one formatted value per valuation condition", () => {
+    const rows = sampleStatementRows()
+    const strip = buildScopedForecastValuationKpiStripRows({
+      isPortfolioScope: false,
+      scopeKind: "scenario",
+      portfolioOverview: undefined,
+      portfolioModificationMode: "baseline",
+      portfolioScenarioProbabilities: DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
+      activeModelStatementRows: rows,
+      baselineModelStatementRows: rows,
+      activeVariant: "baseline",
+      assetSelections: [baselineSelection],
+      activeAssetModels: [],
+      baselineAssetModels: [],
+    })
+    expect(strip.map((r) => r.label)).toEqual([
+      "Gross Revenue",
+      "OpEx",
+      "NOI",
+      "Asset Value",
+      "Cap Rate",
+    ])
+    const conditionIds = VALUATION_CONDITION_OPTIONS.map((o) => o.id)
+    for (const row of strip) {
+      for (const id of conditionIds) {
+        expect(row.conditionValues[id]).toMatch(/\S/)
+      }
+    }
   })
 })

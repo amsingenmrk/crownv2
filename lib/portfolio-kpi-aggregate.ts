@@ -21,8 +21,10 @@ import {
 } from "@/lib/valuation-condition-metrics"
 import {
   DEFAULT_VALUATION_CONDITION_ID,
+  VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
+import type { ValuationConditionMetrics } from "@/lib/valuation-condition-metrics"
 
 export type PortfolioKpiDisplay = {
   label: string
@@ -108,6 +110,36 @@ export function aggregatePortfolioRows(
     avgWaleYears,
     portfolioCapPct,
   }
+}
+
+/** Roll up valuation-condition metrics across visible portfolio rows (one aggregate per condition). */
+export function aggregatePortfolioValuationByCondition(
+  rows: PortfolioAssetRow[]
+): Record<ValuationConditionId, ValuationConditionMetrics> | null {
+  if (rows.length === 0) return null
+  const baselineScenario = buildDefaultForecastScenarios()[0]
+  if (baselineScenario == null) return null
+
+  const out = {} as Record<ValuationConditionId, ValuationConditionMetrics>
+  for (const condition of VALUATION_CONDITION_OPTIONS.map((o) => o.id)) {
+    const valuationMetrics = aggregateValuationConditionMetrics(
+      rows.map((row) => {
+        const assumptions = defaultForecastAssumptionsForAsset(row.id)
+        const financials = financialMetricsForAssetId(row.id)
+        const metricMap = buildValuationConditionMetricMap({
+          assetId: row.id,
+          dataset: getSampleStackingPlanData(row.id),
+          assumptions,
+          scenario: baselineScenario,
+          baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
+          modValues: INITIAL_MOD_VALUES,
+        })
+        return metricMap[condition]
+      })
+    )
+    out[condition] = valuationMetrics
+  }
+  return out
 }
 
 /** KPI strip for the portfolio dashboard, derived from the currently visible table rows (fund filter + search). */

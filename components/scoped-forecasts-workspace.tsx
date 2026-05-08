@@ -7,11 +7,7 @@ import {
   AssetForecastChartMetricToggleGroup,
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
-import {
-  AssetForecastSummaryStrip,
-  type ForecastSummaryKpi,
-} from "@/components/asset-forecast-summary-strip"
-import { ValuationConditionToggle } from "@/components/valuation-condition-toggle"
+import { ValuationKpiMetricStrip } from "@/components/valuation-kpi-metric-strip"
 import {
   SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS,
   type ScopedForecastLeasingAssumptionFieldKey,
@@ -50,7 +46,7 @@ import {
   outlookWeightSliderToProbabilities,
 } from "@/lib/scoped-forecast"
 import { buildScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
-import { buildScopedForecastSummaryKpis } from "@/lib/scoped-forecast-summary-kpis"
+import { buildScopedForecastValuationKpiStripRows } from "@/lib/scoped-forecast-summary-kpis"
 import {
   getUserScenariosStoreSnapshot,
   scenarioDisplayTitleForSlug,
@@ -58,9 +54,10 @@ import {
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
 import {
-  DEFAULT_VALUATION_CONDITION_ID,
+  VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
+import type { ValuationKpiStripRowModel } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
 
 const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
@@ -341,13 +338,42 @@ function PortfolioForecastControlCenter({
   )
 }
 
-/** Stable SSR / first client paint: KPIs depend on localStorage (scenario scope, mod sets). */
-const FORECAST_SUMMARY_KPI_PLACEHOLDERS: ForecastSummaryKpi[] = [
-  { label: "Gross Revenue", value: "—", valueSuffix: "2-yr total" },
-  { label: "OpEx", value: "—", valueSuffix: "2-yr total" },
-  { label: "NOI", value: "—", valueSuffix: "2-yr total" },
-  { label: "Asset Value", value: "—", valueSuffix: "terminal" },
-  { label: "Cap Rate", value: "—", valueSuffix: "terminal" },
+/** Stable SSR / first client paint: KPI strip depends on localStorage (scenario scope, mod sets). */
+const FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS = Object.fromEntries(
+  VALUATION_CONDITION_OPTIONS.map((o) => [o.id, "—"])
+) as Record<ValuationConditionId, string>
+
+const FORECAST_VALUATION_STRIP_PLACEHOLDERS: ValuationKpiStripRowModel[] = [
+  {
+    label: "Gross Revenue",
+    primaryText: "—",
+    primarySuffix: "2-yr total",
+    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
+  },
+  {
+    label: "OpEx",
+    primaryText: "—",
+    primarySuffix: "2-yr total",
+    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
+  },
+  {
+    label: "NOI",
+    primaryText: "—",
+    primarySuffix: "2-yr total",
+    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
+  },
+  {
+    label: "Asset Value",
+    primaryText: "—",
+    primarySuffix: "terminal",
+    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
+  },
+  {
+    label: "Cap Rate",
+    primaryText: "—",
+    primarySuffix: "terminal",
+    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
+  },
 ]
 
 export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope }) {
@@ -442,12 +468,9 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     [setAssumptions]
   )
 
-  const [selectedValuationCondition, setSelectedValuationCondition] =
-    React.useState<ValuationConditionId>(DEFAULT_VALUATION_CONDITION_ID)
-
-  const forecastSummaryItems = React.useMemo(
+  const forecastValuationStripRows = React.useMemo(
     () =>
-      buildScopedForecastSummaryKpis({
+      buildScopedForecastValuationKpiStripRows({
         isPortfolioScope,
         scopeKind: scope.kind,
         portfolioOverview: rollup.portfolioOverview,
@@ -457,7 +480,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
         baselineModelStatementRows: rollup.baselineModel.statementRows,
         activeVariant,
         assetSelections,
-        selectedValuationCondition,
         activeAssetModels,
         baselineAssetModels: rollup.baselineAssetModels,
       }),
@@ -471,7 +493,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
       portfolioScenarioProbabilities,
       rollup.baselineModel.statementRows,
       rollup.baselineAssetModels,
-      selectedValuationCondition,
       rollup.portfolioOverview,
       scope.kind,
     ]
@@ -483,9 +504,9 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     setForecastSummaryHydrated(true)
   }, [])
 
-  const forecastSummaryStripItems = forecastSummaryHydrated
-    ? forecastSummaryItems
-    : FORECAST_SUMMARY_KPI_PLACEHOLDERS
+  const forecastValuationStripRowsDisplay = forecastSummaryHydrated
+    ? forecastValuationStripRows
+    : FORECAST_VALUATION_STRIP_PLACEHOLDERS
 
   const [metricTab, setMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
   const [projectionMetricTab, setProjectionMetricTab] =
@@ -540,12 +561,11 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
-              <ValuationConditionToggle
-                value={selectedValuationCondition}
-                onValueChange={setSelectedValuationCondition}
-                className="max-w-full"
+              <ValuationKpiMetricStrip
+                ariaLabel="Scoped forecast KPI strip (valuation conditions)"
+                rows={forecastValuationStripRowsDisplay}
+                className="h-fit shrink-0"
               />
-              <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
 
               <section
                 className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
@@ -584,12 +604,11 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-6">
-      <ValuationConditionToggle
-        value={selectedValuationCondition}
-        onValueChange={setSelectedValuationCondition}
-        className="max-w-full"
+      <ValuationKpiMetricStrip
+        ariaLabel="Scoped forecast KPI strip (valuation conditions)"
+        rows={forecastValuationStripRowsDisplay}
+        className="h-fit shrink-0"
       />
-      <AssetForecastSummaryStrip items={forecastSummaryStripItems} />
 
       <section
         className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"

@@ -6,12 +6,8 @@ import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 import {
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
-import {
-  AssetForecastSummaryStrip,
-  type ForecastSummaryKpi,
-} from "@/components/asset-forecast-summary-strip"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
-import { ValuationConditionToggle } from "@/components/valuation-condition-toggle"
+import { ValuationKpiMetricStrip } from "@/components/valuation-kpi-metric-strip"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -66,6 +62,7 @@ import {
   formatPctChange,
   formatUsdDeltaCompact,
   formatUsdPortfolioCompact,
+  scenarioDeltaDirection,
 } from "@/lib/scenario-kpi-format"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
@@ -75,13 +72,14 @@ import {
   subscribeStackingPlanTenantForecastOverrides,
 } from "@/lib/stacking-plan-tenant-forecast-overrides"
 import {
-  DEFAULT_VALUATION_CONDITION_ID,
+  VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
 import {
   buildValuationConditionMetricMap,
   scaleDisplayedMetricsForValuationCondition,
 } from "@/lib/valuation-condition-metrics"
+import type { ValuationKpiStripRowModel } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
 
 const macroAverageFormatter = new Intl.NumberFormat("en-US", {
@@ -240,12 +238,6 @@ function getForecastSummaryMetricValues(
   }
 }
 
-function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
-  if (d > 1e-6) return "up"
-  if (d < -1e-6) return "down"
-  return "neutral"
-}
-
 function normalizeOutlooksForSetComparison(
   outlooks: ForecastEconomicOutlookScenario[]
 ): ForecastEconomicOutlookScenario[] {
@@ -358,8 +350,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const [activeOutlookId, setActiveOutlookId] = React.useState<ForecastScenarioId>(
     defaultOutlooks[0]?.id ?? "baseline"
   )
-  const [selectedValuationCondition, setSelectedValuationCondition] =
-    React.useState<ValuationConditionId>(DEFAULT_VALUATION_CONDITION_ID)
   const [forecastChartMetricTab, setForecastChartMetricTab] =
     React.useState<ForecastChartTab>("grossRevenue")
   const [editingOutlookId, setEditingOutlookId] = React.useState<ForecastScenarioId | null>(null)
@@ -572,10 +562,9 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [baselineOutlook, buildModelForSelection]
   )
 
-  const forecastSummaryItems = React.useMemo(() => {
+  const forecastValuationStripRows = React.useMemo((): ValuationKpiStripRowModel[] => {
     if (model == null) return []
 
-    const activeBaseMetrics = getForecastSummaryMetricValues(model.statementRows)
     const isBaselineOutlookActive =
       activeOutlook != null &&
       baselineOutlook != null &&
@@ -613,11 +602,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       baseCapRatePct: model.summary.exitCapRatePct,
       modValues: activeModValues,
     })
-    const activeMetrics = scaleDisplayedMetricsForValuationCondition({
-      displayedMetrics: activeBaseMetrics,
-      marketAnnualMetrics: activeMetricMap.market,
-      selectedAnnualMetrics: activeMetricMap[selectedValuationCondition],
-    })
 
     const comparisonMetricMap =
       comparisonScenario != null && comparisonModValues != null
@@ -632,122 +616,126 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             modValues: comparisonModValues,
           })
         : null
-    const comparisonMetrics =
-      comparisonModel != null && comparisonMetricMap != null
-        ? scaleDisplayedMetricsForValuationCondition({
-            displayedMetrics: getForecastSummaryMetricValues(
-              comparisonModel.statementRows
-            ),
-            marketAnnualMetrics: comparisonMetricMap.market,
-            selectedAnnualMetrics:
-              comparisonMetricMap[selectedValuationCondition],
-          })
-        : null
-    const showScenarioComparison = comparisonMetrics != null
 
-    const items: ForecastSummaryKpi[] = [
+    const showScenarioComparison =
+      comparisonModel != null && comparisonMetricMap != null
+
+    function scaledByCondition(
+      rows: ForecastStatementRow[],
+      metricMap: ReturnType<typeof buildValuationConditionMetricMap>
+    ): Record<ValuationConditionId, ForecastSummaryMetricValues> {
+      const displayedMetrics = getForecastSummaryMetricValues(rows)
+      const out = {} as Record<ValuationConditionId, ForecastSummaryMetricValues>
+      for (const { id } of VALUATION_CONDITION_OPTIONS) {
+        out[id] = scaleDisplayedMetricsForValuationCondition({
+          displayedMetrics,
+          marketAnnualMetrics: metricMap.market,
+          selectedAnnualMetrics: metricMap[id],
+        })
+      }
+      return out
+    }
+
+    const activeScaled = scaledByCondition(model.statementRows, activeMetricMap)
+    const comparisonScaled =
+      showScenarioComparison && comparisonModel != null && comparisonMetricMap != null
+        ? scaledByCondition(comparisonModel.statementRows, comparisonMetricMap)
+        : null
+
+    const marketCompareUsd = (
+      field: "grossRevenue" | "opex" | "noi" | "assetValue"
+    ): ValuationKpiStripRowModel["marketCompare"] =>
+      showScenarioComparison && comparisonScaled != null
+        ? {
+            showScenario: true,
+            baseFormatted: formatUsdPortfolioCompact(
+              comparisonScaled.market[field]
+            ),
+            modifiedFormatted: formatUsdPortfolioCompact(
+              activeScaled.market[field]
+            ),
+            deltaLine: formatUsdDeltaCompact(
+              activeScaled.market[field] - comparisonScaled.market[field]
+            ),
+            pctLine: formatPctChange(
+              comparisonScaled.market[field],
+              activeScaled.market[field]
+            ),
+            deltaDirection: scenarioDeltaDirection(
+              activeScaled.market[field] - comparisonScaled.market[field]
+            ),
+          }
+        : undefined
+
+    const conditionValuesUsd = (
+      field: "grossRevenue" | "opex" | "noi" | "assetValue"
+    ): Record<ValuationConditionId, string> =>
+      Object.fromEntries(
+        VALUATION_CONDITION_OPTIONS.map((o) => [
+          o.id,
+          formatUsdPortfolioCompact(activeScaled[o.id][field]),
+        ])
+      ) as Record<ValuationConditionId, string>
+
+    const marketCompareCap: ValuationKpiStripRowModel["marketCompare"] =
+      showScenarioComparison && comparisonScaled != null
+        ? {
+            showScenario: true,
+            baseFormatted: `${comparisonScaled.market.capRate.toFixed(2)}%`,
+            modifiedFormatted: `${activeScaled.market.capRate.toFixed(2)}%`,
+            deltaLine: formatCapRatePts(
+              activeScaled.market.capRate - comparisonScaled.market.capRate
+            ),
+            deltaDirection: scenarioDeltaDirection(
+              activeScaled.market.capRate - comparisonScaled.market.capRate
+            ),
+          }
+        : undefined
+
+    const capConditionValues = Object.fromEntries(
+      VALUATION_CONDITION_OPTIONS.map((o) => [
+        o.id,
+        `${activeScaled[o.id].capRate.toFixed(2)}%`,
+      ])
+    ) as Record<ValuationConditionId, string>
+
+    return [
       {
         label: "Gross Revenue",
-        value: formatUsdPortfolioCompact(activeMetrics.grossRevenue),
-        valueSuffix: "2-yr total",
-        ...(showScenarioComparison
-          ? {
-              baseFormatted: formatUsdPortfolioCompact(
-                comparisonMetrics.grossRevenue
-              ),
-              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.grossRevenue),
-              showScenario: true,
-              deltaLine: formatUsdDeltaCompact(
-                activeMetrics.grossRevenue - comparisonMetrics.grossRevenue
-              ),
-              pctLine: formatPctChange(
-                comparisonMetrics.grossRevenue,
-                activeMetrics.grossRevenue
-              ),
-              deltaDirection: scenarioDeltaDirection(
-                activeMetrics.grossRevenue - comparisonMetrics.grossRevenue
-              ),
-            }
-          : {}),
+        primaryText: formatUsdPortfolioCompact(activeScaled.market.grossRevenue),
+        primarySuffix: "2-yr total",
+        conditionValues: conditionValuesUsd("grossRevenue"),
+        marketCompare: marketCompareUsd("grossRevenue"),
       },
       {
         label: "OpEx",
-        value: formatUsdPortfolioCompact(activeMetrics.opex),
-        valueSuffix: "2-yr total",
-        ...(showScenarioComparison
-          ? {
-              baseFormatted: formatUsdPortfolioCompact(comparisonMetrics.opex),
-              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.opex),
-              showScenario: true,
-              deltaLine: formatUsdDeltaCompact(activeMetrics.opex - comparisonMetrics.opex),
-              pctLine: formatPctChange(comparisonMetrics.opex, activeMetrics.opex),
-              deltaDirection: scenarioDeltaDirection(
-                activeMetrics.opex - comparisonMetrics.opex
-              ),
-            }
-          : {}),
+        primaryText: formatUsdPortfolioCompact(activeScaled.market.opex),
+        primarySuffix: "2-yr total",
+        conditionValues: conditionValuesUsd("opex"),
+        marketCompare: marketCompareUsd("opex"),
       },
       {
         label: "NOI",
-        value: formatUsdPortfolioCompact(activeMetrics.noi),
-        valueSuffix: "2-yr total",
-        ...(showScenarioComparison
-          ? {
-              baseFormatted: formatUsdPortfolioCompact(comparisonMetrics.noi),
-              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.noi),
-              showScenario: true,
-              deltaLine: formatUsdDeltaCompact(activeMetrics.noi - comparisonMetrics.noi),
-              pctLine: formatPctChange(comparisonMetrics.noi, activeMetrics.noi),
-              deltaDirection: scenarioDeltaDirection(
-                activeMetrics.noi - comparisonMetrics.noi
-              ),
-            }
-          : {}),
+        primaryText: formatUsdPortfolioCompact(activeScaled.market.noi),
+        primarySuffix: "2-yr total",
+        conditionValues: conditionValuesUsd("noi"),
+        marketCompare: marketCompareUsd("noi"),
       },
       {
         label: "Asset Value",
-        value: formatUsdPortfolioCompact(activeMetrics.assetValue),
-        valueSuffix: "terminal",
-        ...(showScenarioComparison
-          ? {
-              baseFormatted: formatUsdPortfolioCompact(
-                comparisonMetrics.assetValue
-              ),
-              scenarioFormatted: formatUsdPortfolioCompact(activeMetrics.assetValue),
-              showScenario: true,
-              deltaLine: formatUsdDeltaCompact(
-                activeMetrics.assetValue - comparisonMetrics.assetValue
-              ),
-              pctLine: formatPctChange(
-                comparisonMetrics.assetValue,
-                activeMetrics.assetValue
-              ),
-              deltaDirection: scenarioDeltaDirection(
-                activeMetrics.assetValue - comparisonMetrics.assetValue
-              ),
-            }
-          : {}),
+        primaryText: formatUsdPortfolioCompact(activeScaled.market.assetValue),
+        primarySuffix: "terminal",
+        conditionValues: conditionValuesUsd("assetValue"),
+        marketCompare: marketCompareUsd("assetValue"),
       },
       {
         label: "Cap Rate",
-        value: `${activeMetrics.capRate.toFixed(2)}%`,
-        valueSuffix: "terminal",
-        ...(showScenarioComparison
-          ? {
-              baseFormatted: `${comparisonMetrics.capRate.toFixed(2)}%`,
-              scenarioFormatted: `${activeMetrics.capRate.toFixed(2)}%`,
-              showScenario: true,
-              deltaLine: formatCapRatePts(
-                activeMetrics.capRate - comparisonMetrics.capRate
-              ),
-              deltaDirection: scenarioDeltaDirection(
-                activeMetrics.capRate - comparisonMetrics.capRate
-              ),
-            }
-          : {}),
+        primaryText: `${activeScaled.market.capRate.toFixed(2)}%`,
+        primarySuffix: "terminal",
+        conditionValues: capConditionValues,
+        marketCompare: marketCompareCap,
       },
     ]
-    return items
   }, [
     activeModValues,
     activeBuildingVersionId,
@@ -759,7 +747,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     baselineScenarioModel,
     forecastDataset,
     model,
-    selectedValuationCondition,
   ])
 
   const sortedOutlookSets = React.useMemo(
@@ -1494,13 +1481,13 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
               )}
             </div>
 
-            <ValuationConditionToggle
-              value={selectedValuationCondition}
-              onValueChange={setSelectedValuationCondition}
-              className="max-w-full"
-            />
-
-            <AssetForecastSummaryStrip items={forecastSummaryItems} />
+            {forecastValuationStripRows.length > 0 ? (
+              <ValuationKpiMetricStrip
+                ariaLabel="Forecast summary metrics (valuation conditions)"
+                rows={forecastValuationStripRows}
+                className="h-fit shrink-0"
+              />
+            ) : null}
           </div>
 
           <AssetForecastsTable

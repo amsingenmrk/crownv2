@@ -58,7 +58,7 @@ function ConditionSubValueRow({
         </div>
       </div>
 
-      <div className="shrink-0 text-right text-sm font-medium leading-snug tabular-nums text-foreground">
+      <div className="shrink-0 text-right text-xs font-semibold leading-snug tabular-nums text-foreground">
         {value}
       </div>
     </div>
