@@ -23,7 +23,6 @@ const ALL_VALUATION_CONDITIONS: readonly ValuationConditionId[] = [
   "grossPotential",
   "stabilized",
   "market",
-  "inPlace",
   "markToMarket",
 ] as const
 
@@ -150,7 +149,6 @@ export function buildValuationConditionMetricMap({
     grossPotential: fullPotentialRevenueUsd,
     stabilized: stabilizedRevenueUsd,
     market: inPlaceRevenueUsd + marketVacancyCreditUsd,
-    inPlace: inPlaceRevenueUsd,
     markToMarket: markToMarketOccupiedRevenueUsd + marketVacancyCreditUsd,
   }
 

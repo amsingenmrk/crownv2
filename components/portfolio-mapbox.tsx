@@ -6,7 +6,7 @@ import Link from "next/link"
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
 import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl/mapbox"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/theme-provider"
 
 import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
 import {

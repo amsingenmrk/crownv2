@@ -2,7 +2,6 @@ export type ValuationConditionId =
   | "grossPotential"
   | "stabilized"
   | "market"
-  | "inPlace"
   | "markToMarket"
 
 export type ValuationConditionOption = {
@@ -31,12 +30,6 @@ export const VALUATION_CONDITION_OPTIONS: readonly ValuationConditionOption[] = 
     label: "Market",
     description:
       "Shows the KPI strip as the asset is viewed in today’s market, in its current condition, across the operating and valuation metrics.",
-  },
-  {
-    id: "inPlace",
-    label: "In-Place",
-    description:
-      "Shows the KPI strip from cash flow actually in place today, without leasing vacant space to market, for a current-income and downside view.",
   },
   {
     id: "markToMarket",
