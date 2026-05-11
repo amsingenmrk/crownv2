@@ -9,6 +9,7 @@ import {
   storageKeyForAsset,
 } from "@/lib/building-modification-sets-storage"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
+import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-status-badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -86,7 +87,7 @@ function ScenarioAssetMetricCell({
   const selectedSetId = selections[assetId] ?? ""
 
   const delta = (() => {
-    if (selectedSetId === "" || isMarketListingRowId(assetId) || typeof window === "undefined") {
+    if (selectedSetId === "" || typeof window === "undefined") {
       return null
     }
 
@@ -300,21 +301,12 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="flex min-w-0 items-start gap-2 text-left">
           <div className="min-w-0 flex flex-col gap-0.5 text-left">
-            {isMarketListingRowId(row.original.id) ? (
-              <Link
-                href={assetHref(row.original.id)}
-                className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <span className="truncate">{row.original.building}</span>
-              </Link>
-            ) : (
-              <Link
-                href={assetHref(row.original.id)}
-                className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <span className="truncate">{row.original.building}</span>
-              </Link>
-            )}
+            <Link
+              href={assetHref(row.original.id)}
+              className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <span className="truncate">{row.original.building}</span>
+            </Link>
             <span className="text-xs leading-snug text-muted-foreground">
               {row.original.location}
             </span>
@@ -581,16 +573,13 @@ export function createPortfolioAssetColumns(
           Modifications
         </span>
       ),
-      cell: ({ row }) =>
-        isMarketListingRowId(row.original.id) ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <AssetModificationSetSelect
-            assetId={row.original.id}
-            building={row.original.building}
-            matchOutlookRowSelect
-          />
-        ),
+      cell: ({ row }) => (
+        <AssetModificationSetSelect
+          assetId={row.original.id}
+          building={row.original.building}
+          matchOutlookRowSelect
+        />
+      ),
       enableSorting: false,
     })
     columns.splice(3, 0, {
@@ -603,16 +592,33 @@ export function createPortfolioAssetColumns(
           Outlook
         </span>
       ),
-      cell: ({ row }) =>
-        isMarketListingRowId(row.original.id) ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <AssetOutlookSetSelect
-            assetId={row.original.id}
-            building={row.original.building}
-          />
-        ),
+      cell: ({ row }) => (
+        <AssetOutlookSetSelect
+          assetId={row.original.id}
+          building={row.original.building}
+        />
+      ),
       enableSorting: false,
+    })
+    columns.splice(4, 0, {
+      id: "assetListingKind",
+      accessorFn: (row) =>
+        isMarketListingRowId(row.id) ? "Listing" : "Asset",
+      sortingFn: (rowA, rowB) => {
+        const a = isMarketListingRowId(rowA.original.id) ? 1 : 0
+        const b = isMarketListingRowId(rowB.original.id) ? 1 : 0
+        return a - b
+      },
+      enableHiding: false,
+      meta: { columnLabel: "Status" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>Status</SortableHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="flex justify-start">
+          <PortfolioRowStatusBadge rowId={row.original.id} />
+        </div>
+      ),
     })
     columns.push({
       id: "scenarioRemove",

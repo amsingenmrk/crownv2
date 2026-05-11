@@ -20,6 +20,7 @@ import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
+import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-status-badge"
 import {
   ScenarioRemoveFromScenarioCell,
   type PortfolioAssetsTableVariant,
@@ -448,28 +449,26 @@ export function PortfolioAssetsDataTable({
                   {variant === "scenarios" ? (
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Modifications</span>
-                      {isMarketListingRowId(row.id) ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <AssetModificationSetSelect
-                          assetId={row.id}
-                          building={row.building}
-                          matchOutlookRowSelect
-                        />
-                      )}
+                      <AssetModificationSetSelect
+                        assetId={row.id}
+                        building={row.building}
+                        matchOutlookRowSelect
+                      />
                     </div>
                   ) : null}
                   {variant === "scenarios" ? (
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Outlook</span>
-                      {isMarketListingRowId(row.id) ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <AssetOutlookSetSelect
-                          assetId={row.id}
-                          building={row.building}
-                        />
-                      )}
+                      <AssetOutlookSetSelect
+                        assetId={row.id}
+                        building={row.building}
+                      />
+                    </div>
+                  ) : null}
+                  {variant === "scenarios" ? (
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      <span className="text-muted-foreground">Status</span>
+                      <PortfolioRowStatusBadge rowId={row.id} />
                     </div>
                   ) : null}
                   {variant === "portfolio" && showScopeColumn ? (

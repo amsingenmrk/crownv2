@@ -1291,9 +1291,7 @@ export function ScopedForecastsTable({
               const selection = selectionByAssetId.get(item.assetId)
               if (selection == null) return null
               if (useScenarioOverviewModificationSelectProp) {
-                return isMarketListingRowId(item.assetId) ? (
-                  <span className="text-xs text-muted-foreground">—</span>
-                ) : (
+                return (
                   <AssetModificationSetSelect
                     assetId={item.assetId}
                     building={item.label}

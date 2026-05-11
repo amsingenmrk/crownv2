@@ -17,5 +17,6 @@ export const PORTFOLIO_ASSETS_COLUMN_GRID_TRACK: Record<string, string> = {
   lift: "minmax(5.5rem, max-content)",
   modifications: "minmax(9rem, max-content)",
   outlook: "minmax(9rem, max-content)",
+  assetListingKind: "minmax(6.75rem, max-content)",
   scenarioRemove: "minmax(2.75rem, max-content)",
 }

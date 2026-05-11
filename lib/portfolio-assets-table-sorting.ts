@@ -1,5 +1,6 @@
 import type { SortingState } from "@tanstack/react-table"
 
+import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 
 export type PortfolioAssetsTableSortVariant = "portfolio" | "scenarios"
@@ -171,6 +172,11 @@ function comparePortfolioAssetRowsByColumn(
       return parseFloatValue(left.wale) - parseFloatValue(right.wale)
     case "lift":
       return left.liftPercent - right.liftPercent
+    case "assetListingKind": {
+      const leftListing = isMarketListingRowId(left.id) ? 1 : 0
+      const rightListing = isMarketListingRowId(right.id) ? 1 : 0
+      return leftListing - rightListing
+    }
     default:
       return 0
   }
