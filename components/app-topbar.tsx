@@ -95,6 +95,7 @@ const TITLES: Record<string, string> = {
   "/compare": "Compare",
   "/compare/new": "New comparison",
   "/benchmarks": "Benchmarks",
+  "/documents": "Doc Upload",
 }
 
 function scenarioSlugFromPathname(pathname: string | null): string | null {
