@@ -156,7 +156,7 @@ export default function ExampleKpiStripsPage() {
             <section
               className={cn(
                 metricStripSectionClassName,
-                "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+                "grid-cols-1 sm:grid-cols-2 lg:grid-cols-5",
                 "h-fit shrink-0"
               )}
               aria-label="KPI strip example (all valuation conditions per KPI)"
