@@ -1311,6 +1311,8 @@ export function stackingPlanSpaceCountForAsset(
   assetId: string,
   assetOverride?: Asset
 ): number {
-  const data = getSampleStackingPlanData(assetId, assetOverride)
-  return data.floors.reduce((sum, floor) => sum + floor.tenants.length, 0)
+  return buildFloorSeedsForAsset(assetId, assetOverride).reduce(
+    (sum, floor) => sum + floor.tenants.length,
+    0
+  )
 }

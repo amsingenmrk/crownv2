@@ -524,9 +524,10 @@ function heuristicUncertaintySpread({
 }
 
 export function defaultForecastAssumptionsForAsset(
-  assetId: string
+  assetId: string,
+  stackingPlanData?: StackingPlanDataset
 ): ForecastAssumptions {
-  const dataset = getSampleStackingPlanData(assetId)
+  const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
   const financials = financialMetricsForAssetId(assetId)
 
   return {

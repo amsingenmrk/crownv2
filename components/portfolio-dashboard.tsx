@@ -72,7 +72,6 @@ import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
@@ -455,15 +454,17 @@ function PortfolioDashboardInner({
     scenarioModSetsTick,
   ])
 
+  const shouldPrepareMap = assetsMainView === "map"
   const visibleMapPins = React.useMemo(
-    () => mapPinsForRows(visibleAssetRows),
-    [visibleAssetRows]
+    () => (shouldPrepareMap ? mapPinsForRows(visibleAssetRows) : []),
+    [shouldPrepareMap, visibleAssetRows]
   )
 
   const { mapboxEnabled, coordinates: mapGeocodeCoordinates } =
-    usePortfolioAssetCoordinates()
+    usePortfolioAssetCoordinates(shouldPrepareMap)
 
   const portfolioMapboxPins = React.useMemo((): PortfolioMapboxPin[] => {
+    if (!shouldPrepareMap) return []
     const raw = visibleAssetRows.map((row) => {
       const marketPin = getMarketListingPinById(row.id)
       if (marketPin) {
@@ -511,7 +512,7 @@ function PortfolioDashboardInner({
       }
     })
     return spreadPortfolioMapPinsForDisplay(raw)
-  }, [visibleAssetRows, mapGeocodeCoordinates, liftStrengthForRow])
+  }, [shouldPrepareMap, visibleAssetRows, mapGeocodeCoordinates, liftStrengthForRow])
 
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
@@ -542,8 +543,8 @@ function PortfolioDashboardInner({
   const sortingReady = sortingReadyKey === sortingHydrationKey
 
   React.useEffect(() => {
-    // Restore browser-persisted sorting only after hydration so the first
-    // client render matches the server HTML and avoids row-order mismatches.
+    // Restore browser-persisted sorting after hydration, but do not block the
+    // initial table paint while that preference is being applied.
     skipNextSortingPersistenceRef.current = true
     setSorting(readPortfolioAssetsTableSorting(pathname, assetsTableVariant))
     setSortingReadyKey(sortingHydrationKey)
@@ -732,27 +733,12 @@ function PortfolioDashboardInner({
             </div>
           ) : (
             <div className="min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
-              {sortingReady ? (
-                <PortfolioAssetsDataTable
-                  table={portfolioTable}
-                  variant={assetsTableVariant}
-                  liftExtent={liftPctExtent}
-                  showScopeColumn={showScopeColumn}
-                />
-              ) : (
-                <div
-                  className="flex flex-col gap-3 px-4 py-4"
-                  aria-busy="true"
-                  aria-live="polite"
-                >
-                  <Skeleton className="h-5 w-44" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              )}
+              <PortfolioAssetsDataTable
+                table={portfolioTable}
+                variant={assetsTableVariant}
+                liftExtent={liftPctExtent}
+                showScopeColumn={showScopeColumn}
+              />
             </div>
           )}
         </div>

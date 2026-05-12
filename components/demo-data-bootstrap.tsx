@@ -5,8 +5,14 @@ import { seedDemoLocalStorageIfNeeded } from "@/lib/demo-local-storage-seed"
 
 /** Applies one-time demo `localStorage` so production matches a seeded local session. */
 export function DemoDataBootstrap() {
-  React.useLayoutEffect(() => {
-    seedDemoLocalStorageIfNeeded()
+  React.useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      seedDemoLocalStorageIfNeeded()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [])
   return null
 }

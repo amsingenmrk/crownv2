@@ -8,22 +8,28 @@ function mapboxPublicTokenConfigured(): boolean {
 
 export type PortfolioAssetCoordinatesStatus = "idle" | "loading" | "ok" | "error"
 
-export function usePortfolioAssetCoordinates(): {
+export function usePortfolioAssetCoordinates(enabled = true): {
   mapboxEnabled: boolean
   status: PortfolioAssetCoordinatesStatus
   coordinates: Record<string, readonly [number, number]>
 } {
+  const fetchedRef = React.useRef(false)
   const [state, setState] = React.useState<{
     status: PortfolioAssetCoordinatesStatus
     coordinates: Record<string, readonly [number, number]>
   }>(() => ({
-    status: mapboxPublicTokenConfigured() ? "loading" : "idle",
+    status: mapboxPublicTokenConfigured() && enabled ? "loading" : "idle",
     coordinates: {},
   }))
 
   React.useEffect(() => {
-    if (!mapboxPublicTokenConfigured()) return
+    if (!mapboxPublicTokenConfigured() || !enabled || fetchedRef.current) return
+    fetchedRef.current = true
     let cancelled = false
+    setState((current) => ({
+      status: current.coordinates && Object.keys(current.coordinates).length > 0 ? "ok" : "loading",
+      coordinates: current.coordinates,
+    }))
     fetch("/api/portfolio-asset-coordinates")
       .then(async (res) => {
         if (!res.ok) throw new Error(`geocode ${res.status}`)
@@ -38,13 +44,14 @@ export function usePortfolioAssetCoordinates(): {
       })
       .catch(() => {
         if (!cancelled) {
+          fetchedRef.current = false
           setState({ status: "error", coordinates: {} })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [enabled])
 
   return {
     mapboxEnabled: mapboxPublicTokenConfigured(),

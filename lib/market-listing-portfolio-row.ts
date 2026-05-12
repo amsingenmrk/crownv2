@@ -4,6 +4,7 @@ import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { portfolioValueNoiCapFromSeed } from "@/lib/portfolio-asset-financials"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
 import { portfolioClassLabelForSeed } from "@/lib/portfolio-row-for-asset"
+import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 
 const ASSET_STATUS_LABELS = [
   "Stabilized",
@@ -59,6 +60,8 @@ export function portfolioAssetRowForMarketPin(
     rsf: formatRsfShort(fin.rsfSqft),
     occPct: `${60 + (seed % 35)}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
+    revenue: formatUsdPortfolioCompact(fin.annualRevenueUsd),
+    opex: formatUsdPortfolioCompact(fin.annualOpexUsd),
     noi,
     value,
     capRate: `${fin.capRatePct.toFixed(1)}%`,

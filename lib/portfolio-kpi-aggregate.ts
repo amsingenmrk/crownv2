@@ -112,6 +112,26 @@ export function aggregatePortfolioRows(
   }
 }
 
+function buildPortfolioRowValuationMetricMaps(
+  rows: PortfolioAssetRow[],
+  scenario: NonNullable<ReturnType<typeof buildDefaultForecastScenarios>[number]>
+): Record<ValuationConditionId, ValuationConditionMetrics>[] {
+  return rows.map((row) => {
+    const dataset = getSampleStackingPlanData(row.id)
+    const assumptions = defaultForecastAssumptionsForAsset(row.id, dataset)
+    const financials = financialMetricsForAssetId(row.id)
+
+    return buildValuationConditionMetricMap({
+      assetId: row.id,
+      dataset,
+      assumptions,
+      scenario,
+      baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
+      modValues: INITIAL_MOD_VALUES,
+    })
+  })
+}
+
 /** Roll up valuation-condition metrics across visible portfolio rows (one aggregate per condition). */
 export function aggregatePortfolioValuationByCondition(
   rows: PortfolioAssetRow[]
@@ -120,22 +140,11 @@ export function aggregatePortfolioValuationByCondition(
   const baselineScenario = buildDefaultForecastScenarios()[0]
   if (baselineScenario == null) return null
 
+  const rowMetricMaps = buildPortfolioRowValuationMetricMaps(rows, baselineScenario)
   const out = {} as Record<ValuationConditionId, ValuationConditionMetrics>
   for (const condition of VALUATION_CONDITION_OPTIONS.map((o) => o.id)) {
     const valuationMetrics = aggregateValuationConditionMetrics(
-      rows.map((row) => {
-        const assumptions = defaultForecastAssumptionsForAsset(row.id)
-        const financials = financialMetricsForAssetId(row.id)
-        const metricMap = buildValuationConditionMetricMap({
-          assetId: row.id,
-          dataset: getSampleStackingPlanData(row.id),
-          assumptions,
-          scenario: baselineScenario,
-          baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
-          modValues: INITIAL_MOD_VALUES,
-        })
-        return metricMap[condition]
-      })
+      rowMetricMaps.map((metricMap) => metricMap[condition])
     )
     out[condition] = valuationMetrics
   }
@@ -152,20 +161,9 @@ export function portfolioKpiStripFromRows(
   const baselineScenario = buildDefaultForecastScenarios()[0]
   if (baselineScenario == null) return emptyKpiStrip()
 
+  const rowMetricMaps = buildPortfolioRowValuationMetricMaps(rows, baselineScenario)
   const valuationMetrics = aggregateValuationConditionMetrics(
-    rows.map((row) => {
-      const assumptions = defaultForecastAssumptionsForAsset(row.id)
-      const financials = financialMetricsForAssetId(row.id)
-      const metricMap = buildValuationConditionMetricMap({
-        assetId: row.id,
-        dataset: getSampleStackingPlanData(row.id),
-        assumptions,
-        scenario: baselineScenario,
-        baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
-        modValues: INITIAL_MOD_VALUES,
-      })
-      return metricMap[valuationCondition]
-    })
+    rowMetricMaps.map((metricMap) => metricMap[valuationCondition])
   )
 
   return [

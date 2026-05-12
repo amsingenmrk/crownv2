@@ -12,7 +12,6 @@ import {
 import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
 import {
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupLabel,
   SidebarMenuAction,
   SidebarMenu,
@@ -146,14 +145,6 @@ export function NavAssets() {
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Portfolio</SidebarGroupLabel>
-        <SidebarGroupAction
-          type="button"
-          title="New portfolio group"
-          aria-label="New portfolio group"
-          onClick={() => setNewScopeOpen(true)}
-        >
-          <Plus />
-        </SidebarGroupAction>
         <SidebarMenu className="gap-0">
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -169,6 +160,18 @@ export function NavAssets() {
               <Briefcase />
               <span>{PORTFOLIO_OVERVIEW_LABEL}</span>
             </SidebarMenuButton>
+            <SidebarMenuAction
+              type="button"
+              title="New portfolio group"
+              aria-label="New portfolio group"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                setNewScopeOpen(true)
+              }}
+            >
+              <Plus />
+            </SidebarMenuAction>
           </SidebarMenuItem>
           <li className="list-none group-data-[collapsible=icon]:hidden">
             <SidebarMenuSub className="gap-0 py-0.5">
