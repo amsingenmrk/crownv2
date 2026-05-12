@@ -50,6 +50,13 @@ export function AssetDetailHeader() {
     return null
   }, [asset, assetIndex, marketPin])
 
+  const waleDisplay = React.useMemo(() => {
+    if (tableRow == null) return "—"
+    const waleMatch = tableRow.wale.match(/^([\d.]+)/)
+    if (waleMatch == null) return tableRow.wale
+    return `${parseFloat(waleMatch[1]!).toFixed(1)} yrs`
+  }, [tableRow])
+
   if (!id || tableRow == null) return null
 
   const basePath = `/properties/${id}`
@@ -72,12 +79,6 @@ export function AssetDetailHeader() {
         { label: "RSF", value: tableRow.rsf },
         { label: "WALE", value: tableRow.wale },
       ] as const)
-
-  const waleDisplay = React.useMemo(() => {
-    const waleMatch = tableRow.wale.match(/^([\d.]+)/)
-    if (waleMatch == null) return tableRow.wale
-    return `${parseFloat(waleMatch[1]!).toFixed(1)} yrs`
-  }, [tableRow.wale])
 
   return (
     <>

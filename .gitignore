@@ -16,6 +16,9 @@
 /.next/
 /out/
 
+# Copied from node_modules/mapbox-gl on postinstall (scripts/sync-mapbox-csp-worker.mjs)
+/public/mapbox-gl-csp-worker.js
+
 # production
 /build
 

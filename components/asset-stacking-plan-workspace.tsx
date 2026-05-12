@@ -1784,7 +1784,7 @@ export function AssetStackingPlanWorkspace({
                   <ToggleGroup
                     value={[effectiveViewMode]}
                     onValueChange={(values) => {
-                      const next = values[0]
+                      const next = values?.[0]
                       if (next === "matrix" || next === "simplified") {
                         setViewMode(next)
                       }
@@ -1906,7 +1906,7 @@ export function AssetStackingPlanWorkspace({
                           <ToggleGroup
                             value={[effectiveViewMode]}
                             onValueChange={(values) => {
-                              const next = values[0]
+                              const next = values?.[0]
                               if (next === "matrix" || next === "simplified") {
                                 setViewMode(next)
                               }

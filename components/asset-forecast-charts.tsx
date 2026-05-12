@@ -152,7 +152,7 @@ export function AssetForecastChartMetricToggleGroup({
     <ToggleGroup
       value={[metricTab]}
       onValueChange={(values) => {
-        const next = values[0]
+        const next = values?.[0]
         if (typeof next === "string" && chartRows.some((row) => row.id === next)) {
           onMetricTabChange(next as ForecastChartTab)
         }

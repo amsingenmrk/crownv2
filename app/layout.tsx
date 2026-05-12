@@ -1,4 +1,5 @@
 import localFont from "next/font/local"
+import type { Metadata } from "next"
 
 import "./globals.css"
 import { ToastProvider } from "@/components/app-toast"
@@ -14,6 +15,21 @@ const inter = localFont({
   preload: true,
   adjustFontFallback: "Arial",
 })
+
+function metadataBaseUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (fromEnv) return fromEnv.replace(/\/$/, "")
+  if (process.env.VERCEL_URL)
+    return `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "")}`
+  return "http://localhost:3001"
+}
+
+export const metadata: Metadata = {
+  metadataBase: new URL(metadataBaseUrl()),
+  title: { default: "Glassbox", template: "%s · Glassbox" },
+  description:
+    "Portfolio, scenarios, search, and building-level stacking, modifications, and forecasts for Meridian Capital demo assets.",
+}
 
 export default function RootLayout({
   children,

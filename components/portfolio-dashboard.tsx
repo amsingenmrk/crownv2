@@ -645,7 +645,7 @@ function PortfolioDashboardInner({
             <ToggleGroup
               value={[assetsMainView]}
               onValueChange={(v) => {
-                const next = v[0]
+                const next = v?.[0]
                 if (next === "table" || next === "map") {
                   setAssetsMainView(next)
                 }

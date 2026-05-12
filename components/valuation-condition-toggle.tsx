@@ -37,7 +37,7 @@ export function ValuationConditionToggle({
           <ToggleGroup
             value={[value]}
             onValueChange={(values) => {
-              const next = values[0]
+              const next = values?.[0]
               if (typeof next === "string" && isValuationConditionId(next)) {
                 onValueChange(next)
               }

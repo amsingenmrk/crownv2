@@ -1460,7 +1460,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 <ToggleGroup
                   value={[activeOutlookId]}
                   onValueChange={(values) => {
-                    const next = values[0]
+                    const next = values?.[0]
                     if (typeof next === "string" && next !== "") {
                       setActiveOutlookId(next)
                     }

@@ -253,7 +253,7 @@ function PortfolioForecastControlCenter({
         <ToggleGroup
           value={[modificationMode]}
           onValueChange={(values) => {
-            const next = values[0]
+            const next = values?.[0]
             if (next === "baseline" || next === "recommended") {
               onModificationModeChange(next)
             }
