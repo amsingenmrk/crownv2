@@ -1,29 +1,26 @@
 "use client"
 
-import { type ReactNode, useState } from "react"
+import { type ReactNode } from "react"
 import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowDown, ArrowUp, Sun, Trash2, Wrench } from "lucide-react"
+import { ArrowDown, ArrowUp, Sun, Wrench } from "lucide-react"
 import {
   parseStoredSets,
   storageKeyForAsset,
 } from "@/lib/building-modification-sets-storage"
+import {
+  buildPortfolioAssetMetadataItems,
+  PortfolioAssetIdentity,
+  ScenarioRemoveAssetButton,
+} from "@/components/portfolio/portfolio-asset-identity"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-status-badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
-import { assetHref } from "@/lib/assets"
+import { deriveBaseAnnualOpex } from "@/lib/forecast-data"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -46,8 +43,8 @@ type PortfolioAssetColumnOptions = {
   showScopeColumn?: boolean
 }
 
-const CLASS_SOURCE_LABEL =
-  "Modeled building class estimate for the demo portfolio table."
+const ASSET_METADATA_SOURCE_LABEL =
+  "Class shown in the asset metadata strip is a modeled building class estimate for the demo portfolio table."
 
 const PRICING_SOURCE_LABEL =
   "Modeled pricing estimate. This is not presented as raw client-reported pricing."
@@ -58,18 +55,39 @@ const VALUE_SOURCE_LABEL =
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
 
-type ScenarioDeltaMetricKey = "pricePerSf" | "noi" | "value" | "capRate"
+type ScenarioDeltaMetricKey =
+  | "pricePerSf"
+  | "revenue"
+  | "opex"
+  | "noi"
+  | "value"
+  | "capRate"
+
+function parseCompactUsdDisplay(value: string): number {
+  const match = value.trim().match(/^\$([\d,.]+)([MB])$/i)
+  if (match == null) {
+    const fallback = Number.parseFloat(value.replace(/[^\d.-]/g, ""))
+    return Number.isFinite(fallback) ? fallback : 0
+  }
+
+  const magnitude = Number.parseFloat(match[1].replace(/,/g, ""))
+  if (!Number.isFinite(magnitude)) return 0
+  return match[2].toUpperCase() === "B" ? magnitude * 1_000_000_000 : magnitude * 1_000_000
+}
 
 function formatUsdPerSfDelta(delta: number): string {
   const sign = delta > 0 ? "+" : delta < 0 ? "−" : ""
   return `${sign}$${Math.abs(delta).toFixed(1)} / SF`
 }
 
-function deltaClassName(delta: number) {
+function deltaClassName(delta: number, direction: "normal" | "inverse" = "normal") {
   if (Math.abs(delta) < 1e-6) {
     return "text-muted-foreground tabular-nums"
   }
-  return delta > 0
+  const positiveIsGood = direction === "normal"
+  const isPositive = delta > 0
+  const isGood = positiveIsGood ? isPositive : !isPositive
+  return isGood
     ? "tabular-nums text-emerald-700 dark:text-emerald-500"
     : "tabular-nums text-rose-700 dark:text-rose-500"
 }
@@ -100,8 +118,17 @@ function ScenarioAssetMetricCell({
     if (selectedSet == null) return null
 
     const uplift = upliftFromModValues(selectedSet.values)
+    const baseRevenueUsd = financials.annualRevenueUsd
+    const baseOpexUsd = financials.annualOpexUsd
+    const baseNoiUsd = financials.noiUsd
+    const modifiedRevenueUsd =
+      baseRevenueUsd + Math.max(0, baseNoiUsd) * (uplift.noiMult - 1)
+    const modifiedOpexUsd = Math.max(
+      0,
+      deriveBaseAnnualOpex(assetId, modifiedRevenueUsd) + uplift.annualOpexDeltaUsd
+    )
+    const modifiedNoiUsd = modifiedRevenueUsd - modifiedOpexUsd
     const modifiedValueUsd = financials.valueUsd * uplift.valueMult
-    const modifiedNoiUsd = financials.noiUsd * uplift.noiMult
     const modifiedPricePerSf = financials.pricePerSfN * uplift.valueMult
     const modifiedCapRatePct =
       modifiedValueUsd > 0 ? (modifiedNoiUsd / modifiedValueUsd) * 100 : 0
@@ -112,11 +139,18 @@ function ScenarioAssetMetricCell({
           value: modifiedPricePerSf - financials.pricePerSfN,
           text: formatUsdPerSfDelta(modifiedPricePerSf - financials.pricePerSfN),
         }
-      case "noi":
+      case "revenue":
         return {
-          value: modifiedNoiUsd - financials.noiUsd,
-          text: formatUsdDeltaCompact(modifiedNoiUsd - financials.noiUsd),
+          value: modifiedRevenueUsd - baseRevenueUsd,
+          text: formatUsdDeltaCompact(modifiedRevenueUsd - baseRevenueUsd),
         }
+      case "opex":
+        return {
+          value: modifiedOpexUsd - baseOpexUsd,
+          text: formatUsdDeltaCompact(modifiedOpexUsd - baseOpexUsd),
+        }
+      case "noi":
+        return { value: modifiedNoiUsd - baseNoiUsd, text: formatUsdDeltaCompact(modifiedNoiUsd - baseNoiUsd) }
       case "value":
         return {
           value: modifiedValueUsd - financials.valueUsd,
@@ -134,7 +168,12 @@ function ScenarioAssetMetricCell({
     <span className="flex min-w-0 flex-col items-start gap-0.5">
       <span className="truncate">{baseDisplay}</span>
       {delta != null ? (
-        <span className={cn("truncate text-[11px] leading-tight", deltaClassName(delta.value))}>
+        <span
+          className={cn(
+            "truncate text-[11px] leading-tight",
+            deltaClassName(delta.value, metricKey === "opex" ? "inverse" : "normal")
+          )}
+        >
           {delta.text}
         </span>
       ) : null}
@@ -190,65 +229,6 @@ function SortableHeader({
   )
 }
 
-export function ScenarioRemoveFromScenarioCell({
-  assetId,
-  building,
-}: {
-  assetId: string
-  building: string
-}) {
-  const { excludeAssetsFromScenario } = useScenarioModificationSelections()
-  const [confirmOpen, setConfirmOpen] = useState(false)
-
-  return (
-    <div className="flex justify-end">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
-        aria-label={`Remove ${building} from scenario`}
-        aria-haspopup="dialog"
-        aria-expanded={confirmOpen}
-        onClick={() => setConfirmOpen(true)}
-      >
-        <Trash2 className="size-4" aria-hidden />
-      </Button>
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Remove asset from scenario</DialogTitle>
-            <DialogDescription>
-              <span className="font-medium text-foreground">{building}</span>{" "}
-              will be removed from this scenario. Saved modification sets in the
-              sidebar are not deleted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                excludeAssetsFromScenario([assetId])
-                setConfirmOpen(false)
-              }}
-            >
-              Remove
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
 function SelectHeader({ table }: { table: Table<PortfolioAssetRow> }) {
   const rows = table.getRowModel().rows
   const allSelected =
@@ -296,64 +276,30 @@ export function createPortfolioAssetColumns(
       accessorKey: "building",
       enableHiding: false,
       header: ({ column }) => (
-        <SortableHeader column={column}>Asset</SortableHeader>
-      ),
-      cell: ({ row }) => (
-        <div className="flex min-w-0 items-start gap-2 text-left">
-          <div className="min-w-0 flex flex-col gap-0.5 text-left">
-            <Link
-              href={assetHref(row.original.id)}
-              className="inline-flex w-fit max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <span className="truncate">{row.original.building}</span>
-            </Link>
-            <span className="text-xs leading-snug text-muted-foreground">
-              {row.original.location}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "typeLabel",
-      enableHiding: true,
-      meta: { columnLabel: "Sector" },
-      header: ({ column }) => (
-        <SortableHeader column={column}>Sector</SortableHeader>
-      ),
-      cell: ({ row }) => (
-        <span className="text-left text-sm">{row.original.typeLabel}</span>
-      ),
-    },
-    {
-      accessorKey: "classLabel",
-      enableHiding: true,
-      meta: { columnLabel: "Class" },
-      header: ({ column }) => (
-        <SortableHeader column={column} sourceLabel={CLASS_SOURCE_LABEL}>
-          Class
+        <SortableHeader column={column} sourceLabel={ASSET_METADATA_SOURCE_LABEL}>
+          Asset
         </SortableHeader>
       ),
       cell: ({ row }) => (
-        <div className="min-w-0 truncate text-left text-sm">
-          {row.original.classLabel}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "rsf",
-      enableHiding: true,
-      meta: { columnLabel: "RSF" },
-      header: ({ column }) => (
-        <SortableHeader column={column}>RSF</SortableHeader>
-      ),
-      sortingFn: (rowA, rowB, id) =>
-        String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
-          numeric: true,
-        }),
-      cell: ({ row }) => (
-        <div className="text-left text-sm tabular-nums">
-          {row.original.rsf}
+        <div className="flex min-w-0 items-start gap-2 text-left">
+          <PortfolioAssetIdentity
+            assetId={row.original.id}
+            building={row.original.building}
+            location={row.original.location}
+            metadataItems={buildPortfolioAssetMetadataItems({
+              sector: row.original.typeLabel,
+              assetClass: row.original.classLabel,
+              rsf: row.original.rsf,
+            })}
+            trailingAction={
+              variant === "scenarios" ? (
+                <ScenarioRemoveAssetButton
+                  assetId={row.original.id}
+                  building={row.original.building}
+                />
+              ) : undefined
+            }
+          />
         </div>
       ),
     },
@@ -370,6 +316,22 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
           {row.original.occPct}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "wale",
+      enableHiding: true,
+      meta: { columnLabel: "WALE" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>WALE</SortableHeader>
+      ),
+      sortingFn: (rowA, rowB, id) =>
+        Number.parseFloat(String(rowA.getValue(id))) -
+        Number.parseFloat(String(rowB.getValue(id))),
+      cell: ({ row }) => (
+        <div className="text-left text-sm tabular-nums">
+          {row.original.wale}
         </div>
       ),
     },
@@ -400,6 +362,54 @@ export function createPortfolioAssetColumns(
       ),
     },
     {
+      accessorKey: "revenue",
+      enableHiding: true,
+      meta: { columnLabel: "Revenue" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>Revenue</SortableHeader>
+      ),
+      sortingFn: (rowA, rowB, id) =>
+        parseCompactUsdDisplay(String(rowA.getValue(id))) -
+        parseCompactUsdDisplay(String(rowB.getValue(id))),
+      cell: ({ row }) => (
+        <div className="min-w-0 truncate text-left text-sm tabular-nums">
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.revenue}
+              metricKey="revenue"
+            />
+          ) : (
+            row.original.revenue
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "opex",
+      enableHiding: true,
+      meta: { columnLabel: "OpEx" },
+      header: ({ column }) => (
+        <SortableHeader column={column}>OpEx</SortableHeader>
+      ),
+      sortingFn: (rowA, rowB, id) =>
+        parseCompactUsdDisplay(String(rowA.getValue(id))) -
+        parseCompactUsdDisplay(String(rowB.getValue(id))),
+      cell: ({ row }) => (
+        <div className="min-w-0 truncate text-left text-sm tabular-nums">
+          {variant === "scenarios" ? (
+            <ScenarioAssetMetricCell
+              assetId={row.original.id}
+              baseDisplay={row.original.opex}
+              metricKey="opex"
+            />
+          ) : (
+            row.original.opex
+          )}
+        </div>
+      ),
+    },
+    {
       accessorKey: "noi",
       enableHiding: true,
       meta: { columnLabel: "NOI" },
@@ -407,9 +417,8 @@ export function createPortfolioAssetColumns(
         <SortableHeader column={column}>NOI</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
-        String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
-          numeric: true,
-        }),
+        parseCompactUsdDisplay(String(rowA.getValue(id))) -
+        parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
           {variant === "scenarios" ? (
@@ -427,16 +436,15 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "value",
       enableHiding: true,
-      meta: { columnLabel: "Value" },
+      meta: { columnLabel: "Asset Value" },
       header: ({ column }) => (
         <SortableHeader column={column} sourceLabel={VALUE_SOURCE_LABEL}>
-          Value
+          Asset Value
         </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
-        String(rowA.getValue(id)).localeCompare(String(rowB.getValue(id)), undefined, {
-          numeric: true,
-        }),
+        parseCompactUsdDisplay(String(rowA.getValue(id))) -
+        parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
           {variant === "scenarios" ? (
@@ -454,9 +462,9 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "capRate",
       enableHiding: true,
-      meta: { columnLabel: "Cap" },
+      meta: { columnLabel: "Cap Rate" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Cap</SortableHeader>
+        <SortableHeader column={column}>Cap Rate</SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
@@ -472,22 +480,6 @@ export function createPortfolioAssetColumns(
           ) : (
             row.original.capRate
           )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "wale",
-      enableHiding: true,
-      meta: { columnLabel: "WALE" },
-      header: ({ column }) => (
-        <SortableHeader column={column}>WALE</SortableHeader>
-      ),
-      sortingFn: (rowA, rowB, id) =>
-        Number.parseFloat(String(rowA.getValue(id))) -
-        Number.parseFloat(String(rowB.getValue(id))),
-      cell: ({ row }) => (
-        <div className="text-left text-sm tabular-nums">
-          {row.original.wale}
         </div>
       ),
     },
@@ -619,20 +611,6 @@ export function createPortfolioAssetColumns(
           <PortfolioRowStatusBadge rowId={row.original.id} />
         </div>
       ),
-    })
-    columns.push({
-      id: "scenarioRemove",
-      enableHiding: false,
-      header: () => (
-        <span className="sr-only">Remove from scenario</span>
-      ),
-      cell: ({ row }) => (
-        <ScenarioRemoveFromScenarioCell
-          assetId={row.original.id}
-          building={row.original.building}
-        />
-      ),
-      enableSorting: false,
     })
   }
 

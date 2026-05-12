@@ -4,6 +4,7 @@ import {
   seedForAsset,
 } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
+import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { getTopSingleModificationRecommendationForAsset } from "@/lib/modification-recommendations"
 
 const ASSET_STATUS_LABELS = [
@@ -92,6 +93,8 @@ export function portfolioAssetRowForAsset(
     rsf: formatRsfShort(fin.rsfSqft),
     occPct: `${asset.occupiedPercent}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
+    revenue: formatUsdPortfolioCompact(fin.annualRevenueUsd),
+    opex: formatUsdPortfolioCompact(fin.annualOpexUsd),
     noi,
     value,
     capRate: `${fin.capRatePct.toFixed(1)}%`,

@@ -12,6 +12,8 @@ export type PortfolioAssetRow = {
   rsf: string
   occPct: string
   pricePerSf: string
+  revenue: string
+  opex: string
   noi: string
   value: string
   capRate: string

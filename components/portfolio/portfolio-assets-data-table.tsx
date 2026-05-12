@@ -5,6 +5,11 @@ import { flexRender, type Table } from "@tanstack/react-table"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ChevronDown, Plus } from "lucide-react"
+import {
+  buildPortfolioAssetMetadataItems,
+  PortfolioAssetIdentity,
+  ScenarioRemoveAssetButton,
+} from "@/components/portfolio/portfolio-asset-identity"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -16,15 +21,11 @@ import {
 } from "@/components/ui/table"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
-import { assetHref } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-status-badge"
-import {
-  ScenarioRemoveFromScenarioCell,
-  type PortfolioAssetsTableVariant,
-} from "@/components/portfolio/portfolio-assets-columns"
+import { type PortfolioAssetsTableVariant } from "@/components/portfolio/portfolio-assets-columns"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
@@ -405,8 +406,8 @@ export function PortfolioAssetsDataTable({
           />
           <p className="min-w-0 text-[11px] leading-snug text-muted-foreground">
             {variant === "portfolio"
-              ? "Class, $/SF, value, and potential lift are modeled for this demo. Definitions match the table column headers on larger screens."
-              : "Class, $/SF, and value are modeled for this demo. Definitions match the table column headers on larger screens."}
+              ? "Class, $/SF, value, and potential lift are modeled for this demo. Definitions match the provenance indicators on larger screens."
+              : "Class, $/SF, and value are modeled for this demo. Definitions match the provenance indicators on larger screens."}
           </p>
         </div>
       ) : null}
@@ -419,11 +420,10 @@ export function PortfolioAssetsDataTable({
         ) : (
           sortedRows.map((tableRow) => {
             const row = tableRow.original
-            const href = assetHref(row.id)
             const selected = tableRow.getIsSelected()
             return (
               <li key={tableRow.id}>
-                <div className="flex flex-col gap-3 px-4 py-4 text-sm">
+                <div className="flex flex-col gap-2.5 px-4 py-4 text-sm">
                   <div className="flex items-start gap-3">
                     <span className="flex shrink-0 items-center pt-0.5">
                       <Checkbox
@@ -434,17 +434,25 @@ export function PortfolioAssetsDataTable({
                         aria-label={`Select ${row.building}`}
                       />
                     </span>
-                    <div className="min-w-0 flex-1 text-left">
-                      <Link
-                        href={href}
-                        className="inline-flex max-w-full rounded-sm font-semibold leading-snug text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      >
-                        <span className="truncate">{row.building}</span>
-                      </Link>
-                      <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                        {row.location}
-                      </span>
-                    </div>
+                    <PortfolioAssetIdentity
+                      assetId={row.id}
+                      building={row.building}
+                      location={row.location}
+                      locationClassName="mt-0.5"
+                      metadataItems={buildPortfolioAssetMetadataItems({
+                        sector: row.typeLabel,
+                        assetClass: row.classLabel,
+                        rsf: row.rsf,
+                      })}
+                      trailingAction={
+                        variant === "scenarios" ? (
+                          <ScenarioRemoveAssetButton
+                            assetId={row.id}
+                            building={row.building}
+                          />
+                        ) : undefined
+                      }
+                    />
                   </div>
                   {variant === "scenarios" ? (
                     <div className="flex flex-col gap-1.5 text-xs">
@@ -484,13 +492,9 @@ export function PortfolioAssetsDataTable({
                     </div>
                   ) : null}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Sector</span>
-                    <span className="text-left text-foreground">{row.typeLabel}</span>
-                    <span>Class</span>
-                    <span className="text-left text-foreground">{row.classLabel}</span>
-                    <span>RSF</span>
+                    <span>Occ%</span>
                     <span className="text-left tabular-nums text-foreground">
-                      {row.rsf}
+                      {row.occPct}
                     </span>
                     <span>$/SF</span>
                     <span className="text-left tabular-nums text-foreground">
@@ -501,14 +505,7 @@ export function PortfolioAssetsDataTable({
                       {row.value}
                     </span>
                   </div>
-                  {variant === "scenarios" ? (
-                    <div className="flex justify-end border-t border-border pt-3">
-                      <ScenarioRemoveFromScenarioCell
-                        assetId={row.id}
-                        building={row.building}
-                      />
-                    </div>
-                  ) : (
+                  {variant !== "scenarios" ? (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>Potential Lift</span>
@@ -549,7 +546,7 @@ export function PortfolioAssetsDataTable({
                         </span>
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </li>
             )
