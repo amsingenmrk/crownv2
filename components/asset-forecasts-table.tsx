@@ -300,61 +300,63 @@ export function AssetForecastsTable({
         <div className="border-b border-border/60 px-4 py-3">{topAccessory}</div>
       ) : null}
 
-      <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
-        <colgroup>
-          <col style={firstColumnStyle} />
-          {periods.map((period) => (
-            <col key={period.label} style={periodColumnStyle} />
-          ))}
-        </colgroup>
-        <TableHeader>
-          <TableRow className="border-b-2 border-border bg-muted hover:bg-muted/90">
-            <TableHead
-              scope="col"
-              className="sticky left-0 z-20 h-auto min-w-0 bg-muted px-2 py-2 text-left text-sm font-medium text-foreground"
-              style={firstColumnStyle}
-            >
-              Line Item
-            </TableHead>
+      <div className="pb-2">
+        <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
+          <colgroup>
+            <col style={firstColumnStyle} />
             {periods.map((period) => (
-              <TableHead
-                key={period.label}
-                scope="col"
-                className="h-auto min-w-0 bg-muted px-2 py-2 text-right text-sm font-medium text-foreground"
-                style={periodColumnStyle}
-              >
-                {period.label}
-              </TableHead>
+              <col key={period.label} style={periodColumnStyle} />
             ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visibleRows.map((row) => (
-            <TableRow key={row.id} className={rowClassName(row)}>
-              <TableCell
-                className={cn(
-                  "sticky left-0 z-20 px-2 py-2",
-                  firstColumnSurfaceClassName(row)
-                )}
+          </colgroup>
+          <TableHeader>
+            <TableRow className="border-b-2 border-border bg-muted hover:bg-muted/90">
+              <TableHead
+                scope="col"
+                className="sticky left-0 z-20 h-auto min-w-0 bg-muted px-2 py-2 text-left text-sm font-medium text-foreground"
                 style={firstColumnStyle}
               >
-                {renderLineItemCell({ row, onToggle: toggleExpanded })}
-              </TableCell>
-              {periods.map((period, index) => (
-                <TableCell
-                  key={`${row.id}-${period.label}`}
-                  className="px-2 py-2"
+                Line Item
+              </TableHead>
+              {periods.map((period) => (
+                <TableHead
+                  key={period.label}
+                  scope="col"
+                  className="h-auto min-w-0 bg-muted px-2 py-2 text-right text-sm font-medium text-foreground"
                   style={periodColumnStyle}
                 >
-                  <div className={valueTextClassName(row)}>
-                    {formatStatementValue(row.kind, row.values[index] ?? 0)}
-                  </div>
-                </TableCell>
+                  {period.label}
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {visibleRows.map((row) => (
+              <TableRow key={row.id} className={rowClassName(row)}>
+                <TableCell
+                  className={cn(
+                    "sticky left-0 z-20 px-2 py-2",
+                    firstColumnSurfaceClassName(row)
+                  )}
+                  style={firstColumnStyle}
+                >
+                  {renderLineItemCell({ row, onToggle: toggleExpanded })}
+                </TableCell>
+                {periods.map((period, index) => (
+                  <TableCell
+                    key={`${row.id}-${period.label}`}
+                    className="px-2 py-2"
+                    style={periodColumnStyle}
+                  >
+                    <div className={valueTextClassName(row)}>
+                      {formatStatementValue(row.kind, row.values[index] ?? 0)}
+                    </div>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
         Expand <span className="font-medium text-foreground">Gross Revenue</span> to inspect
