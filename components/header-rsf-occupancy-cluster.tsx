@@ -45,14 +45,14 @@ export function HeaderRsfOccupancyCluster({
   return (
     <div className="mx-auto flex w-full max-w-full flex-col items-stretch gap-2 sm:mx-0 sm:flex-row sm:items-stretch sm:justify-end">
       <div
-        className="flex min-h-0 min-w-0 w-full shrink-0 items-stretch justify-center self-stretch overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:justify-end"
+        className="grid w-full min-w-0 shrink-0 grid-cols-3 items-stretch self-stretch rounded-lg border border-border bg-muted/30 text-xs sm:flex sm:min-h-0 sm:w-fit sm:grid-cols-none sm:justify-end sm:overflow-x-auto sm:overflow-y-hidden"
         aria-label="Portfolio summary statistics"
       >
         {stats.map((s, i) => (
           <div
             key={s.key}
             className={cn(
-              "flex min-h-0 max-w-[10rem] shrink-0 flex-col justify-center self-stretch px-2 py-0.5 sm:px-2 sm:py-1",
+              "flex min-h-0 min-w-0 flex-col items-start justify-center px-1.5 py-1 text-left sm:max-w-[10rem] sm:shrink-0 sm:px-2 sm:py-1",
               i > 0 && "border-l border-border"
             )}
             aria-label={s.aria}
@@ -60,7 +60,7 @@ export function HeaderRsfOccupancyCluster({
             <span className="whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
               {s.label}
             </span>
-            <span className="mt-px truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
+            <span className="mt-px max-w-full truncate text-xs font-semibold leading-tight tabular-nums text-foreground sm:text-[13px]">
               {s.value}
             </span>
           </div>

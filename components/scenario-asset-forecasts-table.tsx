@@ -156,7 +156,7 @@ function buildScenarioForecastMetricRows({
 }
 
 function metricRowSurfaceClassName(isExpanded: boolean) {
-  return isExpanded ? "bg-muted/20 group-hover:bg-muted/25" : "bg-background group-hover:bg-muted/20"
+  return isExpanded ? "forecast-sticky-line-asset" : "forecast-sticky-line-metric-collapsed"
 }
 
 export function ScenarioAssetForecastsTable({
@@ -209,10 +209,10 @@ export function ScenarioAssetForecastsTable({
       <div className="overflow-x-auto">
         <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
           <TableHeader>
-            <TableRow className="border-b border-border bg-muted/80 hover:bg-muted/80">
+            <TableRow className="forecast-sticky-header-row border-b border-border hover:bg-transparent">
               <TableHead
                 scope="col"
-                className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-2 py-2 text-left text-sm font-medium text-foreground"
+                className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 px-2 py-2 text-left text-sm font-medium text-foreground"
                 style={firstColumnStyle}
               >
                 Line Item
@@ -221,7 +221,7 @@ export function ScenarioAssetForecastsTable({
                 <TableHead
                   key={period.index}
                   scope="col"
-                  className="h-auto min-w-0 bg-muted/80 px-3 py-2 text-right text-sm font-medium text-foreground"
+                  className="h-auto min-w-0 px-3 py-2 text-right text-sm font-medium text-foreground"
                   style={periodColumnStyle}
                 >
                   {period.label}
@@ -245,7 +245,7 @@ export function ScenarioAssetForecastsTable({
                 >
                   <TableCell
                     className={cn(
-                      "sticky left-0 z-10 border-r border-border/60 px-2 py-2.5",
+                      "sticky left-0 z-20 border-r border-border/60 px-2 py-2.5",
                       metricSurface
                     )}
                     style={firstColumnStyle}
@@ -291,7 +291,7 @@ export function ScenarioAssetForecastsTable({
                         className="group border-b border-border bg-muted/15 hover:bg-muted/25"
                       >
                         <TableCell
-                          className="sticky left-0 z-10 border-r border-border/60 bg-muted/15 px-2 py-3 group-hover:bg-muted/25"
+                          className="forecast-sticky-line-nested sticky left-0 z-20 border-r border-border/60 px-2 py-3"
                           style={firstColumnStyle}
                         >
                           <div className="pl-6">

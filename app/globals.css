@@ -150,5 +150,62 @@
     width: max-content;
     min-width: 100%;
   }
+
+  /*
+   * Forecast / portfolio tables: sticky columns must use opaque fills.
+   * Translucent `bg-muted/xx` lets horizontally scrolled cells read through.
+   */
+  .forecast-sticky-header-row > th {
+    background-color: color-mix(in oklab, var(--muted) 80%, var(--background));
+  }
+
+  .forecast-sticky-line-asset {
+    background-color: color-mix(in oklab, var(--muted) 20%, var(--background));
+  }
+  tr.group:hover .forecast-sticky-line-asset {
+    background-color: color-mix(in oklab, var(--muted) 25%, var(--background));
+  }
+
+  .forecast-sticky-line-outlook {
+    background-color: color-mix(in oklab, var(--muted) 10%, var(--background));
+  }
+  tr.group:hover .forecast-sticky-line-outlook {
+    background-color: color-mix(in oklab, var(--muted) 15%, var(--background));
+  }
+
+  .forecast-sticky-line-summary {
+    background-color: var(--background);
+  }
+  tr.group:hover .forecast-sticky-line-summary {
+    background-color: color-mix(in oklab, var(--muted) 25%, var(--background));
+  }
+
+  .forecast-sticky-line-floor {
+    background-color: color-mix(in oklab, var(--muted) 25%, var(--background));
+  }
+  tr.group:hover .forecast-sticky-line-floor {
+    background-color: color-mix(in oklab, var(--muted) 30%, var(--background));
+  }
+
+  .forecast-sticky-line-suite {
+    background-color: var(--background);
+  }
+  tr.group:hover .forecast-sticky-line-suite {
+    background-color: color-mix(in oklab, var(--muted) 15%, var(--background));
+  }
+
+  .forecast-sticky-line-metric-collapsed {
+    background-color: var(--background);
+  }
+  tr.group:hover .forecast-sticky-line-metric-collapsed {
+    background-color: color-mix(in oklab, var(--muted) 20%, var(--background));
+  }
+
+  .forecast-sticky-line-nested {
+    background-color: color-mix(in oklab, var(--muted) 15%, var(--background));
+  }
+  tr.group:hover .forecast-sticky-line-nested {
+    background-color: color-mix(in oklab, var(--muted) 25%, var(--background));
+  }
 }
 

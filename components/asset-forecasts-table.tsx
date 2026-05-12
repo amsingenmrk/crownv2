@@ -227,11 +227,11 @@ function firstColumnSurfaceClassName(item?: ForecastTableRow) {
   }
 
   if (item.rowType === "floor") {
-    return "bg-muted/25 group-hover:bg-muted/30"
+    return "forecast-sticky-line-floor"
   }
 
   if (item.rowType === "suite") {
-    return "bg-background/80 group-hover:bg-muted/15"
+    return "forecast-sticky-line-suite"
   }
 
   return "bg-background"
@@ -358,7 +358,7 @@ export function AssetForecastsTable({
                     key={cell.id}
                     className={cn(
                       isLineItemColumn
-                        ? "sticky left-0 z-10 px-4"
+                        ? "sticky left-0 z-20 px-4"
                         : "px-3",
                       row.original.rowType === "suite" ? "py-3" : "py-2.5",
                       isLineItemColumn && firstColumnSurfaceClassName(row.original)

@@ -599,10 +599,10 @@ export function ScopedForecastsPortfolioTotalsTable({
     <div className={cn(!hasOutlookBreakdown && "border-t border-border/80")}>
       <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
         <TableHeader>
-          <TableRow className="border-b border-border bg-muted/80 hover:bg-muted/80">
+          <TableRow className="forecast-sticky-header-row border-b border-border hover:bg-transparent">
             <TableHead
               scope="col"
-              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 bg-muted/80 px-2 py-2 text-left text-sm font-medium text-foreground"
+              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 px-2 py-2 text-left text-sm font-medium text-foreground"
               style={firstColumnStyle}
             >
               Line Item
@@ -611,7 +611,7 @@ export function ScopedForecastsPortfolioTotalsTable({
               <TableHead
                 key={`summary-h-${period.label}`}
                 scope="col"
-                className="h-auto min-w-0 bg-muted/80 px-3 py-2 text-right text-sm font-medium text-foreground"
+                className="h-auto min-w-0 px-3 py-2 text-right text-sm font-medium text-foreground"
                 style={periodColumnStyle}
               >
                 {period.label}
@@ -624,7 +624,7 @@ export function ScopedForecastsPortfolioTotalsTable({
             <TableRow key={row.id} className={rowClassName(row.original)}>
               <TableCell
                 className={cn(
-                  "sticky left-0 z-10 border-r border-border/60 px-2",
+                  "sticky left-0 z-20 border-r border-border/60 px-2",
                   row.original.rowType === "asset" ? "py-3" : "py-2.5",
                   firstColumnSurfaceClassName(row.original)
                 )}
@@ -1079,15 +1079,15 @@ function firstColumnSurfaceClassName(item?: ScopedForecastTableRow) {
   }
 
   if (item.isSummaryRow) {
-    return "bg-background group-hover:bg-muted/25"
+    return "forecast-sticky-line-summary"
   }
 
   if (item.rowType === "asset") {
-    return "bg-muted/20 group-hover:bg-muted/25"
+    return "forecast-sticky-line-asset"
   }
 
   if (item.rowType === "outlook") {
-    return "bg-muted/10 group-hover:bg-muted/15"
+    return "forecast-sticky-line-outlook"
   }
 
   return "bg-background"
@@ -1100,15 +1100,15 @@ function selectorColumnsSurfaceClassName(item?: ScopedForecastTableRow) {
   }
 
   if (item.isSummaryRow) {
-    return "bg-background group-hover:bg-muted/25"
+    return "forecast-sticky-line-summary"
   }
 
   if (item.rowType === "asset") {
-    return "bg-muted/20 group-hover:bg-muted/25"
+    return "forecast-sticky-line-asset"
   }
 
   if (item.rowType === "outlook") {
-    return "bg-muted/10 group-hover:bg-muted/15"
+    return "forecast-sticky-line-outlook"
   }
 
   return "bg-background"
@@ -1555,9 +1555,9 @@ export function ScopedForecastsTable({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      isLineItemColumn && "sticky left-0 z-10 border-r border-border/60 px-2",
-                      isModificationsColumn && "sticky z-[9] px-2 py-2",
-                      isOutlookColumn && "sticky z-[8] px-2 py-2",
+                      isLineItemColumn && "sticky left-0 z-20 border-r border-border/60 px-2",
+                      isModificationsColumn && "sticky z-[19] px-2 py-2",
+                      isOutlookColumn && "sticky z-[18] px-2 py-2",
                       !isLineItemColumn &&
                         !isModificationsColumn &&
                         !isOutlookColumn &&
