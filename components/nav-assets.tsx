@@ -12,7 +12,6 @@ import {
 import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenuAction,
   SidebarMenu,
   SidebarMenuButton,
@@ -144,7 +143,6 @@ export function NavAssets() {
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Portfolio</SidebarGroupLabel>
         <SidebarMenu className="gap-0">
           <SidebarMenuItem>
             <SidebarMenuButton
