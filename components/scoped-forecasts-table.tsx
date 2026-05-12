@@ -602,7 +602,7 @@ export function ScopedForecastsPortfolioTotalsTable({
           <TableRow className="forecast-sticky-header-row border-b border-border hover:bg-transparent">
             <TableHead
               scope="col"
-              className="sticky left-0 z-20 h-auto min-w-0 border-r border-border/60 px-2 py-2 text-left text-sm font-medium text-foreground"
+              className="sticky left-0 z-20 h-auto min-w-0 px-2 py-2 text-left text-sm font-medium text-foreground"
               style={firstColumnStyle}
             >
               Line Item
@@ -624,7 +624,7 @@ export function ScopedForecastsPortfolioTotalsTable({
             <TableRow key={row.id} className={rowClassName(row.original)}>
               <TableCell
                 className={cn(
-                  "sticky left-0 z-20 border-r border-border/60 px-2",
+                  "sticky left-0 z-20 px-2",
                   row.original.rowType === "asset" ? "py-3" : "py-2.5",
                   firstColumnSurfaceClassName(row.original)
                 )}
@@ -1508,12 +1508,11 @@ export function ScopedForecastsTable({
                     scope="col"
                     className={cn(
                       "h-auto min-w-0 bg-muted py-2 align-middle text-sm font-medium text-foreground",
-                      isLineItemColumn &&
-                        "sticky left-0 z-20 border-r border-border/60 px-2 text-left",
+                      isLineItemColumn && "sticky left-0 z-20 px-2 text-left",
                       isModificationsColumn &&
-                        "sticky z-[19] px-2 text-left",
+                        "sticky z-[19] border-r border-border px-2 text-left",
                       isOutlookColumn &&
-                        "sticky z-[18] px-2 text-left",
+                        "sticky z-[18] border-r border-border px-2 text-left",
                       !isLineItemColumn &&
                         !isModificationsColumn &&
                         !isOutlookColumn &&
@@ -1555,9 +1554,11 @@ export function ScopedForecastsTable({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      isLineItemColumn && "sticky left-0 z-20 border-r border-border/60 px-2",
-                      isModificationsColumn && "sticky z-[19] px-2 py-2",
-                      isOutlookColumn && "sticky z-[18] px-2 py-2",
+                      isLineItemColumn && "sticky left-0 z-20 px-2",
+                      isModificationsColumn &&
+                        "sticky z-[19] border-r border-border px-2 py-2",
+                      isOutlookColumn &&
+                        "sticky z-[18] border-r border-border px-2 py-2",
                       !isLineItemColumn &&
                         !isModificationsColumn &&
                         !isOutlookColumn &&

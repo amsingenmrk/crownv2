@@ -1,19 +1,18 @@
 import type { ValuationConditionId } from "@/lib/valuation-condition-config"
 
-export type ValuationKpiStripMarketCompare = {
-  showScenario: boolean
-  baseFormatted: string
-  modifiedFormatted: string
+export type ValuationKpiStripCellCompare = {
   deltaLine?: string
   pctLine?: string
   deltaDirection?: "up" | "down" | "neutral"
 }
 
+export type ValuationKpiStripConditionCell = {
+  value: string
+  compare?: ValuationKpiStripCellCompare
+}
+
 export type ValuationKpiStripRowModel = {
   label: string
-  /** Shown when `marketCompare` is absent (single headline). */
-  primaryText: string
-  primarySuffix?: string
-  conditionValues: Record<ValuationConditionId, string>
-  marketCompare?: ValuationKpiStripMarketCompare
+  rowSuffix?: string
+  conditionValues: Record<ValuationConditionId, ValuationKpiStripConditionCell>
 }

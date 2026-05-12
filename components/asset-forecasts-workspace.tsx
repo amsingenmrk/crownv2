@@ -629,7 +629,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       for (const { id } of VALUATION_CONDITION_OPTIONS) {
         out[id] = scaleDisplayedMetricsForValuationCondition({
           displayedMetrics,
-          marketAnnualMetrics: metricMap.market,
+          baseAnnualMetrics: metricMap.inPlace,
           selectedAnnualMetrics: metricMap[id],
         })
       }
@@ -642,98 +642,79 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
         ? scaledByCondition(comparisonModel.statementRows, comparisonMetricMap)
         : null
 
-    const marketCompareUsd = (
-      field: "grossRevenue" | "opex" | "noi" | "assetValue"
-    ): ValuationKpiStripRowModel["marketCompare"] =>
-      showScenarioComparison && comparisonScaled != null
-        ? {
-            showScenario: true,
-            baseFormatted: formatUsdPortfolioCompact(
-              comparisonScaled.market[field]
-            ),
-            modifiedFormatted: formatUsdPortfolioCompact(
-              activeScaled.market[field]
-            ),
-            deltaLine: formatUsdDeltaCompact(
-              activeScaled.market[field] - comparisonScaled.market[field]
-            ),
-            pctLine: formatPctChange(
-              comparisonScaled.market[field],
-              activeScaled.market[field]
-            ),
-            deltaDirection: scenarioDeltaDirection(
-              activeScaled.market[field] - comparisonScaled.market[field]
-            ),
-          }
-        : undefined
-
-    const conditionValuesUsd = (
-      field: "grossRevenue" | "opex" | "noi" | "assetValue"
-    ): Record<ValuationConditionId, string> =>
+    const conditionValuesFor = (
+      field: keyof ForecastSummaryMetricValues
+    ): ValuationKpiStripRowModel["conditionValues"] =>
       Object.fromEntries(
-        VALUATION_CONDITION_OPTIONS.map((o) => [
-          o.id,
-          formatUsdPortfolioCompact(activeScaled[o.id][field]),
-        ])
-      ) as Record<ValuationConditionId, string>
-
-    const marketCompareCap: ValuationKpiStripRowModel["marketCompare"] =
-      showScenarioComparison && comparisonScaled != null
-        ? {
-            showScenario: true,
-            baseFormatted: `${comparisonScaled.market.capRate.toFixed(2)}%`,
-            modifiedFormatted: `${activeScaled.market.capRate.toFixed(2)}%`,
-            deltaLine: formatCapRatePts(
-              activeScaled.market.capRate - comparisonScaled.market.capRate
-            ),
-            deltaDirection: scenarioDeltaDirection(
-              activeScaled.market.capRate - comparisonScaled.market.capRate
-            ),
+        VALUATION_CONDITION_OPTIONS.map((option) => {
+          const currentValue = activeScaled[option.id][field]
+          const baselineValue =
+            showScenarioComparison && comparisonScaled != null
+              ? comparisonScaled[option.id][field]
+              : null
+          if (field === "capRate") {
+            const delta =
+              baselineValue != null ? currentValue - baselineValue : null
+            return [
+              option.id,
+              {
+                value: `${currentValue.toFixed(2)}%`,
+                compare:
+                  delta != null && option.id !== "inPlace"
+                    ? {
+                        deltaLine: formatCapRatePts(delta),
+                        deltaDirection: scenarioDeltaDirection(delta),
+                      }
+                    : undefined,
+              },
+            ] as const
           }
-        : undefined
-
-    const capConditionValues = Object.fromEntries(
-      VALUATION_CONDITION_OPTIONS.map((o) => [
-        o.id,
-        `${activeScaled[o.id].capRate.toFixed(2)}%`,
-      ])
-    ) as Record<ValuationConditionId, string>
+          const delta =
+            baselineValue != null ? currentValue - baselineValue : null
+          return [
+            option.id,
+            {
+              value: formatUsdPortfolioCompact(currentValue),
+              compare:
+                delta != null &&
+                baselineValue != null &&
+                option.id !== "inPlace"
+                  ? {
+                      deltaLine: formatUsdDeltaCompact(delta),
+                      pctLine: formatPctChange(baselineValue, currentValue),
+                      deltaDirection: scenarioDeltaDirection(delta),
+                    }
+                  : undefined,
+            },
+          ] as const
+        })
+      ) as ValuationKpiStripRowModel["conditionValues"]
 
     return [
       {
         label: "Gross Revenue",
-        primaryText: formatUsdPortfolioCompact(activeScaled.market.grossRevenue),
-        primarySuffix: "2-yr total",
-        conditionValues: conditionValuesUsd("grossRevenue"),
-        marketCompare: marketCompareUsd("grossRevenue"),
+        rowSuffix: "2-yr total",
+        conditionValues: conditionValuesFor("grossRevenue"),
       },
       {
         label: "OpEx",
-        primaryText: formatUsdPortfolioCompact(activeScaled.market.opex),
-        primarySuffix: "2-yr total",
-        conditionValues: conditionValuesUsd("opex"),
-        marketCompare: marketCompareUsd("opex"),
+        rowSuffix: "2-yr total",
+        conditionValues: conditionValuesFor("opex"),
       },
       {
         label: "NOI",
-        primaryText: formatUsdPortfolioCompact(activeScaled.market.noi),
-        primarySuffix: "2-yr total",
-        conditionValues: conditionValuesUsd("noi"),
-        marketCompare: marketCompareUsd("noi"),
+        rowSuffix: "2-yr total",
+        conditionValues: conditionValuesFor("noi"),
       },
       {
         label: "Asset Value",
-        primaryText: formatUsdPortfolioCompact(activeScaled.market.assetValue),
-        primarySuffix: "terminal",
-        conditionValues: conditionValuesUsd("assetValue"),
-        marketCompare: marketCompareUsd("assetValue"),
+        rowSuffix: "terminal",
+        conditionValues: conditionValuesFor("assetValue"),
       },
       {
         label: "Cap Rate",
-        primaryText: `${activeScaled.market.capRate.toFixed(2)}%`,
-        primarySuffix: "terminal",
-        conditionValues: capConditionValues,
-        marketCompare: marketCompareCap,
+        rowSuffix: "terminal",
+        conditionValues: conditionValuesFor("capRate"),
       },
     ]
   }, [
@@ -1449,13 +1430,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <section
-          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label="Forecast statement"
-        >
-          <div className="space-y-4 border-b border-border/60 px-4 py-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Forecast Statement</h2>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <div className="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Economic Outlook
+              </div>
               {includedOutlooks.length > 1 ? (
                 <ToggleGroup
                   value={[activeOutlookId]}
@@ -1465,7 +1445,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                       setActiveOutlookId(next)
                     }
                   }}
-                  aria-label="Switch compared outlook in forecast summary"
+                  aria-label="Switch compared outlook above forecast summary"
                   className="w-fit"
                 >
                   {includedOutlooks.map((outlook) => (
@@ -1480,14 +1460,23 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                 </div>
               )}
             </div>
+          </div>
 
-            {forecastValuationStripRows.length > 0 ? (
-              <ValuationKpiMetricStrip
-                ariaLabel="Forecast summary metrics (valuation conditions)"
-                rows={forecastValuationStripRows}
-                className="h-fit shrink-0"
-              />
-            ) : null}
+          {forecastValuationStripRows.length > 0 ? (
+            <ValuationKpiMetricStrip
+              ariaLabel="Forecast summary metrics (valuation conditions)"
+              rows={forecastValuationStripRows}
+              className="h-fit shrink-0"
+            />
+          ) : null}
+        </div>
+
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+          aria-label="Forecast statement"
+        >
+          <div className="border-b border-border/60 px-4 py-4">
+            <h2 className="text-sm font-semibold text-foreground">Forecast Statement</h2>
           </div>
 
           <AssetForecastsTable

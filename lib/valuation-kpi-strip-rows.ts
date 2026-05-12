@@ -1,5 +1,5 @@
 import type {
-  ValuationKpiStripMarketCompare,
+  ValuationKpiStripCellCompare,
   ValuationKpiStripRowModel,
 } from "@/lib/valuation-kpi-strip-model"
 import {
@@ -35,29 +35,35 @@ function formatMetricField(
 
 function conditionValueRecord(
   byCondition: Record<ValuationConditionId, ValuationConditionMetrics>,
-  field: MetricField
-): Record<ValuationConditionId, string> {
+  field: MetricField,
+  comparisonByCondition?: Record<ValuationConditionId, ValuationConditionMetrics>
+): ValuationKpiStripRowModel["conditionValues"] {
   return Object.fromEntries(
-    VALUATION_CONDITION_OPTIONS.map((o) => [
-      o.id,
-      formatMetricField(byCondition[o.id], field),
-    ])
-  ) as Record<ValuationConditionId, string>
+    VALUATION_CONDITION_OPTIONS.map((o) => {
+      const currentMetrics = byCondition[o.id]
+      const comparisonMetrics = comparisonByCondition?.[o.id]
+      return [
+        o.id,
+        {
+          value: formatMetricField(currentMetrics, field),
+          compare:
+            comparisonMetrics != null && o.id !== "inPlace"
+              ? conditionCompareForMetrics(comparisonMetrics, currentMetrics, field)
+              : undefined,
+        },
+      ] as const
+    })
+  ) as ValuationKpiStripRowModel["conditionValues"]
 }
 
-function marketCompareForMetrics(
+function conditionCompareForMetrics(
   baseline: ValuationConditionMetrics,
   modified: ValuationConditionMetrics,
   field: MetricField
-): ValuationKpiStripMarketCompare {
-  const baseFmt = formatMetricField(baseline, field)
-  const modFmt = formatMetricField(modified, field)
+): ValuationKpiStripCellCompare {
   if (field === "capRate") {
     const d = modified.capRate - baseline.capRate
     return {
-      showScenario: true,
-      baseFormatted: baseFmt,
-      modifiedFormatted: modFmt,
       deltaLine: formatCapRatePts(d),
       deltaDirection: scenarioDeltaDirection(d),
     }
@@ -66,9 +72,6 @@ function marketCompareForMetrics(
   const mv = modified[field]
   const d = mv - bv
   return {
-    showScenario: true,
-    baseFormatted: baseFmt,
-    modifiedFormatted: modFmt,
     deltaLine: formatUsdDeltaCompact(d),
     pctLine: formatPctChange(bv, mv),
     deltaDirection: scenarioDeltaDirection(d),
@@ -109,12 +112,11 @@ export function valuationKpiStripRowsFromSingleConditionMap(
 ): ValuationKpiStripRowModel[] {
   return KPI_STRIP_FIELDS.map(({ label, field }) => ({
     label,
-    primaryText: formatMetricField(byCondition.market, field),
     conditionValues: conditionValueRecord(byCondition, field),
   }))
 }
 
-/** Asset stacking-plan: baseline vs modified modification maps (market headline + deltas). */
+/** Asset stacking-plan: baseline vs modified modification maps with per-condition deltas. */
 export function valuationKpiStripRowsFromBaselineModifiedMaps(
   baseline: Record<ValuationConditionId, ValuationConditionMetrics>,
   modified: Record<ValuationConditionId, ValuationConditionMetrics>,
@@ -122,17 +124,11 @@ export function valuationKpiStripRowsFromBaselineModifiedMaps(
 ): ValuationKpiStripRowModel[] {
   return KPI_STRIP_FIELDS.map(({ label, field }) => ({
     label,
-    primaryText: formatMetricField(
-      hasComparison ? modified.market : baseline.market,
-      field
-    ),
     conditionValues: conditionValueRecord(
       hasComparison ? modified : baseline,
-      field
+      field,
+      hasComparison ? baseline : undefined
     ),
-    marketCompare: hasComparison
-      ? marketCompareForMetrics(baseline.market, modified.market, field)
-      : undefined,
   }))
 }
 
@@ -144,17 +140,10 @@ export function valuationKpiStripRowsFromScenarioConditionPair(
 ): ValuationKpiStripRowModel[] {
   return KPI_STRIP_FIELDS.map(({ label, field }) => ({
     label,
-    primaryText: formatMetricField(
-      hasTableSelection ? scenario.market : baseline.market,
-      field
-    ),
     conditionValues: conditionValueRecord(
       hasTableSelection ? scenario : baseline,
-      field
+      field,
+      hasTableSelection ? baseline : undefined
     ),
-    marketCompare:
-      hasTableSelection
-        ? marketCompareForMetrics(baseline.market, scenario.market, field)
-        : undefined,
   }))
 }

@@ -20,10 +20,9 @@ export type ValuationConditionMetrics = {
 }
 
 const ALL_VALUATION_CONDITIONS: readonly ValuationConditionId[] = [
-  "grossPotential",
-  "stabilized",
-  "market",
+  "inPlace",
   "markToMarket",
+  "grossPotential",
 ] as const
 
 function clamp(value: number, min: number, max: number) {
@@ -140,16 +139,12 @@ export function buildValuationConditionMetricMap({
     }
   }
 
-  const marketVacancyCreditUsd =
-    vacantPotentialRevenueUsd * leaseUpShare * effects.releaseFactor
-  const stabilizedRevenueUsd =
-    fullPotentialRevenueUsd * (effectiveTargetOccupancyPct / 100)
-
   const annualRevenueByCondition: Record<ValuationConditionId, number> = {
+    inPlace: inPlaceRevenueUsd,
+    markToMarket:
+      markToMarketOccupiedRevenueUsd +
+      vacantPotentialRevenueUsd * leaseUpShare * effects.releaseFactor,
     grossPotential: fullPotentialRevenueUsd,
-    stabilized: stabilizedRevenueUsd,
-    market: inPlaceRevenueUsd + marketVacancyCreditUsd,
-    markToMarket: markToMarketOccupiedRevenueUsd + marketVacancyCreditUsd,
   }
 
   return Object.fromEntries(
@@ -243,47 +238,47 @@ type MetricLike = {
 
 function scaleDisplayedMetricValue({
   displayedValue,
-  marketValue,
+  baseValue,
   selectedValue,
 }: {
   displayedValue: number
-  marketValue: number
+  baseValue: number
   selectedValue: number
 }) {
-  if (Math.abs(marketValue) <= 1e-6) {
+  if (Math.abs(baseValue) <= 1e-6) {
     return selectedValue
   }
-  return displayedValue * (selectedValue / marketValue)
+  return displayedValue * (selectedValue / baseValue)
 }
 
 export function scaleDisplayedMetricsForValuationCondition({
   displayedMetrics,
-  marketAnnualMetrics,
+  baseAnnualMetrics,
   selectedAnnualMetrics,
 }: {
   displayedMetrics: MetricLike
-  marketAnnualMetrics: ValuationConditionMetrics
+  baseAnnualMetrics: ValuationConditionMetrics
   selectedAnnualMetrics: ValuationConditionMetrics
 }): MetricLike {
   return {
     grossRevenue: scaleDisplayedMetricValue({
       displayedValue: displayedMetrics.grossRevenue,
-      marketValue: marketAnnualMetrics.grossRevenue,
+      baseValue: baseAnnualMetrics.grossRevenue,
       selectedValue: selectedAnnualMetrics.grossRevenue,
     }),
     opex: scaleDisplayedMetricValue({
       displayedValue: displayedMetrics.opex,
-      marketValue: marketAnnualMetrics.opex,
+      baseValue: baseAnnualMetrics.opex,
       selectedValue: selectedAnnualMetrics.opex,
     }),
     noi: scaleDisplayedMetricValue({
       displayedValue: displayedMetrics.noi,
-      marketValue: marketAnnualMetrics.noi,
+      baseValue: baseAnnualMetrics.noi,
       selectedValue: selectedAnnualMetrics.noi,
     }),
     assetValue: scaleDisplayedMetricValue({
       displayedValue: displayedMetrics.assetValue,
-      marketValue: marketAnnualMetrics.assetValue,
+      baseValue: baseAnnualMetrics.assetValue,
       selectedValue: selectedAnnualMetrics.assetValue,
     }),
     capRate: selectedAnnualMetrics.capRate,

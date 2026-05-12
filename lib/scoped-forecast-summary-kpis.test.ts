@@ -84,7 +84,7 @@ describe("buildScopedForecastValuationKpiStripRows", () => {
     const conditionIds = VALUATION_CONDITION_OPTIONS.map((o) => o.id)
     for (const row of strip) {
       for (const id of conditionIds) {
-        expect(row.conditionValues[id]).toMatch(/\S/)
+        expect(row.conditionValues[id].value).toMatch(/\S/)
       }
     }
   })

@@ -55,7 +55,6 @@ import {
 } from "@/lib/user-scenarios"
 import {
   VALUATION_CONDITION_OPTIONS,
-  type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
 import type { ValuationKpiStripRowModel } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
@@ -340,38 +339,33 @@ function PortfolioForecastControlCenter({
 
 /** Stable SSR / first client paint: KPI strip depends on localStorage (scenario scope, mod sets). */
 const FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS = Object.fromEntries(
-  VALUATION_CONDITION_OPTIONS.map((o) => [o.id, "—"])
-) as Record<ValuationConditionId, string>
+  VALUATION_CONDITION_OPTIONS.map((o) => [o.id, { value: "—" }])
+) as ValuationKpiStripRowModel["conditionValues"]
 
 const FORECAST_VALUATION_STRIP_PLACEHOLDERS: ValuationKpiStripRowModel[] = [
   {
     label: "Gross Revenue",
-    primaryText: "—",
-    primarySuffix: "2-yr total",
+    rowSuffix: "2-yr total",
     conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
   },
   {
     label: "OpEx",
-    primaryText: "—",
-    primarySuffix: "2-yr total",
+    rowSuffix: "2-yr total",
     conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
   },
   {
     label: "NOI",
-    primaryText: "—",
-    primarySuffix: "2-yr total",
+    rowSuffix: "2-yr total",
     conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
   },
   {
     label: "Asset Value",
-    primaryText: "—",
-    primarySuffix: "terminal",
+    rowSuffix: "terminal",
     conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
   },
   {
     label: "Cap Rate",
-    primaryText: "—",
-    primarySuffix: "terminal",
+    rowSuffix: "terminal",
     conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
   },
 ]

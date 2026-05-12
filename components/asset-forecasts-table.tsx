@@ -1,15 +1,6 @@
 "use client"
 
 import * as React from "react"
-import {
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type ExpandedState,
-  type Row,
-} from "@tanstack/react-table"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import {
   Table,
@@ -63,8 +54,8 @@ function formatUsdSigned(value: number): string {
   return core
 }
 
-const FIRST_COLUMN_WIDTH_PX = 180
-const PERIOD_COLUMN_WIDTH_PX = 108
+const FIRST_COLUMN_WIDTH_PX = 264
+const PERIOD_COLUMN_WIDTH_PX = 116
 
 const firstColumnStyle: React.CSSProperties = {
   width: FIRST_COLUMN_WIDTH_PX,
@@ -87,6 +78,12 @@ type ForecastTableRow = {
   highlightValue?: boolean
   startsSection?: boolean
   subRows?: ForecastTableRow[]
+}
+
+type FlatForecastTableRow = ForecastTableRow & {
+  depth: number
+  canExpand: boolean
+  isExpanded: boolean
 }
 
 function formatStatementValue(kind: ForecastStatementRow["kind"], value: number) {
@@ -145,95 +142,126 @@ function buildForecastTableRows(
   }))
 }
 
-function lineItemCellContent(row: Row<ForecastTableRow>) {
-  const item = row.original
-  const firstRowWeight = row.index === 0 ? "font-semibold" : "font-medium"
+function flattenForecastRows(
+  rows: ForecastTableRow[],
+  expanded: Record<string, boolean>,
+  depth = 0
+): FlatForecastTableRow[] {
+  const out: FlatForecastTableRow[] = []
+  for (const row of rows) {
+    const canExpand = (row.subRows?.length ?? 0) > 0
+    const isExpanded = Boolean(expanded[row.id])
+    out.push({
+      ...row,
+      depth,
+      canExpand,
+      isExpanded,
+    })
+    if (canExpand && isExpanded) {
+      out.push(...flattenForecastRows(row.subRows ?? [], expanded, depth + 1))
+    }
+  }
+  return out
+}
 
+function lineItemLabelClassName(item: ForecastTableRow) {
   if (item.rowType === "suite") {
-    return (
-      <div className="flex min-w-0 flex-col pl-10">
-        <span className={cn("truncate text-foreground", firstRowWeight)}>{item.label}</span>
-        {item.metaText ? (
-          <span className="truncate text-xs text-muted-foreground">{item.metaText}</span>
-        ) : null}
-      </div>
-    )
+    return "text-foreground font-medium"
   }
 
-  if (row.getCanExpand()) {
+  if (item.highlightLabel) {
+    return "text-foreground font-semibold"
+  }
+
+  return "text-foreground font-medium"
+}
+
+function lineItemMetaClassName(item: ForecastTableRow) {
+  if (item.rowType === "floor") {
+    return "text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground"
+  }
+  return "text-xs text-muted-foreground"
+}
+
+function renderLineItemCell({
+  row,
+  onToggle,
+}: {
+  row: FlatForecastTableRow
+  onToggle: (rowId: string) => void
+}) {
+  const indentationPx = row.depth * 24
+  const icon = row.isExpanded ? (
+    <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+  ) : (
+    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+  )
+
+  if (row.canExpand) {
     return (
       <button
         type="button"
-        onClick={row.getToggleExpandedHandler()}
-        className={cn(
-          "flex w-full min-w-0 items-center gap-2 text-left",
-          item.rowType === "floor" && "pl-4"
-        )}
-        aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${item.label}`}
+        onClick={() => onToggle(row.id)}
+        className="flex w-full min-w-0 gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-label={`${row.isExpanded ? "Collapse" : "Expand"} ${row.label}`}
+        style={{ paddingLeft: `${indentationPx}px` }}
       >
-        {row.getIsExpanded() ? (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-        )}
-        <span
-          className={cn(
-            "truncate text-foreground",
-            row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
-          )}
-        >
-          {item.label}
-        </span>
-        {item.metaText ? (
-          <span className="shrink-0 text-xs text-muted-foreground">{item.metaText}</span>
-        ) : null}
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          {icon}
+          <div className="min-w-0">
+            <div className={cn("truncate leading-snug", lineItemLabelClassName(row))}>
+              {row.label}
+            </div>
+            {row.metaText ? (
+              <div className={cn("mt-0.5 truncate leading-snug", lineItemMetaClassName(row))}>
+                {row.metaText}
+              </div>
+            ) : null}
+          </div>
+        </div>
       </button>
     )
   }
 
   return (
-    <div className="flex min-w-0 items-center">
-      <span
-        className={cn(
-          "truncate text-foreground",
-          row.index === 0 || item.highlightLabel ? "font-semibold" : "font-medium"
-        )}
-      >
-        {item.label}
-      </span>
+    <div className="min-w-0" style={{ paddingLeft: `${indentationPx + 24}px` }}>
+      <div className={cn("truncate leading-snug", lineItemLabelClassName(row))}>
+        {row.label}
+      </div>
+      {row.metaText ? (
+        <div className={cn("mt-0.5 truncate leading-snug", lineItemMetaClassName(row))}>
+          {row.metaText}
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function rowClassName(item: ForecastTableRow) {
-  if (item.rowType === "floor") {
-    return "group bg-muted/25 hover:bg-muted/30"
-  }
-
-  if (item.rowType === "suite") {
-    return "group bg-background/80 hover:bg-muted/15"
-  }
-
+function valueTextClassName(item: ForecastTableRow) {
   return cn(
-    "group",
-    "hover:bg-transparent",
+    "text-right tabular-nums text-foreground",
+    item.highlightValue ? "font-semibold text-foreground" : "font-medium",
+    item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
+  )
+}
+
+function rowClassName(item: ForecastTableRow) {
+  return cn(
+    "group border-b border-border",
+    item.rowType === "floor" && "bg-muted/10 hover:bg-muted/15",
+    item.rowType === "suite" && "bg-muted/20 hover:bg-muted/25",
+    item.rowType === "statement" && "hover:bg-transparent",
     item.startsSection && "border-t border-border/80"
   )
 }
 
-function firstColumnSurfaceClassName(item?: ForecastTableRow) {
-  if (item == null) {
-    return "bg-card"
-  }
-
+function firstColumnSurfaceClassName(item: ForecastTableRow) {
   if (item.rowType === "floor") {
     return "forecast-sticky-line-floor"
   }
-
   if (item.rowType === "suite") {
     return "forecast-sticky-line-suite"
   }
-
   return "bg-background"
 }
 
@@ -248,58 +276,21 @@ export function AssetForecastsTable({
   revenueBreakdown: ForecastRevenueFloorRow[]
   topAccessory?: React.ReactNode
 }) {
-  const [expanded, setExpanded] = React.useState<ExpandedState>({})
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
 
   const data = React.useMemo(
     () => buildForecastTableRows(rows, revenueBreakdown),
     [revenueBreakdown, rows]
   )
 
-  const columns = React.useMemo<ColumnDef<ForecastTableRow>[]>(
-    () => [
-      {
-        id: "lineItem",
-        header: () => "Line Item",
-        cell: ({ row }) => lineItemCellContent(row),
-        enableSorting: false,
-      },
-      ...periods.map<ColumnDef<ForecastTableRow>>((period, index) => ({
-        id: `period-${period.label}`,
-        header: () => period.label,
-        cell: (info) => {
-          const item = info.row.original
-          const isFirstRow = info.row.index === 0
-
-          return (
-            <div
-              className={cn(
-                "text-right tabular-nums",
-                isFirstRow ? "font-semibold" : "font-normal",
-                item.kind === "expense" ? "text-muted-foreground" : "text-foreground"
-              )}
-            >
-              {formatStatementValue(item.kind, item.values[index] ?? 0)}
-            </div>
-          )
-        },
-        enableSorting: false,
-      })),
-    ],
-    [periods]
+  const visibleRows = React.useMemo(
+    () => flattenForecastRows(data, expanded),
+    [data, expanded]
   )
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table useReactTable
-  const table = useReactTable({
-    data,
-    columns,
-    state: { expanded },
-    onExpandedChange: setExpanded,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: (row) => row.subRows ?? [],
-    getRowId: (row) => row.id,
-    autoResetExpanded: false,
-  })
+  const toggleExpanded = React.useCallback((rowId: string) => {
+    setExpanded((prev) => ({ ...prev, [rowId]: !prev[rowId] }))
+  }, [])
 
   const totalTableMinWidth = FIRST_COLUMN_WIDTH_PX + periods.length * PERIOD_COLUMN_WIDTH_PX
 
@@ -309,66 +300,57 @@ export function AssetForecastsTable({
         <div className="border-b border-border/60 px-4 py-3">{topAccessory}</div>
       ) : null}
 
-      <Table
-        className="table-fixed"
-        style={{ minWidth: `${totalTableMinWidth}px` }}
-      >
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow
-              key={headerGroup.id}
-              className="border-b-2 border-border bg-muted hover:bg-muted/90"
-            >
-              {headerGroup.headers.map((header) => {
-                const isLineItemColumn = header.column.id === "lineItem"
-
-                return (
-                  <TableHead
-                    key={header.id}
-                    scope="col"
-                    className={cn(
-                      "h-auto min-w-0 bg-muted py-2 align-middle text-sm font-medium text-foreground",
-                      isLineItemColumn &&
-                        "sticky left-0 z-20 border-r border-border/60 px-4 text-left",
-                      !isLineItemColumn && "px-3 text-right"
-                    )}
-                    style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
+      <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
+        <colgroup>
+          <col style={firstColumnStyle} />
+          {periods.map((period) => (
+            <col key={period.label} style={periodColumnStyle} />
           ))}
+        </colgroup>
+        <TableHeader>
+          <TableRow className="border-b-2 border-border bg-muted hover:bg-muted/90">
+            <TableHead
+              scope="col"
+              className="sticky left-0 z-20 h-auto min-w-0 bg-muted px-2 py-2 text-left text-sm font-medium text-foreground"
+              style={firstColumnStyle}
+            >
+              Line Item
+            </TableHead>
+            {periods.map((period) => (
+              <TableHead
+                key={period.label}
+                scope="col"
+                className="h-auto min-w-0 bg-muted px-2 py-2 text-right text-sm font-medium text-foreground"
+                style={periodColumnStyle}
+              >
+                {period.label}
+              </TableHead>
+            ))}
+          </TableRow>
         </TableHeader>
-
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id} className={rowClassName(row.original)}>
-              {row.getVisibleCells().map((cell) => {
-                const isLineItemColumn = cell.column.id === "lineItem"
-
-                return (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      isLineItemColumn
-                        ? "sticky left-0 z-20 px-4"
-                        : "px-3",
-                      row.original.rowType === "suite" ? "py-3" : "py-2.5",
-                      isLineItemColumn && firstColumnSurfaceClassName(row.original)
-                    )}
-                    style={isLineItemColumn ? firstColumnStyle : periodColumnStyle}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                )
-              })}
+          {visibleRows.map((row) => (
+            <TableRow key={row.id} className={rowClassName(row)}>
+              <TableCell
+                className={cn(
+                  "sticky left-0 z-20 px-2 py-2",
+                  firstColumnSurfaceClassName(row)
+                )}
+                style={firstColumnStyle}
+              >
+                {renderLineItemCell({ row, onToggle: toggleExpanded })}
+              </TableCell>
+              {periods.map((period, index) => (
+                <TableCell
+                  key={`${row.id}-${period.label}`}
+                  className="px-2 py-2"
+                  style={periodColumnStyle}
+                >
+                  <div className={valueTextClassName(row)}>
+                    {formatStatementValue(row.kind, row.values[index] ?? 0)}
+                  </div>
+                </TableCell>
+              ))}
             </TableRow>
           ))}
         </TableBody>

@@ -1,7 +1,6 @@
 export type ValuationConditionId =
+  | "inPlace"
   | "grossPotential"
-  | "stabilized"
-  | "market"
   | "markToMarket"
 
 export type ValuationConditionOption = {
@@ -10,32 +9,26 @@ export type ValuationConditionOption = {
   description: string
 }
 
-export const DEFAULT_VALUATION_CONDITION_ID: ValuationConditionId = "market"
+export const DEFAULT_VALUATION_CONDITION_ID: ValuationConditionId = "inPlace"
 
 export const VALUATION_CONDITION_OPTIONS: readonly ValuationConditionOption[] = [
   {
-    id: "grossPotential",
-    label: "Gross Potential",
+    id: "inPlace",
+    label: "In-Place",
     description:
-      "Full occupancy at market rent—a ceiling case for revenue, expense, NOI, value, and cap rate.",
-  },
-  {
-    id: "stabilized",
-    label: "Stabilized",
-    description:
-      "Steady-state operations with normal frictional vacancy across revenue, expense, NOI, value, and cap rate.",
-  },
-  {
-    id: "market",
-    label: "Market",
-    description:
-      "How the asset reads in today’s market at its current condition—operating and valuation metrics together.",
+      "Current contractual in-place operations only, without lease-up credit from vacant space or mark-to-market repricing.",
   },
   {
     id: "markToMarket",
     label: "Mark-to-Market",
     description:
-      "Current leases repriced to market today—highlights embedded rollover upside or downside across the row.",
+      "Current leases repriced to market today, plus market lease-up credit on vacant space.",
+  },
+  {
+    id: "grossPotential",
+    label: "Gross Potential",
+    description:
+      "Full occupancy at market rent—a ceiling case for revenue, expense, NOI, value, and cap rate.",
   },
 ] as const
 
