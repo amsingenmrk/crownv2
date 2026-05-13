@@ -31,10 +31,13 @@ import {
   createDefaultModificationImpactFilters,
   deriveImpactMetrics,
   matchesImpactFilters,
-  type ModificationImpactBand,
   type ModificationImpactFilters,
   type ModificationImpactSpace,
 } from "@/lib/modifications-impact"
+import {
+  computeRentLiftExtents,
+  rentLiftSpaceBackgroundColor,
+} from "@/lib/modification-impact-colors"
 import {
   buildRecommendedModificationValues,
   parseRecommendedModificationSelection,
@@ -91,6 +94,14 @@ export function ModificationsWorkspace() {
     () => deriveImpactMetrics(matchingSpaces),
     [matchingSpaces]
   )
+  const noActiveModifications = impactDataset.activeSelections.length === 0
+  const liftExtents = React.useMemo(
+    () =>
+      computeRentLiftExtents(
+        allSpaces.map((s) => ({ deltaPsf: s.deltaPsf, isVacant: s.isVacant }))
+      ),
+    [allSpaces]
+  )
   const tenantVisualOverrides = React.useMemo<
     Record<string, SimplifiedTenantVisualOverride>
   >(() => {
@@ -98,8 +109,14 @@ export function ModificationsWorkspace() {
 
     for (const tenant of allSpaces) {
       const isMatch = matchingSpaceIds.has(tenant.id)
+      const backgroundColor = rentLiftSpaceBackgroundColor({
+        deltaPsf: tenant.deltaPsf,
+        isVacant: tenant.isVacant,
+        noActiveModifications,
+        extents: liftExtents,
+      })
       overrides[tenant.id] = {
-        backgroundColor: getImpactColor(tenant, isMatch),
+        backgroundColor,
         title: buildImpactTooltip(
           tenant,
           impactDataset.activeSelections.length > 0
@@ -109,7 +126,13 @@ export function ModificationsWorkspace() {
     }
 
     return overrides
-  }, [allSpaces, impactDataset.activeSelections.length, matchingSpaceIds])
+  }, [
+    allSpaces,
+    impactDataset.activeSelections.length,
+    liftExtents,
+    matchingSpaceIds,
+    noActiveModifications,
+  ])
   const floorOptions = React.useMemo(
     () => impactDataset.floors.map((floor) => String(floor.floor)),
     [impactDataset.floors]
@@ -551,24 +574,28 @@ function ImpactLegend({
         <span className="font-medium text-foreground/85">Rent impact</span>
       </div>
 
-      {(["low", "medium", "high"] as const).map((band) => (
-        <div key={band} className="flex items-center gap-1.5">
-          <span
-            className="h-2 w-2 rounded-full ring-1 ring-black/5"
-            style={{ backgroundColor: getLegendColor(band) }}
-            aria-hidden
-          />
-          <span>{getLegendLabel(band)}</span>
-        </div>
-      ))}
+      <div className="flex items-center gap-1.5">
+        <span
+          className="h-2 w-6 rounded-full ring-1 ring-black/5"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(4,120,87,0.14), rgba(4,120,87,0.48))",
+          }}
+          aria-hidden
+        />
+        <span>Positive $/SF</span>
+      </div>
 
       <div className="flex items-center gap-1.5">
         <span
-          className="h-2 w-2 rounded-full ring-1 ring-black/5"
-          style={{ backgroundColor: "rgba(100, 116, 139, 0.78)" }}
+          className="h-2 w-6 rounded-full ring-1 ring-black/5"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(190,18,60,0.14), rgba(190,18,60,0.48))",
+          }}
           aria-hidden
         />
-        <span>Vacant or no lift</span>
+        <span>Negative $/SF</span>
       </div>
 
       <div className="ml-auto text-[11px] text-muted-foreground">
@@ -577,19 +604,6 @@ function ImpactLegend({
       </div>
     </div>
   )
-}
-
-function getImpactColor(tenant: ModificationImpactSpace, isMatch: boolean) {
-  if (tenant.isVacant || tenant.impactBand === "inactive") {
-    return isMatch ? "rgba(100, 116, 139, 0.78)" : "rgba(100, 116, 139, 0.22)"
-  }
-
-  const activeColor = getLegendColor(tenant.impactBand)
-  if (isMatch) {
-    return activeColor
-  }
-
-  return getMutedLegendColor(tenant.impactBand)
 }
 
 function buildImpactTooltip(
@@ -616,41 +630,6 @@ function buildImpactTooltip(
     modified,
     lift,
   ].join("\n")
-}
-
-function getLegendLabel(band: Exclude<ModificationImpactBand, "inactive">) {
-  switch (band) {
-    case "low":
-      return "Lower lift"
-    case "medium":
-      return "Mid lift"
-    case "high":
-      return "Higher lift"
-  }
-}
-
-function getLegendColor(band: Exclude<ModificationImpactBand, "inactive">) {
-  switch (band) {
-    case "low":
-      return "rgba(249, 115, 22, 0.82)"
-    case "medium":
-      return "rgba(59, 130, 246, 0.82)"
-    case "high":
-      return "rgba(34, 197, 94, 0.82)"
-  }
-}
-
-function getMutedLegendColor(
-  band: Exclude<ModificationImpactBand, "inactive">
-) {
-  switch (band) {
-    case "low":
-      return "rgba(249, 115, 22, 0.22)"
-    case "medium":
-      return "rgba(59, 130, 246, 0.22)"
-    case "high":
-      return "rgba(34, 197, 94, 0.22)"
-  }
 }
 
 function formatRate(value: number | null) {

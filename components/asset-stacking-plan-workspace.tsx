@@ -41,6 +41,11 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   getSampleStackingPlanData,
   STACKING_EXPIRATION_LEGEND,
   stackingPlanExpirationColor,
@@ -3663,6 +3668,31 @@ function ExpandedFloorDetails({ floor }: { floor: StackingPlanFloor }) {
   )
 }
 
+function SimplifiedStackingHoverSummary({
+  text,
+  trigger,
+}: {
+  text: string
+  trigger: React.ReactElement<Record<string, unknown>>
+}) {
+  if (!text.trim()) {
+    return trigger
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={trigger} />
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        className="max-w-[min(22rem,calc(100vw-2rem))] px-3 py-2 text-left text-xs leading-snug font-medium text-background"
+      >
+        <span className="block whitespace-pre-line">{text}</span>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function SimplifiedFloorRow({
   floor,
   vizMode,
@@ -3715,7 +3745,7 @@ function SimplifiedFloorRow({
                 averagePredictedRentPsf,
               })
               const themeFillClass =
-                overrideBg == null
+                overrideBg == null && !tenant.isVacant
                   ? stackingSegmentToneFromHex(themeHex).fillClass
                   : undefined
               const title =
@@ -3729,26 +3759,33 @@ function SimplifiedFloorRow({
               const isSelected =
                 interactionMode === "drawer" && selectedTenantId === tenant.id
 
-              const sharedProps = {
-                title,
-                style: {
-                  width: `${tenant.widthPercent}%`,
-                  minWidth: "10px",
-                  ...(overrideBg != null ? { backgroundColor: overrideBg } : {}),
-                  opacity: visualOverride?.muted ? 0.35 : 1,
-                } satisfies React.CSSProperties,
-                className: cn(
-                  "h-full",
-                  themeFillClass,
-                  index < floor.tenants.length - 1 && "border-r border-border/40",
-                  interactionMode === "drawer"
-                    ? "focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset"
-                    : "cursor-default",
-                  isSelected
-                    ? "z-10 ring-2 ring-inset ring-primary/55"
-                    : "hover:opacity-90"
-                ),
-              }
+              const segmentLayoutStyle = {
+                width: `${tenant.widthPercent}%`,
+                minWidth: "10px",
+              } satisfies React.CSSProperties
+
+              const segmentSurfaceStyle = {
+                ...(overrideBg != null ? { backgroundColor: overrideBg } : {}),
+                opacity: visualOverride?.muted ? 0.35 : 1,
+              } satisfies React.CSSProperties
+
+              const segmentClassName = cn(
+                "h-full",
+                themeFillClass,
+                tenant.isVacant &&
+                  overrideBg == null &&
+                  "stacking-plan-vacant-slot",
+                tenant.isVacant &&
+                  overrideBg != null &&
+                  "stacking-plan-vacant-slot--hatch-only",
+                index < floor.tenants.length - 1 && "border-r border-border/40",
+                interactionMode === "drawer"
+                  ? "focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset"
+                  : "cursor-default",
+                isSelected
+                  ? "z-10 ring-2 ring-inset ring-primary/55"
+                  : "hover:opacity-90"
+              )
 
               const canCombineVacant =
                 tenant.isVacant &&
@@ -3808,23 +3845,40 @@ function SimplifiedFloorRow({
                 return tenant.isVacant ? (
                   <div
                     key={tenant.id}
-                    className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
-                    style={sharedProps.style}
+                    className="relative isolate flex h-full min-h-0 min-w-0 shrink-0 flex-col"
+                    style={segmentLayoutStyle}
                   >
-                    <div
-                      title={title}
-                      className={cn(sharedProps.className, "h-full w-full")}
-                      style={{
-                        ...(overrideBg != null
-                          ? { backgroundColor: overrideBg }
-                          : {}),
-                        opacity: visualOverride?.muted ? 0.35 : 1,
-                      }}
+                    <SimplifiedStackingHoverSummary
+                      text={title}
+                      trigger={
+                        <div
+                          className={cn(segmentClassName, "h-full w-full")}
+                          style={segmentSurfaceStyle}
+                        />
+                      }
                     />
                     {vacantMenu}
                   </div>
                 ) : (
-                  <div key={tenant.id} {...sharedProps} aria-hidden />
+                  <div
+                    key={tenant.id}
+                    className="flex h-full min-h-0 min-w-0 shrink-0"
+                    style={segmentLayoutStyle}
+                  >
+                    <SimplifiedStackingHoverSummary
+                      text={title}
+                      trigger={
+                        <div
+                          aria-hidden
+                          className={cn(segmentClassName, "min-h-0 w-full flex-1")}
+                          style={{
+                            height: "100%",
+                            ...segmentSurfaceStyle,
+                          }}
+                        />
+                      }
+                    />
+                  </div>
                 )
               }
 
@@ -3832,26 +3886,25 @@ function SimplifiedFloorRow({
                 return (
                   <div
                     key={tenant.id}
-                    className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
-                    style={sharedProps.style}
+                    className="relative isolate flex h-full min-h-0 min-w-0 shrink-0 flex-col"
+                    style={segmentLayoutStyle}
                   >
-                    <button
-                      type="button"
-                      title={title}
-                      style={{
-                        ...(overrideBg != null
-                          ? { backgroundColor: overrideBg }
-                          : {}),
-                        opacity: visualOverride?.muted ? 0.35 : 1,
-                      }}
-                      className={cn(
-                        sharedProps.className,
-                        "relative z-0 flex h-full min-h-0 w-full min-w-0 pr-3.5 text-left"
-                      )}
-                      onClick={() => onTenantSelect(tenant)}
-                      aria-haspopup="dialog"
-                      aria-expanded={selectedTenantId === tenant.id}
-                      aria-label={`${tenant.name}, ${tenant.space}, ${tenant.availabilityStatus}. Open details.`}
+                    <SimplifiedStackingHoverSummary
+                      text={title}
+                      trigger={
+                        <button
+                          type="button"
+                          style={segmentSurfaceStyle}
+                          className={cn(
+                            segmentClassName,
+                            "relative z-0 flex h-full min-h-0 w-full min-w-0 pr-3.5 text-left"
+                          )}
+                          onClick={() => onTenantSelect(tenant)}
+                          aria-haspopup="dialog"
+                          aria-expanded={selectedTenantId === tenant.id}
+                          aria-label={`${tenant.name}, ${tenant.space}, ${tenant.availabilityStatus}. Open details.`}
+                        />
+                      }
                     />
                     {vacantMenu}
                   </div>
@@ -3859,19 +3912,34 @@ function SimplifiedFloorRow({
               }
 
               return (
-                <button
+                <div
                   key={tenant.id}
-                  {...sharedProps}
-                  type="button"
-                  onClick={() => onTenantSelect(tenant)}
-                  aria-haspopup="dialog"
-                  aria-expanded={selectedTenantId === tenant.id}
-                  aria-label={`${tenant.name}, ${tenant.space}, ${
-                    tenant.isVacant
-                      ? tenant.availabilityStatus
-                      : `expires ${tenant.expiration}`
-                  }. Open details.`}
-                />
+                  className="flex h-full min-h-0 min-w-0 shrink-0"
+                  style={segmentLayoutStyle}
+                >
+                  <SimplifiedStackingHoverSummary
+                    text={title}
+                    trigger={
+                      <button
+                        type="button"
+                        className={segmentClassName}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          ...segmentSurfaceStyle,
+                        }}
+                        onClick={() => onTenantSelect(tenant)}
+                        aria-haspopup="dialog"
+                        aria-expanded={selectedTenantId === tenant.id}
+                        aria-label={`${tenant.name}, ${tenant.space}, ${
+                          tenant.isVacant
+                            ? tenant.availabilityStatus
+                            : `expires ${tenant.expiration}`
+                        }. Open details.`}
+                      />
+                    }
+                  />
+                </div>
               )
             })
             )}

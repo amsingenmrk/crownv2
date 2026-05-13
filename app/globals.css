@@ -235,5 +235,55 @@
   tr.group:hover .forecast-sticky-line-nested {
     background-color: color-mix(in oklab, var(--muted) 25%, var(--background));
   }
+
+  /*
+   * Simplified stacking plan: vacant slots vs occupied — diagonal hatch only
+   * (no dashed frame).
+   */
+  .stacking-plan-vacant-slot {
+    background-color: color-mix(in oklab, var(--muted) 52%, var(--background));
+    /* Hatch: each diagonal band is 2px along the repeat axis (then 6px gap) */
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--muted-foreground) 58%, transparent) 0,
+      color-mix(in oklab, var(--muted-foreground) 58%, transparent) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+  }
+
+  .dark .stacking-plan-vacant-slot {
+    background-color: color-mix(in oklab, var(--muted) 38%, var(--background));
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--muted-foreground) 72%, transparent) 0,
+      color-mix(in oklab, var(--muted-foreground) 72%, transparent) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+  }
+
+  /* Vacant with inline fill (e.g. rent impact) — hatch overlay on top of fill */
+  .stacking-plan-vacant-slot--hatch-only {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--foreground) 42%, transparent) 0,
+      color-mix(in oklab, var(--foreground) 42%, transparent) 2px,
+      transparent 2px,
+      transparent 7px
+    );
+    background-blend-mode: soft-light;
+  }
+
+  .dark .stacking-plan-vacant-slot--hatch-only {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--background) 55%, transparent) 0,
+      color-mix(in oklab, var(--background) 55%, transparent) 2px,
+      transparent 2px,
+      transparent 7px
+    );
+    background-blend-mode: overlay;
+  }
 }
 

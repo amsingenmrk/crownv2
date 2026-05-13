@@ -44,6 +44,82 @@ const MOD_OPTION_IMPACT_PSF: Record<ModId, Record<string, number>> = {
   },
 }
 
+/** Heavier / louder concepts → stronger modeled drag on low-floor neighbors. */
+const BAR_OPTION_NOISE: Record<string, number> = {
+  "sports-bar": 1.22,
+  "traditional-pubs": 1.04,
+  "cocktail-bar": 1.12,
+  "beer-garden": 1.08,
+}
+
+const RESTAURANT_OPTION_NOISE: Record<string, number> = {
+  "white-cloth": 1.2,
+  takeout: 0.82,
+  "fast-casual": 1.02,
+  "family-friendly": 1.14,
+  deli: 0.88,
+}
+
+function hashTenantIdForImpact(tenantId: string): number {
+  let h = 2166136261
+  for (let i = 0; i < tenantId.length; i++) {
+    h ^= tenantId.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/**
+ * Street-level F&B (bar / restaurant) is modeled as a rent drag on *some* direct
+ * neighbors on floors 1–2 (noise, exhaust, late-night traffic). Deterministic per
+ * tenant id so the stack stays stable when filters change. (~55% of floor 1,
+ * ~48% of floor 2.)
+ */
+function isTenantAffectedByLowFloorFbNuisance(
+  tenantId: string,
+  floorNumber: number
+): boolean {
+  if (floorNumber !== 1 && floorNumber !== 2) return false
+  const h = hashTenantIdForImpact(tenantId) % 100
+  // Floor 1: more exposure; floor 2: slightly fewer modeled impacts.
+  const threshold = floorNumber === 1 ? 55 : 48
+  return h < threshold
+}
+
+function getLowFloorFoodAndBarNuisancePsf({
+  modId,
+  optionValue,
+  tenant,
+  floorNumber,
+  leaseTiming,
+  sizeBucket,
+}: {
+  modId: ModId
+  optionValue: string
+  tenant: StackingPlanTenant
+  floorNumber: number
+  leaseTiming: ModificationLeaseTiming
+  sizeBucket: SpaceSizeBucket
+}): number {
+  if (modId !== "bar" && modId !== "restaurant") return 0
+  if (!isTenantAffectedByLowFloorFbNuisance(tenant.id, floorNumber)) return 0
+
+  const optionNoise =
+    modId === "bar"
+      ? BAR_OPTION_NOISE[optionValue] ?? 1
+      : RESTAURANT_OPTION_NOISE[optionValue] ?? 1
+
+  const baseDrag = modId === "restaurant" ? -0.58 : -0.5
+
+  return (
+    baseDrag *
+    optionNoise *
+    getLeaseTimingWeight(leaseTiming) *
+    getSizeWeight(sizeBucket) *
+    getBuildoutWeight(tenant.buildout)
+  )
+}
+
 export type ModificationImpactBand = "inactive" | "low" | "medium" | "high"
 
 export type ModificationLeaseTiming =
@@ -342,14 +418,43 @@ function getDriverImpactPsf({
   const baseImpact =
     MOD_OPTION_IMPACT_PSF[selection.id][selection.optionValue] ?? 0
 
-  return roundToHundredths(
+  const leaseTimingWeight = getLeaseTimingWeight(leaseTiming)
+  const sizeWeight = getSizeWeight(sizeBucket)
+  const buildoutWeight = getBuildoutWeight(tenant.buildout)
+  const floorWeight = getFloorWeight(selection.id, floor.floor)
+  const qualityWeight = getQualityWeight(tenant)
+
+  let primary =
     baseImpact *
-      getLeaseTimingWeight(leaseTiming) *
-      getSizeWeight(sizeBucket) *
-      getBuildoutWeight(tenant.buildout) *
-      getFloorWeight(selection.id, floor.floor) *
-      getQualityWeight(tenant)
-  )
+    leaseTimingWeight *
+    sizeWeight *
+    buildoutWeight *
+    floorWeight *
+    qualityWeight
+
+  const isFoodAndBeverageDriver =
+    selection.id === "bar" || selection.id === "restaurant"
+  const lowFloorFbNuisanceNeighbor =
+    isFoodAndBeverageDriver &&
+    (floor.floor === 1 || floor.floor === 2) &&
+    isTenantAffectedByLowFloorFbNuisance(tenant.id, floor.floor)
+
+  if (lowFloorFbNuisanceNeighbor) {
+    // These suites don't get the same amenity uplift from street-level F&B;
+    // modeled impact is the nuisance term only (so net lift stays visibly negative).
+    primary = 0
+  }
+
+  const nuisance = getLowFloorFoodAndBarNuisancePsf({
+    modId: selection.id,
+    optionValue: selection.optionValue,
+    tenant,
+    floorNumber: floor.floor,
+    leaseTiming,
+    sizeBucket,
+  })
+
+  return roundToHundredths(primary + nuisance)
 }
 
 function getBaselineRentPsf(

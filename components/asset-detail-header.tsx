@@ -27,8 +27,24 @@ export function AssetDetailHeader() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useParams()
+  const [applyPersistedGroupOverrides, setApplyPersistedGroupOverrides] =
+    React.useState(false)
+
+  React.useEffect(() => {
+    setApplyPersistedGroupOverrides(true)
+  }, [])
+
   const id = typeof params?.id === "string" ? params.id : null
-  const asset = React.useMemo(() => (id ? getAssetById(id) : null), [id])
+  const asset = React.useMemo(
+    () =>
+      id
+        ? getAssetById(
+            id,
+            applyPersistedGroupOverrides ? undefined : {}
+          )
+        : null,
+    [id, applyPersistedGroupOverrides]
+  )
   const marketPin = React.useMemo(
     () => (id ? getMarketListingPinById(id) : null),
     [id]
