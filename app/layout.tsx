@@ -1,11 +1,13 @@
 import localFont from "next/font/local"
 import type { Metadata } from "next"
 
+import Script from "next/script"
+
 import "./globals.css"
 import { ToastProvider } from "@/components/app-toast"
-import { ThemeBootScript } from "@/components/theme-boot-script"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { buildThemeBootScript } from "@/lib/theme-mode"
 
 /** Self-hosted Inter — avoids build-time fetches to fonts.gstatic.com (often blocked or TLS-broken on corp networks). */
 const inter = localFont({
@@ -40,7 +42,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className="antialiased">
-        <ThemeBootScript />
+        <Script
+          id="theme-boot"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: buildThemeBootScript() }}
+        />
         <ThemeProvider>
           <TooltipProvider>
             <ToastProvider>{children}</ToastProvider>
