@@ -34,8 +34,8 @@ function ConditionHeader({
   tooltip: string
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="truncate text-sm font-semibold leading-snug text-foreground">
+    <div className="flex items-center gap-1">
+      <span className="truncate text-xs font-semibold leading-tight text-foreground">
         {label}
       </span>
       <Tooltip>
@@ -66,14 +66,14 @@ function ConditionValueCell({ cell }: { cell: ValuationKpiStripConditionCell }) 
   const deltaClassName = deltaToneClass(cell.compare?.deltaDirection)
 
   return (
-    <div className="min-w-0 space-y-1">
-      <div className="text-sm font-semibold leading-snug tracking-tight tabular-nums text-foreground sm:text-base">
+    <div className="min-w-0 space-y-0.5">
+      <div className="text-sm font-semibold leading-tight tracking-tight tabular-nums text-foreground">
         {cell.value}
       </div>
       {showDelta ? (
         <div
           className={cn(
-            "flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-snug tabular-nums",
+            "flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight tabular-nums",
             deltaClassName
           )}
         >
@@ -100,7 +100,7 @@ export function ValuationKpiMetricStrip({
   rows: readonly ValuationKpiStripRowModel[]
   className?: string
 }) {
-  const tableMinWidthRem = 14 + VALUATION_CONDITION_OPTIONS.length * 11.5
+  const tableMinWidthRem = 11.5 + VALUATION_CONDITION_OPTIONS.length * 9.25
   const cellBorderClass = "border-border/50"
 
   return (
@@ -117,9 +117,9 @@ export function ValuationKpiMetricStrip({
           style={{ minWidth: `${tableMinWidthRem}rem` }}
         >
           <colgroup>
-            <col className="w-[14rem]" />
+            <col className="w-[11.5rem]" />
             {VALUATION_CONDITION_OPTIONS.map((option) => (
-              <col key={option.id} className="w-[11.5rem]" />
+              <col key={option.id} className="w-[9.25rem]" />
             ))}
           </colgroup>
           <thead>
@@ -127,11 +127,11 @@ export function ValuationKpiMetricStrip({
               <th
                 scope="col"
                 className={cn(
-                  "bg-muted/[0.22] px-4 py-3.5 text-left align-bottom border-b",
+                  "bg-muted/[0.22] px-2.5 py-2 text-left align-bottom border-b",
                   cellBorderClass
                 )}
               >
-                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   Metric
                 </span>
               </th>
@@ -140,7 +140,7 @@ export function ValuationKpiMetricStrip({
                   key={option.id}
                   scope="col"
                   className={cn(
-                    "bg-muted/[0.22] px-4 py-3.5 text-left align-bottom border-b border-l",
+                    "bg-muted/[0.22] px-2.5 py-2 text-left align-bottom border-b border-l",
                     cellBorderClass
                   )}
                 >
@@ -162,17 +162,17 @@ export function ValuationKpiMetricStrip({
                 <th
                   scope="row"
                   className={cn(
-                    "bg-muted/[0.08] px-4 py-3.5 text-left align-top",
+                    "bg-muted/[0.08] px-2.5 py-2 text-left align-top",
                     bottomBorderClass,
                     cellBorderClass
                   )}
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-sm font-semibold leading-snug text-foreground">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="text-sm font-semibold leading-tight text-foreground">
                       {row.label}
                     </div>
                     {row.rowSuffix != null && row.rowSuffix !== "" ? (
-                      <div className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium leading-none text-muted-foreground ring-1 ring-border/60">
+                      <div className="inline-flex items-center rounded-full bg-muted/70 px-1.5 py-px text-[10px] font-medium leading-none text-muted-foreground ring-1 ring-border/60">
                         {row.rowSuffix}
                       </div>
                     ) : null}
@@ -182,7 +182,7 @@ export function ValuationKpiMetricStrip({
                   <td
                     key={option.id}
                     className={cn(
-                      "bg-card px-4 py-3.5 align-top border-l",
+                      "bg-card px-2.5 py-2 align-top border-l",
                       bottomBorderClass,
                       cellBorderClass
                     )}
