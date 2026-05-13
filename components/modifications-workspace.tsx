@@ -11,12 +11,13 @@ import { useParams, useSearchParams } from "next/navigation"
 
 import { AssetOverviewKpiStrip } from "@/components/asset-overview-kpi-strip"
 import { BuildingModificationsSidebar } from "@/components/building-modifications-sidebar"
-import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
+import { INITIAL_MOD_VALUES, getModConfig, type ModValues } from "@/lib/building-modifications"
 import {
   AssetStackingPlanWorkspace,
   type SimplifiedTenantVisualOverride,
 } from "@/components/asset-stacking-plan-workspace"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -168,14 +169,20 @@ export function ModificationsWorkspace() {
                   Select a building modification to see rent impact
                 </span>
               ) : (
-                impactDataset.activeSelections.map((selection) => (
-                  <span
-                    key={`${selection.id}-${selection.optionValue}`}
-                    className="rounded-full border border-primary/20 bg-primary/[0.06] px-3 py-1 text-xs font-medium text-foreground"
-                  >
-                    {selection.optionTitle}
-                  </span>
-                ))
+                impactDataset.activeSelections.map((selection) => {
+                  const mod = getModConfig(selection.id)
+                  const Icon = mod?.icon
+                  return (
+                    <Badge
+                      key={`${selection.id}-${selection.optionValue}`}
+                      variant="secondary"
+                      className="max-w-[min(100%,20rem)] font-medium"
+                    >
+                      {Icon != null ? <Icon aria-hidden className="text-muted-foreground" /> : null}
+                      <span className="truncate">{selection.optionTitle}</span>
+                    </Badge>
+                  )
+                })
               )}
             </div>
           </section>

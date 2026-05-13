@@ -1,8 +1,8 @@
 import {
+  Beer,
   Coffee,
   Dumbbell,
   Leaf,
-  Mic,
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react"
@@ -156,7 +156,7 @@ const BAR_OPTIONS: ModOption[] = [
 
 export const MOD_CONFIGS: ModConfig[] = [
   { id: "gym", checkboxLabel: "Add Gym", icon: Dumbbell, options: GYM_OPTIONS },
-  { id: "bar", checkboxLabel: "Add Bar", icon: Mic, options: BAR_OPTIONS },
+  { id: "bar", checkboxLabel: "Add Bar", icon: Beer, options: BAR_OPTIONS },
   {
     id: "cafe",
     checkboxLabel: "Add Cafe",
