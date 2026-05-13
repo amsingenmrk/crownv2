@@ -162,7 +162,7 @@ export function ValuationKpiMetricStrip({
                 <th
                   scope="row"
                   className={cn(
-                    "bg-muted/[0.08] px-2.5 py-2 text-left align-top",
+                    "bg-muted/[0.08] px-2.5 py-2 text-left align-middle",
                     bottomBorderClass,
                     cellBorderClass
                   )}
@@ -182,7 +182,7 @@ export function ValuationKpiMetricStrip({
                   <td
                     key={option.id}
                     className={cn(
-                      "bg-card px-2.5 py-2 align-top border-l",
+                      "bg-card px-2.5 py-2 align-middle border-l",
                       bottomBorderClass,
                       cellBorderClass
                     )}
