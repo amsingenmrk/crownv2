@@ -152,6 +152,34 @@
   }
 
   /*
+   * Portfolio & scenario assets tables: sticky trash column on the right
+   * (`portfolioRemove` / `scenarioRemove`). Sticky on th/td; opaque fills.
+   */
+  th.portfolio-assets-scenario-remove-col-head {
+    position: sticky;
+    right: 0;
+    z-index: 5;
+    background-color: color-mix(in oklab, var(--muted) 92%, var(--background));
+    box-shadow: -8px 0 12px -8px color-mix(in oklab, var(--foreground) 10%, transparent);
+  }
+
+  tr.portfolio-assets-row > td.portfolio-assets-scenario-remove-col-body {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    background-color: var(--card);
+    box-shadow: -8px 0 12px -8px color-mix(in oklab, var(--foreground) 8%, transparent);
+  }
+
+  tr.portfolio-assets-row:hover > td.portfolio-assets-scenario-remove-col-body {
+    background-color: color-mix(in oklab, var(--muted) 45%, var(--card));
+  }
+
+  tr.portfolio-assets-row[data-state="selected"] > td.portfolio-assets-scenario-remove-col-body {
+    background-color: color-mix(in oklab, var(--muted) 72%, var(--card));
+  }
+
+  /*
    * Forecast / portfolio tables: sticky columns must use opaque fills.
    * Translucent `bg-muted/xx` lets horizontally scrolled cells read through.
    */

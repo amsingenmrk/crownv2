@@ -11,6 +11,7 @@ import {
 import {
   buildPortfolioAssetMetadataItems,
   PortfolioAssetIdentity,
+  PortfolioRemoveAssetButton,
   ScenarioRemoveAssetButton,
 } from "@/components/portfolio/portfolio-asset-identity"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
@@ -291,14 +292,6 @@ export function createPortfolioAssetColumns(
               assetClass: row.original.classLabel,
               rsf: row.original.rsf,
             })}
-            trailingAction={
-              variant === "scenarios" ? (
-                <ScenarioRemoveAssetButton
-                  assetId={row.original.id}
-                  building={row.original.building}
-                />
-              ) : undefined
-            }
           />
         </div>
       ),
@@ -553,6 +546,21 @@ export function createPortfolioAssetColumns(
         </div>
       ),
     })
+    columns.push({
+      id: "portfolioRemove",
+      enableHiding: false,
+      enableSorting: false,
+      meta: { columnLabel: "Remove from portfolio" },
+      header: () => <span className="sr-only">Remove from portfolio</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          <PortfolioRemoveAssetButton
+            assetId={row.original.id}
+            building={row.original.building}
+          />
+        </div>
+      ),
+    })
   } else {
     // Scenario overview: Asset column shows address in subtitle — keep Modifications next.
     columns.splice(2, 0, {
@@ -609,6 +617,23 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="flex justify-start">
           <PortfolioRowStatusBadge rowId={row.original.id} />
+        </div>
+      ),
+    })
+    columns.push({
+      id: "scenarioRemove",
+      enableHiding: false,
+      enableSorting: false,
+      meta: { columnLabel: "Remove from scenario" },
+      header: () => (
+        <span className="sr-only">Remove from scenario</span>
+      ),
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          <ScenarioRemoveAssetButton
+            assetId={row.original.id}
+            building={row.original.building}
+          />
         </div>
       ),
     })

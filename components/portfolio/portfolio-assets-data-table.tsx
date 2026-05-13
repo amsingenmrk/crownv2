@@ -8,6 +8,7 @@ import { ChevronDown, Plus } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
   PortfolioAssetIdentity,
+  PortfolioRemoveAssetButton,
   ScenarioRemoveAssetButton,
 } from "@/components/portfolio/portfolio-asset-identity"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -95,6 +96,10 @@ function gridTemplateForVisibleColumns(
       return PORTFOLIO_ASSETS_COLUMN_GRID_TRACK[c.id] ?? "auto"
     })
     .join(" ")
+}
+
+function isStickyTrashPortfolioColumn(columnId: string): boolean {
+  return columnId === "scenarioRemove" || columnId === "portfolioRemove"
 }
 
 export function PortfolioAssetsDataTable({
@@ -329,27 +334,30 @@ export function PortfolioAssetsDataTable({
               className="grid items-center border-b-2 border-border bg-muted hover:bg-muted/90"
               style={gridRowStyle}
             >
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  scope="col"
-                  className={cn(
-                    "h-auto min-w-0 py-2 text-left align-middle",
-                    header.column.id === "select"
-                      ? "flex items-center justify-start pl-3 pr-0"
-                      : header.column.id === "scenarioRemove"
-                        ? "flex items-center justify-end px-2 pr-3"
-                        : "px-2 font-medium"
-                  )}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
+              {headerGroup.headers.map((header) => {
+                const isStickyTrash = isStickyTrashPortfolioColumn(header.column.id)
+                return (
+                  <TableHead
+                    key={header.id}
+                    scope="col"
+                    className={cn(
+                      "h-auto min-w-0 text-left align-middle",
+                      header.column.id === "select"
+                        ? "flex items-center justify-start py-2 pl-3 pr-0"
+                        : isStickyTrash
+                          ? "portfolio-assets-scenario-remove-col-head flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
+                          : "px-2 py-2 font-medium"
+                    )}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                )
+              })}
             </TableRow>
           ))}
         </TableHeader>
@@ -359,27 +367,30 @@ export function PortfolioAssetsDataTable({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
-                className="grid items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
+                className="portfolio-assets-row grid items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
                 style={gridRowStyle}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      "min-w-0 border-0 py-2 text-left align-middle",
-                      cell.column.id === "select"
-                        ? "pl-3 pr-0"
-                        : cell.column.id === "scenarioRemove"
-                          ? "px-2 pr-3"
-                          : "px-2"
-                    )}
-                  >
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const isStickyTrash = isStickyTrashPortfolioColumn(cell.column.id)
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        "min-w-0 border-0 text-left align-middle",
+                        cell.column.id === "select"
+                          ? "py-2 pl-3 pr-0"
+                          : isStickyTrash
+                            ? "portfolio-assets-scenario-remove-col-body flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
+                            : "px-2 py-2"
+                      )}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))
           ) : (
@@ -444,14 +455,6 @@ export function PortfolioAssetsDataTable({
                         assetClass: row.classLabel,
                         rsf: row.rsf,
                       })}
-                      trailingAction={
-                        variant === "scenarios" ? (
-                          <ScenarioRemoveAssetButton
-                            assetId={row.id}
-                            building={row.building}
-                          />
-                        ) : undefined
-                      }
                     />
                   </div>
                   {variant === "scenarios" ? (
@@ -477,6 +480,14 @@ export function PortfolioAssetsDataTable({
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Status</span>
                       <PortfolioRowStatusBadge rowId={row.id} />
+                    </div>
+                  ) : null}
+                  {variant === "scenarios" ? (
+                    <div className="flex justify-end border-t border-border pt-3">
+                      <ScenarioRemoveAssetButton
+                        assetId={row.id}
+                        building={row.building}
+                      />
                     </div>
                   ) : null}
                   {variant === "portfolio" && showScopeColumn ? (
@@ -546,6 +557,11 @@ export function PortfolioAssetsDataTable({
                         </span>
                       </div>
                     </>
+                  ) : null}
+                  {variant === "portfolio" ? (
+                    <div className="flex justify-end border-t border-border pt-3">
+                      <PortfolioRemoveAssetButton assetId={row.id} building={row.building} />
+                    </div>
                   ) : null}
                 </div>
               </li>

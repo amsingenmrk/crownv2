@@ -17,4 +17,7 @@ export const PORTFOLIO_ASSETS_COLUMN_GRID_TRACK: Record<string, string> = {
   modifications: "minmax(9rem, max-content)",
   outlook: "minmax(9rem, max-content)",
   assetListingKind: "minmax(6.75rem, max-content)",
+  /** Sticky trash column: scenarios (`scenarioRemove`), portfolio (`portfolioRemove`) */
+  scenarioRemove: "minmax(2.75rem, 3rem)",
+  portfolioRemove: "minmax(2.75rem, 3rem)",
 }

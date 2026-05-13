@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Trash2 } from "lucide-react"
 
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
+import { useAppToast } from "@/components/app-toast"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,6 +16,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { assetHref } from "@/lib/assets"
+import {
+  getAssetGroupOverridesSnapshot,
+  markPropertyStandaloneNav,
+  parseAssetGroupOverrideSnapshot,
+  removeAssetGroupOverride,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { cn } from "@/lib/utils"
 
 export type PortfolioAssetMetadataItem = {
@@ -140,6 +149,81 @@ export function ScenarioRemoveAssetButton({
               }}
             >
               Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+/** Remove from portfolio (same rules as the remove action in `AssetScopeSelect`). */
+export function PortfolioRemoveAssetButton({
+  assetId,
+  building,
+}: {
+  assetId: string
+  building: string
+}) {
+  const showToast = useAppToast()
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
+
+  const showRemove =
+    !assetGroupData.standalonePropertyNavIds.has(assetId) &&
+    (Object.hasOwn(assetGroupData.overrides, assetId) || !isMarketListingRowId(assetId))
+
+  if (!showRemove) {
+    return null
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-6 shrink-0 rounded-sm text-muted-foreground/80 hover:text-destructive"
+        aria-label={`Remove ${building} from portfolio`}
+        aria-haspopup="dialog"
+        aria-expanded={confirmOpen}
+        onClick={() => setConfirmOpen(true)}
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+      </Button>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove from portfolio?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{building}</span> will no longer be
+              assigned to this portfolio group. You can add it again anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                removeAssetGroupOverride(assetId)
+                markPropertyStandaloneNav(assetId)
+                showToast("Removed from portfolio.")
+                setConfirmOpen(false)
+              }}
+            >
+              Remove from portfolio
             </Button>
           </DialogFooter>
         </DialogContent>
