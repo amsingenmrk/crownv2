@@ -242,13 +242,13 @@
    */
   .stacking-plan-vacant-slot {
     background-color: color-mix(in oklab, var(--muted) 48%, var(--background));
-    /* Hatch: ~2px strokes, lower contrast, 14px repeat for text legibility */
+    /* Hatch: ~3px strokes, low-contrast mix, 18px repeat — legible lift text */
     background-image: repeating-linear-gradient(
       135deg,
-      color-mix(in oklab, var(--muted-foreground) 28%, transparent) 0,
-      color-mix(in oklab, var(--muted-foreground) 28%, transparent) 2px,
-      transparent 2px,
-      transparent 14px
+      color-mix(in oklab, var(--muted-foreground) 18%, transparent) 0,
+      color-mix(in oklab, var(--muted-foreground) 18%, transparent) 3px,
+      transparent 3px,
+      transparent 18px
     );
   }
 
@@ -256,10 +256,10 @@
     background-color: color-mix(in oklab, var(--muted) 36%, var(--background));
     background-image: repeating-linear-gradient(
       135deg,
-      color-mix(in oklab, var(--muted-foreground) 46%, transparent) 0,
-      color-mix(in oklab, var(--muted-foreground) 46%, transparent) 2px,
-      transparent 2px,
-      transparent 14px
+      color-mix(in oklab, var(--muted-foreground) 34%, transparent) 0,
+      color-mix(in oklab, var(--muted-foreground) 34%, transparent) 3px,
+      transparent 3px,
+      transparent 18px
     );
   }
 
@@ -267,10 +267,10 @@
   .stacking-plan-vacant-slot--hatch-only {
     background-image: repeating-linear-gradient(
       135deg,
-      color-mix(in oklab, var(--foreground) 22%, transparent) 0,
-      color-mix(in oklab, var(--foreground) 22%, transparent) 2px,
-      transparent 2px,
-      transparent 14px
+      color-mix(in oklab, var(--foreground) 14%, transparent) 0,
+      color-mix(in oklab, var(--foreground) 14%, transparent) 3px,
+      transparent 3px,
+      transparent 18px
     );
     background-blend-mode: soft-light;
   }
@@ -278,10 +278,10 @@
   .dark .stacking-plan-vacant-slot--hatch-only {
     background-image: repeating-linear-gradient(
       135deg,
-      color-mix(in oklab, var(--background) 36%, transparent) 0,
-      color-mix(in oklab, var(--background) 36%, transparent) 2px,
-      transparent 2px,
-      transparent 14px
+      color-mix(in oklab, var(--background) 24%, transparent) 0,
+      color-mix(in oklab, var(--background) 24%, transparent) 3px,
+      transparent 3px,
+      transparent 18px
     );
     background-blend-mode: overlay;
   }
