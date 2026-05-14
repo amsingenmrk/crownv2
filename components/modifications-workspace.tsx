@@ -18,7 +18,6 @@ import {
 } from "@/components/asset-stacking-plan-workspace"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -44,6 +43,10 @@ import {
   parseRecommendedModificationSelection,
 } from "@/lib/modification-recommendations"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+
+/** Dense filter row labels (below default `INPUT_LABEL_TEXT_CLASS` / `text-sm`). */
+const IMPACT_FILTER_LABEL_CLASS =
+  "text-[11px] font-medium leading-none text-muted-foreground"
 
 export function ModificationsWorkspace() {
   const params = useParams()
@@ -382,7 +385,7 @@ function ImpactFilterFields({
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <label className="flex min-w-0 flex-col gap-1.5">
-        <span className={INPUT_LABEL_TEXT_CLASS}>Tenant or suite</span>
+        <span className={IMPACT_FILTER_LABEL_CLASS}>Tenant or suite</span>
         <div className="relative">
           <Search
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -550,7 +553,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1.5">
-      <span className={INPUT_LABEL_TEXT_CLASS}>{label}</span>
+      <span className={IMPACT_FILTER_LABEL_CLASS}>{label}</span>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="w-full">
           <SelectValue />

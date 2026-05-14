@@ -62,7 +62,7 @@ export function AssetOutlookSetSelect({
         <SelectTrigger
           size="sm"
           className={cn(
-            "h-7 w-full max-w-[7.25rem] min-w-0 text-[0.75rem]",
+            "h-7 w-full max-w-[7.25rem] min-w-0 text-[11px]",
             storedId !== "" &&
               "border-sky-500/45 bg-sky-500/[0.09] font-medium text-sky-900 shadow-sm hover:bg-sky-500/[0.12] hover:border-sky-500/55 focus-visible:border-sky-500 focus-visible:ring-sky-500/25 dark:border-sky-400/40 dark:bg-sky-500/[0.14] dark:text-sky-100 dark:hover:bg-sky-500/20 dark:hover:border-sky-400/55 dark:focus-visible:border-sky-400 dark:focus-visible:ring-sky-400/30 [&_svg]:text-sky-700 dark:[&_svg]:text-sky-300"
           )}

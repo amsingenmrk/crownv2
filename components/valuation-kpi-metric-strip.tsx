@@ -35,7 +35,7 @@ function ConditionHeader({
 }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="truncate text-xs font-semibold leading-tight text-foreground">
+      <span className="truncate text-sm font-medium leading-tight text-foreground">
         {label}
       </span>
       <Tooltip>
@@ -126,15 +126,12 @@ export function ValuationKpiMetricStrip({
             <tr>
               <th
                 scope="col"
+                aria-label="Metric"
                 className={cn(
                   "bg-muted/[0.22] px-2.5 py-2 text-left align-middle border-b",
                   cellBorderClass
                 )}
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  Metric
-                </span>
-              </th>
+              />
               {VALUATION_CONDITION_OPTIONS.map((option) => (
                 <th
                   key={option.id}

@@ -22,6 +22,7 @@ import { AssetModificationSetSelect } from "@/components/portfolio/asset-modific
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { deriveBaseAnnualOpex } from "@/lib/forecast-data"
+import { modificationSetValueDeltaUsd } from "@/lib/modification-selection-value-delta"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -152,11 +153,11 @@ function ScenarioAssetMetricCell({
         }
       case "noi":
         return { value: modifiedNoiUsd - baseNoiUsd, text: formatUsdDeltaCompact(modifiedNoiUsd - baseNoiUsd) }
-      case "value":
-        return {
-          value: modifiedValueUsd - financials.valueUsd,
-          text: formatUsdDeltaCompact(modifiedValueUsd - financials.valueUsd),
-        }
+      case "value": {
+        const vd = modificationSetValueDeltaUsd(assetId, selectedSetId)
+        if (vd == null) return null
+        return { value: vd, text: formatUsdDeltaCompact(vd) }
+      }
       case "capRate":
         return {
           value: modifiedCapRatePct - financials.capRatePct,

@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleHelp } from "lucide-react"
+import { Info } from "lucide-react"
 
 import {
   Tooltip,
@@ -34,7 +34,7 @@ export function PortfolioProvenanceIndicator({
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <CircleHelp className="size-3.5" />
+          <Info className="size-3 stroke-[1.5]" aria-hidden />
         </TooltipTrigger>
         <TooltipContent className="max-w-[220px] text-pretty">
           {label}
