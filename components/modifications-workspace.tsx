@@ -285,17 +285,33 @@ function ImpactFilters({
             value={formatSignedRateRange(metrics.minLiftPsf, metrics.maxLiftPsf)}
           />
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-1.5">
+          {activeFilterBadges.map((badge) => (
+            <Badge
+              key={badge}
+              variant="outline"
+              className="max-w-[min(100%,14rem)] truncate rounded-full border-border/70 bg-background/75 px-2.5 py-1 text-[11px] font-medium shadow-sm"
+            >
+              {badge}
+            </Badge>
+          ))}
           {hasActiveFilters ? (
-            <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[11px] font-medium text-foreground">
-              {activeFilterBadges.length} active
-            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-muted-foreground"
+              onClick={() => onChange(createDefaultModificationImpactFilters())}
+            >
+              <FilterX className="size-3.5" aria-hidden />
+              Clear filters
+            </Button>
           ) : null}
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
-          className="relative aria-expanded:border-primary/40 aria-expanded:bg-primary/[0.08] aria-expanded:text-foreground aria-expanded:shadow-sm aria-expanded:ring-2 aria-expanded:ring-primary/15 dark:aria-expanded:border-primary/30 dark:aria-expanded:bg-primary/[0.14]"
+            className="relative shrink-0 aria-expanded:border-primary/40 aria-expanded:bg-primary/[0.08] aria-expanded:text-foreground aria-expanded:shadow-sm aria-expanded:ring-2 aria-expanded:ring-primary/15 dark:aria-expanded:border-primary/30 dark:aria-expanded:bg-primary/[0.14]"
             onClick={() => setIsExpanded((current) => !current)}
             aria-expanded={isExpanded}
             aria-label={
@@ -316,54 +332,17 @@ function ImpactFilters({
         </div>
       </div>
 
-      {activeFilterBadges.length > 0 || isExpanded ? (
+      {isExpanded ? (
         <div className="rounded-xl border border-border/70 bg-muted/[0.18] p-3">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {hasActiveFilters ? (
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  Active filters
-                </span>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">
-                  Refine which spaces are emphasized in the rent impact stack.
-                </span>
-              )}
-
-              {hasActiveFilters ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => onChange(createDefaultModificationImpactFilters())}
-                >
-                  <FilterX className="size-3.5" aria-hidden />
-                  Clear filters
-                </Button>
-              ) : null}
-            </div>
-
-            {activeFilterBadges.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {activeFilterBadges.map((badge) => (
-                  <span
-                    key={badge}
-                    className="rounded-full border border-border/70 bg-background/75 px-2.5 py-1 text-[11px] font-medium text-foreground"
-                  >
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            {isExpanded ? (
-              <ImpactFilterFields
-                filters={filters}
-                floorOptions={floorOptions}
-                onChange={onChange}
-              />
-            ) : null}
+            <span className="text-[11px] text-muted-foreground">
+              Refine which spaces are emphasized in the rent impact stack.
+            </span>
+            <ImpactFilterFields
+              filters={filters}
+              floorOptions={floorOptions}
+              onChange={onChange}
+            />
           </div>
         </div>
       ) : null}
