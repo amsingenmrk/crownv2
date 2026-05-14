@@ -36,6 +36,10 @@ import {
 } from "@/lib/modifications-impact"
 import {
   computeRentLiftExtents,
+  RENT_LIFT_NEGATIVE_LEGEND_GRADIENT,
+  RENT_LIFT_NEUTRAL_PCT_EPSILON,
+  RENT_LIFT_NEUTRAL_SPACE_FILL,
+  RENT_LIFT_POSITIVE_LEGEND_GRADIENT,
   rentLiftSpaceBackgroundColor,
 } from "@/lib/modification-impact-colors"
 import {
@@ -102,7 +106,11 @@ export function ModificationsWorkspace() {
   const liftExtents = React.useMemo(
     () =>
       computeRentLiftExtents(
-        allSpaces.map((s) => ({ deltaPsf: s.deltaPsf, isVacant: s.isVacant }))
+        allSpaces.map((s) => ({
+          deltaPsf: s.deltaPsf,
+          deltaPct: s.deltaPct,
+          isVacant: s.isVacant,
+        }))
       ),
     [allSpaces]
   )
@@ -115,6 +123,7 @@ export function ModificationsWorkspace() {
       const isMatch = matchingSpaceIds.has(tenant.id)
       const backgroundColor = rentLiftSpaceBackgroundColor({
         deltaPsf: tenant.deltaPsf,
+        deltaPct: tenant.deltaPct,
         isVacant: tenant.isVacant,
         noActiveModifications,
         extents: liftExtents,
@@ -126,6 +135,9 @@ export function ModificationsWorkspace() {
           impactDataset.activeSelections.length > 0
         ),
         muted: !isMatch,
+        rentLiftSummaryLabel: noActiveModifications
+          ? undefined
+          : formatRentLiftSummaryLabel(tenant),
       }
     }
 
@@ -588,8 +600,7 @@ function ImpactLegend({
         <span
           className="h-2 w-6 rounded-full ring-1 ring-black/5"
           style={{
-            background:
-              "linear-gradient(90deg, rgba(4,120,87,0.14), rgba(4,120,87,0.48))",
+            background: RENT_LIFT_POSITIVE_LEGEND_GRADIENT,
           }}
           aria-hidden
         />
@@ -600,12 +611,20 @@ function ImpactLegend({
         <span
           className="h-2 w-6 rounded-full ring-1 ring-black/5"
           style={{
-            background:
-              "linear-gradient(90deg, rgba(190,18,60,0.14), rgba(190,18,60,0.48))",
+            background: RENT_LIFT_NEGATIVE_LEGEND_GRADIENT,
           }}
           aria-hidden
         />
         <span>Negative $/SF</span>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <span
+          className="h-2 w-6 rounded-full ring-1 ring-black/5"
+          style={{ background: RENT_LIFT_NEUTRAL_SPACE_FILL }}
+          aria-hidden
+        />
+        <span>No impact (within ±{RENT_LIFT_NEUTRAL_PCT_EPSILON}%)</span>
       </div>
 
       <div className="ml-auto text-[11px] text-muted-foreground">
@@ -683,4 +702,11 @@ function formatSignedPercent(value: number | null) {
 
   const prefix = value > 0 ? "+" : ""
   return `${prefix}${value.toFixed(1)}%`
+}
+
+/** Per-SF rent change, same units as tooltip lift line, with signed % on the stacking bar. */
+function formatRentLiftSummaryLabel(tenant: ModificationImpactSpace) {
+  return `${formatSignedRate(tenant.deltaPsf)} (${formatSignedPercent(
+    tenant.deltaPct
+  )})`
 }

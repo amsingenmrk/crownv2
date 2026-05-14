@@ -97,6 +97,8 @@ export type SimplifiedTenantVisualOverride = {
   backgroundColor?: string
   title?: string
   muted?: boolean
+  /** Shown on the space bar when modification context supplies it (e.g. `$0.00 (+0.4%)`). */
+  rentLiftSummaryLabel?: string
 }
 
 type StackSummaryMetric = {
@@ -2782,7 +2784,7 @@ function StackingPlanRentSummary({
             className={cn(
               "text-[10px] font-medium tabular-nums",
               predictedRentLiftPct >= 0
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-emerald-950 dark:text-emerald-50"
                 : "text-rose-600 dark:text-rose-400"
             )}
           >
@@ -3693,6 +3695,22 @@ function SimplifiedStackingHoverSummary({
   )
 }
 
+/** Per-SF rent lift summary on narrow stacking segments; centered, truncates when overflow. */
+function SimplifiedSpaceRentLiftLabel({ text }: { text: string }) {
+  return (
+    <span
+      className="pointer-events-none absolute inset-0 z-[1] flex min-h-0 min-w-0 items-center justify-center px-0.5"
+      title={`Per-SF rent lift: ${text}`}
+    >
+      <span className="flex min-h-0 min-w-0 w-full max-w-full items-center justify-center">
+        <span className="block min-h-0 w-full max-w-full truncate text-center text-[9px] font-semibold tabular-nums leading-none text-emerald-950 dark:text-emerald-50 sm:text-[10px]">
+          {text}
+        </span>
+      </span>
+    </span>
+  )
+}
+
 function SimplifiedFloorRow({
   floor,
   vizMode,
@@ -3737,6 +3755,8 @@ function SimplifiedFloorRow({
             ) : (
               floor.tenants.map((tenant, index) => {
               const visualOverride = tenantVisualOverrides?.[tenant.id]
+              const rentLiftSummaryLabel =
+                visualOverride?.rentLiftSummaryLabel?.trim()
               const overrideBg = visualOverride?.backgroundColor
               const themeHex = getTenantVisualColor({
                 tenant,
@@ -3852,25 +3872,30 @@ function SimplifiedFloorRow({
                       text={title}
                       trigger={
                         <div
-                          className={cn(segmentClassName, "h-full w-full")}
+                          className={cn(segmentClassName, "relative h-full w-full")}
                           style={segmentSurfaceStyle}
                         />
                       }
                     />
+                    {rentLiftSummaryLabel ? (
+                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                    ) : null}
                     {vacantMenu}
                   </div>
                 ) : (
                   <div
                     key={tenant.id}
-                    className="flex h-full min-h-0 min-w-0 shrink-0"
+                    className="relative flex h-full min-h-0 min-w-0 shrink-0"
                     style={segmentLayoutStyle}
                   >
                     <SimplifiedStackingHoverSummary
                       text={title}
                       trigger={
                         <div
-                          aria-hidden
-                          className={cn(segmentClassName, "min-h-0 w-full flex-1")}
+                          className={cn(
+                            segmentClassName,
+                            "relative min-h-0 w-full flex-1"
+                          )}
                           style={{
                             height: "100%",
                             ...segmentSurfaceStyle,
@@ -3878,11 +3903,22 @@ function SimplifiedFloorRow({
                         />
                       }
                     />
+                    {rentLiftSummaryLabel ? (
+                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                    ) : null}
                   </div>
                 )
               }
 
               if (tenant.isVacant) {
+                const vacantAria = [
+                  `${tenant.name}, ${tenant.space}, ${tenant.availabilityStatus}. Open details.`,
+                  rentLiftSummaryLabel
+                    ? `Per-SF rent lift ${rentLiftSummaryLabel}.`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")
                 return (
                   <div
                     key={tenant.id}
@@ -3902,19 +3938,31 @@ function SimplifiedFloorRow({
                           onClick={() => onTenantSelect(tenant)}
                           aria-haspopup="dialog"
                           aria-expanded={selectedTenantId === tenant.id}
-                          aria-label={`${tenant.name}, ${tenant.space}, ${tenant.availabilityStatus}. Open details.`}
+                          aria-label={vacantAria}
                         />
                       }
                     />
+                    {rentLiftSummaryLabel ? (
+                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                    ) : null}
                     {vacantMenu}
                   </div>
                 )
               }
 
+              const suiteAria = [
+                `${tenant.name}, ${tenant.space}, expires ${tenant.expiration}. Open details.`,
+                rentLiftSummaryLabel
+                  ? `Per-SF rent lift ${rentLiftSummaryLabel}.`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+
               return (
                 <div
                   key={tenant.id}
-                  className="flex h-full min-h-0 min-w-0 shrink-0"
+                  className="relative flex h-full min-h-0 min-w-0 shrink-0"
                   style={segmentLayoutStyle}
                 >
                   <SimplifiedStackingHoverSummary
@@ -3922,7 +3970,7 @@ function SimplifiedFloorRow({
                     trigger={
                       <button
                         type="button"
-                        className={segmentClassName}
+                        className={cn(segmentClassName, "relative")}
                         style={{
                           width: "100%",
                           height: "100%",
@@ -3931,14 +3979,13 @@ function SimplifiedFloorRow({
                         onClick={() => onTenantSelect(tenant)}
                         aria-haspopup="dialog"
                         aria-expanded={selectedTenantId === tenant.id}
-                        aria-label={`${tenant.name}, ${tenant.space}, ${
-                          tenant.isVacant
-                            ? tenant.availabilityStatus
-                            : `expires ${tenant.expiration}`
-                        }. Open details.`}
+                        aria-label={suiteAria}
                       />
                     }
                   />
+                  {rentLiftSummaryLabel ? (
+                    <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                  ) : null}
                 </div>
               )
             })
