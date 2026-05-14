@@ -52,6 +52,11 @@ export const RENT_LIFT_NEGATIVE_LEGEND_GRADIENT = `linear-gradient(90deg, ${rgba
 /** Solid fill for spaces with |deltaPct| below {@link RENT_LIFT_NEUTRAL_PCT_EPSILON}; legend swatch. */
 export const RENT_LIFT_NEUTRAL_SPACE_FILL = rgba(RGB.slate, 0.24)
 
+/**
+ * Hue-neutral bar fill when rent-impact filters exclude a space (no emerald/rose tint).
+ */
+export const RENT_LIFT_FILTER_EXCLUDED_SPACE_FILL = "rgba(118, 118, 120, 0.26)"
+
 export function isRentLiftNeutralDeltaPct(deltaPct: number): boolean {
   return Math.abs(deltaPct) < RENT_LIFT_NEUTRAL_PCT_EPSILON
 }

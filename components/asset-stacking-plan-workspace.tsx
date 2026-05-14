@@ -97,6 +97,8 @@ export type SimplifiedTenantVisualOverride = {
   backgroundColor?: string
   title?: string
   muted?: boolean
+  /** When set, segment is faded more (e.g. excluded by impact filters). */
+  filterDimmed?: boolean
   /** Shown on the space bar when modification context supplies it (e.g. `+0.4%`). */
   rentLiftSummaryLabel?: string
   /** Drives label text color for contrast on tinted segment fills. */
@@ -2056,7 +2058,7 @@ export function AssetStackingPlanWorkspace({
           </div>
         ) : (
           <div className="bg-background py-3 sm:py-4">
-            <div className="mx-auto w-full max-w-[800px]">
+            <div className="w-full min-w-0 max-w-full">
               {displayedFloors.map((floor) => (
                 <SimplifiedFloorRow
                   key={floor.floor}
@@ -3803,7 +3805,11 @@ function SimplifiedFloorRow({
 
               const segmentSurfaceStyle = {
                 ...(overrideBg != null ? { backgroundColor: overrideBg } : {}),
-                opacity: visualOverride?.muted ? 0.35 : 1,
+                opacity: visualOverride?.filterDimmed
+                  ? 0.2
+                  : visualOverride?.muted
+                    ? 0.35
+                    : 1,
               } satisfies React.CSSProperties
 
               const segmentClassName = cn(

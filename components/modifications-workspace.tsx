@@ -37,6 +37,7 @@ import {
 import {
   computeRentLiftExtents,
   isRentLiftNeutralDeltaPct,
+  RENT_LIFT_FILTER_EXCLUDED_SPACE_FILL,
   RENT_LIFT_NEGATIVE_LEGEND_GRADIENT,
   RENT_LIFT_NEUTRAL_PCT_EPSILON,
   RENT_LIFT_NEUTRAL_SPACE_FILL,
@@ -115,6 +116,13 @@ export function ModificationsWorkspace() {
       ),
     [allSpaces]
   )
+  const hasActiveFilters =
+    filters.floor !== "all" ||
+    filters.query.trim() !== "" ||
+    filters.vacancy !== "all" ||
+    filters.leaseTiming !== "all" ||
+    filters.rentGap !== "all" ||
+    filters.size !== "all"
   const tenantVisualOverrides = React.useMemo<
     Record<string, SimplifiedTenantVisualOverride>
   >(() => {
@@ -122,13 +130,16 @@ export function ModificationsWorkspace() {
 
     for (const tenant of allSpaces) {
       const isMatch = matchingSpaceIds.has(tenant.id)
-      const backgroundColor = rentLiftSpaceBackgroundColor({
-        deltaPsf: tenant.deltaPsf,
-        deltaPct: tenant.deltaPct,
-        isVacant: tenant.isVacant,
-        noActiveModifications,
-        extents: liftExtents,
-      })
+      const excludedByFilters = hasActiveFilters && !isMatch
+      const backgroundColor = excludedByFilters
+        ? RENT_LIFT_FILTER_EXCLUDED_SPACE_FILL
+        : rentLiftSpaceBackgroundColor({
+            deltaPsf: tenant.deltaPsf,
+            deltaPct: tenant.deltaPct,
+            isVacant: tenant.isVacant,
+            noActiveModifications,
+            extents: liftExtents,
+          })
       overrides[tenant.id] = {
         backgroundColor,
         title: buildImpactTooltip(
@@ -136,18 +147,22 @@ export function ModificationsWorkspace() {
           impactDataset.activeSelections.length > 0
         ),
         muted: !isMatch,
-        rentLiftSummaryLabel: noActiveModifications
-          ? undefined
-          : formatRentLiftSummaryLabel(tenant),
-        rentLiftLabelTone: noActiveModifications
-          ? undefined
-          : rentLiftLabelTone(tenant),
+        filterDimmed: excludedByFilters,
+        rentLiftSummaryLabel:
+          noActiveModifications || excludedByFilters
+            ? undefined
+            : formatRentLiftSummaryLabel(tenant),
+        rentLiftLabelTone:
+          noActiveModifications || excludedByFilters
+            ? undefined
+            : rentLiftLabelTone(tenant),
       }
     }
 
     return overrides
   }, [
     allSpaces,
+    hasActiveFilters,
     impactDataset.activeSelections.length,
     liftExtents,
     matchingSpaceIds,
@@ -157,13 +172,6 @@ export function ModificationsWorkspace() {
     () => impactDataset.floors.map((floor) => String(floor.floor)),
     [impactDataset.floors]
   )
-  const hasActiveFilters =
-    filters.floor !== "all" ||
-    filters.query.trim() !== "" ||
-    filters.vacancy !== "all" ||
-    filters.leaseTiming !== "all" ||
-    filters.rentGap !== "all" ||
-    filters.size !== "all"
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-4">
