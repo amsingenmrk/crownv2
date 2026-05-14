@@ -79,7 +79,7 @@ export function PortfolioAssetIdentity({
       </div>
       <span
         className={cn(
-          "block text-[11px] leading-snug text-muted-foreground/80",
+          "block text-[11px] leading-snug text-muted-foreground",
           locationClassName
         )}
       >
