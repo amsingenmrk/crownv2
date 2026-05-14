@@ -3753,10 +3753,10 @@ function SimplifiedFloorRow({
   showRentRollPlaceholder?: boolean
 }) {
   return (
-    <div className="flex h-6 items-center bg-background transition-colors hover:bg-muted/10">
+    <div className="flex h-[1.875rem] items-center bg-background transition-colors hover:bg-muted/10">
       <div className="flex w-[52px] items-center justify-center px-1">
-        <div className="flex h-5 min-w-[28px] justify-center rounded-sm border border-border bg-muted/60 px-1.5 shadow-sm">
-          <div className="text-[11px] leading-4 font-semibold text-foreground tabular-nums">
+        <div className="flex h-[1.5625rem] min-w-[28px] justify-center rounded-sm border border-border bg-muted/60 px-1.5 shadow-sm">
+          <div className="text-[11px] leading-5 font-semibold text-foreground tabular-nums">
             {floor.floor}
           </div>
         </div>
@@ -3764,10 +3764,10 @@ function SimplifiedFloorRow({
 
       <div className="flex flex-1 items-center px-1">
         <div className="flex w-full">
-          <div className="flex h-5 w-full items-stretch overflow-hidden rounded-sm border border-border/70 bg-muted/20 shadow-sm">
+          <div className="flex h-[1.5625rem] w-full items-stretch gap-1.5 overflow-hidden rounded-sm border border-border/70 bg-muted/20 p-0.5 shadow-sm">
             {showRentRollPlaceholder && floor.tenants.length === 0 ? (
               <div
-                className="my-auto h-2 w-full rounded-sm bg-muted/60"
+                className="my-auto h-2.5 w-full rounded-sm bg-muted/60"
                 aria-hidden
               />
             ) : (
@@ -3798,8 +3798,8 @@ function SimplifiedFloorRow({
               const isSelected =
                 interactionMode === "drawer" && selectedTenantId === tenant.id
 
-              const segmentLayoutStyle = {
-                width: `${tenant.widthPercent}%`,
+              const segmentFlexStyle = {
+                flex: `${tenant.widthPercent} 1 0px`,
                 minWidth: "10px",
               } satisfies React.CSSProperties
 
@@ -3813,7 +3813,7 @@ function SimplifiedFloorRow({
               } satisfies React.CSSProperties
 
               const segmentClassName = cn(
-                "h-full",
+                "h-full rounded-sm",
                 themeFillClass,
                 tenant.isVacant &&
                   overrideBg == null &&
@@ -3821,7 +3821,7 @@ function SimplifiedFloorRow({
                 tenant.isVacant &&
                   overrideBg != null &&
                   "stacking-plan-vacant-slot--hatch-only",
-                index < floor.tenants.length - 1 && "border-r border-border/40",
+                "ring-1 ring-inset ring-border/55",
                 interactionMode === "drawer"
                   ? "focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-inset"
                   : "cursor-default",
@@ -3888,8 +3888,8 @@ function SimplifiedFloorRow({
                 return tenant.isVacant ? (
                   <div
                     key={tenant.id}
-                    className="relative isolate flex h-full min-h-0 min-w-0 shrink-0 flex-col"
-                    style={segmentLayoutStyle}
+                    className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
+                    style={segmentFlexStyle}
                   >
                     <SimplifiedStackingHoverSummary
                       text={title}
@@ -3911,8 +3911,8 @@ function SimplifiedFloorRow({
                 ) : (
                   <div
                     key={tenant.id}
-                    className="relative flex h-full min-h-0 min-w-0 shrink-0"
-                    style={segmentLayoutStyle}
+                    className="relative flex h-full min-h-0 min-w-0"
+                    style={segmentFlexStyle}
                   >
                     <SimplifiedStackingHoverSummary
                       text={title}
@@ -3951,8 +3951,8 @@ function SimplifiedFloorRow({
                 return (
                   <div
                     key={tenant.id}
-                    className="relative isolate flex h-full min-h-0 min-w-0 shrink-0 flex-col"
-                    style={segmentLayoutStyle}
+                    className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
+                    style={segmentFlexStyle}
                   >
                     <SimplifiedStackingHoverSummary
                       text={title}
@@ -3994,8 +3994,8 @@ function SimplifiedFloorRow({
               return (
                 <div
                   key={tenant.id}
-                  className="relative flex h-full min-h-0 min-w-0 shrink-0"
-                  style={segmentLayoutStyle}
+                  className="relative flex h-full min-h-0 min-w-0"
+                  style={segmentFlexStyle}
                 >
                   <SimplifiedStackingHoverSummary
                     text={title}
