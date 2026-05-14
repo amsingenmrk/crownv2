@@ -267,8 +267,8 @@
   .stacking-plan-vacant-slot--hatch-only {
     background-image: repeating-linear-gradient(
       135deg,
-      color-mix(in oklab, var(--foreground) 14%, transparent) 0,
-      color-mix(in oklab, var(--foreground) 14%, transparent) 3px,
+      color-mix(in oklab, var(--foreground) 12%, transparent) 0,
+      color-mix(in oklab, var(--foreground) 12%, transparent) 6px,
       transparent 3px,
       transparent 18px
     );

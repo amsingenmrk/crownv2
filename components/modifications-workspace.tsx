@@ -704,9 +704,7 @@ function formatSignedPercent(value: number | null) {
   return `${prefix}${value.toFixed(1)}%`
 }
 
-/** Per-SF rent change, same units as tooltip lift line, with signed % on the stacking bar. */
+/** Signed rent lift % on each stacking segment (same as tooltip percent). */
 function formatRentLiftSummaryLabel(tenant: ModificationImpactSpace) {
-  return `${formatSignedRate(tenant.deltaPsf)} (${formatSignedPercent(
-    tenant.deltaPct
-  )})`
+  return formatSignedPercent(tenant.deltaPct)
 }

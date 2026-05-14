@@ -3695,12 +3695,12 @@ function SimplifiedStackingHoverSummary({
   )
 }
 
-/** Per-SF rent lift summary on narrow stacking segments; centered, truncates when overflow. */
+/** Rent lift % on narrow stacking segments; centered, truncates when overflow. */
 function SimplifiedSpaceRentLiftLabel({ text }: { text: string }) {
   return (
     <span
       className="pointer-events-none absolute inset-0 z-[1] flex min-h-0 min-w-0 items-center justify-center px-0.5"
-      title={`Per-SF rent lift: ${text}`}
+      title={`Rent lift: ${text}`}
     >
       <span className="flex min-h-0 min-w-0 w-full max-w-full items-center justify-center">
         <span className="block min-h-0 w-full max-w-full truncate text-center text-[9px] font-semibold tabular-nums leading-none text-emerald-950 dark:text-emerald-50 sm:text-[10px]">
@@ -3914,7 +3914,7 @@ function SimplifiedFloorRow({
                 const vacantAria = [
                   `${tenant.name}, ${tenant.space}, ${tenant.availabilityStatus}. Open details.`,
                   rentLiftSummaryLabel
-                    ? `Per-SF rent lift ${rentLiftSummaryLabel}.`
+                    ? `Rent lift ${rentLiftSummaryLabel}.`
                     : "",
                 ]
                   .filter(Boolean)
@@ -3953,7 +3953,7 @@ function SimplifiedFloorRow({
               const suiteAria = [
                 `${tenant.name}, ${tenant.space}, expires ${tenant.expiration}. Open details.`,
                 rentLiftSummaryLabel
-                  ? `Per-SF rent lift ${rentLiftSummaryLabel}.`
+                  ? `Rent lift ${rentLiftSummaryLabel}.`
                   : "",
               ]
                 .filter(Boolean)
