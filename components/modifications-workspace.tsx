@@ -36,6 +36,7 @@ import {
 } from "@/lib/modifications-impact"
 import {
   computeRentLiftExtents,
+  isRentLiftNeutralDeltaPct,
   RENT_LIFT_NEGATIVE_LEGEND_GRADIENT,
   RENT_LIFT_NEUTRAL_PCT_EPSILON,
   RENT_LIFT_NEUTRAL_SPACE_FILL,
@@ -138,6 +139,9 @@ export function ModificationsWorkspace() {
         rentLiftSummaryLabel: noActiveModifications
           ? undefined
           : formatRentLiftSummaryLabel(tenant),
+        rentLiftLabelTone: noActiveModifications
+          ? undefined
+          : rentLiftLabelTone(tenant),
       }
     }
 
@@ -624,7 +628,9 @@ function ImpactLegend({
           style={{ background: RENT_LIFT_NEUTRAL_SPACE_FILL }}
           aria-hidden
         />
-        <span>No impact (within ±{RENT_LIFT_NEUTRAL_PCT_EPSILON}%)</span>
+        <span>
+          No impact (within +/- {RENT_LIFT_NEUTRAL_PCT_EPSILON}%)
+        </span>
       </div>
 
       <div className="ml-auto text-[11px] text-muted-foreground">
@@ -707,4 +713,13 @@ function formatSignedPercent(value: number | null) {
 /** Signed rent lift % on each stacking segment (same as tooltip percent). */
 function formatRentLiftSummaryLabel(tenant: ModificationImpactSpace) {
   return formatSignedPercent(tenant.deltaPct)
+}
+
+function rentLiftLabelTone(
+  tenant: ModificationImpactSpace
+): "positive" | "negative" | "neutral" {
+  if (isRentLiftNeutralDeltaPct(tenant.deltaPct)) return "neutral"
+  if (tenant.deltaPsf > 0) return "positive"
+  if (tenant.deltaPsf < 0) return "negative"
+  return "neutral"
 }

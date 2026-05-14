@@ -97,8 +97,10 @@ export type SimplifiedTenantVisualOverride = {
   backgroundColor?: string
   title?: string
   muted?: boolean
-  /** Shown on the space bar when modification context supplies it (e.g. `$0.00 (+0.4%)`). */
+  /** Shown on the space bar when modification context supplies it (e.g. `+0.4%`). */
   rentLiftSummaryLabel?: string
+  /** Drives label text color for contrast on tinted segment fills. */
+  rentLiftLabelTone?: "positive" | "negative" | "neutral"
 }
 
 type StackSummaryMetric = {
@@ -2782,10 +2784,10 @@ function StackingPlanRentSummary({
         {!metricsPlaceholder && predictedRentLiftPct != null ? (
           <span
             className={cn(
-              "text-[10px] font-medium tabular-nums",
+              "text-[10px] font-semibold tabular-nums",
               predictedRentLiftPct >= 0
-                ? "text-emerald-950 dark:text-emerald-50"
-                : "text-rose-600 dark:text-rose-400"
+                ? "text-emerald-900 dark:text-emerald-100"
+                : "text-rose-800 dark:text-rose-100"
             )}
           >
             ({formatSignedPercentDelta(predictedRentLiftPct)})
@@ -3696,16 +3698,30 @@ function SimplifiedStackingHoverSummary({
 }
 
 /** Rent lift % on narrow stacking segments; centered, truncates when overflow. */
-function SimplifiedSpaceRentLiftLabel({ text }: { text: string }) {
+function SimplifiedSpaceRentLiftLabel({
+  text,
+  tone = "neutral",
+}: {
+  text: string
+  tone?: "positive" | "negative" | "neutral"
+}) {
+  const textClassName = cn(
+    "block min-h-0 w-full max-w-full truncate text-center text-[10px] font-bold tabular-nums leading-tight sm:text-[11px]",
+    "drop-shadow-[0_0_3px_rgba(255,255,255,0.96),0_1px_1px_rgba(255,255,255,0.65)] dark:drop-shadow-[0_0_2px_rgba(0,0,0,0.82),0_1px_2px_rgba(0,0,0,0.55)]",
+    tone === "negative" &&
+      "text-rose-950 dark:text-rose-50",
+    tone === "neutral" && "text-slate-950 dark:text-slate-50",
+    tone === "positive" &&
+      "text-emerald-950 dark:text-emerald-50"
+  )
+
   return (
     <span
       className="pointer-events-none absolute inset-0 z-[1] flex min-h-0 min-w-0 items-center justify-center px-0.5"
       title={`Rent lift: ${text}`}
     >
       <span className="flex min-h-0 min-w-0 w-full max-w-full items-center justify-center">
-        <span className="block min-h-0 w-full max-w-full truncate text-center text-[9px] font-semibold tabular-nums leading-none text-emerald-950 dark:text-emerald-50 sm:text-[10px]">
-          {text}
-        </span>
+        <span className={textClassName}>{text}</span>
       </span>
     </span>
   )
@@ -3757,6 +3773,7 @@ function SimplifiedFloorRow({
               const visualOverride = tenantVisualOverrides?.[tenant.id]
               const rentLiftSummaryLabel =
                 visualOverride?.rentLiftSummaryLabel?.trim()
+              const rentLiftLabelTone = visualOverride?.rentLiftLabelTone
               const overrideBg = visualOverride?.backgroundColor
               const themeHex = getTenantVisualColor({
                 tenant,
@@ -3878,7 +3895,10 @@ function SimplifiedFloorRow({
                       }
                     />
                     {rentLiftSummaryLabel ? (
-                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                      <SimplifiedSpaceRentLiftLabel
+                        text={rentLiftSummaryLabel}
+                        tone={rentLiftLabelTone}
+                      />
                     ) : null}
                     {vacantMenu}
                   </div>
@@ -3904,7 +3924,10 @@ function SimplifiedFloorRow({
                       }
                     />
                     {rentLiftSummaryLabel ? (
-                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                      <SimplifiedSpaceRentLiftLabel
+                        text={rentLiftSummaryLabel}
+                        tone={rentLiftLabelTone}
+                      />
                     ) : null}
                   </div>
                 )
@@ -3943,7 +3966,10 @@ function SimplifiedFloorRow({
                       }
                     />
                     {rentLiftSummaryLabel ? (
-                      <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                      <SimplifiedSpaceRentLiftLabel
+                        text={rentLiftSummaryLabel}
+                        tone={rentLiftLabelTone}
+                      />
                     ) : null}
                     {vacantMenu}
                   </div>
@@ -3984,7 +4010,10 @@ function SimplifiedFloorRow({
                     }
                   />
                   {rentLiftSummaryLabel ? (
-                    <SimplifiedSpaceRentLiftLabel text={rentLiftSummaryLabel} />
+                    <SimplifiedSpaceRentLiftLabel
+                      text={rentLiftSummaryLabel}
+                      tone={rentLiftLabelTone}
+                    />
                   ) : null}
                 </div>
               )

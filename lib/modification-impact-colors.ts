@@ -9,15 +9,15 @@
 /**
  * Rent-change margin for “no impact” (neutral slate tint, third legend row).
  * **Units:** percentage points, same as `ModificationImpactSpace.deltaPct`
- * (`(deltaPsf / baselineRentPsf) * 100`, so `0.25` means 0.25%, not a 0.25 ratio).
+ * (`(deltaPsf / baselineRentPsf) * 100`, so `1` means 1%, not a 0.01 ratio).
  */
-export const RENT_LIFT_NEUTRAL_PCT_EPSILON = 0.25
+export const RENT_LIFT_NEUTRAL_PCT_EPSILON = 1
 
 const RGB = {
-  /** Slightly cooler / higher-chroma green than emerald-700 so positives read apart from rose on tinted fills. */
-  emerald: { r: 5, g: 150, b: 105 }, // ~tailwind emerald-600
-  /** Slightly brighter magenta-rose than rose-700 so negatives separate from emerald at equal alpha. */
-  rose: { r: 225, g: 29, b: 72 }, // ~tailwind rose-600
+  /** Deeper emerald so positives read farther from rose at the same alpha ramp. */
+  emerald: { r: 4, g: 120, b: 87 }, // ~tailwind emerald-700
+  /** Slightly ruby-shifted rose so negatives don’t muddy toward the green side. */
+  rose: { r: 218, g: 27, b: 78 }, // between rose-600 / rose-700
   /** Cool slate so “no impact” stays hueless vs green/red signed tints at similar alpha. */
   slate: { r: 96, g: 110, b: 132 },
 } as const
@@ -35,8 +35,8 @@ function rgba(rgb: { readonly r: number; readonly g: number; readonly b: number 
 }
 
 /** Weak … strong signed rent-impact fill alpha (same range as legend gradient endpoints). */
-export const RENT_LIFT_SIGNED_FILL_ALPHA_MIN = 0.17
-export const RENT_LIFT_SIGNED_FILL_ALPHA_MAX = 0.58
+export const RENT_LIFT_SIGNED_FILL_ALPHA_MIN = 0.22
+export const RENT_LIFT_SIGNED_FILL_ALPHA_MAX = 0.68
 
 /** Legend / docs: matches {@link rentLiftSpaceBackgroundColor} signed endpoints. */
 export const RENT_LIFT_POSITIVE_LEGEND_GRADIENT = `linear-gradient(90deg, ${rgba(
@@ -102,10 +102,10 @@ export function rentLiftSpaceBackgroundColor(args: {
   }
   if (deltaPsf > 0) {
     const t = clamp01(deltaPsf / extents.posExtentPsf)
-    const alpha = lerp(RENT_LIFT_SIGNED_FILL_ALPHA_MIN, RENT_LIFT_SIGNED_FILL_ALPHA_MAX, Math.pow(t, 0.46))
+    const alpha = lerp(RENT_LIFT_SIGNED_FILL_ALPHA_MIN, RENT_LIFT_SIGNED_FILL_ALPHA_MAX, Math.pow(t, 0.4))
     return rgba(RGB.emerald, alpha)
   }
   const t = clamp01(Math.abs(deltaPsf) / extents.negExtentPsf)
-  const alpha = lerp(RENT_LIFT_SIGNED_FILL_ALPHA_MIN, RENT_LIFT_SIGNED_FILL_ALPHA_MAX, Math.pow(t, 0.46))
+  const alpha = lerp(RENT_LIFT_SIGNED_FILL_ALPHA_MIN, RENT_LIFT_SIGNED_FILL_ALPHA_MAX, Math.pow(t, 0.4))
   return rgba(RGB.rose, alpha)
 }
