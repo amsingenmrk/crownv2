@@ -3223,7 +3223,7 @@ function StackBandSegment({
 
   const segmentSurfaceClass = cn(
     "relative flex h-full min-h-0 flex-col justify-center gap-1.5 overflow-hidden text-left transition-[ring-color,box-shadow,transform] duration-150",
-    tone.fillClass,
+    tenant.isVacant ? "stacking-plan-vacant-slot" : tone.fillClass,
     isFirstTenant && "rounded-l-[7px]",
     isLastTenant && "rounded-r-[7px]",
     showTrailingDivider && "border-r border-border/30",
