@@ -47,6 +47,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 import {
   BUILTIN_SCENARIO,
@@ -235,18 +240,37 @@ export function PortfolioAssetsDataTable({
           {variant === "portfolio" ? (
             <>
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  disabled={selectedCount === 0}
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                  aria-label="Add selected assets to a scenario"
-                >
-                  Add to Scenario
-                  <ChevronDown
-                    className="size-4 opacity-60"
-                    aria-hidden
-                    data-icon="inline-end"
-                  />
-                </DropdownMenuTrigger>
+                <Tooltip disabled={selectedCount > 0}>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={cn(
+                          "inline-flex",
+                          selectedCount === 0 && "cursor-not-allowed"
+                        )}
+                      />
+                    }
+                  >
+                    <DropdownMenuTrigger
+                      disabled={selectedCount === 0}
+                      className={cn(buttonVariants({ variant: "outline" }))}
+                      aria-label="Add selected assets to a scenario"
+                    >
+                      Add to Scenario
+                      <ChevronDown
+                        className="size-4 opacity-60"
+                        aria-hidden
+                        data-icon="inline-end"
+                      />
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-[240px] text-pretty"
+                  >
+                    Select assets with checkboxes to add them to a scenario.
+                  </TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent
                   align="end"
                   className="z-[100] min-w-[12rem]"
@@ -310,14 +334,32 @@ export function PortfolioAssetsDataTable({
               />
             </>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={selectedCount === 0}
-              onClick={onScenarioToolbarClick}
-            >
-              {scenarioToolbarLabel}
-            </Button>
+            <Tooltip disabled={selectedCount > 0}>
+              <TooltipTrigger
+                render={
+                  <span
+                    className={cn(
+                      "inline-flex",
+                      selectedCount === 0 && "cursor-not-allowed"
+                    )}
+                  />
+                }
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={selectedCount === 0}
+                  onClick={onScenarioToolbarClick}
+                >
+                  {scenarioToolbarLabel}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[240px] text-pretty">
+                {allSelectedExcluded
+                  ? "Select assets with checkboxes to add them to a scenario."
+                  : "Select assets with checkboxes to remove them from a scenario."}
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
