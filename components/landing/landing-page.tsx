@@ -11,7 +11,7 @@ import {
 
 import { LandingContactCta } from "@/components/landing/landing-contact-cta"
 import { LandingContactForm } from "@/components/landing/landing-contact-form"
-import { Button } from "@/components/ui/button"
+import { LandingLogInLink } from "@/components/landing/landing-log-in-link"
 import { cn } from "@/lib/utils"
 
 const FEATURES = [
@@ -75,9 +75,7 @@ export function LandingPage() {
             <p className="text-sm font-semibold tracking-tight">Glassbox</p>
           </Link>
           <nav className="flex items-center gap-2">
-            <Button variant="outline" size="sm" render={<Link href="/portfolio" />}>
-              Log in
-            </Button>
+            <LandingLogInLink />
           </nav>
         </div>
       </header>
@@ -103,6 +101,23 @@ export function LandingPage() {
             <div className="mt-10">
               <LandingContactCta />
             </div>
+
+            <figure className="mt-16 sm:mt-20">
+              <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xl ring-1 ring-border/60">
+                <Image
+                  src="/landing-portfolio-screenshot.png"
+                  alt="Glassbox portfolio dashboard with asset KPIs, valuation summary, and property table"
+                  width={1440}
+                  height={900}
+                  className="h-auto w-full"
+                  priority
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1152px"
+                />
+              </div>
+              <figcaption className="mt-4 text-center text-sm text-muted-foreground">
+                Entire portfolio view—assets, occupancy, and valuation at a glance.
+              </figcaption>
+            </figure>
           </div>
         </section>
 
@@ -112,8 +127,8 @@ export function LandingPage() {
               Built for how CRE teams actually work
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Feature highlights below are placeholders—swap in your product
-              story, screenshots, or customer proof when you are ready to launch.
+              From portfolio roll-ups to building-level detail—model, compare, and
+              explain outcomes with the same workspace your analysts use every day.
             </p>
           </div>
           <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
