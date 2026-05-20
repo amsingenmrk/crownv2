@@ -105,13 +105,24 @@ export function LandingPage() {
             <figure className="mt-16 sm:mt-20">
               <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xl ring-1 ring-border/60">
                 <Image
-                  src="/landing-portfolio-screenshot.png"
+                  src="/landing-portfolio-screenshot-light.png"
                   alt="Glassbox portfolio dashboard with asset KPIs, valuation summary, and property table"
-                  width={1440}
-                  height={900}
-                  className="h-auto w-full"
+                  width={2304}
+                  height={1440}
+                  quality={100}
+                  className="h-auto w-full dark:hidden"
                   priority
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1152px"
+                  sizes="(max-width: 1152px) 100vw, 1152px"
+                />
+                <Image
+                  src="/landing-portfolio-screenshot-dark.png"
+                  alt="Glassbox portfolio dashboard with asset KPIs, valuation summary, and property table"
+                  width={2304}
+                  height={1440}
+                  quality={100}
+                  className="hidden h-auto w-full dark:block"
+                  priority
+                  sizes="(max-width: 1152px) 100vw, 1152px"
                 />
               </div>
               <figcaption className="mt-4 text-center text-sm text-muted-foreground">

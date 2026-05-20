@@ -2,15 +2,12 @@
 
 import Link from "next/link"
 
-import { buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 
 export function LandingLogInLink() {
   return (
-    <Link
-      href="/portfolio"
-      className={buttonVariants({ variant: "outline", size: "sm" })}
-    >
+    <Button variant="outline" size="sm" render={<Link href="/portfolio" />}>
       Log in
-    </Link>
+    </Button>
   )
 }

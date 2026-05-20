@@ -14,6 +14,7 @@ const mapboxGlEsmTurbopack = "./node_modules/mapbox-gl/dist/esm-min/mapbox-gl.js
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   async redirects() {
     return [
       {
