@@ -184,7 +184,14 @@ export function LandingPage() {
       <footer className="border-t border-border/60">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Glassbox. All rights reserved.</p>
-          <p>Demo environment</p>
+          <a
+            href="https://www.nmrk.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            Newmark
+          </a>
         </div>
       </footer>
     </div>
