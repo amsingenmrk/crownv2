@@ -1,5 +1,4 @@
 import Image from "next/image"
-import Link from "next/link"
 import {
   BarChart3,
   Building2,
@@ -9,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react"
 
+import { GlassboxBrand } from "@/components/landing/glassbox-brand"
 import { LandingContactCta } from "@/components/landing/landing-contact-cta"
 import { LandingContactForm } from "@/components/landing/landing-contact-form"
 import { LandingLogInLink } from "@/components/landing/landing-log-in-link"
@@ -58,22 +58,7 @@ export function LandingPage() {
     <div className="landing-page flex min-h-svh flex-col bg-background text-foreground">
       <header className="border-b border-border/60">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link
-            href="/"
-            className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-border/60">
-              <Image
-                src="/newmark_symbol_light.svg"
-                alt=""
-                width={28}
-                height={28}
-                className="size-7"
-                aria-hidden
-              />
-            </div>
-            <p className="text-sm font-semibold tracking-tight">Glassbox</p>
-          </Link>
+          <GlassboxBrand href="/landing" />
           <nav className="flex items-center gap-2">
             <LandingLogInLink />
           </nav>

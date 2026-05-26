@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 
 export function LandingLogInLink() {
   return (
-    <Button variant="outline" size="sm" render={<Link href="/portfolio" />}>
+    <Button variant="outline" size="sm" render={<Link href="/login" />}>
       Log in
     </Button>
   )
