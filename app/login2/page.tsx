@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 
-import { LogIn2Page } from "@/components/landing/log-in2-page"
+import { LogInPage } from "@/components/landing/log-in-page"
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 }
 
 export default function Login2RoutePage() {
-  return <LogIn2Page />
+  return <LogInPage />
 }
