@@ -18,16 +18,14 @@ export function GlassboxBrand({
         className
       )}
     >
-      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-border/60">
-        <Image
-          src="/newmark_symbol_light.svg"
-          alt=""
-          width={28}
-          height={28}
-          className="size-7"
-          aria-hidden
-        />
-      </div>
+      <Image
+        src="/newmark_symbol_light.svg"
+        alt=""
+        width={28}
+        height={28}
+        className="size-7 shrink-0"
+        aria-hidden
+      />
       <p className="text-sm font-semibold tracking-tight">Glassbox</p>
     </Link>
   )
