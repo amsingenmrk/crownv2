@@ -20,6 +20,7 @@ import {
   formatUsdDeltaCompact,
   formatUsdPortfolioCompact,
   scenarioDeltaDirection,
+  scenarioDeltaTone,
 } from "@/lib/scenario-kpi-format"
 import {
   VALUATION_CONDITION_OPTIONS,
@@ -91,12 +92,14 @@ function compareForecastValuationField(
     return {
       deltaLine: formatCapRatePts(delta),
       deltaDirection: scenarioDeltaDirection(delta),
+      deltaTone: scenarioDeltaTone(delta),
     }
   }
   return {
     deltaLine: formatUsdDeltaCompact(delta),
     pctLine: formatPctChange(baseline, current),
     deltaDirection: scenarioDeltaDirection(delta),
+    deltaTone: scenarioDeltaTone(delta, field === "opex" ? "inverse" : "normal"),
   }
 }
 

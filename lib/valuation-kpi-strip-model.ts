@@ -4,6 +4,7 @@ export type ValuationKpiStripCellCompare = {
   deltaLine?: string
   pctLine?: string
   deltaDirection?: "up" | "down" | "neutral"
+  deltaTone?: "up" | "down" | "neutral"
 }
 
 export type ValuationKpiStripConditionCell = {

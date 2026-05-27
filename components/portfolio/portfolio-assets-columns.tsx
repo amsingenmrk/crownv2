@@ -5,10 +5,6 @@ import type { Column, ColumnDef, Table } from "@tanstack/react-table"
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Sun, Wrench } from "lucide-react"
 import {
-  parseStoredSets,
-  storageKeyForAsset,
-} from "@/lib/building-modification-sets-storage"
-import {
   buildPortfolioAssetMetadataItems,
   PortfolioAssetIdentity,
   PortfolioRemoveAssetButton,
@@ -21,21 +17,17 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
-import { deriveBaseAnnualOpex } from "@/lib/forecast-data"
-import { modificationSetValueDeltaUsd } from "@/lib/modification-selection-value-delta"
+import {
+  modificationSetMetricDelta,
+  type ModificationSelectionMetricKey,
+} from "@/lib/modification-selection-value-delta"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
-import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
-import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
-import {
-  formatCapRatePts,
-  formatUsdDeltaCompact,
-} from "@/lib/scenario-kpi-format"
 import { cn } from "@/lib/utils"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
@@ -57,14 +49,6 @@ const VALUE_SOURCE_LABEL =
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
 
-type ScenarioDeltaMetricKey =
-  | "pricePerSf"
-  | "revenue"
-  | "opex"
-  | "noi"
-  | "value"
-  | "capRate"
-
 function parseCompactUsdDisplay(value: string): number {
   const match = value.trim().match(/^\$([\d,.]+)([MB])$/i)
   if (match == null) {
@@ -75,11 +59,6 @@ function parseCompactUsdDisplay(value: string): number {
   const magnitude = Number.parseFloat(match[1].replace(/,/g, ""))
   if (!Number.isFinite(magnitude)) return 0
   return match[2].toUpperCase() === "B" ? magnitude * 1_000_000_000 : magnitude * 1_000_000
-}
-
-function formatUsdPerSfDelta(delta: number): string {
-  const sign = delta > 0 ? "+" : delta < 0 ? "−" : ""
-  return `${sign}$${Math.abs(delta).toFixed(1)} / SF`
 }
 
 function deltaClassName(delta: number, direction: "normal" | "inverse" = "normal") {
@@ -101,70 +80,11 @@ function ScenarioAssetMetricCell({
 }: {
   assetId: string
   baseDisplay: string
-  metricKey: ScenarioDeltaMetricKey
+  metricKey: ModificationSelectionMetricKey
 }) {
   const { selections } = useScenarioModificationSelections()
   const selectedSetId = selections[assetId] ?? ""
-
-  const delta = (() => {
-    if (selectedSetId === "" || typeof window === "undefined") {
-      return null
-    }
-
-    const financials = financialMetricsForAssetId(assetId)
-    if (financials == null) return null
-
-    const selectedSet = parseStoredSets(localStorage.getItem(storageKeyForAsset(assetId))).find(
-      (set) => set.id === selectedSetId
-    )
-    if (selectedSet == null) return null
-
-    const uplift = upliftFromModValues(selectedSet.values)
-    const baseRevenueUsd = financials.annualRevenueUsd
-    const baseOpexUsd = financials.annualOpexUsd
-    const baseNoiUsd = financials.noiUsd
-    const modifiedRevenueUsd =
-      baseRevenueUsd + Math.max(0, baseNoiUsd) * (uplift.noiMult - 1)
-    const modifiedOpexUsd = Math.max(
-      0,
-      deriveBaseAnnualOpex(assetId, modifiedRevenueUsd) + uplift.annualOpexDeltaUsd
-    )
-    const modifiedNoiUsd = modifiedRevenueUsd - modifiedOpexUsd
-    const modifiedValueUsd = financials.valueUsd * uplift.valueMult
-    const modifiedPricePerSf = financials.pricePerSfN * uplift.valueMult
-    const modifiedCapRatePct =
-      modifiedValueUsd > 0 ? (modifiedNoiUsd / modifiedValueUsd) * 100 : 0
-
-    switch (metricKey) {
-      case "pricePerSf":
-        return {
-          value: modifiedPricePerSf - financials.pricePerSfN,
-          text: formatUsdPerSfDelta(modifiedPricePerSf - financials.pricePerSfN),
-        }
-      case "revenue":
-        return {
-          value: modifiedRevenueUsd - baseRevenueUsd,
-          text: formatUsdDeltaCompact(modifiedRevenueUsd - baseRevenueUsd),
-        }
-      case "opex":
-        return {
-          value: modifiedOpexUsd - baseOpexUsd,
-          text: formatUsdDeltaCompact(modifiedOpexUsd - baseOpexUsd),
-        }
-      case "noi":
-        return { value: modifiedNoiUsd - baseNoiUsd, text: formatUsdDeltaCompact(modifiedNoiUsd - baseNoiUsd) }
-      case "value": {
-        const vd = modificationSetValueDeltaUsd(assetId, selectedSetId)
-        if (vd == null) return null
-        return { value: vd, text: formatUsdDeltaCompact(vd) }
-      }
-      case "capRate":
-        return {
-          value: modifiedCapRatePct - financials.capRatePct,
-          text: formatCapRatePts(modifiedCapRatePct - financials.capRatePct),
-        }
-    }
-  })()
+  const delta = modificationSetMetricDelta(assetId, selectedSetId, metricKey)
 
   return (
     <span className="flex min-w-0 flex-col items-start gap-0.5">

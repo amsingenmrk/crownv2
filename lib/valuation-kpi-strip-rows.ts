@@ -8,6 +8,7 @@ import {
   formatUsdDeltaCompact,
   formatUsdPortfolioCompact,
   scenarioDeltaDirection,
+  scenarioDeltaTone,
 } from "@/lib/scenario-kpi-format"
 import {
   VALUATION_CONDITION_OPTIONS,
@@ -66,6 +67,7 @@ function conditionCompareForMetrics(
     return {
       deltaLine: formatCapRatePts(d),
       deltaDirection: scenarioDeltaDirection(d),
+      deltaTone: scenarioDeltaTone(d),
     }
   }
   const bv = baseline[field]
@@ -75,6 +77,7 @@ function conditionCompareForMetrics(
     deltaLine: formatUsdDeltaCompact(d),
     pctLine: formatPctChange(bv, mv),
     deltaDirection: scenarioDeltaDirection(d),
+    deltaTone: scenarioDeltaTone(d, field === "opex" ? "inverse" : "normal"),
   }
 }
 
