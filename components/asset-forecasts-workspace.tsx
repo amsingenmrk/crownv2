@@ -3,7 +3,6 @@
 import * as React from "react"
 import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
-import { AssetLeasingAssumptionsFields } from "@/components/asset-leasing-assumptions-fields"
 import { useAssetLeasingAssumptions } from "@/components/asset-leasing-assumptions-provider"
 import {
   AssetForecastCharts,
@@ -38,7 +37,6 @@ import {
   buildAssetForecastModel,
   buildDefaultForecastScenarios,
   createForecastScenarioFromTemplate,
-  type ForecastAssumptions,
   type ForecastEconomicOutlookScenario,
   type ForecastStatementRow,
   type ForecastScenarioId,
@@ -292,8 +290,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [assetId, tenantForecastOverrides]
   )
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
-  const { assumptions, updateAssumptions, resetAssumptions } =
-    useAssetLeasingAssumptions()
+  const { assumptions, resetAssumptions } = useAssetLeasingAssumptions()
   const scenarioStorageKey = React.useMemo(() => forecastScenarioStorageKey(assetId), [assetId])
   const setStorageKey = React.useMemo(() => forecastOutlookSetStorageKey(assetId), [assetId])
   const buildingVersionStorageKey = React.useMemo(() => storageKeyForAsset(assetId), [assetId])
@@ -739,13 +736,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     if (savedModificationSets.some((set) => set.id === activeBuildingVersionId)) return
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
   }, [activeBuildingVersionId, savedModificationSets])
-
-  const updateAssumption = React.useCallback(
-    (updates: Partial<ForecastAssumptions>) => {
-      updateAssumptions({ ...updates, markToMarketEnabled: true })
-    },
-    [updateAssumptions]
-  )
 
   const updateOutlook = React.useCallback(
     (
@@ -1329,14 +1319,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
               )
             })}
           </div>
-        </div>
-
-        <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
-          <h3 className="text-sm font-semibold text-foreground">Leasing Assumptions</h3>
-          <AssetLeasingAssumptionsFields
-            assumptions={assumptions}
-            onAssumptionsChange={updateAssumption}
-          />
         </div>
 
         <div className="mt-4 border-t border-border pt-4">
