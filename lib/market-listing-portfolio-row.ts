@@ -1,7 +1,10 @@
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import type { AssetGroupId } from "@/lib/assets"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
-import { portfolioValueNoiCapFromSeed } from "@/lib/portfolio-asset-financials"
+import {
+  financialMetricsForAssetId,
+  portfolioValueNoiCapFromSeed,
+} from "@/lib/portfolio-asset-financials"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
 import { portfolioClassLabelForSeed } from "@/lib/portfolio-row-for-asset"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
@@ -35,7 +38,7 @@ export function portfolioAssetRowForMarketPin(
   pin: PortfolioMapboxPin
 ): PortfolioAssetRow {
   const seed = marketSearchDemoHash32(`market-row:${pin.id}`)
-  const fin = portfolioValueNoiCapFromSeed(seed)
+  const fin = financialMetricsForAssetId(pin.id) ?? portfolioValueNoiCapFromSeed(seed)
   const g = GROUP_ROTATION[seed % GROUP_ROTATION.length]!
 
   const value =

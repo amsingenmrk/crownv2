@@ -38,6 +38,21 @@ export function scenarioDeltaDirection(d: number): "up" | "down" | "neutral" {
   return "neutral"
 }
 
+export function scenarioDeltaTone(
+  d: number,
+  direction: "normal" | "inverse" = "normal"
+): "up" | "down" | "neutral" {
+  if (Math.abs(d) <= 1e-6) {
+    return "neutral"
+  }
+
+  if (direction === "inverse") {
+    return d > 0 ? "down" : "up"
+  }
+
+  return scenarioDeltaDirection(d)
+}
+
 export function formatUsdPerSfDelta(
   baseUsd: number,
   scenarioUsd: number,

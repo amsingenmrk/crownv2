@@ -16,7 +16,7 @@ import type {
 } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
 
-function deltaToneClass(direction: ValuationKpiStripCellCompare["deltaDirection"] | undefined) {
+function deltaToneClass(direction: ValuationKpiStripCellCompare["deltaTone"] | undefined) {
   if (direction === "up") {
     return "text-emerald-700 dark:text-emerald-300"
   }
@@ -63,7 +63,9 @@ function ConditionHeader({
 function ConditionValueCell({ cell }: { cell: ValuationKpiStripConditionCell }) {
   const showDelta = cell.compare?.deltaLine != null && cell.compare.deltaLine !== ""
   const showPct = cell.compare?.pctLine != null && cell.compare.pctLine !== ""
-  const deltaClassName = deltaToneClass(cell.compare?.deltaDirection)
+  const deltaClassName = deltaToneClass(
+    cell.compare?.deltaTone ?? cell.compare?.deltaDirection
+  )
 
   return (
     <div className="min-w-0 space-y-0.5">

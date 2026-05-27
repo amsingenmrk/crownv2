@@ -155,6 +155,11 @@ const STACKING_VIZ_MODE_OPTIONS: Array<{
   { value: "contractRate", label: "Contract Rate" },
 ]
 const BUILDOUT_OPTIONS = ["Shell", "White Box", "Fully Built-Out"] as const
+const TENANT_LEASE_TYPE_OPTIONS = [
+  "Modified Gross",
+  "NNN",
+  "Full Service",
+] as const
 
 const PREDICTED_RENT_LEGEND: readonly StackingLegendItem[] = [
   { label: "Below Avg", color: "#f97316" },
@@ -1427,13 +1432,16 @@ export function AssetStackingPlanWorkspace({
 
   const handleTenantSelect = React.useCallback(
     (tenant: StackingPlanTenant) => {
+      if (selectedTenantId != null && selectedTenantId !== tenant.id) {
+        const closed = requestTenantEditorClose()
+        if (!closed) {
+          return
+        }
+      }
+
       if (effectiveViewMode === "matrix") {
         if (selectedTenantId === tenant.id) {
           requestTenantEditorClose()
-          return
-        }
-
-        if (selectedTenantId != null && !requestTenantEditorClose()) {
           return
         }
 
@@ -1451,13 +1459,22 @@ export function AssetStackingPlanWorkspace({
     [effectiveViewMode, requestTenantEditorClose, selectedTenantId]
   )
 
-  const handleDrawerOpenChange = React.useCallback((open: boolean) => {
-    setIsDrawerOpen(open)
-    if (!open) {
-      setSelectedTenantId(null)
-      setTenantEditorDraft(null)
-    }
-  }, [])
+  const handleDrawerOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsDrawerOpen(true)
+        return
+      }
+
+      if (selectedTenantId != null && !requestTenantEditorClose()) {
+        setIsDrawerOpen(true)
+        return
+      }
+
+      setIsDrawerOpen(false)
+    },
+    [requestTenantEditorClose, selectedTenantId]
+  )
 
   const handleTenantDraftChange = React.useCallback(
     (field: keyof TenantEditorDraft, value: string) => {
@@ -1538,9 +1555,10 @@ export function AssetStackingPlanWorkspace({
               availabilityStatus:
                 tenantEditorDraft.availabilityStatus.trim() ||
                 tenant.availabilityStatus,
-              expiration:
-                tenantEditorDraft.availabilityStatus.trim() ||
-                tenant.expiration,
+              leaseCommencementDate: undefined,
+              leaseExpirationDate: undefined,
+              expiration: formatExpirationForDate(undefined, true),
+              color: stackingPlanExpirationColor(undefined, true),
               timeToLeaseMonths,
               renewalProbabilityPct: undefined,
             }
@@ -3479,13 +3497,27 @@ function CompactTenantEditor({
               <span className={INPUT_LABEL_TEXT_CLASS}>
                 Lease Type
               </span>
-              <Input
-                value={draft.leaseType}
-                onChange={(event) =>
-                  onDraftChange("leaseType", event.target.value)
+              <Select
+                value={
+                  TENANT_LEASE_TYPE_OPTIONS.includes(
+                    draft.leaseType as (typeof TENANT_LEASE_TYPE_OPTIONS)[number]
+                  )
+                    ? draft.leaseType
+                    : ""
                 }
-                placeholder="Modified Gross"
-              />
+                onValueChange={(value) => onDraftChange("leaseType", value ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select lease type" />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {TENANT_LEASE_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
 
             <label className="space-y-1.5">

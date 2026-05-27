@@ -1,6 +1,6 @@
 import type { Asset } from "@/lib/assets"
 import {
-  portfolioValueNoiCapFromSeed,
+  financialMetricsForAssetAtIndex,
   seedForAsset,
 } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
@@ -65,7 +65,7 @@ export function portfolioAssetRowForAsset(
   index: number
 ): PortfolioAssetRow {
   const seed = seedForAsset(asset, index)
-  const fin = portfolioValueNoiCapFromSeed(seed)
+  const fin = financialMetricsForAssetAtIndex(asset, index)
   const recommendation = getTopSingleModificationRecommendationForAsset(
     asset.id,
     asset

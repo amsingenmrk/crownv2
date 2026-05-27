@@ -3,6 +3,7 @@ import {
   isMarketListingPinId,
   marketSearchDemoHash32,
 } from "@/lib/market-search-demo-listings"
+import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 
 export function seedForAsset(asset: Asset, index: number): number {
   return (
@@ -11,8 +12,52 @@ export function seedForAsset(asset: Asset, index: number): number {
   )
 }
 
+function seededCapRatePct(seed: number) {
+  return 4.2 + (seed % 28) / 10
+}
+
+function seededNoiMargin(seed: number) {
+  return 0.56 + (seed % 7) * 0.025
+}
+
+function seededRsfSqft(seed: number) {
+  return 120_000 + (seed * 97_331) % 3_800_000
+}
+
+function seededAnnualRevenueUsd(seed: number, rsfSqft: number) {
+  const occupiedShare = 0.62 + (seed % 25) / 100
+  const inPlaceRentPsf = 24 + ((seed >> 4) % 24)
+  return rsfSqft * occupiedShare * inPlaceRentPsf
+}
+
+function datasetAnnualRevenueUsd(assetId: string, asset?: Asset) {
+  const dataset = getSampleStackingPlanData(assetId, asset)
+  const annualRevenueUsd = dataset.floors.reduce(
+    (total, floor) =>
+      total +
+      floor.tenants.reduce((floorTotal, tenant) => {
+        if (tenant.isVacant) {
+          return floorTotal
+        }
+        return floorTotal + tenant.sqft * (tenant.contractRatePsfValue ?? 0)
+      }, 0),
+    0
+  )
+
+  return {
+    annualRevenueUsd,
+    rsfSqft: dataset.summary.totalSqft,
+  }
+}
+
 /** Value / NOI / cap inputs derived from the same seed as portfolio table rows. */
-export function portfolioValueNoiCapFromSeed(seed: number): {
+export function portfolioValueNoiCapFromSeed(
+  seed: number,
+  overrides?: {
+    annualRevenueUsd?: number
+    rsfSqft?: number
+  }
+): {
   valueMills: number
   valueUsd: number
   noiTenthM: number
@@ -23,17 +68,18 @@ export function portfolioValueNoiCapFromSeed(seed: number): {
   rsfSqft: number
   pricePerSfN: number
 } {
-  const valueMills = 180 + (seed * 53) % 2_320
-  const valueUsd = valueMills * 1_000_000
-  const noiTenthM = (seed % 95) / 10
-  const noiUsd = noiTenthM * 1_000_000
-  // Keep seeded revenue aligned with the forecast model's typical NOI margin band.
-  const noiMargin = 0.56 + (seed % 7) * 0.025
-  const annualRevenueUsd = noiMargin > 0 ? noiUsd / noiMargin : noiUsd
+  const rsfSqft = overrides?.rsfSqft ?? seededRsfSqft(seed)
+  const annualRevenueUsd =
+    overrides?.annualRevenueUsd ?? seededAnnualRevenueUsd(seed, rsfSqft)
+  const noiMargin = seededNoiMargin(seed)
+  const noiUsd = annualRevenueUsd * noiMargin
   const annualOpexUsd = Math.max(annualRevenueUsd - noiUsd, 0)
-  const capRatePct = 4.2 + (seed % 28) / 10
-  const rsfSqft = 120_000 + (seed * 97_331) % 3_800_000
-  const pricePerSfN = 38 + (seed % 68)
+  const capRatePct = seededCapRatePct(seed)
+  const valueUsd = capRatePct > 0 ? noiUsd / (capRatePct / 100) : 0
+  const valueMills = valueUsd / 1_000_000
+  const noiTenthM = noiUsd / 1_000_000
+  const pricePerSfN =
+    rsfSqft > 0 ? Math.max(1, Math.round(valueUsd / rsfSqft)) : 0
   return {
     valueMills,
     valueUsd,
@@ -49,7 +95,11 @@ export function portfolioValueNoiCapFromSeed(seed: number): {
 
 export function financialMetricsForAssetAtIndex(asset: Asset, index: number) {
   const seed = seedForAsset(asset, index)
-  return portfolioValueNoiCapFromSeed(seed)
+  const { annualRevenueUsd, rsfSqft } = datasetAnnualRevenueUsd(asset.id, asset)
+  return portfolioValueNoiCapFromSeed(seed, {
+    annualRevenueUsd,
+    rsfSqft,
+  })
 }
 
 export function financialMetricsForAssetId(assetId: string) {

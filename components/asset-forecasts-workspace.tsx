@@ -62,6 +62,7 @@ import {
   formatUsdDeltaCompact,
   formatUsdPortfolioCompact,
   scenarioDeltaDirection,
+  scenarioDeltaTone,
 } from "@/lib/scenario-kpi-format"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
@@ -614,6 +615,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                     ? {
                         deltaLine: formatCapRatePts(delta),
                         deltaDirection: scenarioDeltaDirection(delta),
+                        deltaTone: scenarioDeltaTone(delta),
                       }
                     : undefined,
               },
@@ -633,6 +635,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
                       deltaLine: formatUsdDeltaCompact(delta),
                       pctLine: formatPctChange(baselineValue, currentValue),
                       deltaDirection: scenarioDeltaDirection(delta),
+                      deltaTone: scenarioDeltaTone(
+                        delta,
+                        field === "opex" ? "inverse" : "normal"
+                      ),
                     }
                   : undefined,
             },
