@@ -25,10 +25,17 @@ export function AssetLeasingAssumptionsFields({
   assumptions,
   onAssumptionsChange,
   className,
+  idPrefix = "",
+  showRenewalProbability = true,
+  layout = "single",
 }: {
   assumptions: AssetLeasingAssumptionsState
   onAssumptionsChange: (updates: Partial<AssetLeasingAssumptionsState>) => void
   className?: string
+  idPrefix?: string
+  showRenewalProbability?: boolean
+  /** `two-column` puts lease type and term in a second column (space editor). */
+  layout?: "single" | "two-column"
 }) {
   const leaseTypeItems = React.useMemo(() => {
     const items: Record<string, React.ReactNode> = {}
@@ -38,9 +45,15 @@ export function AssetLeasingAssumptionsFields({
     return items
   }, [])
 
-  return (
-    <div className={cn("grid gap-3", className)}>
-      {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
+  const leasingFields = showRenewalProbability
+    ? SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS
+    : SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.filter(
+        (field) => field.key !== "defaultRenewalProbabilityPct"
+      )
+
+  const numericFields = (
+    <div className="grid min-w-0 gap-3">
+      {leasingFields.map((field) => (
         <ScopedForecastLeasingAssumptionField
           key={field.key}
           label={field.label}
@@ -61,7 +74,11 @@ export function AssetLeasingAssumptionsFields({
           suffix={field.suffix}
         />
       ))}
+    </div>
+  )
 
+  const leaseFields = (
+    <div className="grid min-w-0 gap-3">
       <label className="flex h-8 min-h-8 w-full min-w-0 items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/80 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40">
         <span className="flex max-w-[46%] shrink-0 items-center self-stretch border-r border-border/60 bg-muted/30 px-2.5 text-[12px] font-medium leading-none text-muted-foreground sm:max-w-[55%]">
           <span className="line-clamp-2">Lease type</span>
@@ -77,7 +94,7 @@ export function AssetLeasingAssumptionsFields({
           }}
         >
           <SelectTrigger
-            id="leasing-lease-type"
+            id={`${idPrefix}leasing-lease-type`}
             className="h-8 min-h-8 w-full min-w-0 flex-1 justify-end rounded-none border-0 bg-transparent py-0 pr-1.5 pl-2 text-right text-[12px] leading-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 [&_svg]:size-3 *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:justify-end *:data-[slot=select-value]:text-right"
           >
             <SelectValue
@@ -104,7 +121,7 @@ export function AssetLeasingAssumptionsFields({
           <span className="line-clamp-2">Lease term</span>
         </span>
         <Input
-          id="leasing-lease-term"
+          id={`${idPrefix}leasing-lease-term`}
           type="number"
           value={assumptions.leaseTermYears}
           min={1}
@@ -123,6 +140,27 @@ export function AssetLeasingAssumptionsFields({
           yrs
         </span>
       </label>
+    </div>
+  )
+
+  if (layout === "two-column") {
+    return (
+      <div
+        className={cn(
+          "grid min-w-0 gap-3 sm:grid-cols-2 sm:items-start sm:gap-4",
+          className
+        )}
+      >
+        {numericFields}
+        {leaseFields}
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn("grid gap-3", className)}>
+      {numericFields}
+      {leaseFields}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import type { LeaseTypeValue } from "@/lib/asset-leasing-assumptions"
 import type { StackingPlanDataset } from "@/lib/stacking-plan-data"
 
 const STORAGE_KEY_PREFIX = "glassbox:stacking-plan-tenant-forecast-overrides:"
@@ -5,12 +6,19 @@ const CHANGED_EVENT = "glassbox:stacking-plan-tenant-forecast-overrides-changed"
 
 export const TENANT_TIME_TO_LEASE_MIN_MONTHS = 3
 export const TENANT_TIME_TO_LEASE_MAX_MONTHS = 24
+export const TENANT_OCCUPANCY_TARGET_MIN_PCT = 65
+export const TENANT_OCCUPANCY_TARGET_MAX_PCT = 99
 export const TENANT_RENEWAL_PROBABILITY_MIN_PCT = 10
 export const TENANT_RENEWAL_PROBABILITY_MAX_PCT = 95
+export const TENANT_SPACE_LEASE_TERM_MIN_YEARS = 1
+export const TENANT_SPACE_LEASE_TERM_MAX_YEARS = 30
 
 export type TenantForecastAssumptionOverride = {
   timeToLeaseMonths?: number
+  occupancyTargetPct?: number
   renewalProbabilityPct?: number
+  leaseType?: LeaseTypeValue
+  leaseTermYears?: number
 }
 
 export type TenantForecastAssumptionOverrideMap = Record<
@@ -38,25 +46,54 @@ function sanitizeOptionalInteger(
   return clamp(Math.round(value), min, max)
 }
 
+function isLeaseTypeValue(value: string): value is LeaseTypeValue {
+  return (
+    value === "gross" ||
+    value === "modified-gross" ||
+    value === "nnn"
+  )
+}
+
 function sanitizeOverride(
   value: TenantForecastAssumptionOverride
 ): TenantForecastAssumptionOverride {
+  const leaseTypeRaw = value.leaseType
   return {
     timeToLeaseMonths: sanitizeOptionalInteger(
       value.timeToLeaseMonths,
       TENANT_TIME_TO_LEASE_MIN_MONTHS,
       TENANT_TIME_TO_LEASE_MAX_MONTHS
     ),
+    occupancyTargetPct: sanitizeOptionalInteger(
+      value.occupancyTargetPct,
+      TENANT_OCCUPANCY_TARGET_MIN_PCT,
+      TENANT_OCCUPANCY_TARGET_MAX_PCT
+    ),
     renewalProbabilityPct: sanitizeOptionalInteger(
       value.renewalProbabilityPct,
       TENANT_RENEWAL_PROBABILITY_MIN_PCT,
       TENANT_RENEWAL_PROBABILITY_MAX_PCT
     ),
+    leaseType:
+      typeof leaseTypeRaw === "string" && isLeaseTypeValue(leaseTypeRaw)
+        ? leaseTypeRaw
+        : undefined,
+    leaseTermYears: sanitizeOptionalInteger(
+      value.leaseTermYears,
+      TENANT_SPACE_LEASE_TERM_MIN_YEARS,
+      TENANT_SPACE_LEASE_TERM_MAX_YEARS
+    ),
   }
 }
 
 function hasOverrideValue(value: TenantForecastAssumptionOverride) {
-  return value.timeToLeaseMonths != null || value.renewalProbabilityPct != null
+  return (
+    value.timeToLeaseMonths != null ||
+    value.occupancyTargetPct != null ||
+    value.renewalProbabilityPct != null ||
+    value.leaseType != null ||
+    value.leaseTermYears != null
+  )
 }
 
 export function stackingPlanTenantForecastOverridesStorageKey(assetId: string) {
@@ -187,10 +224,15 @@ export function applyStackingPlanTenantForecastOverrides(
 
       return {
         ...tenant,
-        timeToLeaseMonths: override.timeToLeaseMonths,
+        timeToLeaseMonths: override.timeToLeaseMonths ?? tenant.timeToLeaseMonths,
+        occupancyTargetPct:
+          override.occupancyTargetPct ?? tenant.occupancyTargetPct,
         renewalProbabilityPct: tenant.isVacant
           ? undefined
-          : override.renewalProbabilityPct,
+          : (override.renewalProbabilityPct ?? tenant.renewalProbabilityPct),
+        assumptionLeaseType:
+          override.leaseType ?? tenant.assumptionLeaseType,
+        leaseTermYears: override.leaseTermYears ?? tenant.leaseTermYears,
       }
     })
 

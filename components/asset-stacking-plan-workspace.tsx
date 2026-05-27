@@ -13,6 +13,8 @@ import {
   Upload,
 } from "lucide-react"
 
+import { AssetLeasingAssumptionsFields } from "@/components/asset-leasing-assumptions-fields"
+import { useAssetLeasingAssumptions } from "@/components/asset-leasing-assumptions-provider"
 import { AssetStackingPlanDrawer } from "@/components/asset-stacking-plan-drawer"
 import { StackingValueDriversWaterfall } from "@/components/stacking-value-drivers-waterfall"
 import { Button } from "@/components/ui/button"
@@ -55,15 +57,16 @@ import {
   type StackingViewMode,
 } from "@/lib/stacking-plan-data"
 import {
+  buildTenantForecastAssumptionOverrideFromEditor,
+  resolveSpaceAssumptionsForEditor,
+  spaceAssumptionUpdatesToDraft,
+} from "@/lib/space-leasing-assumption-editor"
+import {
   applyStackingPlanTenantForecastOverrides,
   getStackingPlanTenantForecastOverrideSnapshot,
   parseStackingPlanTenantForecastOverrideSnapshot,
   setStackingPlanTenantForecastOverride,
   subscribeStackingPlanTenantForecastOverrides,
-  TENANT_RENEWAL_PROBABILITY_MAX_PCT,
-  TENANT_RENEWAL_PROBABILITY_MIN_PCT,
-  TENANT_TIME_TO_LEASE_MAX_MONTHS,
-  TENANT_TIME_TO_LEASE_MIN_MONTHS,
 } from "@/lib/stacking-plan-tenant-forecast-overrides"
 import {
   neutralStackingSegmentTone,
@@ -127,6 +130,9 @@ type TenantEditorDraft = {
   availabilityStatus: string
   renewalProbabilityPct: string
   timeToLeaseMonths: string
+  occupancyTargetPct: string
+  assumptionLeaseType: string
+  leaseTermYears: string
 }
 
 type VacantSplitModalState = {
@@ -324,6 +330,13 @@ function buildTenantEditorDraft(tenant: StackingPlanTenant): TenantEditorDraft {
         : "",
     timeToLeaseMonths:
       tenant.timeToLeaseMonths != null ? String(tenant.timeToLeaseMonths) : "",
+    occupancyTargetPct:
+      tenant.occupancyTargetPct != null
+        ? String(tenant.occupancyTargetPct)
+        : "",
+    assumptionLeaseType: tenant.assumptionLeaseType ?? "",
+    leaseTermYears:
+      tenant.leaseTermYears != null ? String(tenant.leaseTermYears) : "",
   }
 }
 
@@ -346,7 +359,10 @@ function areTenantEditorDraftsEqual(
     left.contractRate === right.contractRate &&
     left.availabilityStatus === right.availabilityStatus &&
     left.renewalProbabilityPct === right.renewalProbabilityPct &&
-    left.timeToLeaseMonths === right.timeToLeaseMonths
+    left.timeToLeaseMonths === right.timeToLeaseMonths &&
+    left.occupancyTargetPct === right.occupancyTargetPct &&
+    left.assumptionLeaseType === right.assumptionLeaseType &&
+    left.leaseTermYears === right.leaseTermYears
   )
 }
 
@@ -1106,6 +1122,7 @@ export function AssetStackingPlanWorkspace({
   simplifiedTenantInteraction = "drawer",
   simplifiedTenantVisualOverrides,
 }: AssetStackingPlanWorkspaceProps) {
+  const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
   const tenantForecastOverrideSnapshot = React.useSyncExternalStore(
     React.useCallback(
       (onStoreChange) =>
@@ -1513,18 +1530,18 @@ export function AssetStackingPlanWorkspace({
   const handleTenantEditSave = React.useCallback(() => {
     if (selectedTenant == null || tenantEditorDraft == null) return
 
-    const timeToLeaseMonths = parseOptionalIntegerInput(
-      tenantEditorDraft.timeToLeaseMonths,
-      TENANT_TIME_TO_LEASE_MIN_MONTHS,
-      TENANT_TIME_TO_LEASE_MAX_MONTHS
+    const spaceAssumptionOverride = buildTenantForecastAssumptionOverrideFromEditor(
+      tenantEditorDraft,
+      buildingLeasingAssumptions,
+      { isVacant: selectedTenant.isVacant }
     )
+    const timeToLeaseMonths = spaceAssumptionOverride.timeToLeaseMonths
     const renewalProbabilityPct = selectedTenant.isVacant
       ? undefined
-      : parseOptionalIntegerInput(
-          tenantEditorDraft.renewalProbabilityPct,
-          TENANT_RENEWAL_PROBABILITY_MIN_PCT,
-          TENANT_RENEWAL_PROBABILITY_MAX_PCT
-        )
+      : spaceAssumptionOverride.renewalProbabilityPct
+    const occupancyTargetPct = spaceAssumptionOverride.occupancyTargetPct
+    const assumptionLeaseType = spaceAssumptionOverride.leaseType
+    const leaseTermYears = spaceAssumptionOverride.leaseTermYears
 
     let updatedTenant: StackingPlanTenant | null = null
 
@@ -1561,6 +1578,9 @@ export function AssetStackingPlanWorkspace({
               color: stackingPlanExpirationColor(undefined, true),
               timeToLeaseMonths,
               renewalProbabilityPct: undefined,
+              occupancyTargetPct,
+              assumptionLeaseType,
+              leaseTermYears,
             }
             return updatedTenant
           }
@@ -1635,6 +1655,9 @@ export function AssetStackingPlanWorkspace({
                 : tenant.rentPremium,
             renewalProbabilityPct,
             timeToLeaseMonths,
+            occupancyTargetPct,
+            assumptionLeaseType,
+            leaseTermYears,
           }
           return updatedTenant
         })
@@ -1643,15 +1666,16 @@ export function AssetStackingPlanWorkspace({
       })
     )
 
-    setStackingPlanTenantForecastOverride(assetId, selectedTenant.id, {
-      renewalProbabilityPct,
-      timeToLeaseMonths,
-    })
+    setStackingPlanTenantForecastOverride(
+      assetId,
+      selectedTenant.id,
+      spaceAssumptionOverride
+    )
 
     if (updatedTenant != null) {
       setTenantEditorDraft(buildTenantEditorDraft(updatedTenant))
     }
-  }, [assetId, selectedTenant, tenantEditorDraft])
+  }, [assetId, buildingLeasingAssumptions, selectedTenant, tenantEditorDraft])
 
   const handleVacantSpaceCombine = React.useCallback(
     (floorNumber: number, tenantId: string) => {
@@ -3397,6 +3421,31 @@ function CompactTenantEditor({
   onSave: () => void
   className?: string
 }) {
+  const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
+  const spaceAssumptions = React.useMemo(
+    () => resolveSpaceAssumptionsForEditor(draft, buildingLeasingAssumptions),
+    [buildingLeasingAssumptions, draft]
+  )
+  const spaceAssumptionIdPrefix = React.useMemo(
+    () => `space-${tenant.id}-`,
+    [tenant.id]
+  )
+
+  const handleSpaceAssumptionsChange = React.useCallback(
+    (updates: Partial<typeof buildingLeasingAssumptions>) => {
+      const draftUpdates = spaceAssumptionUpdatesToDraft(
+        updates,
+        buildingLeasingAssumptions
+      )
+      for (const [field, value] of Object.entries(draftUpdates) as Array<
+        [keyof TenantEditorDraft, string]
+      >) {
+        onDraftChange(field, value)
+      }
+    },
+    [buildingLeasingAssumptions, onDraftChange]
+  )
+
   return (
     <form
       onSubmit={(event) => {
@@ -3563,45 +3612,25 @@ function CompactTenantEditor({
             </label>
           </>
         )}
-
-        <label className="space-y-1.5">
-          <span className={INPUT_LABEL_TEXT_CLASS}>
-            Time to Lease
-          </span>
-          <Input
-            type="number"
-            min={String(TENANT_TIME_TO_LEASE_MIN_MONTHS)}
-            max={String(TENANT_TIME_TO_LEASE_MAX_MONTHS)}
-            step="1"
-            value={draft.timeToLeaseMonths}
-            onChange={(event) =>
-              onDraftChange("timeToLeaseMonths", event.target.value)
-            }
-            placeholder="Building default"
-          />
-        </label>
-
-        {!tenant.isVacant ? (
-          <label className="space-y-1.5">
-            <span className={INPUT_LABEL_TEXT_CLASS}>
-              Renewal Probability
-            </span>
-            <Input
-              type="number"
-              min={String(TENANT_RENEWAL_PROBABILITY_MIN_PCT)}
-              max={String(TENANT_RENEWAL_PROBABILITY_MAX_PCT)}
-              step="1"
-              value={draft.renewalProbabilityPct}
-              onChange={(event) =>
-                onDraftChange("renewalProbabilityPct", event.target.value)
-              }
-              placeholder="Building default"
-            />
-          </label>
-        ) : (
-          null
-        )}
       </div>
+
+      <div className="space-y-3 rounded-lg border border-border/70 bg-muted/50 px-3 py-3 dark:border-border/60 dark:bg-muted/35">
+        <div className="space-y-1">
+          <h4 className="text-sm font-semibold text-foreground">Space assumptions</h4>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Override building leasing defaults for this suite. Leave values aligned
+            with building defaults to inherit them.
+          </p>
+        </div>
+        <AssetLeasingAssumptionsFields
+          idPrefix={spaceAssumptionIdPrefix}
+          layout="two-column"
+          assumptions={spaceAssumptions}
+          onAssumptionsChange={handleSpaceAssumptionsChange}
+          showRenewalProbability={!tenant.isVacant}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-3">
         {onClose ? (
           <Button

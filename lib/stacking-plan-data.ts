@@ -40,7 +40,10 @@ export type StackingPlanTenant = {
   contractRatePsfValue?: number
   predictedRentPsfValue?: number
   timeToLeaseMonths?: number
+  occupancyTargetPct?: number
   renewalProbabilityPct?: number
+  assumptionLeaseType?: "gross" | "modified-gross" | "nnn"
+  leaseTermYears?: number
   rentPremiumPctValue?: number
   sunScore?: number
   viewScore?: number
