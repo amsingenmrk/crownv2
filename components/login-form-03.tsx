@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 
 import { useAppToast } from "@/components/app-toast"
 import { Button } from "@/components/ui/button"
@@ -40,12 +41,12 @@ export function LoginForm03({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const router = useRouter()
   const showToast = useAppToast()
 
   function handleEmailSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    showToast("Check your email for a sign-in link.")
-    event.currentTarget.reset()
+    router.push("/portfolio")
   }
 
   function handleMicrosoftSignIn() {
