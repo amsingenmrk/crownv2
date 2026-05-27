@@ -1,17 +1,8 @@
 import type { Asset } from "@/lib/assets"
-import {
-  financialMetricsForAssetAtIndex,
-  seedForAsset,
-} from "@/lib/portfolio-asset-financials"
+import { financialMetricsForAssetAtIndex } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { getTopSingleModificationRecommendationForAsset } from "@/lib/modification-recommendations"
-
-const ASSET_STATUS_LABELS = [
-  "Stabilized",
-  "Lease-up",
-  "Redevelopment",
-] as const
 
 export function formatRsfShort(sqft: number): string {
   if (sqft >= 1_000_000) {
@@ -44,35 +35,43 @@ function sectorLabelForAsset(asset: Asset) {
           : asset.groupLabel
 }
 
-export function portfolioClassLabelForSeed(
-  seed: number,
-  occupiedPercent: number
-) {
-  const tierScore = (seed % 100) * 0.45 + occupiedPercent * 0.55
-
-  if (tierScore >= 72) {
-    return "A"
-  }
-  if (tierScore >= 58) {
-    return "B"
-  }
-  return "C"
-}
-
 /** One portfolio table row — same values as the main portfolio assets grid. */
 export function portfolioAssetRowForAsset(
   asset: Asset,
   index: number
 ): PortfolioAssetRow {
-  const seed = seedForAsset(asset, index)
   const fin = financialMetricsForAssetAtIndex(asset, index)
   const recommendation = getTopSingleModificationRecommendationForAsset(
     asset.id,
     asset
   )
   const typeLabel = sectorLabelForAsset(asset)
-  const classLabel = portfolioClassLabelForSeed(seed, asset.occupiedPercent)
   const liftPercent = Number((recommendation?.averageLiftPct ?? 0).toFixed(1))
+
+  if (fin == null) {
+    return {
+      id: asset.id,
+      groupId: asset.groupId,
+      building: asset.name,
+      location: asset.address,
+      ownership: "Owned",
+      typeLabel,
+      classLabel: "B",
+      rsf: "—",
+      occPct: "—",
+      pricePerSf: "—",
+      revenue: "—",
+      opex: "—",
+      noi: "—",
+      value: "—",
+      capRate: "—",
+      wale: "—",
+      status: "Lease-up",
+      lift: recommendation == null ? "—" : formatLiftPercent(liftPercent),
+      liftPercent,
+      recommendedModification: recommendation,
+    }
+  }
 
   const value =
     fin.valueMills >= 1000
@@ -89,17 +88,17 @@ export function portfolioAssetRowForAsset(
     location: asset.address,
     ownership: "Owned",
     typeLabel,
-    classLabel,
+    classLabel: fin.classLabel,
     rsf: formatRsfShort(fin.rsfSqft),
-    occPct: `${asset.occupiedPercent}%`,
+    occPct: `${fin.occupancyPct.toFixed(1)}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
     revenue: formatUsdPortfolioCompact(fin.annualRevenueUsd),
     opex: formatUsdPortfolioCompact(fin.annualOpexUsd),
     noi,
     value,
     capRate: `${fin.capRatePct.toFixed(1)}%`,
-    wale: `${(4.5 + (seed % 35) / 10).toFixed(1)}y`,
-    status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
+    wale: `${fin.waleYears.toFixed(1)} yrs`,
+    status: fin.status,
     lift: recommendation == null ? "—" : formatLiftPercent(liftPercent),
     liftPercent,
     recommendedModification: recommendation,

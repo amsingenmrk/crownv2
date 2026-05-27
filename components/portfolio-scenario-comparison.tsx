@@ -77,6 +77,12 @@ export function PortfolioScenarioComparison({
     [userScenarios]
   )
 
+  const [scenarioKpiMembershipReady, setScenarioKpiMembershipReady] =
+    React.useState(false)
+  React.useEffect(() => {
+    setScenarioKpiMembershipReady(true)
+  }, [])
+
   React.useEffect(() => {
     const built = scenarioKey(BUILTIN_SCENARIO.slug)
     let next = slotKeys.map((k) => (validKeys.has(k) ? k : built))
@@ -89,8 +95,15 @@ export function PortfolioScenarioComparison({
 
   const baseColumns = React.useMemo(
     () =>
-      slotKeys.map((key, i) => columnForEntityKey(key, userScenarios, i)),
-    [slotKeys, userScenarios]
+      slotKeys.map((key, i) =>
+        columnForEntityKey(
+          key,
+          userScenarios,
+          i,
+          scenarioKpiMembershipReady
+        )
+      ),
+    [slotKeys, userScenarios, scenarioKpiMembershipReady]
   )
 
   const [scenarioChartMembership, setScenarioChartMembership] =

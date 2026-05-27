@@ -1,4 +1,3 @@
-import { getAssetById } from "@/lib/assets"
 import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
 import {
   buildDefaultForecastScenarios,
@@ -79,16 +78,11 @@ export function aggregatePortfolioRows(
     totalValueUsd += fin.valueUsd
     totalRsfSqft += fin.rsfSqft
 
-    const asset = getAssetById(row.id)
-    const occRaw = asset
-      ? asset.occupiedPercent
-      : parseFloat(String(row.occPct).replace(/%/g, "").trim())
-    const occ = Number.isFinite(occRaw) ? occRaw : 0
+    const occ = Number.isFinite(fin.occupancyPct) ? fin.occupancyPct : 0
     occWeightedSum += (occ / 100) * fin.rsfSqft
 
-    const waleMatch = row.wale.match(/^([\d.]+)/)
-    if (waleMatch) {
-      waleSum += parseFloat(waleMatch[1]!)
+    if (Number.isFinite(fin.waleYears) && fin.waleYears > 0) {
+      waleSum += fin.waleYears
       waleN += 1
     }
   }

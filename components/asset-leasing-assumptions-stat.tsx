@@ -17,7 +17,7 @@ export function AssetLeasingAssumptionsStat({ className }: { className?: string 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        nativeButton={false}
+        nativeButton
         render={
           <button
             type="button"

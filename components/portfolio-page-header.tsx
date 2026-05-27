@@ -29,26 +29,18 @@ function weightedOccupiedPercentForAssets(
 ) {
   let weightedSqftTotal = 0
   let weightedOccupiedTotal = 0
-  let rawOccupiedTotal = 0
-  let rawCount = 0
 
   for (const asset of assets) {
     if (asset == null) continue
-    rawOccupiedTotal += asset.occupiedPercent
-    rawCount += 1
 
     const financials = financialMetricsForAssetId(asset.id)
     if (financials == null || financials.rsfSqft <= 0) continue
 
     weightedSqftTotal += financials.rsfSqft
-    weightedOccupiedTotal += financials.rsfSqft * asset.occupiedPercent
+    weightedOccupiedTotal += financials.rsfSqft * financials.occupancyPct
   }
 
-  if (weightedSqftTotal > 0) {
-    return weightedOccupiedTotal / weightedSqftTotal
-  }
-
-  return rawCount > 0 ? rawOccupiedTotal / rawCount : 0
+  return weightedSqftTotal > 0 ? weightedOccupiedTotal / weightedSqftTotal : 0
 }
 
 export function PortfolioPageHeader() {

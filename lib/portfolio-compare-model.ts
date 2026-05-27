@@ -12,6 +12,7 @@ import {
   formatUsdPerSf,
   formatUsdPortfolioCompact,
 } from "@/lib/scenario-kpi-format"
+import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
   allPortfolioAssetRowsBase,
@@ -116,84 +117,27 @@ export type CompareColumn = {
   scenarioSlugForProperty?: string
 }
 
-/** Baseline matches `KPIS` in `portfolio-dashboard.tsx`. */
-export const PORTFOLIO_KPIS_BASELINE: HeaderKpiMetrics = {
-  estValue: "$1.24B",
-  estValuePerSf: "$485 / SF",
-  occupancy: "91.60%",
-  vacancy: "8.40%",
-  noi: "$74.2M / yr",
-  noiPerSf: "$29.10 / SF",
-  capRate: "6.00%",
-  wale: "5.8 yrs",
+const EMPTY_COMPARE_METRICS: HeaderKpiMetrics = {
+  estValue: "—",
+  estValuePerSf: "—",
+  occupancy: "—",
+  vacancy: "—",
+  noi: "—",
+  noiPerSf: "—",
+  capRate: "—",
+  wale: "—",
 }
 
-export const PORTFOLIO_KPIS_NUMERIC_BASELINE: HeaderKpiNumeric = {
-  estValueBillions: 1.24,
-  estValuePerSfUsd: 485,
-  occupancyPct: 91.6,
-  vacancyPct: 8.4,
-  noiMillionsPerYr: 74.2,
-  noiPerSfUsd: 29.1,
-  capRatePct: 6.0,
-  waleYears: 5.8,
+const EMPTY_COMPARE_NUMERIC: HeaderKpiNumeric = {
+  estValueBillions: 0,
+  estValuePerSfUsd: 0,
+  occupancyPct: 0,
+  vacancyPct: 0,
+  noiMillionsPerYr: 0,
+  noiPerSfUsd: 0,
+  capRatePct: 0,
+  waleYears: 0,
 }
-
-type KpiPresetBundle = {
-  display: HeaderKpiMetrics
-  numeric: HeaderKpiNumeric
-}
-
-const KPI_PRESET_BUNDLES: KpiPresetBundle[] = [
-  {
-    display: PORTFOLIO_KPIS_BASELINE,
-    numeric: PORTFOLIO_KPIS_NUMERIC_BASELINE,
-  },
-  {
-    display: {
-      estValue: "$1.27B",
-      estValuePerSf: "$498 / SF",
-      occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
-      vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
-      noi: "$76.1M / yr",
-      noiPerSf: "$29.85 / SF",
-      capRate: "5.95%",
-      wale: PORTFOLIO_KPIS_BASELINE.wale,
-    },
-    numeric: {
-      estValueBillions: 1.27,
-      estValuePerSfUsd: 498,
-      occupancyPct: 91.6,
-      vacancyPct: 8.4,
-      noiMillionsPerYr: 76.1,
-      noiPerSfUsd: 29.85,
-      capRatePct: 5.95,
-      waleYears: 5.8,
-    },
-  },
-  {
-    display: {
-      estValue: "$1.21B",
-      estValuePerSf: "$472 / SF",
-      occupancy: PORTFOLIO_KPIS_BASELINE.occupancy,
-      vacancy: PORTFOLIO_KPIS_BASELINE.vacancy,
-      noi: "$72.8M / yr",
-      noiPerSf: "$28.40 / SF",
-      capRate: "6.08%",
-      wale: PORTFOLIO_KPIS_BASELINE.wale,
-    },
-    numeric: {
-      estValueBillions: 1.21,
-      estValuePerSfUsd: 472,
-      occupancyPct: 91.6,
-      vacancyPct: 8.4,
-      noiMillionsPerYr: 72.8,
-      noiPerSfUsd: 28.4,
-      capRatePct: 6.08,
-      waleYears: 5.8,
-    },
-  },
-]
 
 /** Only these headline metrics move with scenario modifications (vs physical portfolio stats). */
 export const METRIC_KEYS_AFFECTED_BY_MODS = new Set<keyof HeaderKpiMetrics>([
@@ -220,15 +164,10 @@ export const KPI_TABLE_ROWS: {
   { label: "NOI", metricKey: "noi", get: (m) => m.noi },
   { label: "NOI / SF", metricKey: "noiPerSf", get: (m) => m.noiPerSf },
   { label: "Cap Rate", metricKey: "capRate", get: (m) => m.capRate },
-  { label: "WALE / WALT", metricKey: "wale", get: (m) => m.wale },
+  { label: "WALE", metricKey: "wale", get: (m) => m.wale },
 ]
 
-function presetBundleAt(index: number): KpiPresetBundle {
-  return KPI_PRESET_BUNDLES[index % KPI_PRESET_BUNDLES.length]!
-}
-
 function fallbackColumn(name: string, address: string, index: number): CompareColumn {
-  const b = presetBundleAt(index)
   return {
     id: `fallback-${index}`,
     kind: "portfolio",
@@ -236,8 +175,8 @@ function fallbackColumn(name: string, address: string, index: number): CompareCo
     address,
     image:
       "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop",
-    metrics: { ...b.display },
-    numeric: { ...b.numeric },
+    metrics: { ...EMPTY_COMPARE_METRICS },
+    numeric: { ...EMPTY_COMPARE_NUMERIC },
   }
 }
 
@@ -302,11 +241,22 @@ function singleAssetCompareColumn(assetId: string, index: number): CompareColumn
   }
 }
 
-function scenarioCompareColumn(slug: string, userScenarios: readonly UserScenario[], index: number): CompareColumn {
-  const rows = scenarioComparePortfolioRows(slug, allPortfolioAssetRowsBase())
+function scenarioCompareColumn(
+  slug: string,
+  userScenarios: readonly UserScenario[],
+  index: number,
+  applyScenarioMembershipFilter = true
+): CompareColumn {
+  const baseRows = allPortfolioAssetRowsBase()
+  const rows = applyScenarioMembershipFilter
+    ? scenarioComparePortfolioRows(slug, baseRows)
+    : baseRows
   const baseKpi = headerKpiFromPortfolioRows(rows)
-  const readStorage = typeof window !== "undefined"
-  const selections = scenarioCompareSelectionsForSlug(slug)
+  const readStorage =
+    applyScenarioMembershipFilter && typeof window !== "undefined"
+  const selections = applyScenarioMembershipFilter
+    ? scenarioCompareSelectionsForSlug(slug)
+    : {}
   const agg = computeScenarioPortfolioAggregate(rows, selections, readStorage)
 
   const rsf = agg.totalRsfSqft
@@ -352,10 +302,6 @@ function scenarioCompareColumn(slug: string, userScenarios: readonly UserScenari
   }
 }
 
-/**
- * Suite-level KPIs are approximations from stacking lease fields (not full underwriting).
- * Implied value uses NOI / 6% cap when rent-based NOI is available.
- */
 function propertyCompareColumn(
   scenarioSlug: string,
   assetId: string,
@@ -364,25 +310,36 @@ function propertyCompareColumn(
   index: number
 ): CompareColumn {
   const asset = getAssetById(assetId)
+  const financials = financialMetricsForAssetId(assetId)
   const data = getSampleStackingPlanData(assetId)
   const tenant = data.floors
     .flatMap((f) => f.tenants)
     .find((t) => t.id === tenantId)
 
-  if (!tenant || !asset) {
+  if (!tenant || financials == null) {
     return fallbackColumn("Unknown property", `${assetId} · ${tenantId}`, index)
   }
 
-  const capAssumptionPct = 6
-  let noiUsdPerYr = 0
-  if (!tenant.isVacant && tenant.contractRatePsfValue != null) {
-    noiUsdPerYr = tenant.contractRatePsfValue * tenant.sqft
-  }
+  const suiteRevenueUsdPerYr =
+    !tenant.isVacant && tenant.contractRatePsfValue != null
+      ? tenant.contractRatePsfValue * tenant.sqft
+      : 0
+  const expenseRatio = financials.currentExpenseRatio
+  const noiUsdPerYr = suiteRevenueUsdPerYr * Math.max(0, 1 - expenseRatio)
   const impliedValueUsd =
-    noiUsdPerYr > 0 ? noiUsdPerYr / (capAssumptionPct / 100) : 0
+    noiUsdPerYr > 0 ? noiUsdPerYr / (financials.capRatePct / 100) : 0
 
   const occPct = tenant.isVacant ? 0 : 100
   const vacPct = tenant.isVacant ? 100 : 0
+  const waleYears =
+    tenant.isVacant || tenant.leaseExpirationDate == null
+      ? 0
+      : Math.max(
+          0.25,
+          (new Date(tenant.leaseExpirationDate).getTime() -
+            new Date("2026-04-08T00:00:00Z").getTime()) /
+            (1000 * 60 * 60 * 24 * 365.25)
+        )
 
   const metrics: HeaderKpiMetrics = {
     estValue:
@@ -405,9 +362,9 @@ function propertyCompareColumn(
         : "—",
     capRate:
       noiUsdPerYr > 0 && impliedValueUsd > 0
-        ? `${capAssumptionPct.toFixed(2)}%`
+        ? `${financials.capRatePct.toFixed(2)}%`
         : "—",
-    wale: tenant.isVacant ? "—" : "See lease",
+    wale: tenant.isVacant ? "—" : `${waleYears.toFixed(1)} yrs`,
   }
 
   const numeric: HeaderKpiNumeric = {
@@ -421,8 +378,8 @@ function propertyCompareColumn(
     noiMillionsPerYr: noiUsdPerYr / 1_000_000,
     noiPerSfUsd:
       noiUsdPerYr > 0 && tenant.sqft > 0 ? noiUsdPerYr / tenant.sqft : 0,
-    capRatePct: noiUsdPerYr > 0 ? capAssumptionPct : 0,
-    waleYears: 0,
+    capRatePct: noiUsdPerYr > 0 ? financials.capRatePct : 0,
+    waleYears,
   }
 
   return {
@@ -432,9 +389,9 @@ function propertyCompareColumn(
     tenantId,
     scenarioSlugForProperty: scenarioSlug,
     name: tenant.isVacant ? `Vacant · ${tenant.space}` : tenant.name,
-    address: `${asset.name} · ${tenant.floorLabel} · ${scenarioLabel}`,
+    address: `${asset?.name ?? financials.assetName} · ${tenant.floorLabel} · ${scenarioLabel}`,
     image:
-      asset.imageUrl ??
+      asset?.imageUrl ??
       "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop",
     metrics,
     numeric,
@@ -444,7 +401,8 @@ function propertyCompareColumn(
 export function columnForEntityKey(
   key: string,
   userScenarios: readonly UserScenario[],
-  slotIndex = 0
+  slotIndex = 0,
+  applyScenarioMembershipFilter = true
 ): CompareColumn {
   if (key === PORTFOLIO_KEY) return entirePortfolioCompareColumn()
 
@@ -475,7 +433,12 @@ export function columnForEntityKey(
 
   if (key.startsWith("scenario:")) {
     const slug = key.slice("scenario:".length)
-    return scenarioCompareColumn(slug, userScenarios, slotIndex)
+    return scenarioCompareColumn(
+      slug,
+      userScenarios,
+      slotIndex,
+      applyScenarioMembershipFilter
+    )
   }
 
   return entirePortfolioCompareColumn()

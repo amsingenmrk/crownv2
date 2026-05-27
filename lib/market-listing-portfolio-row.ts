@@ -1,21 +1,8 @@
 import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
-import type { AssetGroupId } from "@/lib/assets"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
-import {
-  financialMetricsForAssetId,
-  portfolioValueNoiCapFromSeed,
-} from "@/lib/portfolio-asset-financials"
-import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
-import { portfolioClassLabelForSeed } from "@/lib/portfolio-row-for-asset"
+import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
-
-const ASSET_STATUS_LABELS = [
-  "Stabilized",
-  "Lease-up",
-  "Redevelopment",
-] as const
-
-const GROUP_ROTATION: AssetGroupId[] = ["office", "industrial", "retail"]
+import { marketAssetGroupIdForId } from "@/lib/synthetic-asset-calibration"
 
 function formatRsfShort(sqft: number): string {
   if (sqft >= 1_000_000) {
@@ -37,9 +24,33 @@ function formatRsfShort(sqft: number): string {
 export function portfolioAssetRowForMarketPin(
   pin: PortfolioMapboxPin
 ): PortfolioAssetRow {
-  const seed = marketSearchDemoHash32(`market-row:${pin.id}`)
-  const fin = financialMetricsForAssetId(pin.id) ?? portfolioValueNoiCapFromSeed(seed)
-  const g = GROUP_ROTATION[seed % GROUP_ROTATION.length]!
+  const fin = financialMetricsForAssetId(pin.id)
+  const g = marketAssetGroupIdForId(pin.id)
+
+  if (fin == null) {
+    return {
+      id: pin.id,
+      groupId: g,
+      building: pin.building,
+      location: pin.location ?? "",
+      ownership: "Market",
+      typeLabel: g === "office" ? "Office" : g === "industrial" ? "Industrial" : "Retail",
+      classLabel: "B",
+      rsf: "—",
+      occPct: "—",
+      pricePerSf: "—",
+      revenue: "—",
+      opex: "—",
+      noi: "—",
+      value: "—",
+      capRate: "—",
+      wale: "—",
+      status: "Lease-up",
+      lift: pin.lift,
+      liftPercent: pin.liftPercent,
+      recommendedModification: null,
+    }
+  }
 
   const value =
     fin.valueMills >= 1000
@@ -59,17 +70,17 @@ export function portfolioAssetRowForMarketPin(
     location: pin.location ?? "",
     ownership: "Market",
     typeLabel,
-    classLabel: portfolioClassLabelForSeed(seed, 60 + (seed % 35)),
+    classLabel: fin.classLabel,
     rsf: formatRsfShort(fin.rsfSqft),
-    occPct: `${60 + (seed % 35)}%`,
+    occPct: `${fin.occupancyPct.toFixed(1)}%`,
     pricePerSf: `$${fin.pricePerSfN}`,
     revenue: formatUsdPortfolioCompact(fin.annualRevenueUsd),
     opex: formatUsdPortfolioCompact(fin.annualOpexUsd),
     noi,
     value,
     capRate: `${fin.capRatePct.toFixed(1)}%`,
-    wale: `${(4.5 + (seed % 35) / 10).toFixed(1)}y`,
-    status: ASSET_STATUS_LABELS[seed % ASSET_STATUS_LABELS.length]!,
+    wale: `${fin.waleYears.toFixed(1)} yrs`,
+    status: fin.status,
     lift: pin.lift,
     liftPercent: pin.liftPercent,
     recommendedModification: null,

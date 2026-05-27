@@ -456,7 +456,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
       setAssumptions((current) => ({
         ...current,
         ...updates,
-        markToMarketEnabled: true,
       }))
     },
     [setAssumptions]

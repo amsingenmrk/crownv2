@@ -1,9 +1,13 @@
-import { ASSETS, type Asset } from "@/lib/assets"
-import {
-  isMarketListingPinId,
-  marketSearchDemoHash32,
-} from "@/lib/market-search-demo-listings"
+import { type Asset } from "@/lib/assets"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  resolveSyntheticAssetContext,
+  resolveSyntheticAssetRecord,
+  syntheticAnnualOpexUsd,
+  syntheticAssetClassLabel,
+  syntheticAssetStatus,
+  syntheticCapRatePct,
+} from "@/lib/synthetic-asset-calibration"
 
 export function seedForAsset(asset: Asset, index: number): number {
   return (
@@ -12,102 +16,143 @@ export function seedForAsset(asset: Asset, index: number): number {
   )
 }
 
-function seededCapRatePct(seed: number) {
-  return 4.2 + (seed % 28) / 10
-}
-
-function seededNoiMargin(seed: number) {
-  return 0.56 + (seed % 7) * 0.025
-}
-
-function seededRsfSqft(seed: number) {
-  return 120_000 + (seed * 97_331) % 3_800_000
-}
-
-function seededAnnualRevenueUsd(seed: number, rsfSqft: number) {
-  const occupiedShare = 0.62 + (seed % 25) / 100
-  const inPlaceRentPsf = 24 + ((seed >> 4) % 24)
-  return rsfSqft * occupiedShare * inPlaceRentPsf
-}
-
-function datasetAnnualRevenueUsd(assetId: string, asset?: Asset) {
-  const dataset = getSampleStackingPlanData(assetId, asset)
-  const annualRevenueUsd = dataset.floors.reduce(
-    (total, floor) =>
-      total +
-      floor.tenants.reduce((floorTotal, tenant) => {
-        if (tenant.isVacant) {
-          return floorTotal
-        }
-        return floorTotal + tenant.sqft * (tenant.contractRatePsfValue ?? 0)
-      }, 0),
-    0
-  )
-
-  return {
-    annualRevenueUsd,
-    rsfSqft: dataset.summary.totalSqft,
-  }
-}
-
-/** Value / NOI / cap inputs derived from the same seed as portfolio table rows. */
-export function portfolioValueNoiCapFromSeed(
-  seed: number,
-  overrides?: {
-    annualRevenueUsd?: number
-    rsfSqft?: number
-  }
-): {
+export type AssetFinancialMetrics = {
+  assetId: string
+  assetName: string
+  groupId: string
+  groupLabel: string
+  scope: "owned" | "market"
   valueMills: number
   valueUsd: number
   noiTenthM: number
   noiUsd: number
   annualRevenueUsd: number
+  annualMarketRevenueUsd: number
+  annualPredictedRevenueUsd: number
   annualOpexUsd: number
+  currentExpenseRatio: number
   capRatePct: number
   rsfSqft: number
+  occupiedSqft: number
+  vacantSqft: number
+  occupancyPct: number
+  vacancyPct: number
+  inPlaceRentPsf: number
+  marketRentPsf: number
+  predictedRentPsf: number
   pricePerSfN: number
-} {
-  const rsfSqft = overrides?.rsfSqft ?? seededRsfSqft(seed)
-  const annualRevenueUsd =
-    overrides?.annualRevenueUsd ?? seededAnnualRevenueUsd(seed, rsfSqft)
-  const noiMargin = seededNoiMargin(seed)
-  const noiUsd = annualRevenueUsd * noiMargin
-  const annualOpexUsd = Math.max(annualRevenueUsd - noiUsd, 0)
-  const capRatePct = seededCapRatePct(seed)
+  waleYears: number
+  classLabel: "A" | "B" | "C"
+  status: "Stabilized" | "Lease-up" | "Redevelopment"
+}
+
+function buildDatasetRevenueRollups(assetId: string, asset?: Asset) {
+  const dataset = getSampleStackingPlanData(assetId, asset)
+  const rollups = dataset.floors.flatMap((floor) => floor.tenants).reduce(
+    (acc, tenant) => {
+      acc.marketRevenueUsd += tenant.sqft * (tenant.marketRentPsfValue ?? 0)
+      acc.predictedRevenueUsd += tenant.sqft * (tenant.predictedRentPsfValue ?? 0)
+
+      if (!tenant.isVacant) {
+        acc.inPlaceRevenueUsd += tenant.sqft * (tenant.contractRatePsfValue ?? 0)
+      }
+
+      return acc
+    },
+    {
+      inPlaceRevenueUsd: 0,
+      marketRevenueUsd: 0,
+      predictedRevenueUsd: 0,
+    }
+  )
+
+  return { dataset, ...rollups }
+}
+
+function buildFinancialMetrics(assetId: string, asset?: Asset): AssetFinancialMetrics | null {
+  const resolvedAsset = resolveSyntheticAssetRecord(assetId, asset)
+  const assetContext = resolveSyntheticAssetContext(assetId, resolvedAsset)
+  if (assetContext == null) {
+    return null
+  }
+
+  const { dataset, inPlaceRevenueUsd, marketRevenueUsd, predictedRevenueUsd } =
+    buildDatasetRevenueRollups(assetId, resolvedAsset)
+  const rsfSqft = dataset.summary.totalSqft
+  const occupiedSqft = dataset.summary.occupiedSqft
+  const vacantSqft = dataset.summary.vacantSqft
+  const occupancyPct = dataset.summary.overallOccupancyPercent
+  const vacancyPct = Math.max(0, 100 - occupancyPct)
+  const inPlaceRentPsf =
+    occupiedSqft > 0
+      ? inPlaceRevenueUsd / occupiedSqft
+      : dataset.summary.averageContractRentPsf
+  const marketRentPsf =
+    rsfSqft > 0
+      ? marketRevenueUsd / rsfSqft
+      : dataset.summary.averageMarketRentPsf
+  const predictedRentPsf =
+    rsfSqft > 0
+      ? predictedRevenueUsd / rsfSqft
+      : dataset.summary.averagePredictedRentPsf
+  const annualOpexUsd = syntheticAnnualOpexUsd({
+    asset: assetContext,
+    rsfSqft,
+    occupiedPercent: occupancyPct,
+    annualRevenueUsd: inPlaceRevenueUsd,
+  })
+  const noiUsd = Math.max(0, inPlaceRevenueUsd - annualOpexUsd)
+  const waleYears = dataset.summary.waleYears
+  const capRatePct = syntheticCapRatePct({
+    asset: assetContext,
+    occupancyPct,
+    waleYears,
+  })
   const valueUsd = capRatePct > 0 ? noiUsd / (capRatePct / 100) : 0
-  const valueMills = valueUsd / 1_000_000
-  const noiTenthM = noiUsd / 1_000_000
-  const pricePerSfN =
-    rsfSqft > 0 ? Math.max(1, Math.round(valueUsd / rsfSqft)) : 0
+
   return {
-    valueMills,
+    assetId,
+    assetName: assetContext.assetName,
+    groupId: assetContext.groupId,
+    groupLabel: assetContext.groupLabel,
+    scope: assetContext.scope,
+    valueMills: valueUsd / 1_000_000,
     valueUsd,
-    noiTenthM,
+    noiTenthM: noiUsd / 1_000_000,
     noiUsd,
-    annualRevenueUsd,
+    annualRevenueUsd: inPlaceRevenueUsd,
+    annualMarketRevenueUsd: marketRevenueUsd,
+    annualPredictedRevenueUsd: predictedRevenueUsd,
     annualOpexUsd,
+    currentExpenseRatio:
+      inPlaceRevenueUsd > 0 ? annualOpexUsd / inPlaceRevenueUsd : 0,
     capRatePct,
     rsfSqft,
-    pricePerSfN,
+    occupiedSqft,
+    vacantSqft,
+    occupancyPct,
+    vacancyPct,
+    inPlaceRentPsf,
+    marketRentPsf,
+    predictedRentPsf,
+    pricePerSfN:
+      rsfSqft > 0 ? Math.max(1, Math.round(valueUsd / rsfSqft)) : 0,
+    waleYears,
+    classLabel: syntheticAssetClassLabel(assetContext),
+    status: syntheticAssetStatus({ occupancyPct, waleYears }),
   }
 }
 
-export function financialMetricsForAssetAtIndex(asset: Asset, index: number) {
-  const seed = seedForAsset(asset, index)
-  const { annualRevenueUsd, rsfSqft } = datasetAnnualRevenueUsd(asset.id, asset)
-  return portfolioValueNoiCapFromSeed(seed, {
-    annualRevenueUsd,
-    rsfSqft,
-  })
+/** Canonical synthetic financial snapshot used across portfolio, search, compare, and detail surfaces. */
+export function financialMetricsForAssetAtIndex(
+  asset: Asset,
+  _index: number
+): AssetFinancialMetrics | null {
+  return buildFinancialMetrics(asset.id, asset)
 }
 
-export function financialMetricsForAssetId(assetId: string) {
-  if (isMarketListingPinId(assetId)) {
-    const seed = marketSearchDemoHash32(`market-row:${assetId}`)
-    return portfolioValueNoiCapFromSeed(seed)
-  }
-  const index = ASSETS.findIndex((a) => a.id === assetId)
-  if (index < 0) return null
-  return financialMetricsForAssetAtIndex(ASSETS[index]!, index)
+export function financialMetricsForAssetId(
+  assetId: string
+): AssetFinancialMetrics | null {
+  return buildFinancialMetrics(assetId)
 }

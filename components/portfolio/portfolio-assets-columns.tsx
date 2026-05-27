@@ -44,7 +44,25 @@ const PRICING_SOURCE_LABEL =
   "Modeled pricing estimate. This is not presented as raw client-reported pricing."
 
 const VALUE_SOURCE_LABEL =
-  "Modeled asset value estimate derived from the portfolio financial model."
+  "Modeled asset value estimate derived from lease-level revenue, modeled OpEx, and a calibrated cap rate."
+
+const OCCUPANCY_SOURCE_LABEL =
+  "Lease-derived occupancy from the synthetic rent roll (occupied SF divided by total RSF)."
+
+const WALE_SOURCE_LABEL =
+  "WALE is the weighted average remaining lease term by occupied square feet."
+
+const REVENUE_SOURCE_LABEL =
+  "In-place annual revenue from occupied suites in the synthetic lease roll."
+
+const OPEX_SOURCE_LABEL =
+  "Modeled annual operating expense built from sector burden, vacancy carry, and revenue-linked costs."
+
+const NOI_SOURCE_LABEL =
+  "Modeled annual NOI calculated as in-place revenue less modeled OpEx."
+
+const CAP_RATE_SOURCE_LABEL =
+  "Modeled cap rate calibrated by sector, market tier, occupancy, and WALE."
 
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
@@ -222,7 +240,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Occ%" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Occ%</SortableHeader>
+        <SortableHeader column={column} sourceLabel={OCCUPANCY_SOURCE_LABEL}>
+          Occ%
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
@@ -238,7 +258,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "WALE" },
       header: ({ column }) => (
-        <SortableHeader column={column}>WALE</SortableHeader>
+        <SortableHeader column={column} sourceLabel={WALE_SOURCE_LABEL}>
+          WALE
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -
@@ -280,7 +302,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Revenue" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Revenue</SortableHeader>
+        <SortableHeader column={column} sourceLabel={REVENUE_SOURCE_LABEL}>
+          Revenue
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         parseCompactUsdDisplay(String(rowA.getValue(id))) -
@@ -304,7 +328,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "OpEx" },
       header: ({ column }) => (
-        <SortableHeader column={column}>OpEx</SortableHeader>
+        <SortableHeader column={column} sourceLabel={OPEX_SOURCE_LABEL}>
+          OpEx
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         parseCompactUsdDisplay(String(rowA.getValue(id))) -
@@ -328,7 +354,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "NOI" },
       header: ({ column }) => (
-        <SortableHeader column={column}>NOI</SortableHeader>
+        <SortableHeader column={column} sourceLabel={NOI_SOURCE_LABEL}>
+          NOI
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         parseCompactUsdDisplay(String(rowA.getValue(id))) -
@@ -378,7 +406,9 @@ export function createPortfolioAssetColumns(
       enableHiding: true,
       meta: { columnLabel: "Cap Rate" },
       header: ({ column }) => (
-        <SortableHeader column={column}>Cap Rate</SortableHeader>
+        <SortableHeader column={column} sourceLabel={CAP_RATE_SOURCE_LABEL}>
+          Cap Rate
+        </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>
         Number.parseFloat(String(rowA.getValue(id))) -

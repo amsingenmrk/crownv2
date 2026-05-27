@@ -1,12 +1,19 @@
 import { getAssetById } from "@/lib/assets"
 import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
+import {
+  upliftFromModValues,
+  type ModificationUnderwritingUplift,
+} from "@/lib/scenario-modification-uplift"
 import {
   getSampleStackingPlanData,
   type StackingPlanDataset,
   type StackingPlanTenant,
 } from "@/lib/stacking-plan-data"
+import {
+  resolveSyntheticAssetContext,
+  syntheticAnnualOpexUsd,
+} from "@/lib/synthetic-asset-calibration"
 
 export type ForecastScenarioId = string
 
@@ -98,10 +105,6 @@ const FORECAST_QUARTER_COUNT = 8
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
-}
-
-function assetSeed(assetId: string) {
-  return assetId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)
 }
 
 function addMonths(date: Date, months: number) {
@@ -260,10 +263,6 @@ function sumSeries(seriesList: number[][]) {
   )
 }
 
-function scaleSeries(values: number[], factors: number[]) {
-  return values.map((value, index) => value * (factors[index] ?? 1))
-}
-
 export function deriveLeaseUpShare(
   currentOccupancyPct: number,
   targetOccupancyPct: number
@@ -280,8 +279,12 @@ export function deriveLeaseUpShare(
 }
 
 export function defaultContractRateForVacancy(tenant: StackingPlanTenant) {
-  if (tenant.predictedRentPsfValue != null)
-    return tenant.predictedRentPsfValue * 0.9
+  if (tenant.marketRentPsfValue != null) {
+    return tenant.marketRentPsfValue * 0.97
+  }
+  if (tenant.predictedRentPsfValue != null) {
+    return tenant.predictedRentPsfValue * 0.94
+  }
   return 38
 }
 
@@ -336,24 +339,40 @@ function buildQuarterlySpaceRevenue({
   scenario,
   currentOccupancyPct,
   periods,
+  modificationUplift,
 }: {
   tenant: StackingPlanTenant
   assumptions: ForecastAssumptions
   scenario: ForecastEconomicOutlookScenario
   currentOccupancyPct: number
   periods: ForecastPeriod[]
+  modificationUplift: ModificationUnderwritingUplift
 }) {
   const contractRate =
     tenant.contractRatePsfValue ?? defaultContractRateForVacancy(tenant)
-  const predictedRate = tenant.predictedRentPsfValue ?? contractRate * 1.08
+  const reLeasingRateBase = assumptions.markToMarketEnabled
+    ? tenant.predictedRentPsfValue ??
+      tenant.marketRentPsfValue ??
+      contractRate * 1.05
+    : contractRate
+  const predictedRate = reLeasingRateBase * (1 + modificationUplift.rentLiftPct)
   const renewalProbability = clamp(
-    (tenant.renewalProbabilityPct ?? assumptions.defaultRenewalProbabilityPct) / 100,
+    ((tenant.renewalProbabilityPct ?? assumptions.defaultRenewalProbabilityPct) +
+      modificationUplift.renewalLiftPct) /
+      100,
     0,
     1
   )
   const timeToLeaseQuarters = Math.max(
     1,
-    Math.ceil((tenant.timeToLeaseMonths ?? assumptions.timeToLeaseMonths) / 3)
+    Math.ceil(
+      clamp(
+        (tenant.timeToLeaseMonths ?? assumptions.timeToLeaseMonths) +
+          modificationUplift.timeToLeaseDeltaMonths,
+        3,
+        24
+      ) / 3
+    )
   )
   const expiryQuarter = expirationQuarterIndex(tenant.leaseExpirationDate)
 
@@ -361,7 +380,9 @@ function buildQuarterlySpaceRevenue({
     const macroPeriod = macroPeriodForIndex(scenario, period.index)
     const effects = scenarioEffectsForPeriod(macroPeriod)
     const effectiveTargetOccupancyPct = clamp(
-      assumptions.occupancyTargetPct + effects.occupancyTargetAdjustmentPct,
+      assumptions.occupancyTargetPct +
+        effects.occupancyTargetAdjustmentPct +
+        modificationUplift.occupancyLiftPct,
       65,
       99
     )
@@ -387,6 +408,9 @@ function buildQuarterlySpaceRevenue({
 
     const nonRenewalLeaseUpActive =
       period.index >= expiryQuarter + timeToLeaseQuarters
+    const renewalQuarterRevenue = assumptions.markToMarketEnabled
+      ? predictedQuarterRevenue * renewalProbability
+      : contractQuarterRevenue * renewalProbability
     const releaseRevenue = nonRenewalLeaseUpActive
       ? predictedQuarterRevenue *
         (1 - renewalProbability) *
@@ -394,38 +418,41 @@ function buildQuarterlySpaceRevenue({
         effects.releaseFactor
       : 0
 
-    return contractQuarterRevenue * renewalProbability + releaseRevenue
+    return renewalQuarterRevenue + releaseRevenue
   })
 }
 
 export function deriveBaseAnnualOpex(assetId: string, annualRevenue: number) {
   const financials = financialMetricsForAssetId(assetId)
-  const seed = assetSeed(assetId)
-  const fallbackAnnualNoi = annualRevenue * (0.56 + (seed % 7) * 0.025)
-  const seededNoi = financials?.noiUsd ?? fallbackAnnualNoi
-  const constrainedNoi = clamp(
-    seededNoi,
-    annualRevenue * 0.44,
-    annualRevenue * 0.76
-  )
+  const assetContext = resolveSyntheticAssetContext(assetId)
+  if (financials == null || assetContext == null) {
+    return Math.max(annualRevenue * 0.34, 0)
+  }
 
-  return Math.max(annualRevenue - constrainedNoi, annualRevenue * 0.22)
+  return syntheticAnnualOpexUsd({
+    asset: assetContext,
+    rsfSqft: financials.rsfSqft,
+    occupiedPercent: financials.occupancyPct,
+    annualRevenueUsd: annualRevenue,
+  })
 }
 
 function buildQuarterlyOpex({
   periods,
   grossRevenue,
   baseAnnualOpex,
+  annualOpexDeltaUsd = 0,
   targetOccupancyPct,
   scenario,
 }: {
   periods: ForecastPeriod[]
   grossRevenue: number[]
   baseAnnualOpex: number
+  annualOpexDeltaUsd?: number
   targetOccupancyPct: number
   scenario: ForecastEconomicOutlookScenario
 }) {
-  const baseQuarterOpex = baseAnnualOpex / 4
+  const baseQuarterOpex = Math.max(0, baseAnnualOpex + annualOpexDeltaUsd) / 4
   const revenueBaseline = Math.max(grossRevenue[0] ?? 0, 1)
   const occupancyInfluence = 0.92 + (targetOccupancyPct / 100) * 0.16
 
@@ -529,20 +556,45 @@ export function defaultForecastAssumptionsForAsset(
 ): ForecastAssumptions {
   const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
   const financials = financialMetricsForAssetId(assetId)
+  const occupiedTenants = dataset.floors
+    .flatMap((floor) => floor.tenants)
+    .filter((tenant) => !tenant.isVacant)
+  const vacantTenants = dataset.floors
+    .flatMap((floor) => floor.tenants)
+    .filter((tenant) => tenant.isVacant)
+  const averageTimeToLeaseMonths =
+    vacantTenants.length > 0
+      ? vacantTenants.reduce(
+          (sum, tenant) => sum + (tenant.timeToLeaseMonths ?? 0),
+          0
+        ) / vacantTenants.length
+      : 9
+  const averageRenewalProbabilityPct =
+    occupiedTenants.length > 0
+      ? occupiedTenants.reduce(
+          (sum, tenant) => sum + (tenant.renewalProbabilityPct ?? 0),
+          0
+        ) / occupiedTenants.length
+      : 58
 
   return {
     markToMarketEnabled: true,
-    timeToLeaseMonths: 9,
+    timeToLeaseMonths: clamp(Math.round(averageTimeToLeaseMonths), 3, 18),
     occupancyTargetPct: clamp(
-      dataset.summary.overallOccupancyPercent + 4,
-      82,
+      dataset.summary.overallOccupancyPercent +
+        (dataset.summary.vacantSqft > 0 ? 3 : 1.5),
+      75,
       96
     ),
-    defaultRenewalProbabilityPct: 58,
+    defaultRenewalProbabilityPct: clamp(
+      Math.round(averageRenewalProbabilityPct),
+      35,
+      80
+    ),
     exitCapRatePct: clamp(
-      Number(((financials?.capRatePct ?? 5.25) + 0.35).toFixed(2)),
-      4.75,
-      6.75
+      Number(((financials?.capRatePct ?? 5.5) + 0.2).toFixed(2)),
+      4.5,
+      7.25
     ),
   }
 }
@@ -565,7 +617,7 @@ export function buildAssetForecastModel({
   const periods = buildForecastPeriods()
 
   const normalizedAssumptions: ForecastAssumptions = {
-    markToMarketEnabled: true,
+    markToMarketEnabled: assumptions.markToMarketEnabled !== false,
     timeToLeaseMonths: clamp(Math.round(assumptions.timeToLeaseMonths), 3, 24),
     occupancyTargetPct: clamp(
       Math.round(assumptions.occupancyTargetPct),
@@ -579,6 +631,7 @@ export function buildAssetForecastModel({
     ),
     exitCapRatePct: clamp(Number(assumptions.exitCapRatePct.toFixed(2)), 4, 8),
   }
+  const modificationUplift = upliftFromModValues(modValues)
 
   const baseRevenueBreakdown: ForecastRevenueFloorRow[] = dataset.floors.map(
     (floor) => {
@@ -596,6 +649,7 @@ export function buildAssetForecastModel({
           scenario,
           currentOccupancyPct: dataset.summary.overallOccupancyPercent,
           periods,
+          modificationUplift,
         }),
       }))
 
@@ -614,38 +668,15 @@ export function buildAssetForecastModel({
     baseRevenueBreakdown.map((floor) => floor.values)
   )
   const baseCurrentAnnualRevenue = (baseGrossRevenue[0] ?? 0) * 4
-  const { valueMult, noiMult } = upliftFromModValues(modValues)
   const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseCurrentAnnualRevenue)
-  const baseOpex = buildQuarterlyOpex({
-    periods,
-    grossRevenue: baseGrossRevenue,
-    baseAnnualOpex,
-    targetOccupancyPct: normalizedAssumptions.occupancyTargetPct,
-    scenario,
-  })
-  const baseNoi = baseGrossRevenue.map(
-    (value, index) => value - (baseOpex[index] ?? 0)
-  )
-
-  const grossRevenue = baseGrossRevenue.map(
-    (value, index) => value + Math.max(0, baseNoi[index] ?? 0) * (noiMult - 1)
-  )
-  const revenueScaleFactors = baseGrossRevenue.map((value, index) =>
-    value > 0 ? (grossRevenue[index] ?? value) / value : 1
-  )
-  const revenueBreakdown = baseRevenueBreakdown.map((floor) => ({
-    ...floor,
-    values: scaleSeries(floor.values, revenueScaleFactors),
-    spaces: floor.spaces.map((space) => ({
-      ...space,
-      values: scaleSeries(space.values, revenueScaleFactors),
-    })),
-  }))
-  const currentAnnualRevenue = (grossRevenue[0] ?? 0) * 4
+  const grossRevenue = baseGrossRevenue
+  const revenueBreakdown = baseRevenueBreakdown
+  const currentAnnualRevenue = baseCurrentAnnualRevenue
   const opex = buildQuarterlyOpex({
     periods,
     grossRevenue,
     baseAnnualOpex,
+    annualOpexDeltaUsd: modificationUplift.annualOpexDeltaUsd,
     targetOccupancyPct: normalizedAssumptions.occupancyTargetPct,
     scenario,
   })
@@ -657,21 +688,23 @@ export function buildAssetForecastModel({
     return clamp(
       Number(
         (
-          normalizedAssumptions.exitCapRatePct + effects.exitCapAdjustmentPct
+          normalizedAssumptions.exitCapRatePct +
+          modificationUplift.exitCapRateDeltaPct +
+          effects.exitCapAdjustmentPct
         ).toFixed(2)
       ),
       4,
       8
     )
   })
-  const baseSalePrice = baseNoi.map((value, index) =>
+  const salePrice = noi.map((value, index) =>
     Math.max(
       0,
       (value * 4) /
-        ((capRate[index] ?? normalizedAssumptions.exitCapRatePct) / 100)
+        ((capRate[index] ?? normalizedAssumptions.exitCapRatePct) / 100) -
+        modificationUplift.upfrontCapexUsd
     )
   )
-  const salePrice = baseSalePrice.map((value) => value * valueMult)
 
   const baseStatementRows: ForecastStatementRow[] = [
     {
@@ -709,9 +742,13 @@ export function buildAssetForecastModel({
     revenueBreakdown,
     summary: {
       currentOccupancyPct: dataset.summary.overallOccupancyPercent,
-      targetOccupancyPct: normalizedAssumptions.occupancyTargetPct,
+      targetOccupancyPct: clamp(
+        normalizedAssumptions.occupancyTargetPct + modificationUplift.occupancyLiftPct,
+        65,
+        99
+      ),
       currentAnnualRevenue,
-      currentAnnualOpex: baseAnnualOpex,
+      currentAnnualOpex: (opex[0] ?? 0) * 4,
       currentAnnualNoi: (noi[0] ?? 0) * 4,
       exitCapRatePct:
         capRate[capRate.length - 1] ?? normalizedAssumptions.exitCapRatePct,

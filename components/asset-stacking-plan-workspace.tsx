@@ -611,18 +611,7 @@ function buildEmptyMarketFloors(
 }
 
 function readRentRollImportedFlag(assetId: string): boolean {
-  const market = isMarketListingPinId(assetId)
-  if (typeof window === "undefined") {
-    return !market
-  }
-  try {
-    const v = localStorage.getItem(rentRollImportedStorageKey(assetId))
-    if (v === "1") return true
-    if (v === "0") return false
-    return !market
-  } catch {
-    return !market
-  }
+  return true
 }
 
 function getOccupancyBandData(occupancyPercent: number) {
@@ -1156,7 +1145,8 @@ export function AssetStackingPlanWorkspace({
   React.useEffect(() => {
     setRentRollImported(readRentRollImportedFlag(assetId))
   }, [assetId])
-  const stackingPlaceholderActive = !rentRollImported
+  const stackingPlaceholderActive = false
+  const showRentRollActions = false
   const derivedFloorsFromDataset = React.useMemo(() => {
     if (!stackingPlaceholderActive) return baseDataset.floors
     return buildEmptyMarketFloors(baseDataset.floors)
@@ -1592,23 +1582,16 @@ export function AssetStackingPlanWorkspace({
             nextContractRate != null && nextContractRate > 0
               ? Number(nextContractRate.toFixed(2))
               : tenant.contractRatePsfValue
-          const predictedRentDelta =
-            tenant.predictedRentPsfValue != null &&
-            tenant.contractRatePsfValue != null
-              ? tenant.predictedRentPsfValue - tenant.contractRatePsfValue
-              : null
-          const predictedRentPsfValue =
-            contractRatePsfValue != null && predictedRentDelta != null
-              ? Number((contractRatePsfValue + predictedRentDelta).toFixed(2))
-              : tenant.predictedRentPsfValue
+          const marketRentPsfValue = tenant.marketRentPsfValue
+          const predictedRentPsfValue = tenant.predictedRentPsfValue
           const rentPremiumPctValue =
-            contractRatePsfValue != null &&
+            marketRentPsfValue != null &&
             predictedRentPsfValue != null &&
-            contractRatePsfValue > 0
+            marketRentPsfValue > 0
               ? Number(
                   (
-                    ((predictedRentPsfValue - contractRatePsfValue) /
-                      contractRatePsfValue) *
+                    ((predictedRentPsfValue - marketRentPsfValue) /
+                      marketRentPsfValue) *
                     100
                   ).toFixed(1)
                 )
@@ -1646,12 +1629,14 @@ export function AssetStackingPlanWorkspace({
                 : tenant.predictedRent,
             rentPremiumPctValue,
             rentPremium:
-              contractRatePsfValue != null &&
+              marketRentPsfValue != null &&
               predictedRentPsfValue != null &&
               rentPremiumPctValue != null
-                ? `+$${(predictedRentPsfValue - contractRatePsfValue).toFixed(2)} / SF (+${rentPremiumPctValue.toFixed(
-                    1
-                  )}% vs contract rent)`
+                ? `${predictedRentPsfValue - marketRentPsfValue >= 0 ? "+" : "−"}$${Math.abs(
+                    predictedRentPsfValue - marketRentPsfValue
+                  ).toFixed(2)} / SF (${rentPremiumPctValue >= 0 ? "+" : "−"}${Math.abs(
+                    rentPremiumPctValue
+                  ).toFixed(1)}% vs market rent)`
                 : tenant.rentPremium,
             renewalProbabilityPct,
             timeToLeaseMonths,
@@ -1897,27 +1882,29 @@ export function AssetStackingPlanWorkspace({
                 </SelectContent>
               </Select>
               <StackingPlanLegend mode={vizMode} />
-              {rentRollImported ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setClearRentRollConfirmOpen(true)}
-                >
-                  <Eraser className="size-3.5" aria-hidden />
-                  Clear rent roll
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleImportRentRoll}
-                >
-                  <Upload className="size-3.5" aria-hidden />
-                  Import rent roll
-                </Button>
-              )}
+              {showRentRollActions ? (
+                rentRollImported ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setClearRentRollConfirmOpen(true)}
+                  >
+                    <Eraser className="size-3.5" aria-hidden />
+                    Clear rent roll
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleImportRentRoll}
+                  >
+                    <Upload className="size-3.5" aria-hidden />
+                    Import rent roll
+                  </Button>
+                )
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -2052,27 +2039,29 @@ export function AssetStackingPlanWorkspace({
                           </div>
                         </>
                       ) : null}
-                      {rentRollImported ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setClearRentRollConfirmOpen(true)}
-                        >
-                          <Eraser className="size-3.5" aria-hidden />
-                          Clear rent roll
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleImportRentRoll}
-                        >
-                          <Upload className="size-3.5" aria-hidden />
-                          Import rent roll
-                        </Button>
-                      )}
+                      {showRentRollActions ? (
+                        rentRollImported ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setClearRentRollConfirmOpen(true)}
+                          >
+                            <Eraser className="size-3.5" aria-hidden />
+                            Clear rent roll
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleImportRentRoll}
+                          >
+                            <Upload className="size-3.5" aria-hidden />
+                            Import rent roll
+                          </Button>
+                        )
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"

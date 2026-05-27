@@ -1,4 +1,14 @@
-import { getAssetById, type Asset } from "@/lib/assets"
+import { type Asset } from "@/lib/assets"
+import {
+  resolveSyntheticAssetContext,
+  resolveSyntheticAssetRecord,
+  syntheticContractRentPsf,
+  syntheticDefaultLeaseType,
+  syntheticDefaultRenewalProbabilityPct,
+  syntheticDefaultTimeToLeaseMonths,
+  syntheticMarketRentPsf,
+  syntheticPredictedRentPsf,
+} from "@/lib/synthetic-asset-calibration"
 
 export type StackingViewMode = "detailed" | "simplified"
 
@@ -38,6 +48,7 @@ export type StackingPlanTenant = {
   annualRent?: string
   rentPerSf?: string
   contractRatePsfValue?: number
+  marketRentPsfValue?: number
   predictedRentPsfValue?: number
   timeToLeaseMonths?: number
   occupancyTargetPct?: number
@@ -48,6 +59,7 @@ export type StackingPlanTenant = {
   sunScore?: number
   viewScore?: number
   contractRate?: string
+  marketRent?: string
   predictedRent?: string
   rentPremium?: string
   contacts: StackingPlanContact[]
@@ -88,8 +100,14 @@ export type StackingPlanFloor = {
 
 export type StackingPlanSummary = {
   totalSqft: number
+  occupiedSqft: number
+  vacantSqft: number
   totalTenants: number
   overallOccupancyPercent: number
+  averageContractRentPsf: number
+  averageMarketRentPsf: number
+  averagePredictedRentPsf: number
+  waleYears: number
 }
 
 export type StackingPlanDataset = {
@@ -125,6 +143,8 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "numeric",
 })
+
+const LEASE_REFERENCE_DATE = new Date("2026-04-08T00:00:00Z")
 
 const longDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -317,6 +337,7 @@ function getWeightedAverageTenantValue(
   tenants: readonly StackingPlanTenant[],
   metric:
     | "contractRatePsfValue"
+    | "marketRentPsfValue"
     | "predictedRentPsfValue"
     | "sunScore"
     | "viewScore"
@@ -370,8 +391,6 @@ function getAverageRemainingLeaseYears(tenants: readonly StackingPlanTenant[]) {
     return null
   }
 
-  const now = new Date("2026-04-08")
-
   const weightedTotal = datedTenants.reduce((sum, tenant) => {
     const expirationDate = new Date(tenant.leaseExpirationDate ?? "")
     if (Number.isNaN(expirationDate.getTime())) {
@@ -380,7 +399,7 @@ function getAverageRemainingLeaseYears(tenants: readonly StackingPlanTenant[]) {
 
     const yearsRemaining = Math.max(
       0.25,
-      (expirationDate.getTime() - now.getTime()) /
+      (expirationDate.getTime() - LEASE_REFERENCE_DATE.getTime()) /
         (1000 * 60 * 60 * 24 * 365.25)
     )
 
@@ -577,6 +596,11 @@ function buildFloorValueDrivers({
   vacancyPercent: number
 }): StackingFloorValueDrivers {
   const occupiedTenants = floorTenants.filter((tenant) => !tenant.isVacant)
+  const marketRentPsf = roundToHundredths(
+    getWeightedAverageTenantValue(floorTenants, "marketRentPsfValue") ??
+      getWeightedAverageTenantValue(floorTenants, "predictedRentPsfValue") ??
+      44
+  )
   const predictedRentPsf = roundToHundredths(
     getWeightedAverageTenantValue(floorTenants, "predictedRentPsfValue") ??
       44 +
@@ -741,28 +765,7 @@ function buildFloorValueDrivers({
     viewSignal,
   }
 
-  let targetNetImpact = clamp(
-    marketBias * 1.05 +
-      relativeFloorSignal * 0.92 +
-      occupancySignal * 0.72 +
-      contractToPredictedSignal * 0.6 +
-      sunSignal * 0.52 +
-      viewSignal * 0.7 +
-      buildoutSignal * 0.38 +
-      leaseTypeSignal * 0.24 -
-      getSqftShare(floorTenants, (tenant) => tenant.isVacant) * 1.15 +
-      signedSeedJitter(`${assetId}:${floorSeed.floor}:net`, 0.26),
-    -4.25,
-    5.25
-  )
-
-  if (Math.abs(targetNetImpact) < 0.85) {
-    const signSource =
-      marketBias + relativeFloorSignal + viewSignal - vacancySignal * 0.5
-    targetNetImpact = signSource >= 0 ? 0.95 : -0.95
-  }
-
-  targetNetImpact = roundToHundredths(targetNetImpact)
+  const targetNetImpact = roundToHundredths(predictedRentPsf - marketRentPsf)
 
   const rawFactors = VALUE_DRIVER_FEATURE_CATEGORIES.map((factor) => ({
     factor,
@@ -813,9 +816,7 @@ function buildFloorValueDrivers({
   )
 
   return {
-    marketBaselineRentPsf: roundToHundredths(
-      predictedRentPsf - targetNetImpact
-    ),
+    marketBaselineRentPsf: marketRentPsf,
     predictedRentPsf,
     waterfallFactors,
     otherFactors,
@@ -908,6 +909,28 @@ function formatCurrencyPerSf(value: number): string {
   return `$${value.toFixed(2)} / SF`
 }
 
+function formatSignedCurrencyPerSf(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "−" : ""
+  return `${sign}$${Math.abs(value).toFixed(2)} / SF`
+}
+
+function yearsUntilDate(dateValue?: string): number | null {
+  if (dateValue == null || dateValue === "") {
+    return null
+  }
+
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return Math.max(
+    0.25,
+    (date.getTime() - LEASE_REFERENCE_DATE.getTime()) /
+      (1000 * 60 * 60 * 24 * 365.25)
+  )
+}
+
 /** ISO `YYYY-MM-DD` (or any string starting with year); drives legend + segment hex. */
 export function stackingPlanExpirationColor(
   expiration?: string,
@@ -953,9 +976,19 @@ function toIsoDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function deriveLeaseCommencementDate(expiration: string, seed: number): string {
+function deriveLeaseCommencementDate(
+  expiration: string,
+  seed: number,
+  assetGroupId: string
+): string {
   const date = new Date(expiration)
-  const termYears = 4 + (seed % 4)
+  const baseTermYears =
+    assetGroupId === "industrial"
+      ? 5
+      : assetGroupId === "retail"
+        ? 4
+        : 6
+  const termYears = baseTermYears + (seed % 4)
   date.setFullYear(date.getFullYear() - termYears)
   return toIsoDate(date)
 }
@@ -1082,7 +1115,7 @@ function buildSuiteSqfts(
 }
 
 function buildFloorSeedsForAsset(assetId: string, assetOverride?: Asset): FloorSeed[] {
-  const asset = assetOverride ?? getAssetById(assetId)
+  const asset = resolveSyntheticAssetRecord(assetId, assetOverride)
   const seed = hashText(`stacking:${assetId}`)
   const random = createPrng(seed)
   const floorCount = 12 + (seed % 17)
@@ -1158,9 +1191,20 @@ export function getSampleStackingPlanData(
   assetOverride?: Asset
 ): StackingPlanDataset {
   /** Deterministic across SSR and hydration: avoid `getAssetById(id)` reading localStorage group overrides on the client. */
-  const asset = assetOverride ?? getAssetById(assetId, { overrides: {} })
+  const asset = resolveSyntheticAssetRecord(assetId, assetOverride)
+  const assetContext =
+    resolveSyntheticAssetContext(assetId, asset) ?? {
+      assetId,
+      assetName: asset?.name ?? assetId,
+      address: asset?.address ?? "Address unavailable",
+      groupId: "office" as const,
+      groupLabel: "Office",
+      occupiedPercent: asset?.occupiedPercent ?? 76,
+      scope: "owned" as const,
+      seed: hashText(`fallback:${assetId}`),
+    }
   const floorSeeds = buildFloorSeedsForAsset(assetId, asset)
-  const address = asset?.address ?? "Address unavailable"
+  const address = assetContext.address
 
   const floors = floorSeeds
     .map((floorSeed) => {
@@ -1177,16 +1221,6 @@ export function getSampleStackingPlanData(
         const tenantSeed = hashText(
           `${assetId}:${floorSeed.floor}:${tenant.space}:${tenant.name}`
         )
-        const leaseCommencementDate =
-          tenant.isVacant || tenant.expiration == null
-            ? undefined
-            : deriveLeaseCommencementDate(tenant.expiration, tenantSeed)
-        const contractRatePerSfValue = 36 + (tenantSeed % 15) * 1.15
-        const rentPremiumPerSfValue = 1.4 + ((tenantSeed >> 2) % 8) * 0.45
-        const predictedRentPerSfValue =
-          contractRatePerSfValue + rentPremiumPerSfValue
-        const rentPremiumPct =
-          (rentPremiumPerSfValue / contractRatePerSfValue) * 100
         const floorLift = Math.max(0, floorSeed.floor - 10)
         const sunScore = Math.min(
           98,
@@ -1199,6 +1233,71 @@ export function getSampleStackingPlanData(
         const owner = OWNER_NAMES[tenantSeed % OWNER_NAMES.length]!
         const isVacant = tenant.isVacant === true
         const buildout = getSampleBuildout(tenantSeed, isVacant)
+        const leaseType = syntheticDefaultLeaseType({
+          asset: assetContext,
+          suiteKey: tenant.space,
+          isVacant,
+        })
+        const leaseExpirationDate = isVacant ? undefined : tenant.expiration
+        const leaseCommencementDate =
+          isVacant || tenant.expiration == null
+            ? undefined
+            : deriveLeaseCommencementDate(
+                tenant.expiration,
+                tenantSeed,
+                assetContext.groupId
+              )
+        const yearsRemaining = yearsUntilDate(leaseExpirationDate)
+        const marketRentPsfValue = syntheticMarketRentPsf({
+          asset: assetContext,
+          floor: floorSeed.floor,
+          totalFloors: floorSeeds.length,
+          sqft: tenant.sqft,
+          buildout,
+          leaseType,
+          sunScore,
+          viewScore,
+          suiteKey: tenant.space,
+        })
+        const contractRatePerSfValue = isVacant
+          ? undefined
+          : syntheticContractRentPsf({
+              asset: assetContext,
+              marketRentPsf: marketRentPsfValue,
+              buildout,
+              leaseType,
+              yearsRemaining,
+              suiteKey: tenant.space,
+            })
+        const predictedRentPsfValue = syntheticPredictedRentPsf({
+          asset: assetContext,
+          marketRentPsf: marketRentPsfValue,
+          buildout,
+          yearsRemaining,
+          isVacant,
+          suiteKey: tenant.space,
+        })
+        const rentPremiumPerSfValue = predictedRentPsfValue - marketRentPsfValue
+        const rentPremiumPct =
+          marketRentPsfValue > 0
+            ? (rentPremiumPerSfValue / marketRentPsfValue) * 100
+            : 0
+        const timeToLeaseMonths = syntheticDefaultTimeToLeaseMonths({
+          asset: assetContext,
+          buildout,
+          floor: floorSeed.floor,
+          totalFloors: floorSeeds.length,
+          sqft: tenant.sqft,
+          suiteKey: tenant.space,
+        })
+        const renewalProbabilityPct = isVacant
+          ? undefined
+          : syntheticDefaultRenewalProbabilityPct({
+              asset: assetContext,
+              leaseType,
+              yearsRemaining,
+              suiteKey: tenant.space,
+            })
         const lastUpdatedDate = deriveLastUpdatedDate(tenantSeed)
 
         return {
@@ -1218,35 +1317,48 @@ export function getSampleStackingPlanData(
           owner,
           buildout,
           verificationStatus: isVacant
-            ? "Marketing ready"
-            : "Lease abstract verified",
-          availabilityStatus: isVacant ? "Available now" : "Occupied",
-          leaseType: isVacant
-            ? undefined
-            : tenantSeed % 2 === 0
-              ? "Modified Gross"
-              : "NNN",
+            ? "Leasing assumptions calibrated"
+            : "Modeled lease roll",
+          availabilityStatus:
+            isVacant && timeToLeaseMonths > 3
+              ? `Available now · ${timeToLeaseMonths} mo lease-up`
+              : isVacant
+                ? "Available now"
+                : "Occupied",
+          leaseType,
           leaseCommencementDate,
-          leaseExpirationDate: isVacant ? undefined : tenant.expiration,
+          leaseExpirationDate,
           lastUpdatedDate,
           annualRent: isVacant
             ? undefined
-            : formatCurrency(tenant.sqft * contractRatePerSfValue),
+            : contractRatePerSfValue != null
+              ? formatCurrency(tenant.sqft * contractRatePerSfValue)
+              : undefined,
           rentPerSf: isVacant
             ? undefined
-            : formatCurrencyPerSf(contractRatePerSfValue),
+            : contractRatePerSfValue != null
+              ? formatCurrencyPerSf(contractRatePerSfValue)
+              : undefined,
           contractRatePsfValue: isVacant ? undefined : contractRatePerSfValue,
-          predictedRentPsfValue: predictedRentPerSfValue,
-          rentPremiumPctValue: isVacant ? undefined : rentPremiumPct,
+          marketRentPsfValue,
+          predictedRentPsfValue: predictedRentPsfValue,
+          timeToLeaseMonths,
+          renewalProbabilityPct,
+          rentPremiumPctValue: rentPremiumPct,
           sunScore,
           viewScore,
           contractRate: isVacant
             ? undefined
-            : formatCurrencyPerSf(contractRatePerSfValue),
-          predictedRent: formatCurrencyPerSf(predictedRentPerSfValue),
-          rentPremium: isVacant
-            ? undefined
-            : `+$${rentPremiumPerSfValue.toFixed(2)} / SF (+${rentPremiumPct.toFixed(1)}% vs contract rent)`,
+            : contractRatePerSfValue != null
+              ? formatCurrencyPerSf(contractRatePerSfValue)
+              : undefined,
+          marketRent: formatCurrencyPerSf(marketRentPsfValue),
+          predictedRent: formatCurrencyPerSf(predictedRentPsfValue),
+          rentPremium: `${formatSignedCurrencyPerSf(
+            rentPremiumPerSfValue
+          )} (${rentPremiumPct >= 0 ? "+" : "−"}${Math.abs(rentPremiumPct).toFixed(
+            1
+          )}% vs market rent)`,
           contacts: buildContacts(assetId, tenant.name, owner, isVacant),
           note: tenant.note,
         }
@@ -1261,8 +1373,8 @@ export function getSampleStackingPlanData(
         tenants,
         valueDrivers: buildFloorValueDrivers({
           assetId,
-          assetGroup: asset?.groupId ?? "office",
-          assetOccupiedPercent: asset?.occupiedPercent ?? occupancyPercent,
+          assetGroup: assetContext.groupId,
+          assetOccupiedPercent: assetContext.occupiedPercent,
           floorSeed,
           floorTenants: tenants,
           allFloorSeeds: floorSeeds,
@@ -1296,15 +1408,30 @@ export function getSampleStackingPlanData(
       .filter((tenant) => !tenant.isVacant)
       .map((tenant) => tenant.name.toLowerCase())
   )
+  const allTenants = floors.flatMap((floor) => floor.tenants)
+  const occupiedTenants = allTenants.filter((tenant) => !tenant.isVacant)
+  const averageContractRentPsf =
+    getWeightedAverageTenantValue(occupiedTenants, "contractRatePsfValue") ?? 0
+  const averageMarketRentPsf =
+    getWeightedAverageTenantValue(allTenants, "marketRentPsfValue") ?? 0
+  const averagePredictedRentPsf =
+    getWeightedAverageTenantValue(allTenants, "predictedRentPsfValue") ?? 0
+  const waleYears = getAverageRemainingLeaseYears(occupiedTenants) ?? 0
 
   return {
     floors,
     summary: {
       totalSqft,
+      occupiedSqft,
+      vacantSqft: Math.max(0, totalSqft - occupiedSqft),
       totalTenants: uniqueTenants.size,
       overallOccupancyPercent: Number(
         ((occupiedSqft / totalSqft) * 100).toFixed(2)
       ),
+      averageContractRentPsf: roundToHundredths(averageContractRentPsf),
+      averageMarketRentPsf: roundToHundredths(averageMarketRentPsf),
+      averagePredictedRentPsf: roundToHundredths(averagePredictedRentPsf),
+      waleYears: roundToHundredths(waleYears),
     },
   }
 }

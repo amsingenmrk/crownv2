@@ -57,13 +57,13 @@ export function AssetStackingPlanDrawer({
       ]
     : [
         { label: "Contract Rate", value: tenant.contractRate ?? "N/A" },
+        { label: "Market Rent", value: tenant.marketRent ?? "N/A" },
         {
           label: "Predicted Rent",
           value: tenant.predictedRent ?? "N/A",
           subValue: tenant.rentPremium ?? undefined,
           subValueClassName: "text-primary",
         },
-        { label: "Expires", value: tenant.expiration },
       ]
 
   const detailRows: DetailRow[] = isVacant
@@ -98,6 +98,10 @@ export function AssetStackingPlanDrawer({
         {
           label: "Contract rate",
           value: tenant.contractRate ?? tenant.rentPerSf ?? "N/A",
+        },
+        {
+          label: "Market rent",
+          value: tenant.marketRent ?? "N/A",
         },
         {
           label: "Predicted rent",

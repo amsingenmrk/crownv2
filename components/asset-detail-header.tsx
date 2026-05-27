@@ -138,9 +138,9 @@ export function AssetDetailHeader() {
                 ))}
               </div>
               <OccupancySummaryBar
-                occupiedPercent={asset ? asset.occupiedPercent : parseOccPct(tableRow.occPct)}
+                occupiedPercent={parseOccPct(tableRow.occPct)}
                 className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
-                secondaryMetricLabel="WALE / WALT"
+                secondaryMetricLabel="WALE"
                 secondaryMetricValue={waleDisplay}
               />
               {asset ? <AssetLeasingAssumptionsStat /> : null}

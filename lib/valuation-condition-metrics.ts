@@ -43,33 +43,33 @@ function metricsForRevenue({
   assetId,
   annualRevenue,
   baseCapRatePct,
-  modValues,
+  annualOpexDeltaUsd,
+  exitCapRateDeltaPct,
+  upfrontCapexUsd,
 }: {
   assetId: string
   annualRevenue: number
   baseCapRatePct: number
-  modValues: ModValues
+  annualOpexDeltaUsd: number
+  exitCapRateDeltaPct: number
+  upfrontCapexUsd: number
 }): ValuationConditionMetrics {
   const revenueBeforeMods = Math.max(0, annualRevenue)
-  const { noiMult, annualOpexDeltaUsd } = upliftFromModValues(modValues)
   const baseOpex = deriveBaseAnnualOpex(assetId, revenueBeforeMods)
-  const baseNoi = revenueBeforeMods - baseOpex
-  const grossRevenue =
-    revenueBeforeMods + Math.max(0, baseNoi) * (noiMult - 1)
-  const opex = Math.max(
-    0,
-    deriveBaseAnnualOpex(assetId, grossRevenue) + annualOpexDeltaUsd
-  )
-  const noi = grossRevenue - opex
-  const capRate = clamp(baseCapRatePct, 4, 8)
+  const grossRevenue = revenueBeforeMods
+  const opex = Math.max(0, baseOpex + annualOpexDeltaUsd)
+  const noi = Math.max(0, grossRevenue - opex)
+  const capRate = clamp(baseCapRatePct + exitCapRateDeltaPct, 4, 8)
   const assetValue =
-    capRate > 0 ? Math.max(0, noi) / (capRate / 100) : 0
+    capRate > 0
+      ? Math.max(0, noi) / (capRate / 100) - upfrontCapexUsd
+      : 0
 
   return {
     grossRevenue,
     opex,
     noi,
-    assetValue,
+    assetValue: Math.max(0, assetValue),
     capRate,
   }
 }
@@ -89,6 +89,7 @@ export function buildValuationConditionMetricMap({
   baseCapRatePct: number
   modValues?: ModValues
 }): Record<ValuationConditionId, ValuationConditionMetrics> {
+  const modUplift = upliftFromModValues(modValues)
   const currentMacroPeriod = scenario.macroPeriods[0]
   const effects =
     currentMacroPeriod != null
@@ -102,7 +103,9 @@ export function buildValuationConditionMetricMap({
         }
   const currentOccupancyPct = dataset.summary.overallOccupancyPercent
   const effectiveTargetOccupancyPct = clamp(
-    assumptions.occupancyTargetPct + effects.occupancyTargetAdjustmentPct,
+    assumptions.occupancyTargetPct +
+      effects.occupancyTargetAdjustmentPct +
+      modUplift.occupancyLiftPct,
     65,
     99
   )
@@ -121,7 +124,10 @@ export function buildValuationConditionMetricMap({
       const contractRate =
         tenant.contractRatePsfValue ?? defaultContractRateForVacancy(tenant)
       const predictedRate =
-        tenant.predictedRentPsfValue ?? contractRate * 1.08
+        (tenant.predictedRentPsfValue ??
+          tenant.marketRentPsfValue ??
+          contractRate * 1.05) *
+        (1 + modUplift.rentLiftPct)
       const contractAnnualRevenue =
         tenant.sqft * contractRate * effects.rentFactor
       const predictedAnnualRevenue =
@@ -154,7 +160,9 @@ export function buildValuationConditionMetricMap({
         assetId,
         annualRevenue: annualRevenueByCondition[condition],
         baseCapRatePct,
-        modValues,
+        annualOpexDeltaUsd: modUplift.annualOpexDeltaUsd,
+        exitCapRateDeltaPct: modUplift.exitCapRateDeltaPct,
+        upfrontCapexUsd: modUplift.upfrontCapexUsd,
       }),
     ])
   ) as Record<ValuationConditionId, ValuationConditionMetrics>

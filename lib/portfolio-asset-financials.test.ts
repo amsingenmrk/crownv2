@@ -29,9 +29,15 @@ describe("financialMetricsForAssetAtIndex", () => {
 
     const metrics = financialMetricsForAssetAtIndex(asset, 0)
     const dataset = getSampleStackingPlanData(asset.id, asset)
+    expect(metrics).not.toBeNull()
+    if (metrics == null) {
+      return
+    }
 
     expect(metrics.annualRevenueUsd).toBeCloseTo(inPlaceAnnualRevenueUsd(asset.id), 2)
     expect(metrics.rsfSqft).toBe(dataset.summary.totalSqft)
+    expect(metrics.occupancyPct).toBeCloseTo(dataset.summary.overallOccupancyPercent, 2)
+    expect(metrics.waleYears).toBeCloseTo(dataset.summary.waleYears, 2)
     expect(metrics.annualOpexUsd + metrics.noiUsd).toBeCloseTo(
       metrics.annualRevenueUsd,
       2
