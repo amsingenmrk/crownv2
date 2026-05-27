@@ -1344,11 +1344,13 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              <div className="text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Economic Outlook
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">
+                Economic outlook
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               {includedOutlooks.length > 1 ? (
                 <ToggleGroup
                   value={[activeOutlookId]}
