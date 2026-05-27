@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter, usePathname, useParams } from "next/navigation"
 import { Layers, Wrench, LineChart } from "lucide-react"
+import { AssetLeasingAssumptionsStat } from "@/components/asset-leasing-assumptions-stat"
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { cn } from "@/lib/utils"
 import { ASSETS, getAssetById } from "@/lib/assets"
@@ -107,7 +108,14 @@ export function AssetDetailHeader() {
             </div>
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch justify-start sm:self-stretch sm:items-end">
-            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:grid-cols-[auto_minmax(0,320px)] sm:items-stretch sm:justify-end sm:gap-2">
+            <div
+              className={cn(
+                "flex min-h-0 w-full max-w-full flex-1 flex-col items-stretch gap-2 sm:grid sm:h-full sm:min-h-0 sm:max-w-full sm:items-stretch sm:justify-end sm:gap-2",
+                asset
+                  ? "sm:grid-cols-[auto_minmax(0,min(100%,22rem))_auto]"
+                  : "sm:grid-cols-[auto_minmax(0,320px)]"
+              )}
+            >
               <div
                 className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-end gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:max-w-none sm:shrink-0"
                 aria-label="Building key metrics"
@@ -135,6 +143,7 @@ export function AssetDetailHeader() {
                 secondaryMetricLabel="WALE / WALT"
                 secondaryMetricValue={waleDisplay}
               />
+              {asset ? <AssetLeasingAssumptionsStat /> : null}
             </div>
           </div>
         </div>

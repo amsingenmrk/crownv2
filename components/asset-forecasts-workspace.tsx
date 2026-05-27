@@ -3,6 +3,8 @@
 import * as React from "react"
 import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
+import { AssetLeasingAssumptionsFields } from "@/components/asset-leasing-assumptions-fields"
+import { useAssetLeasingAssumptions } from "@/components/asset-leasing-assumptions-provider"
 import {
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
@@ -36,7 +38,6 @@ import {
   buildAssetForecastModel,
   buildDefaultForecastScenarios,
   createForecastScenarioFromTemplate,
-  defaultForecastAssumptionsForAsset,
   type ForecastAssumptions,
   type ForecastEconomicOutlookScenario,
   type ForecastStatementRow,
@@ -262,48 +263,6 @@ function buildOutlookSetStateKey({
   })
 }
 
-function AssumptionField({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  suffix,
-}: {
-  label: string
-  value: number
-  onChange: (next: number) => void
-  min: number
-  max: number
-  step: number
-  suffix: string
-}) {
-  return (
-    <label className="min-w-0 space-y-0.5">
-      <div className={cn("truncate", INPUT_LABEL_TEXT_CLASS)}>{label}</div>
-      <div className="relative">
-        <Input
-          type="number"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          className="h-8 border-border/60 bg-background/80 pr-11 text-[0.82rem] tabular-nums shadow-none"
-          onChange={(event) => {
-            const next = Number(event.target.value)
-            if (Number.isNaN(next)) return
-            onChange(clamp(next, min, max))
-          }}
-        />
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-muted-foreground">
-          {suffix}
-        </span>
-      </div>
-    </label>
-  )
-}
-
 export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const tenantForecastOverrideSnapshot = React.useSyncExternalStore(
     React.useCallback(
@@ -332,11 +291,9 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
       ),
     [assetId, tenantForecastOverrides]
   )
-  const defaultAssumptions = React.useMemo(
-    () => defaultForecastAssumptionsForAsset(assetId),
-    [assetId]
-  )
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
+  const { assumptions, updateAssumptions, resetAssumptions } =
+    useAssetLeasingAssumptions()
   const scenarioStorageKey = React.useMemo(() => forecastScenarioStorageKey(assetId), [assetId])
   const setStorageKey = React.useMemo(() => forecastOutlookSetStorageKey(assetId), [assetId])
   const buildingVersionStorageKey = React.useMemo(() => storageKeyForAsset(assetId), [assetId])
@@ -355,9 +312,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
   const [editingOutlookId, setEditingOutlookId] = React.useState<ForecastScenarioId | null>(null)
   const [originalEditingOutlook, setOriginalEditingOutlook] =
     React.useState<ForecastEconomicOutlookScenario | null>(null)
-  const [assumptions, setAssumptions] = React.useState<ForecastAssumptions>(
-    defaultAssumptions
-  )
   const [outlookSets, setOutlookSets] = React.useState<ForecastOutlookSet[]>([])
   const [savedModificationSets, setSavedModificationSets] = React.useState<ModificationSetRecord[]>(
     []
@@ -384,7 +338,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setActiveOutlookId(nextOutlooks[0]?.id ?? defaultOutlooks[0]?.id ?? "baseline")
     setEditingOutlookId(null)
     setOriginalEditingOutlook(null)
-    setAssumptions(defaultAssumptions)
     setOutlookSets(nextOutlookSets)
     setSavedModificationSets(
       typeof localStorage !== "undefined"
@@ -394,7 +347,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
     setActiveOutlookSetId("")
     setOutlookSaveName("")
-  }, [buildingVersionStorageKey, defaultAssumptions, defaultOutlooks, scenarioStorageKey, setStorageKey])
+  }, [buildingVersionStorageKey, defaultOutlooks, scenarioStorageKey, setStorageKey])
 
   const reloadSavedModificationSets = React.useCallback(() => {
     if (typeof localStorage === "undefined") {
@@ -787,13 +740,12 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setActiveBuildingVersionId(BASELINE_BUILDING_VERSION_ID)
   }, [activeBuildingVersionId, savedModificationSets])
 
-  const updateAssumption = React.useCallback((updates: Partial<ForecastAssumptions>) => {
-    setAssumptions((prev) => ({
-      ...prev,
-      ...updates,
-      markToMarketEnabled: true,
-    }))
-  }, [])
+  const updateAssumption = React.useCallback(
+    (updates: Partial<ForecastAssumptions>) => {
+      updateAssumptions({ ...updates, markToMarketEnabled: true })
+    },
+    [updateAssumptions]
+  )
 
   const updateOutlook = React.useCallback(
     (
@@ -1025,7 +977,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setActiveOutlookId(nextOutlooks[0]?.id ?? defaultOutlooks[0]?.id ?? "baseline")
     setEditingOutlookId(null)
     setOriginalEditingOutlook(null)
-    setAssumptions(defaultAssumptions)
+    resetAssumptions()
     setOutlookSets(nextOutlookSets)
     setSavedModificationSets(
       typeof localStorage !== "undefined"
@@ -1037,8 +989,8 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     setOutlookSaveName("")
   }, [
     buildingVersionStorageKey,
-    defaultAssumptions,
     defaultOutlooks,
+    resetAssumptions,
     scenarioStorageKey,
     setStorageKey,
   ])
@@ -1381,37 +1333,10 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
 
         <div className="mt-4 min-w-0 space-y-3 border-t border-border pt-4">
           <h3 className="text-sm font-semibold text-foreground">Leasing Assumptions</h3>
-          <div className="grid gap-3">
-            <AssumptionField
-              label="Time to Lease"
-              value={assumptions.timeToLeaseMonths}
-              onChange={(next) => updateAssumption({ timeToLeaseMonths: Math.round(next) })}
-              min={3}
-              max={24}
-              step={1}
-              suffix="mo"
-            />
-            <AssumptionField
-              label="Occupancy Target"
-              value={assumptions.occupancyTargetPct}
-              onChange={(next) => updateAssumption({ occupancyTargetPct: Math.round(next) })}
-              min={65}
-              max={99}
-              step={1}
-              suffix="%"
-            />
-            <AssumptionField
-              label="Renewal Probability"
-              value={assumptions.defaultRenewalProbabilityPct}
-              onChange={(next) =>
-                updateAssumption({ defaultRenewalProbabilityPct: Math.round(next) })
-              }
-              min={10}
-              max={95}
-              step={1}
-              suffix="%"
-            />
-          </div>
+          <AssetLeasingAssumptionsFields
+            assumptions={assumptions}
+            onAssumptionsChange={updateAssumption}
+          />
         </div>
 
         <div className="mt-4 border-t border-border pt-4">

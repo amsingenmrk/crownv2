@@ -86,7 +86,7 @@ export function ScopedForecastLeasingAssumptionField({
         min={min}
         max={max}
         step={step}
-        className="h-8 min-h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-0 text-[12px] leading-none tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-[12px]"
+        className="h-8 min-h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-0 text-right text-[12px] leading-none tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-[12px]"
         onChange={(event) => {
           const next = Number(event.target.value)
           if (Number.isNaN(next)) return
