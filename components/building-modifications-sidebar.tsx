@@ -41,6 +41,8 @@ export type BuildingModificationsSidebarProps = Omit<
   "onChange"
 > & {
   assetId: string
+  hasPendingChanges: boolean
+  onApply: () => void
   value: ModValues
   onValuesChange: React.Dispatch<React.SetStateAction<ModValues>>
 }
@@ -48,6 +50,8 @@ export type BuildingModificationsSidebarProps = Omit<
 export function BuildingModificationsSidebar({
   className,
   assetId,
+  hasPendingChanges,
+  onApply,
   value: values,
   onValuesChange: setValues,
   ...props
@@ -412,16 +416,27 @@ export function BuildingModificationsSidebar({
         })}
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full shrink-0"
-        disabled={!hasAnySelection}
-        onClick={clear}
-      >
-        Clear all
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-w-0 flex-1"
+          disabled={!hasAnySelection}
+          onClick={clear}
+        >
+          Clear all
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="min-w-0 flex-1"
+          disabled={!hasPendingChanges}
+          onClick={onApply}
+        >
+          Apply
+        </Button>
+      </div>
     </aside>
   )
 }

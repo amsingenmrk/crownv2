@@ -26,6 +26,7 @@ import {
   VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
+import { shouldShowValuationConditionDelta } from "@/lib/valuation-condition-delta-visibility"
 import {
   aggregateValuationConditionMetrics,
   buildValuationConditionMetricMap,
@@ -119,7 +120,8 @@ function buildForecastValuationStripRowsFromConditionMaps(
           {
             value: formatForecastValuationField(field, currentValue),
             compare:
-              baselineValue != null && option.id !== "inPlace"
+              baselineValue != null &&
+              shouldShowValuationConditionDelta(option.id, field)
                 ? compareForecastValuationField(field, baselineValue, currentValue)
                 : undefined,
           },

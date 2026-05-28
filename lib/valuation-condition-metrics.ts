@@ -160,7 +160,8 @@ export function buildValuationConditionMetricMap({
         assetId,
         annualRevenue: annualRevenueByCondition[condition],
         baseCapRatePct,
-        annualOpexDeltaUsd: modUplift.annualOpexDeltaUsd,
+        annualOpexDeltaUsd:
+          condition === "inPlace" ? 0 : modUplift.annualOpexDeltaUsd,
         exitCapRateDeltaPct: modUplift.exitCapRateDeltaPct,
         upfrontCapexUsd: modUplift.upfrontCapexUsd,
       }),

@@ -206,50 +206,26 @@ const TENANT_PREFIXES = [
   "Catalyst",
 ] as const
 
-const TENANT_SUFFIXES_BY_GROUP = {
-  office: [
-    "Capital",
-    "Advisory",
-    "Partners",
-    "Legal",
-    "Ventures",
-    "Analytics",
-    "Media",
-    "Systems",
-    "Labs",
-    "Counsel",
-    "Consulting",
-    "Studio",
-  ],
-  industrial: [
-    "Logistics",
-    "Distribution",
-    "Manufacturing",
-    "Fulfillment",
-    "Packaging",
-    "Freight",
-    "Cold Storage",
-    "Supply",
-    "Operations",
-    "Materials",
-    "Foods",
-    "Works",
-  ],
-  retail: [
-    "Collective",
-    "Outfitters",
-    "Mercantile",
-    "Market",
-    "Home",
-    "Goods",
-    "Kitchen",
-    "Studio",
-    "Exchange",
-    "Retail",
-    "Gallery",
-    "Supply",
-  ],
-} as const
+const OFFICE_TENANT_SUFFIXES = [
+  "Capital",
+  "Advisory",
+  "Partners",
+  "Legal",
+  "Ventures",
+  "Analytics",
+  "Media",
+  "Systems",
+  "Labs",
+  "Counsel",
+  "Consulting",
+  "Studio",
+  "Health",
+  "Insurance",
+  "Engineering",
+  "Digital",
+  "Software",
+  "Architects",
+] as const
 
 const VACANCY_NOTES = [
   "Plug-and-play suite",
@@ -421,7 +397,6 @@ function signedSeedJitter(seedText: string, amplitude: number) {
 
 type FloorValueDriverContext = {
   assetId: string
-  assetGroup: string
   floorNumber: number
   totalFloorCount: number
   assetOccupiedPercent: number
@@ -578,7 +553,6 @@ function getValueDriverSignal(
 
 function buildFloorValueDrivers({
   assetId,
-  assetGroup,
   assetOccupiedPercent,
   floorSeed,
   floorTenants,
@@ -587,7 +561,6 @@ function buildFloorValueDrivers({
   vacancyPercent,
 }: {
   assetId: string
-  assetGroup: string
   assetOccupiedPercent: number
   floorSeed: FloorSeed
   floorTenants: StackingPlanTenant[]
@@ -665,8 +638,8 @@ function buildFloorValueDrivers({
   const leaseTermSignal = clamp((averageRemainingLeaseYears - 4.5) / 2.5, -1, 1)
   const leaseTypeSignal = clamp(
     (getSqftShare(occupiedTenants, (tenant) => tenant.leaseType === "NNN") -
-      0.5) /
-      0.35,
+      0.18) /
+      0.22,
     -1,
     1
   )
@@ -695,26 +668,20 @@ function buildFloorValueDrivers({
     -1,
     1
   )
-  const groupBias =
-    assetGroup === "office" ? 0.12 : assetGroup === "retail" ? 0.08 : -0.04
   const marketBias = clamp(
     (assetOccupiedPercent - 78) / 18 +
-      groupBias +
+      0.08 +
       signedSeedJitter(`${assetId}:market`, 0.2),
     -1,
     1
   )
   const exposureBias = clamp(
-    (assetGroup === "industrial"
-      ? 0.14
-      : assetGroup === "retail"
-        ? 0.02
-        : -0.04) + signedSeedJitter(`${assetId}:exposure`, 0.22),
+    -0.02 + signedSeedJitter(`${assetId}:exposure`, 0.2),
     -1,
     1
   )
   const amenityBias = clamp(
-    (assetGroup === "office" ? 0.28 : assetGroup === "retail" ? 0.42 : -0.18) +
+    0.34 +
       viewSignal * 0.22 +
       sunSignal * 0.1 +
       floorPositionSignal * 0.08 +
@@ -738,7 +705,6 @@ function buildFloorValueDrivers({
 
   const context: FloorValueDriverContext = {
     assetId,
-    assetGroup,
     floorNumber: floorSeed.floor,
     totalFloorCount: totalFloors,
     assetOccupiedPercent,
@@ -978,17 +944,10 @@ function toIsoDate(date: Date): string {
 
 function deriveLeaseCommencementDate(
   expiration: string,
-  seed: number,
-  assetGroupId: string
+  seed: number
 ): string {
   const date = new Date(expiration)
-  const baseTermYears =
-    assetGroupId === "industrial"
-      ? 5
-      : assetGroupId === "retail"
-        ? 4
-        : 6
-  const termYears = baseTermYears + (seed % 4)
+  const termYears = 6 + (seed % 4)
   date.setFullYear(date.getFullYear() - termYears)
   return toIsoDate(date)
 }
@@ -1050,20 +1009,12 @@ function buildQuarterEndDate(random: RandomFn): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
-function buildTenantName(
-  assetGroupId: string,
-  random: RandomFn,
-  usedNames: Set<string>
-): string {
-  const suffixes =
-    TENANT_SUFFIXES_BY_GROUP[
-      assetGroupId === "industrial" || assetGroupId === "retail"
-        ? assetGroupId
-        : "office"
-    ]
-
+function buildTenantName(random: RandomFn, usedNames: Set<string>): string {
   for (let attempt = 0; attempt < 24; attempt += 1) {
-    const candidate = `${pickOne(random, TENANT_PREFIXES)} ${pickOne(random, suffixes)}`
+    const candidate = `${pickOne(random, TENANT_PREFIXES)} ${pickOne(
+      random,
+      OFFICE_TENANT_SUFFIXES
+    )}`
     const key = candidate.toLowerCase()
     if (!usedNames.has(key)) {
       usedNames.add(key)
@@ -1073,7 +1024,7 @@ function buildTenantName(
 
   const fallback = `${pickOne(random, TENANT_PREFIXES)} ${pickOne(
     random,
-    suffixes
+    OFFICE_TENANT_SUFFIXES
   )} ${usedNames.size + 1}`
   usedNames.add(fallback.toLowerCase())
   return fallback
@@ -1163,11 +1114,7 @@ function buildFloorSeedsForAsset(assetId: string, assetOverride?: Asset): FloorS
       return {
         name: isVacant
           ? "Vacant"
-          : buildTenantName(
-              asset?.groupId ?? "office",
-              random,
-              usedTenantNames
-            ),
+          : buildTenantName(random, usedTenantNames),
         space: suiteLabel,
         sqft,
         expiration: isVacant ? undefined : buildQuarterEndDate(random),
@@ -1198,7 +1145,8 @@ export function getSampleStackingPlanData(
       assetName: asset?.name ?? assetId,
       address: asset?.address ?? "Address unavailable",
       groupId: "office" as const,
-      groupLabel: "Office",
+      groupLabel: "Fund I",
+      sector: "office" as const,
       occupiedPercent: asset?.occupiedPercent ?? 76,
       scope: "owned" as const,
       seed: hashText(`fallback:${assetId}`),
@@ -1242,11 +1190,7 @@ export function getSampleStackingPlanData(
         const leaseCommencementDate =
           isVacant || tenant.expiration == null
             ? undefined
-            : deriveLeaseCommencementDate(
-                tenant.expiration,
-                tenantSeed,
-                assetContext.groupId
-              )
+            : deriveLeaseCommencementDate(tenant.expiration, tenantSeed)
         const yearsRemaining = yearsUntilDate(leaseExpirationDate)
         const marketRentPsfValue = syntheticMarketRentPsf({
           asset: assetContext,
@@ -1373,7 +1317,6 @@ export function getSampleStackingPlanData(
         tenants,
         valueDrivers: buildFloorValueDrivers({
           assetId,
-          assetGroup: assetContext.groupId,
           assetOccupiedPercent: assetContext.occupiedPercent,
           floorSeed,
           floorTenants: tenants,

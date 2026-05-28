@@ -14,6 +14,7 @@ import {
   VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
+import { shouldShowValuationConditionDelta } from "@/lib/valuation-condition-delta-visibility"
 import type { ValuationConditionMetrics } from "@/lib/valuation-condition-metrics"
 
 type MetricField = "grossRevenue" | "opex" | "noi" | "assetValue" | "capRate"
@@ -48,7 +49,8 @@ function conditionValueRecord(
         {
           value: formatMetricField(currentMetrics, field),
           compare:
-            comparisonMetrics != null && o.id !== "inPlace"
+            comparisonMetrics != null &&
+            shouldShowValuationConditionDelta(o.id, field)
               ? conditionCompareForMetrics(comparisonMetrics, currentMetrics, field)
               : undefined,
         },

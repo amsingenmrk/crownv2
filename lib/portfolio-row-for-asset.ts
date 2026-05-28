@@ -1,4 +1,4 @@
-import type { Asset } from "@/lib/assets"
+import { OFFICE_SECTOR_LABEL, type Asset } from "@/lib/assets"
 import { financialMetricsForAssetAtIndex } from "@/lib/portfolio-asset-financials"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
@@ -24,15 +24,8 @@ function formatLiftPercent(value: number) {
 }
 
 function sectorLabelForAsset(asset: Asset) {
-  return asset.groupId === "office"
-    ? "Office"
-    : asset.groupId === "industrial"
-      ? "Industrial"
-      : asset.groupId === "retail"
-        ? "Retail"
-        : asset.groupLabel.length > 18
-          ? `${asset.groupLabel.slice(0, 16)}…`
-          : asset.groupLabel
+  void asset
+  return OFFICE_SECTOR_LABEL
 }
 
 /** One portfolio table row — same values as the main portfolio assets grid. */

@@ -16,8 +16,9 @@ export type SyntheticAssetContext = {
   assetId: string
   assetName: string
   address: string
-  groupId: AssetGroupId
+  groupId: string
   groupLabel: string
+  sector: "office"
   occupiedPercent: number
   scope: "owned" | "market"
   seed: number
@@ -29,44 +30,16 @@ const MARKET_GROUP_ROTATION: readonly AssetGroupId[] = [
   "retail",
 ]
 
-const BASE_MARKET_RENT_PSF: Record<AssetGroupId, Record<MarketTier, number>> = {
-  office: {
-    gateway: 76,
-    coastal: 62,
-    sunbelt: 49,
-    secondary: 42,
-  },
-  industrial: {
-    gateway: 20.5,
-    coastal: 17.5,
-    sunbelt: 15,
-    secondary: 12.75,
-  },
-  retail: {
-    gateway: 84,
-    coastal: 62,
-    sunbelt: 47,
-    secondary: 39,
-  },
+const BASE_OFFICE_MARKET_RENT_PSF: Record<MarketTier, number> = {
+  gateway: 74,
+  coastal: 60,
+  sunbelt: 47,
+  secondary: 39,
 }
 
-const FIXED_OPEX_PSF: Record<AssetGroupId, number> = {
-  office: 11.5,
-  industrial: 3.75,
-  retail: 5.25,
-}
-
-const VACANCY_BURDEN_PSF: Record<AssetGroupId, number> = {
-  office: 4.25,
-  industrial: 1.35,
-  retail: 2.4,
-}
-
-const VARIABLE_OPEX_RATIO: Record<AssetGroupId, number> = {
-  office: 0.17,
-  industrial: 0.11,
-  retail: 0.1,
-}
+const OFFICE_FIXED_OPEX_PSF = 11.75
+const OFFICE_VACANCY_BURDEN_PSF = 4.6
+const OFFICE_VARIABLE_OPEX_RATIO = 0.175
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -79,13 +52,6 @@ function roundToHundredths(value: number) {
 function signedJitter(seedText: string, amplitude: number) {
   const unit = marketSearchDemoHash32(seedText) / 0xffff_ffff
   return (unit * 2 - 1) * amplitude
-}
-
-function normalizeAssetGroupId(groupId: string | null | undefined): AssetGroupId {
-  if (groupId === "industrial" || groupId === "retail") {
-    return groupId
-  }
-  return "office"
 }
 
 function marketTierForAddress(address: string): MarketTier {
@@ -124,14 +90,23 @@ export function marketAssetGroupIdForId(assetId: string): AssetGroupId {
   return MARKET_GROUP_ROTATION[seed % MARKET_GROUP_ROTATION.length]!
 }
 
-export function marketListingOccupiedPercent(assetId: string): number {
-  const groupId = marketAssetGroupIdForId(assetId)
+export function marketListingOccupiedPercent(
+  assetId: string,
+  address: string = ""
+): number {
+  const tier = marketTierForAddress(address)
   const base =
-    groupId === "industrial" ? 93 : groupId === "retail" ? 86 : 79
+    tier === "gateway"
+      ? 81
+      : tier === "coastal"
+        ? 78
+        : tier === "sunbelt"
+          ? 84
+          : 74
   return clamp(
-    Math.round(base + signedJitter(`market-occ:${assetId}`, 7)),
-    63,
-    97
+    Math.round(base + signedJitter(`market-occ:${assetId}`, 6)),
+    61,
+    95
   )
 }
 
@@ -149,7 +124,10 @@ function buildSyntheticMarketAsset(assetId: string): Asset | undefined {
     groupLabel: resolveAssetGroupLabel(groupId),
     address: pin.location ?? "Market listing",
     imageUrl: pin.imageUrl ?? "",
-    occupiedPercent: marketListingOccupiedPercent(assetId),
+    occupiedPercent: marketListingOccupiedPercent(
+      assetId,
+      pin.location ?? "Market listing"
+    ),
   }
 }
 
@@ -182,13 +160,13 @@ export function resolveSyntheticAssetContext(
     return null
   }
 
-  const groupId = normalizeAssetGroupId(asset.groupId)
   return {
     assetId,
     assetName: asset.name,
     address: asset.address,
-    groupId,
-    groupLabel: resolveAssetGroupLabel(groupId),
+    groupId: asset.groupId,
+    groupLabel: asset.groupLabel || resolveAssetGroupLabel(asset.groupId),
+    sector: "office",
     occupiedPercent: asset.occupiedPercent,
     scope: isMarketListingPinId(assetId) ? "market" : "owned",
     seed: marketSearchDemoHash32(`asset-context:${assetId}`),
@@ -241,46 +219,23 @@ function leaseTypeRentAdjustment(leaseType?: string) {
   return 0
 }
 
-function sizeRentAdjustment(groupId: AssetGroupId, sqft: number) {
-  if (groupId === "industrial") {
-    if (sqft >= 25_000) return 0.03
-    if (sqft <= 6_000) return -0.02
-    return 0
-  }
-
+function sizeRentAdjustment(sqft: number) {
   if (sqft <= 4_500) return 0.045
   if (sqft >= 18_000) return -0.04
   return 0
 }
 
-function floorRentAdjustment(
-  groupId: AssetGroupId,
-  floor: number,
-  totalFloors: number
-) {
+function floorRentAdjustment(floor: number, totalFloors: number) {
   const position =
     totalFloors <= 1
       ? 0
       : clamp((floor - 1) / Math.max(totalFloors - 1, 1), 0, 1)
 
-  if (groupId === "retail") {
-    return roundToHundredths((0.08 - position * 0.12) * 100) / 100
-  }
-  if (groupId === "industrial") {
-    return roundToHundredths((-0.01 + position * 0.03) * 100) / 100
-  }
   return roundToHundredths((-0.03 + position * 0.11) * 100) / 100
 }
 
-function sunViewRentAdjustment(
-  groupId: AssetGroupId,
-  sunScore: number,
-  viewScore: number
-) {
+function sunViewRentAdjustment(sunScore: number, viewScore: number) {
   const signal = ((sunScore - 60) / 100) * 0.02 + ((viewScore - 60) / 100) * 0.03
-  if (groupId === "industrial") {
-    return signal * 0.35
-  }
   return signal
 }
 
@@ -306,22 +261,22 @@ export function syntheticMarketRentPsf(args: {
   )
 
   const raw =
-    BASE_MARKET_RENT_PSF[args.asset.groupId][tier] *
+    BASE_OFFICE_MARKET_RENT_PSF[tier] *
     (1 +
       classAdj +
       demandAdj +
-      floorRentAdjustment(args.asset.groupId, args.floor, args.totalFloors) +
-      sizeRentAdjustment(args.asset.groupId, args.sqft) +
+      floorRentAdjustment(args.floor, args.totalFloors) +
+      sizeRentAdjustment(args.sqft) +
       buildoutRentAdjustment(args.buildout) +
       leaseTypeRentAdjustment(args.leaseType) +
-      sunViewRentAdjustment(args.asset.groupId, args.sunScore, args.viewScore) +
+      sunViewRentAdjustment(args.sunScore, args.viewScore) +
       jitter)
 
   return roundToHundredths(
     clamp(
       raw,
-      BASE_MARKET_RENT_PSF[args.asset.groupId][tier] * 0.72,
-      BASE_MARKET_RENT_PSF[args.asset.groupId][tier] * 1.38
+      BASE_OFFICE_MARKET_RENT_PSF[tier] * 0.74,
+      BASE_OFFICE_MARKET_RENT_PSF[tier] * 1.36
     )
   )
 }
@@ -401,13 +356,12 @@ export function syntheticAnnualOpexUsd(args: {
   occupiedPercent: number
   annualRevenueUsd: number
 }): number {
-  const fixedOpexUsd = args.rsfSqft * FIXED_OPEX_PSF[args.asset.groupId]
+  const fixedOpexUsd = args.rsfSqft * OFFICE_FIXED_OPEX_PSF
   const vacancyBurdenUsd =
     args.rsfSqft *
     Math.max(0, 1 - args.occupiedPercent / 100) *
-    VACANCY_BURDEN_PSF[args.asset.groupId]
-  const variableOpexUsd =
-    args.annualRevenueUsd * VARIABLE_OPEX_RATIO[args.asset.groupId]
+    OFFICE_VACANCY_BURDEN_PSF
+  const variableOpexUsd = args.annualRevenueUsd * OFFICE_VARIABLE_OPEX_RATIO
 
   return roundToHundredths(fixedOpexUsd + vacancyBurdenUsd + variableOpexUsd)
 }
@@ -419,29 +373,28 @@ export function syntheticCapRatePct(args: {
 }): number {
   const tier = marketTierForAddress(args.asset.address)
   const assetClass = syntheticAssetClassLabel(args.asset)
-  const base =
-    args.asset.groupId === "industrial"
-      ? 5.15
-      : args.asset.groupId === "retail"
-        ? 5.85
-        : 5.55
+  const base = 5.95
   const tierAdj =
     tier === "gateway"
-      ? -0.35
+      ? -0.3
       : tier === "coastal"
-        ? -0.12
+        ? -0.1
         : tier === "sunbelt"
-          ? 0.05
+          ? 0.03
           : 0.18
   const classAdj =
-    assetClass === "A" ? -0.24 : assetClass === "B" ? 0 : 0.32
-  const occupancyAdj = clamp((90 - args.occupancyPct) / 40, -0.08, 0.32)
-  const waleAdj = clamp((4.5 - args.waleYears) / 18, -0.06, 0.16)
-  const scopeAdj = args.asset.scope === "market" ? 0.12 : 0
-  const jitter = signedJitter(`${args.asset.assetId}:cap-rate`, 0.08)
+    assetClass === "A" ? -0.22 : assetClass === "B" ? 0 : 0.3
+  const occupancyAdj = clamp((89 - args.occupancyPct) / 34, -0.08, 0.4)
+  const waleAdj = clamp((4.75 - args.waleYears) / 16, -0.07, 0.18)
+  const scopeAdj = args.asset.scope === "market" ? 0.1 : 0
+  const jitter = signedJitter(`${args.asset.assetId}:cap-rate`, 0.07)
 
   return roundToHundredths(
-    clamp(base + tierAdj + classAdj + occupancyAdj + waleAdj + scopeAdj + jitter, 4.5, 7.25)
+    clamp(
+      base + tierAdj + classAdj + occupancyAdj + waleAdj + scopeAdj + jitter,
+      4.7,
+      7.45
+    )
   )
 }
 
@@ -470,13 +423,13 @@ export function syntheticDefaultLeaseType(args: {
   const roll = marketSearchDemoHash32(
     `${args.asset.assetId}:${args.suiteKey}:lease-type`
   ) % 100
-  if (args.asset.groupId === "industrial") {
-    return roll < 78 ? "NNN" : "Modified Gross"
+  if (roll < 18) {
+    return "NNN"
   }
-  if (args.asset.groupId === "retail") {
-    return roll < 68 ? "NNN" : "Modified Gross"
+  if (roll < 63) {
+    return "Modified Gross"
   }
-  return roll < 56 ? "Modified Gross" : "Full Service"
+  return "Full Service"
 }
 
 export function syntheticDefaultTimeToLeaseMonths(args: {
@@ -487,12 +440,7 @@ export function syntheticDefaultTimeToLeaseMonths(args: {
   sqft: number
   suiteKey: string
 }): number {
-  const base =
-    args.asset.groupId === "industrial"
-      ? 6
-      : args.asset.groupId === "retail"
-        ? 7
-        : 9
+  const base = 8
   const buildoutAdj =
     args.buildout === "Fully Built-Out"
       ? -2
@@ -500,14 +448,10 @@ export function syntheticDefaultTimeToLeaseMonths(args: {
         ? 3
         : 0
   const floorAdj =
-    args.asset.groupId === "retail"
-      ? args.floor <= 2
-        ? -1
-        : 1
-      : args.asset.groupId === "office"
-        ? args.floor / Math.max(args.totalFloors, 1) > 0.75
-          ? -1
-          : 0
+    args.floor / Math.max(args.totalFloors, 1) > 0.75
+      ? -1
+      : args.floor <= 3
+        ? 1
         : 0
   const sizeAdj =
     args.sqft >= 18_000 ? 2 : args.sqft <= 4_500 ? -1 : 0
@@ -530,12 +474,7 @@ export function syntheticDefaultRenewalProbabilityPct(args: {
   yearsRemaining: number | null
   suiteKey: string
 }): number {
-  const base =
-    args.asset.groupId === "industrial"
-      ? 67
-      : args.asset.groupId === "retail"
-        ? 56
-        : 54
+  const base = 58
   const leaseTypeAdj =
     args.leaseType === "NNN" ? 4 : args.leaseType === "Full Service" ? -2 : 0
   const termAdj =

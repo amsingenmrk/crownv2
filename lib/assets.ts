@@ -17,7 +17,10 @@ const BUILDING_IMAGES = [
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
 ] as const
 
+/** Historical built-in portfolio scope ids. They map to Fund I/II/III, not sectors. */
 export type AssetGroupId = "office" | "industrial" | "retail"
+
+export const OFFICE_SECTOR_LABEL = "Office"
 
 export const BUILT_IN_ASSET_GROUP_IDS: readonly AssetGroupId[] = [
   "office",
@@ -52,9 +55,9 @@ export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
 
 /** Default subtitles for built-in fund scopes (Fund I–III). */
 export const ASSET_GROUP_DESCRIPTIONS: Record<AssetGroupId, string> = {
-  office: "Core office, NYC-weighted.",
-  industrial: "Logistics and light industrial, Chicago + Sun Belt.",
-  retail: "Urban retail: high-street and lifestyle, coastal.",
+  office: "Core gateway office with trophy concentration in New York and Boston.",
+  industrial: "Diversified value-add office in growth CBD and Sun Belt markets.",
+  retail: "Lease-up and opportunistic office in coastal innovation corridors.",
 }
 
 export interface Asset {
@@ -88,137 +91,137 @@ function withImage(asset: Omit<Asset, "imageUrl" | "id">, index: number): Asset 
   }
 }
 
-const OFFICE_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+const FUND_I_RAW: Omit<Asset, "imageUrl" | "id">[] = [
   {
     name: "One Vanderbilt",
     groupId: "office",
     groupLabel: "Fund I",
     address: "1 Vanderbilt Ave, New York, NY 10017",
-    occupiedPercent: 78,
-  },
-  {
-    name: "Empire State Building",
-    groupId: "office",
-    groupLabel: "Fund I",
-    address: "350 5th Ave, New York, NY 10118",
-    occupiedPercent: 82,
+    occupiedPercent: 91,
   },
   {
     name: "425 Park Avenue",
     groupId: "office",
     groupLabel: "Fund I",
     address: "425 Park Ave, New York, NY 10022",
-    occupiedPercent: 71,
-  },
-  {
-    name: "50 Hudson Yards",
-    groupId: "office",
-    groupLabel: "Fund I",
-    address: "50 Hudson Yards, New York, NY 10001",
-    occupiedPercent: 88,
-  },
-  {
-    name: "MetLife Building",
-    groupId: "office",
-    groupLabel: "Fund I",
-    address: "200 Park Ave, New York, NY 10166",
-    occupiedPercent: 76,
-  },
-  {
-    name: "280 Park Avenue",
-    groupId: "office",
-    groupLabel: "Fund I",
-    address: "280 Park Ave, New York, NY 10017",
-    occupiedPercent: 69,
-  },
-]
-
-const INDUSTRIAL_RAW: Omit<Asset, "imageUrl" | "id">[] = [
-  {
-    name: "Willis Tower",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "233 S Wacker Dr, Chicago, IL 60606",
-    occupiedPercent: 74,
-  },
-  {
-    name: "Salesforce Tower",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "415 Mission St, San Francisco, CA 94105",
-    occupiedPercent: 91,
-  },
-  {
-    name: "Denver Logistics Center",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "Denver, CO 80239",
-    occupiedPercent: 95,
-  },
-  {
-    name: "Phoenix Distribution Park",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "Phoenix, AZ 85043",
-    occupiedPercent: 88,
-  },
-  {
-    name: "Nashville Cold Storage",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "Nashville, TN 37209",
-    occupiedPercent: 92,
-  },
-  {
-    name: "Charlotte Last-Mile Hub",
-    groupId: "industrial",
-    groupLabel: "Fund II",
-    address: "Charlotte, NC 28208",
     occupiedPercent: 86,
   },
-]
-
-const RETAIL_RAW: Omit<Asset, "imageUrl" | "id">[] = [
   {
-    name: "3001-3003 Washington Blvd",
-    groupId: "retail",
-    groupLabel: "Fund III",
-    address: "3001 Washington Blvd, Baltimore, MD 21230",
-    occupiedPercent: 81,
-  },
-  {
-    name: "200 Clarendon",
-    groupId: "retail",
-    groupLabel: "Fund III",
-    address: "200 Clarendon St, Boston, MA 02116",
-    occupiedPercent: 77,
-  },
-  {
-    name: "Miami Design District",
-    groupId: "retail",
-    groupLabel: "Fund III",
-    address: "Miami, FL 33137",
+    name: "Two Manhattan West",
+    groupId: "office",
+    groupLabel: "Fund I",
+    address: "385 9th Ave, New York, NY 10001",
     occupiedPercent: 84,
   },
   {
-    name: "Austin Domain Northside",
-    groupId: "retail",
-    groupLabel: "Fund III",
-    address: "Austin, TX 78758",
+    name: "200 Park Avenue",
+    groupId: "office",
+    groupLabel: "Fund I",
+    address: "200 Park Ave, New York, NY 10166",
+    occupiedPercent: 88,
+  },
+  {
+    name: "550 Madison Avenue",
+    groupId: "office",
+    groupLabel: "Fund I",
+    address: "550 Madison Ave, New York, NY 10022",
     occupiedPercent: 79,
   },
   {
-    name: "Seattle University Village",
-    groupId: "retail",
-    groupLabel: "Fund III",
-    address: "Seattle, WA 98105",
+    name: "200 Clarendon",
+    groupId: "office",
+    groupLabel: "Fund I",
+    address: "200 Clarendon St, Boston, MA 02116",
+    occupiedPercent: 82,
+  },
+]
+
+const FUND_II_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+  {
+    name: "Bank of America Plaza",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "600 Peachtree St NE, Atlanta, GA 30308",
+    occupiedPercent: 78,
+  },
+  {
+    name: "Trammell Crow Center",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "2001 Ross Ave, Dallas, TX 75201",
+    occupiedPercent: 74,
+  },
+  {
+    name: "Frost Bank Tower",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "401 Congress Ave, Austin, TX 78701",
+    occupiedPercent: 76,
+  },
+  {
+    name: "Ally Charlotte Center",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "550 S Tryon St, Charlotte, NC 28202",
+    occupiedPercent: 81,
+  },
+  {
+    name: "Denver Place",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "999 18th St, Denver, CO 80202",
     occupiedPercent: 73,
   },
   {
-    name: "Boston Newbury Street",
+    name: "Fifth Third Center",
+    groupId: "industrial",
+    groupLabel: "Fund II",
+    address: "424 Church St, Nashville, TN 37219",
+    occupiedPercent: 77,
+  },
+]
+
+const FUND_III_RAW: Omit<Asset, "imageUrl" | "id">[] = [
+  {
+    name: "Brickell City Tower",
     groupId: "retail",
     groupLabel: "Fund III",
-    address: "Newbury St, Boston, MA 02116",
+    address: "80 SW 8th St, Miami, FL 33130",
+    occupiedPercent: 72,
+  },
+  {
+    name: "Bellevue City Center",
+    groupId: "retail",
+    groupLabel: "Fund III",
+    address: "500 108th Ave NE, Bellevue, WA 98004",
+    occupiedPercent: 69,
+  },
+  {
+    name: "Mission Bay Center",
+    groupId: "retail",
+    groupLabel: "Fund III",
+    address: "1100 4th St, San Francisco, CA 94158",
+    occupiedPercent: 71,
+  },
+  {
+    name: "Culver Creative Offices",
+    groupId: "retail",
+    groupLabel: "Fund III",
+    address: "10000 Washington Blvd, Culver City, CA 90232",
+    occupiedPercent: 67,
+  },
+  {
+    name: "Kendall Square Center",
+    groupId: "retail",
+    groupLabel: "Fund III",
+    address: "245 Main St, Cambridge, MA 02142",
+    occupiedPercent: 75,
+  },
+  {
+    name: "Santa Monica Business Park",
+    groupId: "retail",
+    groupLabel: "Fund III",
+    address: "2500 Colorado Ave, Santa Monica, CA 90404",
     occupiedPercent: 68,
   },
 ]
@@ -228,9 +231,9 @@ function buildList(raw: Omit<Asset, "imageUrl" | "id">[], offset: number): Asset
 }
 
 export const ASSETS: Asset[] = [
-  ...buildList(OFFICE_RAW, 0),
-  ...buildList(INDUSTRIAL_RAW, 6),
-  ...buildList(RETAIL_RAW, 12),
+  ...buildList(FUND_I_RAW, 0),
+  ...buildList(FUND_II_RAW, 6),
+  ...buildList(FUND_III_RAW, 12),
 ]
 
 export function resolveAssetGroupLabel(

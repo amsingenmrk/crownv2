@@ -75,6 +75,7 @@ import {
   VALUATION_CONDITION_OPTIONS,
   type ValuationConditionId,
 } from "@/lib/valuation-condition-config"
+import { shouldShowValuationConditionDelta } from "@/lib/valuation-condition-delta-visibility"
 import {
   buildValuationConditionMetricMap,
   scaleDisplayedMetricsForValuationCondition,
@@ -611,7 +612,8 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
               {
                 value: `${currentValue.toFixed(2)}%`,
                 compare:
-                  delta != null && option.id !== "inPlace"
+                  delta != null &&
+                  shouldShowValuationConditionDelta(option.id, field)
                     ? {
                         deltaLine: formatCapRatePts(delta),
                         deltaDirection: scenarioDeltaDirection(delta),
@@ -630,7 +632,7 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
               compare:
                 delta != null &&
                 baselineValue != null &&
-                option.id !== "inPlace"
+                shouldShowValuationConditionDelta(option.id, field)
                   ? {
                       deltaLine: formatUsdDeltaCompact(delta),
                       pctLine: formatPctChange(baselineValue, currentValue),

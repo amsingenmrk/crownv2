@@ -88,6 +88,10 @@ function metricSnapshotForAsset(
   }
 }
 
+function nonZeroDelta(value: number, text: string) {
+  return Math.abs(value) < 1e-6 ? null : { value, text }
+}
+
 export function modificationSetMetricDelta(
   assetId: string,
   selectedSetId: string,
@@ -106,39 +110,39 @@ export function modificationSetMetricDelta(
 
   switch (metricKey) {
     case "pricePerSf":
-      return {
-        value: modified.pricePerSf - baseline.pricePerSf,
-        text: formatUsdPerSfDelta(
+      return nonZeroDelta(
+        modified.pricePerSf - baseline.pricePerSf,
+        formatUsdPerSfDelta(
           baseline.value,
           modified.value,
           Math.max(baseline.rsfSqft, modified.rsfSqft)
-        ),
-      }
+        )
+      )
     case "revenue":
-      return {
-        value: modified.revenue - baseline.revenue,
-        text: formatUsdDeltaCompact(modified.revenue - baseline.revenue),
-      }
+      return nonZeroDelta(
+        modified.revenue - baseline.revenue,
+        formatUsdDeltaCompact(modified.revenue - baseline.revenue)
+      )
     case "opex":
-      return {
-        value: modified.opex - baseline.opex,
-        text: formatUsdDeltaCompact(modified.opex - baseline.opex),
-      }
+      return nonZeroDelta(
+        modified.opex - baseline.opex,
+        formatUsdDeltaCompact(modified.opex - baseline.opex)
+      )
     case "noi":
-      return {
-        value: modified.noi - baseline.noi,
-        text: formatUsdDeltaCompact(modified.noi - baseline.noi),
-      }
+      return nonZeroDelta(
+        modified.noi - baseline.noi,
+        formatUsdDeltaCompact(modified.noi - baseline.noi)
+      )
     case "value":
-      return {
-        value: modified.value - baseline.value,
-        text: formatUsdDeltaCompact(modified.value - baseline.value),
-      }
+      return nonZeroDelta(
+        modified.value - baseline.value,
+        formatUsdDeltaCompact(modified.value - baseline.value)
+      )
     case "capRate":
-      return {
-        value: modified.capRate - baseline.capRate,
-        text: formatCapRatePts(modified.capRate - baseline.capRate),
-      }
+      return nonZeroDelta(
+        modified.capRate - baseline.capRate,
+        formatCapRatePts(modified.capRate - baseline.capRate)
+      )
   }
 }
 

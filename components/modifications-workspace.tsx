@@ -66,7 +66,10 @@ export function ModificationsWorkspace() {
     [searchParams]
   )
 
-  const [values, setValues] = React.useState<ModValues>(() => ({
+  const [draftValues, setDraftValues] = React.useState<ModValues>(() => ({
+    ...INITIAL_MOD_VALUES,
+  }))
+  const [appliedValues, setAppliedValues] = React.useState<ModValues>(() => ({
     ...INITIAL_MOD_VALUES,
   }))
   const [filters, setFilters] = React.useState<ModificationImpactFilters>(() =>
@@ -74,16 +77,28 @@ export function ModificationsWorkspace() {
   )
 
   React.useLayoutEffect(() => {
-    setValues(buildRecommendedModificationValues(recommendedModification))
+    const nextValues = buildRecommendedModificationValues(recommendedModification)
+    setDraftValues(nextValues)
+    setAppliedValues(nextValues)
   }, [assetId, recommendedModification])
+
+  const hasPendingModificationChanges = React.useMemo(
+    () =>
+      draftValues.gym !== appliedValues.gym ||
+      draftValues.bar !== appliedValues.bar ||
+      draftValues.cafe !== appliedValues.cafe ||
+      draftValues.restaurant !== appliedValues.restaurant ||
+      draftValues.leed !== appliedValues.leed,
+    [appliedValues, draftValues]
+  )
 
   const baseDataset = React.useMemo(
     () => getSampleStackingPlanData(assetId),
     [assetId]
   )
   const impactDataset = React.useMemo(
-    () => buildModificationImpactDataset(baseDataset.floors, values),
-    [baseDataset.floors, values]
+    () => buildModificationImpactDataset(baseDataset.floors, appliedValues),
+    [appliedValues, baseDataset.floors]
   )
   const allSpaces = React.useMemo(
     () => impactDataset.floors.flatMap((floor) => floor.tenants),
@@ -178,8 +193,10 @@ export function ModificationsWorkspace() {
       <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
         <BuildingModificationsSidebar
           assetId={assetId}
-          value={values}
-          onValuesChange={setValues}
+          value={draftValues}
+          onValuesChange={setDraftValues}
+          hasPendingChanges={hasPendingModificationChanges}
+          onApply={() => setAppliedValues({ ...draftValues })}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -214,7 +231,10 @@ export function ModificationsWorkspace() {
             </div>
           </section>
 
-          <AssetOverviewKpiStrip assetId={assetId} compareModValues={values} />
+          <AssetOverviewKpiStrip
+            assetId={assetId}
+            compareModValues={appliedValues}
+          />
 
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex flex-col gap-4">
