@@ -56,6 +56,7 @@ import {
   type StackingPlanTenant,
   type StackingViewMode,
 } from "@/lib/stacking-plan-data"
+import { buildStackingPlanSuiteEditorTooltipText } from "@/lib/stacking-plan-tooltip"
 import {
   buildTenantForecastAssumptionOverrideFromEditor,
   resolveSpaceAssumptionsForEditor,
@@ -897,35 +898,12 @@ function getTenantVisualColor({
 
 function getTenantVisualizationTitle({
   tenant,
-  floor,
-  mode,
-  averagePredictedRentPsf,
-}: {
-  tenant: StackingPlanTenant
-  floor: StackingPlanFloor
-  mode: StackingVizMode
-  averagePredictedRentPsf: number | null
-}) {
-  const base = `${tenant.name} • ${tenant.space}`
-
-  if (mode === "predictedRent") {
-    const band = getPredictedRentBandData(tenant, averagePredictedRentPsf)
-    return `${base} • ${tenant.predictedRent ?? "N/A"} • ${band.label}`
-  }
-  if (mode === "contractRate") {
-    const band = getContractRateBandData(
-      tenant,
-      getWeightedFloorAverageRate(floor, "contractRatePsfValue")
-    )
-    return `${base} • ${tenant.contractRate ?? "N/A"} • ${band.label}`
-  }
-  if (mode === "occupancy") {
-    return `${base} • Floor occupancy ${floor.occupancyPercent}%`
-  }
-  if (mode === "vacancy") {
-    return `${base} • Floor vacancy ${floor.vacancyPercent}%`
-  }
-  return `${base} • ${tenant.expiration}`
+  buildingLeasingAssumptions,
+}: Parameters<typeof buildStackingPlanSuiteEditorTooltipText>[0]) {
+  return buildStackingPlanSuiteEditorTooltipText({
+    tenant,
+    buildingLeasingAssumptions,
+  })
 }
 
 function formatCompactRate(value: number | null) {
@@ -2419,6 +2397,7 @@ function DetailedFloorRow({
   onTenantSelect: (tenant: StackingPlanTenant) => void
   selectedTenantId: string | null
 }) {
+  const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
   const averagePredictedRate = getWeightedFloorAverageRate(
     floor,
     "predictedRentPsfValue",
@@ -2491,9 +2470,7 @@ function DetailedFloorRow({
                 })}
                 title={getTenantVisualizationTitle({
                   tenant,
-                  floor,
-                  mode: vizMode,
-                  averagePredictedRentPsf,
+                  buildingLeasingAssumptions,
                 })}
                 isLastTenant={index === floor.tenants.length - 1}
                 isSelected={selectedTenantId === tenant.id}
@@ -2531,49 +2508,55 @@ function TenantSegment({
     : "hover:-translate-y-px hover:shadow-sm hover:shadow-foreground/8 hover:ring-1 hover:ring-inset hover:ring-foreground/15"
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpenTenant(tenant)}
-      aria-haspopup="dialog"
-      aria-expanded={isSelected}
-      aria-label={`${tenant.name}, ${tenant.space}, ${tenant.sqftLabel}, ${
-        tenant.isVacant
-          ? tenant.availabilityStatus
-          : `expires ${tenant.expiration}`
-      }. Open details.`}
-      className={cn(
-        "relative flex h-full min-h-[60px] cursor-pointer flex-col justify-center gap-1 px-2 py-1.5 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
-        tone.fillClass,
-        !isLastTenant && "border-r border-border/30",
-        isSelected
-          ? "z-10 ring-2 ring-primary/70 ring-inset"
-          : hoverInteractionClass
-      )}
-      style={{
-        width: `${tenant.widthPercent}%`,
-        minWidth: isVeryCompact ? "12px" : "28px",
-      }}
-      title={title}
-    >
-      <div
-        className={cn(
-          "self-stretch truncate text-center text-[10.5px] leading-4 font-semibold",
-          tone.textClass
-        )}
-      >
-        {tenant.name}
-      </div>
+    <StackingHoverSummary
+      text={title}
+      trigger={
+        <button
+          type="button"
+          onClick={() => onOpenTenant(tenant)}
+          aria-haspopup="dialog"
+          aria-expanded={isSelected}
+          aria-label={`${tenant.name}, ${tenant.space}, ${tenant.sqftLabel}, ${
+            tenant.isVacant
+              ? tenant.availabilityStatus
+              : `expires ${tenant.expiration}`
+          }. Open details.`}
+          className={cn(
+            "relative flex h-full min-h-[60px] cursor-pointer flex-col justify-center gap-1 px-2 py-1.5 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+            tone.fillClass,
+            !isLastTenant && "border-r border-border/30",
+            isSelected
+              ? "z-10 ring-2 ring-primary/70 ring-inset"
+              : hoverInteractionClass
+          )}
+          style={{
+            width: `${tenant.widthPercent}%`,
+            minWidth: isVeryCompact ? "12px" : "28px",
+          }}
+        >
+          <div
+            className={cn(
+              "self-stretch truncate text-center text-[10.5px] leading-4 font-semibold",
+              tone.textClass
+            )}
+          >
+            {tenant.name}
+          </div>
 
-      {!isCompact ? (
-        <div className="flex items-start justify-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
-          <div className={cn("truncate", tone.metaClass)}>{tenant.space}</div>
-          {!isSemiCompact ? (
-            <div className={cn("truncate", tone.metaClass)}>{tenant.sqftLabel}</div>
+          {!isCompact ? (
+            <div className="flex items-start justify-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
+              <div className={cn("truncate", tone.metaClass)}>{tenant.space}</div>
+              {!isSemiCompact ? (
+                <div className={cn("truncate", tone.metaClass)}>
+                  {tenant.sqftLabel}
+                </div>
+              ) : null}
+              <div className={cn("truncate", tone.metaClass)}>{tenant.expiration}</div>
+            </div>
           ) : null}
-          <div className={cn("truncate", tone.metaClass)}>{tenant.expiration}</div>
-        </div>
-      ) : null}
-    </button>
+        </button>
+      }
+    />
   )
 }
 
@@ -3216,6 +3199,7 @@ function StackBandSegment({
   onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
   onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
 }) {
+  const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
   const tone = getMatrixSegmentTone({
     tenant,
     floor,
@@ -3271,85 +3255,87 @@ function StackBandSegment({
         minWidth: isVeryCompact ? "18px" : "40px",
       }}
     >
-      <button
-        type="button"
-        onClick={() => onTenantSelect(tenant)}
-        aria-expanded={isSelected}
-        aria-label={`${tenant.name}, ${tenant.space}, ${tenant.sqftLabel}, ${
-          tenant.isVacant
-            ? tenant.availabilityStatus
-            : `expires ${tenant.expiration}`
-        }. Edit inline.`}
-        className={cn(
-          "relative z-0 flex h-full min-h-0 w-full min-w-0 cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left focus-visible:z-[5] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
-          segmentSurfaceClass,
-          tenant.isVacant && "pr-7"
-        )}
-        title={getTenantVisualizationTitle({
+      <StackingHoverSummary
+        text={getTenantVisualizationTitle({
           tenant,
-          floor,
-          mode: vizMode,
-          averagePredictedRentPsf,
+          buildingLeasingAssumptions,
         })}
-      >
-        {titleLabel ? (
-          <div
+        trigger={
+          <button
+            type="button"
+            onClick={() => onTenantSelect(tenant)}
+            aria-expanded={isSelected}
+            aria-label={`${tenant.name}, ${tenant.space}, ${tenant.sqftLabel}, ${
+              tenant.isVacant
+                ? tenant.availabilityStatus
+                : `expires ${tenant.expiration}`
+            }. Edit inline.`}
             className={cn(
-              "w-full truncate text-left text-[10.5px] leading-4 font-semibold",
-              tone.textClass
+              "relative z-0 flex h-full min-h-0 w-full min-w-0 cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left focus-visible:z-[5] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+              segmentSurfaceClass,
+              tenant.isVacant && "pr-7"
             )}
           >
-            {titleLabel}
-          </div>
-        ) : null}
-        {showSupportingDetails ? (
-          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
-            <div className={cn("truncate", tone.metaClass)}>
-              {tenant.sqftLabel}
-            </div>
-            <div aria-hidden className={tone.metaClass}>
-              •
-            </div>
-            <div className={cn("truncate", tone.metaClass)}>{metaLabel}</div>
-          </div>
-        ) : null}
-        {showFullRateRow &&
-        contractRateValue != null &&
-        predictedRateValue != null ? (
-          <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
-            <div className={cn("truncate", tone.metaClass)}>
-              Contract {formatCompactRate(contractRateValue)}
-            </div>
-            <div aria-hidden className={tone.metaClass}>
-              •
-            </div>
-            <div className={cn("truncate", tone.metaClass)}>
-              Predicted {formatCompactRate(predictedRateValue)}
-            </div>
-          </div>
-        ) : showCompactRateRow &&
-          contractRateValue != null &&
-          predictedRateValue != null ? (
-          <div
-            className={cn(
-              "w-full truncate text-[10px] font-medium whitespace-nowrap",
-              tone.metaClass
-            )}
-          >
-            Contract {formatCompactRate(contractRateValue)} • Predicted{" "}
-            {formatCompactRate(predictedRateValue)}
-          </div>
-        ) : showVacantPredictedRow ? (
-          <div
-            className={cn(
-              "w-full truncate text-[10px] font-medium whitespace-nowrap",
-              tone.metaClass
-            )}
-          >
-            Predicted {formatCompactRate(predictedRateValue)}
-          </div>
-        ) : null}
-      </button>
+            {titleLabel ? (
+              <div
+                className={cn(
+                  "w-full truncate text-left text-[10.5px] leading-4 font-semibold",
+                  tone.textClass
+                )}
+              >
+                {titleLabel}
+              </div>
+            ) : null}
+            {showSupportingDetails ? (
+              <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
+                <div className={cn("truncate", tone.metaClass)}>
+                  {tenant.sqftLabel}
+                </div>
+                <div aria-hidden className={tone.metaClass}>
+                  •
+                </div>
+                <div className={cn("truncate", tone.metaClass)}>{metaLabel}</div>
+              </div>
+            ) : null}
+            {showFullRateRow &&
+            contractRateValue != null &&
+            predictedRateValue != null ? (
+              <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
+                <div className={cn("truncate", tone.metaClass)}>
+                  Contract {formatCompactRate(contractRateValue)}
+                </div>
+                <div aria-hidden className={tone.metaClass}>
+                  •
+                </div>
+                <div className={cn("truncate", tone.metaClass)}>
+                  Predicted {formatCompactRate(predictedRateValue)}
+                </div>
+              </div>
+            ) : showCompactRateRow &&
+              contractRateValue != null &&
+              predictedRateValue != null ? (
+              <div
+                className={cn(
+                  "w-full truncate text-[10px] font-medium whitespace-nowrap",
+                  tone.metaClass
+                )}
+              >
+                Contract {formatCompactRate(contractRateValue)} • Predicted{" "}
+                {formatCompactRate(predictedRateValue)}
+              </div>
+            ) : showVacantPredictedRow ? (
+              <div
+                className={cn(
+                  "w-full truncate text-[10px] font-medium whitespace-nowrap",
+                  tone.metaClass
+                )}
+              >
+                Predicted {formatCompactRate(predictedRateValue)}
+              </div>
+            ) : null}
+          </button>
+        }
+      />
       {tenant.isVacant ? (
         <div
           className="pointer-events-auto absolute top-1 right-1 z-20 p-0.5"
@@ -3724,7 +3710,7 @@ function ExpandedFloorDetails({ floor }: { floor: StackingPlanFloor }) {
   )
 }
 
-function SimplifiedStackingHoverSummary({
+function StackingHoverSummary({
   text,
   trigger,
 }: {
@@ -3802,6 +3788,7 @@ function SimplifiedFloorRow({
   tenantVisualOverrides?: Record<string, SimplifiedTenantVisualOverride>
   showRentRollPlaceholder?: boolean
 }) {
+  const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
   return (
     <div className="flex h-[1.875rem] items-center bg-background transition-colors hover:bg-muted/10">
       <div className="flex w-[52px] items-center justify-center px-1">
@@ -3841,9 +3828,7 @@ function SimplifiedFloorRow({
                 visualOverride?.title ??
                 getTenantVisualizationTitle({
                   tenant,
-                  floor,
-                  mode: vizMode,
-                  averagePredictedRentPsf,
+                  buildingLeasingAssumptions,
                 })
               const isSelected =
                 interactionMode === "drawer" && selectedTenantId === tenant.id
@@ -3941,7 +3926,7 @@ function SimplifiedFloorRow({
                     className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
                     style={segmentFlexStyle}
                   >
-                    <SimplifiedStackingHoverSummary
+                    <StackingHoverSummary
                       text={title}
                       trigger={
                         <div
@@ -3964,7 +3949,7 @@ function SimplifiedFloorRow({
                     className="relative flex h-full min-h-0 min-w-0"
                     style={segmentFlexStyle}
                   >
-                    <SimplifiedStackingHoverSummary
+                    <StackingHoverSummary
                       text={title}
                       trigger={
                         <div
@@ -4004,7 +3989,7 @@ function SimplifiedFloorRow({
                     className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
                     style={segmentFlexStyle}
                   >
-                    <SimplifiedStackingHoverSummary
+                    <StackingHoverSummary
                       text={title}
                       trigger={
                         <button
@@ -4047,7 +4032,7 @@ function SimplifiedFloorRow({
                   className="relative flex h-full min-h-0 min-w-0"
                   style={segmentFlexStyle}
                 >
-                  <SimplifiedStackingHoverSummary
+                  <StackingHoverSummary
                     text={title}
                     trigger={
                       <button

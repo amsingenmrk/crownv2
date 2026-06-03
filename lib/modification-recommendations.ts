@@ -1,6 +1,7 @@
 import {
   INITIAL_MOD_VALUES,
   MOD_CONFIGS,
+  normalizeModificationOptionValue,
   type ModId,
   type ModValues,
 } from "@/lib/building-modifications"
@@ -42,7 +43,7 @@ function recommendationCacheKey(assetId: string, assetOverride?: Asset): string 
 function buildSingleSelectionValues(id: ModId, optionValue: string): ModValues {
   return {
     ...INITIAL_MOD_VALUES,
-    [id]: optionValue,
+    [id]: normalizeModificationOptionValue(id, optionValue),
   }
 }
 
@@ -137,8 +138,14 @@ export function parseRecommendedModificationSelection(
   if (config == null) {
     return null
   }
+  const normalizedOptionValue = normalizeModificationOptionValue(
+    config.id,
+    optionValue
+  )
 
-  const option = config.options.find((candidate) => candidate.value === optionValue)
+  const option = config.options.find(
+    (candidate) => candidate.value === normalizedOptionValue
+  )
   if (option == null) {
     return null
   }

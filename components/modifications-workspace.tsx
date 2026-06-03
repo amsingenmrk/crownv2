@@ -48,7 +48,9 @@ import {
   buildRecommendedModificationValues,
   parseRecommendedModificationSelection,
 } from "@/lib/modification-recommendations"
-import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  getSampleStackingPlanData,
+} from "@/lib/stacking-plan-data"
 
 /** Dense filter row labels (below default `INPUT_LABEL_TEXT_CLASS` / `text-sm`). */
 const IMPACT_FILTER_LABEL_CLASS =

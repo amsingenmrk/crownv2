@@ -13,28 +13,25 @@ const REFERENCE_DATE = new Date("2026-01-01T00:00:00Z")
 
 const MOD_OPTION_IMPACT_PSF: Record<ModId, Record<string, number>> = {
   gym: {
-    "training-gym": 0.6,
-    "weight-room": 0.78,
-    "yoga-pilates": 0.48,
-    "full-service": 1.12,
+    "general-fitness": 0.78,
+    "mind-body-studio": 0.48,
+    "specialty-fitness": 1.12,
   },
   bar: {
-    "sports-bar": 0.42,
-    "traditional-pubs": 0.32,
-    "cocktail-bar": 0.56,
-    "beer-garden": 0.38,
+    "wine-spirits-bar": 0.56,
+    "beer-bar-pub": 0.32,
+    "lounge-bar": 0.42,
   },
   cafe: {
-    "grab-and-go": 0.28,
-    "social-work-friendly-cafe": 0.48,
-    "health-drinks": 0.34,
+    "coffee-cafe": 0.48,
+    "tea-cafe": 0.34,
+    "bakery-cafe": 0.28,
   },
   restaurant: {
     "white-cloth": 0.98,
-    takeout: 0.36,
-    "fast-casual": 0.52,
-    "family-friendly": 0.64,
-    deli: 0.34,
+    "full-service-restaurant": 0.64,
+    "fast-casual-quick-service": 0.52,
+    "specialty-dietary-dining": 0.34,
   },
   leed: {
     "leed-certified": 0.42,
@@ -46,18 +43,16 @@ const MOD_OPTION_IMPACT_PSF: Record<ModId, Record<string, number>> = {
 
 /** Heavier / louder concepts → stronger modeled drag on low-floor neighbors. */
 const BAR_OPTION_NOISE: Record<string, number> = {
-  "sports-bar": 1.22,
-  "traditional-pubs": 1.04,
-  "cocktail-bar": 1.12,
-  "beer-garden": 1.08,
+  "wine-spirits-bar": 1.12,
+  "beer-bar-pub": 1.04,
+  "lounge-bar": 1.08,
 }
 
 const RESTAURANT_OPTION_NOISE: Record<string, number> = {
   "white-cloth": 1.2,
-  takeout: 0.82,
-  "fast-casual": 1.02,
-  "family-friendly": 1.14,
-  deli: 0.88,
+  "full-service-restaurant": 1.14,
+  "fast-casual-quick-service": 1.02,
+  "specialty-dietary-dining": 0.88,
 }
 
 function hashTenantIdForImpact(tenantId: string): number {

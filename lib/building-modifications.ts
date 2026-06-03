@@ -26,45 +26,43 @@ export type ModConfig = {
 
 const GYM_OPTIONS: ModOption[] = [
   {
-    value: "training-gym",
-    title: "Training gym",
-    description: "Martial arts, boxing, or class-led training concept.",
-  },
-  {
-    value: "weight-room",
-    title: "Weight room",
-    description: "Strength-focused tenant gym with moderate staffing needs.",
-  },
-  {
-    value: "yoga-pilates",
-    title: "Yoga / Pilates studio",
+    value: "general-fitness",
+    title: "General Fitness",
     description:
-      "Wellness-forward studio centered on classes, stretching, and recovery.",
+      "Broad-based tenant fitness center with standard cardio, strength, and wellness programming.",
   },
   {
-    value: "full-service",
-    title: "Full-service",
+    value: "mind-body-studio",
+    title: "Mind-Body Studio",
     description:
-      "Equinox-style amenity with full staffing, broader programming, and the largest gym footprint.",
+      "Wellness-forward studio centered on yoga, stretching, recovery, and guided classes.",
+  },
+  {
+    value: "specialty-fitness",
+    title: "Specialty Fitness",
+    description:
+      "Higher-intensity or premium-format fitness concept with the strongest amenity-driven uplift case.",
   },
 ]
 
 const CAFE_OPTIONS: ModOption[] = [
   {
-    value: "grab-and-go",
-    title: "Grab-and-go coffee / tea",
-    description: "Small counter service focused on speed and convenience.",
-  },
-  {
-    value: "social-work-friendly-cafe",
-    title: "Social / work-friendly cafe",
-    description: "Longer dwell-time cafe with seating and informal work zones.",
-  },
-  {
-    value: "health-drinks",
-    title: "Health drinks",
+    value: "coffee-cafe",
+    title: "Coffee Cafe",
     description:
-      "Smoothies, juices, and wellness-oriented grab-and-go service.",
+      "Traditional coffee-led cafe with seating, casual meetings, and all-day tenant appeal.",
+  },
+  {
+    value: "tea-cafe",
+    title: "Tea Cafe",
+    description:
+      "Lighter wellness-oriented beverage concept focused on tea service and quieter dwell time.",
+  },
+  {
+    value: "bakery-cafe",
+    title: "Bakery Cafe",
+    description:
+      "Pastry-and-coffee offering with a compact food component and steady daytime traffic.",
   },
 ]
 
@@ -76,27 +74,22 @@ const RESTAURANT_OPTIONS: ModOption[] = [
       "Destination dining concept with the broadest operating scope and uplift case.",
   },
   {
-    value: "takeout",
-    title: "Takeout",
+    value: "full-service-restaurant",
+    title: "Full-Service Restaurant",
     description:
-      "Compact service footprint optimized for speed and low staffing.",
+      "Broader seated dining concept with a larger hospitality footprint and balanced uplift profile.",
   },
   {
-    value: "fast-casual",
-    title: "Fast Casual (fast food)",
-    description: "Mid-range buildout with good reach and efficient operations.",
+    value: "fast-casual-quick-service",
+    title: "Fast Casual / Quick Service",
+    description:
+      "Efficient service model optimized for lunch velocity, convenience, and broad daily usage.",
   },
   {
-    value: "family-friendly",
-    title: "Family-friendly",
+    value: "specialty-dietary-dining",
+    title: "Specialty Dietary Dining",
     description:
-      "Broader-appeal dining concept with a larger seating footprint.",
-  },
-  {
-    value: "deli",
-    title: "Deli",
-    description:
-      "Efficient daytime F&B offer with a modest but durable premium.",
+      "Niche food concept built around dietary specialization and a smaller but differentiated draw.",
   },
 ]
 
@@ -129,30 +122,51 @@ const LEED_OPTIONS: ModOption[] = [
 
 const BAR_OPTIONS: ModOption[] = [
   {
-    value: "sports-bar",
-    title: "Sports bar",
+    value: "wine-spirits-bar",
+    title: "Wine & Spirits Bar",
     description:
-      "Game-day destination with AV buildout and heavier operations.",
+      "Evening-focused hospitality concept with a premium beverage mix and stronger rent-lift potential.",
   },
   {
-    value: "traditional-pubs",
-    title: "Traditional bars/ pubs",
+    value: "beer-bar-pub",
+    title: "Beer Bar / Pub",
     description:
-      "Steady neighborhood-style hospitality with balanced cost profile.",
+      "Casual pub-style format with steady traffic and a moderate operating profile.",
   },
   {
-    value: "cocktail-bar",
-    title: "Cocktail bar",
+    value: "lounge-bar",
+    title: "Lounge Bar",
     description:
-      "Evening-focused hospitality concept targeting stronger rent lift.",
-  },
-  {
-    value: "beer-garden",
-    title: "Beer garden",
-    description:
-      "Indoor-outdoor style concept with lighter build cost but broader reach.",
+      "Relaxed lounge-oriented bar concept with balanced buildout needs and broad after-hours appeal.",
   },
 ]
+
+const LEGACY_MOD_OPTION_VALUE_ALIASES: Partial<Record<ModId, Record<string, string>>> =
+  {
+    gym: {
+      "training-gym": "specialty-fitness",
+      "weight-room": "general-fitness",
+      "yoga-pilates": "mind-body-studio",
+      "full-service": "specialty-fitness",
+    },
+    bar: {
+      "sports-bar": "lounge-bar",
+      "traditional-pubs": "beer-bar-pub",
+      "cocktail-bar": "wine-spirits-bar",
+      "beer-garden": "lounge-bar",
+    },
+    cafe: {
+      "grab-and-go": "coffee-cafe",
+      "social-work-friendly-cafe": "coffee-cafe",
+      "health-drinks": "tea-cafe",
+    },
+    restaurant: {
+      takeout: "fast-casual-quick-service",
+      "fast-casual": "fast-casual-quick-service",
+      "family-friendly": "full-service-restaurant",
+      deli: "specialty-dietary-dining",
+    },
+  }
 
 export const MOD_CONFIGS: ModConfig[] = [
   { id: "gym", checkboxLabel: "Add Gym", icon: Dumbbell, options: GYM_OPTIONS },
@@ -187,6 +201,10 @@ export const INITIAL_MOD_VALUES: ModValues = {
   leed: "",
 }
 
+export function normalizeModificationOptionValue(id: ModId, value: string): string {
+  return LEGACY_MOD_OPTION_VALUE_ALIASES[id]?.[value] ?? value
+}
+
 export type ActiveModificationSelection = {
   id: ModId
   checkboxLabel: string
@@ -202,10 +220,14 @@ export function getSelectedModificationDetails(
   values: ModValues
 ): ActiveModificationSelection[] {
   return MOD_CONFIGS.flatMap((config) => {
-    const optionValue = values[config.id]
-    if (optionValue == null || optionValue === "") {
+    const rawOptionValue = values[config.id]
+    if (rawOptionValue == null || rawOptionValue === "") {
       return []
     }
+    const optionValue = normalizeModificationOptionValue(
+      config.id,
+      rawOptionValue
+    )
 
     const option =
       config.options.find((candidate) => candidate.value === optionValue) ??

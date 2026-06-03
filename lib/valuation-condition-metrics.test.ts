@@ -30,7 +30,7 @@ describe("buildValuationConditionMetricMap", () => {
     const baseCapRatePct = financials?.capRatePct ?? assumptions.exitCapRatePct
     const modifiedValues = {
       ...INITIAL_MOD_VALUES,
-      gym: "full-service",
+      gym: "specialty-fitness",
     }
 
     const baseline = buildValuationConditionMetricMap({

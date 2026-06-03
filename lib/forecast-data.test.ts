@@ -25,7 +25,7 @@ describe("buildAssetForecastModel", () => {
 
     const modValues = {
       ...INITIAL_MOD_VALUES,
-      gym: "full-service",
+      gym: "specialty-fitness",
       leed: "leed-gold",
     }
     const capexUsd = upliftFromModValues(modValues).upfrontCapexUsd

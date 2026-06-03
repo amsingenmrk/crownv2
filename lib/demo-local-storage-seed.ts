@@ -8,11 +8,11 @@ const MOD_SETS_PREFIX = "glassbox:modification-sets:" as const
 
 /** Matches `ModValues` in `lib/building-modifications` (valid option ids). */
 const DEMO_PLANNING_VALUES = {
-  gym: "yoga-pilates",
-  bar: "traditional-pubs",
-  cafe: "grab-and-go",
-  restaurant: "fast-casual",
-  leed: "leed-silver",
+  gym: "general-fitness",
+  bar: "wine-spirits-bar",
+  cafe: "coffee-cafe",
+  restaurant: "white-cloth",
+  leed: "leed-certified",
 } as const
 
 function hasAnyNonEmptyModificationSetKeys(): boolean {

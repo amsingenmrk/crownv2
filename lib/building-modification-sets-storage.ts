@@ -1,6 +1,7 @@
 import {
   INITIAL_MOD_VALUES,
   MOD_IDS,
+  normalizeModificationOptionValue,
   type ModValues,
 } from "@/lib/building-modifications"
 
@@ -22,7 +23,9 @@ function parseModValues(raw: unknown): ModValues | null {
   for (const id of MOD_IDS) {
     const v = o[id]
     if (v !== undefined && typeof v !== "string") return null
-    if (typeof v === "string") next[id] = v
+    if (typeof v === "string") {
+      next[id] = normalizeModificationOptionValue(id, v)
+    }
   }
   return next
 }

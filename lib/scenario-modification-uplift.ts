@@ -1,4 +1,7 @@
-import type { ModValues } from "@/lib/building-modifications"
+import {
+  normalizeModificationOptionValue,
+  type ModValues,
+} from "@/lib/building-modifications"
 
 export type ModificationUnderwritingUplift = {
   rentLiftPct: number
@@ -15,16 +18,7 @@ const MOD_OPTION_UPLIFTS: Record<
   Record<string, ModificationUnderwritingUplift>
 > = {
   gym: {
-    "training-gym": {
-      rentLiftPct: 0.01,
-      occupancyLiftPct: 0.7,
-      renewalLiftPct: 1,
-      timeToLeaseDeltaMonths: -0.5,
-      annualOpexDeltaUsd: 95_000,
-      exitCapRateDeltaPct: -0.03,
-      upfrontCapexUsd: 1_200_000,
-    },
-    "weight-room": {
+    "general-fitness": {
       rentLiftPct: 0.0125,
       occupancyLiftPct: 0.9,
       renewalLiftPct: 1.2,
@@ -33,7 +27,7 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.04,
       upfrontCapexUsd: 1_600_000,
     },
-    "yoga-pilates": {
+    "mind-body-studio": {
       rentLiftPct: 0.009,
       occupancyLiftPct: 0.6,
       renewalLiftPct: 0.8,
@@ -42,7 +36,7 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.02,
       upfrontCapexUsd: 900_000,
     },
-    "full-service": {
+    "specialty-fitness": {
       rentLiftPct: 0.018,
       occupancyLiftPct: 1.4,
       renewalLiftPct: 1.8,
@@ -53,25 +47,7 @@ const MOD_OPTION_UPLIFTS: Record<
     },
   },
   bar: {
-    "sports-bar": {
-      rentLiftPct: 0.006,
-      occupancyLiftPct: 0.4,
-      renewalLiftPct: 0.6,
-      timeToLeaseDeltaMonths: -0.25,
-      annualOpexDeltaUsd: 88_000,
-      exitCapRateDeltaPct: -0.01,
-      upfrontCapexUsd: 950_000,
-    },
-    "traditional-pubs": {
-      rentLiftPct: 0.0045,
-      occupancyLiftPct: 0.35,
-      renewalLiftPct: 0.4,
-      timeToLeaseDeltaMonths: -0.25,
-      annualOpexDeltaUsd: 76_000,
-      exitCapRateDeltaPct: -0.01,
-      upfrontCapexUsd: 850_000,
-    },
-    "cocktail-bar": {
+    "wine-spirits-bar": {
       rentLiftPct: 0.008,
       occupancyLiftPct: 0.5,
       renewalLiftPct: 0.7,
@@ -80,27 +56,27 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.02,
       upfrontCapexUsd: 1_150_000,
     },
-    "beer-garden": {
-      rentLiftPct: 0.0055,
-      occupancyLiftPct: 0.45,
-      renewalLiftPct: 0.5,
-      timeToLeaseDeltaMonths: -0.3,
-      annualOpexDeltaUsd: 79_000,
-      exitCapRateDeltaPct: -0.015,
-      upfrontCapexUsd: 900_000,
+    "beer-bar-pub": {
+      rentLiftPct: 0.0045,
+      occupancyLiftPct: 0.35,
+      renewalLiftPct: 0.4,
+      timeToLeaseDeltaMonths: -0.25,
+      annualOpexDeltaUsd: 76_000,
+      exitCapRateDeltaPct: -0.01,
+      upfrontCapexUsd: 850_000,
+    },
+    "lounge-bar": {
+      rentLiftPct: 0.006,
+      occupancyLiftPct: 0.4,
+      renewalLiftPct: 0.6,
+      timeToLeaseDeltaMonths: -0.25,
+      annualOpexDeltaUsd: 88_000,
+      exitCapRateDeltaPct: -0.01,
+      upfrontCapexUsd: 950_000,
     },
   },
   cafe: {
-    "grab-and-go": {
-      rentLiftPct: 0.0035,
-      occupancyLiftPct: 0.3,
-      renewalLiftPct: 0.35,
-      timeToLeaseDeltaMonths: -0.25,
-      annualOpexDeltaUsd: 42_000,
-      exitCapRateDeltaPct: -0.01,
-      upfrontCapexUsd: 450_000,
-    },
-    "social-work-friendly-cafe": {
+    "coffee-cafe": {
       rentLiftPct: 0.007,
       occupancyLiftPct: 0.55,
       renewalLiftPct: 0.65,
@@ -109,7 +85,7 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.02,
       upfrontCapexUsd: 750_000,
     },
-    "health-drinks": {
+    "tea-cafe": {
       rentLiftPct: 0.0045,
       occupancyLiftPct: 0.4,
       renewalLiftPct: 0.45,
@@ -117,6 +93,15 @@ const MOD_OPTION_UPLIFTS: Record<
       annualOpexDeltaUsd: 46_000,
       exitCapRateDeltaPct: -0.015,
       upfrontCapexUsd: 550_000,
+    },
+    "bakery-cafe": {
+      rentLiftPct: 0.0035,
+      occupancyLiftPct: 0.3,
+      renewalLiftPct: 0.35,
+      timeToLeaseDeltaMonths: -0.25,
+      annualOpexDeltaUsd: 42_000,
+      exitCapRateDeltaPct: -0.01,
+      upfrontCapexUsd: 450_000,
     },
   },
   restaurant: {
@@ -129,25 +114,7 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.03,
       upfrontCapexUsd: 1_800_000,
     },
-    takeout: {
-      rentLiftPct: 0.0035,
-      occupancyLiftPct: 0.25,
-      renewalLiftPct: 0.25,
-      timeToLeaseDeltaMonths: -0.2,
-      annualOpexDeltaUsd: 44_000,
-      exitCapRateDeltaPct: -0.005,
-      upfrontCapexUsd: 500_000,
-    },
-    "fast-casual": {
-      rentLiftPct: 0.0065,
-      occupancyLiftPct: 0.45,
-      renewalLiftPct: 0.55,
-      timeToLeaseDeltaMonths: -0.3,
-      annualOpexDeltaUsd: 62_000,
-      exitCapRateDeltaPct: -0.015,
-      upfrontCapexUsd: 850_000,
-    },
-    "family-friendly": {
+    "full-service-restaurant": {
       rentLiftPct: 0.0075,
       occupancyLiftPct: 0.5,
       renewalLiftPct: 0.6,
@@ -156,7 +123,16 @@ const MOD_OPTION_UPLIFTS: Record<
       exitCapRateDeltaPct: -0.02,
       upfrontCapexUsd: 1_000_000,
     },
-    deli: {
+    "fast-casual-quick-service": {
+      rentLiftPct: 0.0065,
+      occupancyLiftPct: 0.45,
+      renewalLiftPct: 0.55,
+      timeToLeaseDeltaMonths: -0.3,
+      annualOpexDeltaUsd: 62_000,
+      exitCapRateDeltaPct: -0.015,
+      upfrontCapexUsd: 850_000,
+    },
+    "specialty-dietary-dining": {
       rentLiftPct: 0.004,
       occupancyLiftPct: 0.3,
       renewalLiftPct: 0.35,
@@ -229,7 +205,11 @@ export function upliftFromModValues(values: ModValues): ModificationUnderwriting
     [keyof ModValues, string]
   >) {
     if (optionValue == null || optionValue === "") continue
-    const uplift = MOD_OPTION_UPLIFTS[modId]?.[optionValue]
+    const normalizedOptionValue = normalizeModificationOptionValue(
+      modId,
+      optionValue
+    )
+    const uplift = MOD_OPTION_UPLIFTS[modId]?.[normalizedOptionValue]
     if (uplift == null) continue
 
     total.rentLiftPct += uplift.rentLiftPct
