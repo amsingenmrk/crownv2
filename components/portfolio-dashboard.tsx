@@ -12,6 +12,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table"
+import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -162,6 +163,7 @@ function PortfolioDashboardInner({
 }) {
   const pathname = usePathname()
   const assetsHeadingId = React.useId()
+  const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
     "table"
   )
@@ -175,7 +177,7 @@ function PortfolioDashboardInner({
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
-    () => ""
+    () => initialAssetGroupOverrideSnapshot
   )
   const assetGroupData = React.useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
@@ -183,16 +185,20 @@ function PortfolioDashboardInner({
   )
 
   const portfolioAssetRows = React.useMemo(() => {
-    return ASSETS.map((asset, index) =>
-      portfolioAssetRowForAsset(
-        getAssetById(asset.id, assetGroupData) ?? asset,
-        index
+    return ASSETS.filter(
+      (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
+    )
+      .map((asset, index) =>
+        portfolioAssetRowForAsset(
+          getAssetById(asset.id, assetGroupData) ?? asset,
+          index
+        )
       )
-    ).sort(
+      .sort(
       (a, b) =>
         b.liftPercent - a.liftPercent ||
         a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
-    )
+      )
   }, [assetGroupData])
 
   const effectivePortfolioGroupLabel =

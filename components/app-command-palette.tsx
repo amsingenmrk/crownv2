@@ -28,6 +28,10 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import {
+  useInitialAssetGroupOverrideSnapshot,
+  useInitialMacLikePlatform,
+} from "@/components/app-shell-environment"
+import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
@@ -49,25 +53,17 @@ const ROUTES = [
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
 ] as const
 
-let macLikeClientReady = false
-
-function subscribeMacLikeClient(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {}
-  queueMicrotask(() => {
-    macLikeClientReady = true
-    onStoreChange()
-  })
-  return () => {}
-}
-
-function getMacLikeSnapshot() {
-  if (!macLikeClientReady || typeof navigator === "undefined") return false
-  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
-}
-
-/** SSR-safe: server snapshot is false; after commit we read `navigator` (see React `useSyncExternalStore`). */
 function useMacLikePlatform() {
-  return useSyncExternalStore(subscribeMacLikeClient, getMacLikeSnapshot, () => false)
+  const initialMacLikePlatform = useInitialMacLikePlatform()
+  const [macLike, setMacLike] = useState(initialMacLikePlatform)
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return
+    const next = /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+    if (next !== macLike) setMacLike(next)
+  }, [macLike])
+
+  return macLike
 }
 
 function CommandKeyHint({ className }: { className?: string }) {
@@ -102,10 +98,12 @@ export function AppCommandPalette({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const initialAssetGroupOverrideSnapshot =
+    useInitialAssetGroupOverrideSnapshot()
   const assetGroupOverrideSnap = useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
-    () => ""
+    () => initialAssetGroupOverrideSnapshot
   )
   const assetGroupData = useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),

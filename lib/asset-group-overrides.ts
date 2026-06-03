@@ -2,16 +2,21 @@ const STORAGE_KEY = "glassbox:asset-group-overrides"
 const CUSTOM_GROUPS_KEY = "glassbox:custom-asset-groups"
 /** Optional per-custom-scope descriptions (muted subtitles in headers). */
 const CUSTOM_GROUP_DESCRIPTIONS_KEY = "glassbox:custom-asset-group-descriptions"
-/** Optional display names for built-in funds (`office` / `industrial` / `retail`). */
+/** Optional display names for the seeded demo funds (`office` / `industrial` / `retail`). */
 const FUND_DISPLAY_LABELS_KEY = "glassbox:fund-display-labels"
-/** Optional descriptions for built-in fund scopes (override default copy in `lib/assets`). */
+/** Optional descriptions for seeded demo portfolio groups (override default copy in `lib/assets`). */
 const FUND_DESCRIPTION_OVERRIDES_KEY = "glassbox:fund-description-overrides"
 const CHANGED = "glassbox:asset-group-overrides-changed"
 const CUSTOM_CHANGED = "glassbox:custom-asset-groups-changed"
 /** Property IDs shown under Properties / address breadcrumbs after “Remove from portfolio”. */
 const STANDALONE_PROPERTY_NAV_KEY = "glassbox:standalone-property-nav"
+/** Seeded demo group ids that have been removed from the portfolio UI. */
+const REMOVED_PORTFOLIO_GROUP_IDS_KEY = "glassbox:removed-portfolio-group-ids"
+export const ASSET_GROUP_SNAPSHOT_COOKIE_NAME =
+  "glassbox-asset-group-snapshot" as const
+const ASSET_GROUP_SNAPSHOT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-const BUILT_IN_GROUP_IDS = new Set(["office", "industrial", "retail"])
+const SEEDED_GROUP_IDS = new Set(["office", "industrial", "retail"])
 
 const RESERVED_GROUP_IDS = new Set([
   "office",
@@ -106,6 +111,7 @@ function readCustomGroupDescriptions(): Record<string, string> {
 function writeCustomGroupDescriptions(next: Record<string, string>): void {
   if (typeof window === "undefined") return
   localStorage.setItem(CUSTOM_GROUP_DESCRIPTIONS_KEY, JSON.stringify(next))
+  syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CUSTOM_CHANGED))
   window.dispatchEvent(new Event(CHANGED))
 }
@@ -134,7 +140,7 @@ function parseFundDisplayLabels(raw: string): Record<string, string> {
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
       if (
         typeof k === "string" &&
-        BUILT_IN_GROUP_IDS.has(k) &&
+        SEEDED_GROUP_IDS.has(k) &&
         typeof v === "string" &&
         v.length > 0 &&
         v.length < 200
@@ -165,7 +171,7 @@ function parseFundDescriptionOverrides(raw: string): Record<string, string> {
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
       if (
         typeof k === "string" &&
-        BUILT_IN_GROUP_IDS.has(k) &&
+        SEEDED_GROUP_IDS.has(k) &&
         typeof v === "string" &&
         v.length > 0 &&
         v.length <= 600
@@ -187,7 +193,7 @@ export function readFundDescriptionOverrides(): Record<string, string> {
 }
 
 /**
- * Updates display name and optionally description for a built-in fund scope
+ * Updates display name and optionally description for a seeded demo portfolio group
  * (`office` / `industrial` / `retail`). Omit `description` to leave it unchanged.
  * Pass `description: ""` to clear an override (revert to default copy in code).
  */
@@ -196,7 +202,7 @@ export function updateFundByGroupId(
   updates: { name: string; description?: string }
 ): boolean {
   if (typeof window === "undefined") return false
-  if (!BUILT_IN_GROUP_IDS.has(groupId)) return false
+  if (!SEEDED_GROUP_IDS.has(groupId)) return false
   const trimmedName = updates.name.trim()
   if (!trimmedName) return false
 
@@ -223,12 +229,13 @@ export function updateFundByGroupId(
     }
   }
 
+  syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CHANGED))
   return true
 }
 
 /**
- * Sets the displayed name for a built-in fund scope (`office`, `industrial`, `retail`).
+ * Sets the displayed name for a seeded demo portfolio group (`office`, `industrial`, `retail`).
  */
 export function updateFundDisplayLabelByGroupId(
   groupId: string,
@@ -252,11 +259,48 @@ function parseStandalonePropertyNavIds(raw: string): ReadonlySet<string> {
   }
 }
 
+function parseRemovedPortfolioGroupIds(raw: string): ReadonlySet<string> {
+  if (raw === "") return new Set()
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set()
+    const out = new Set<string>()
+    for (const x of parsed) {
+      if (typeof x === "string" && SEEDED_GROUP_IDS.has(x)) out.add(x)
+    }
+    return out
+  } catch {
+    return new Set()
+  }
+}
+
+export function decodeAssetGroupSnapshotCookie(value: string | undefined): string {
+  if (!value) return ""
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return ""
+  }
+}
+
 function readStandalonePropertyNavIds(): Set<string> {
   if (typeof window === "undefined") return new Set()
   return new Set(parseStandalonePropertyNavIds(
     localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""
   ))
+}
+
+export function readRemovedPortfolioGroupIds(): Set<string> {
+  if (typeof window === "undefined") return new Set()
+  return new Set(parseRemovedPortfolioGroupIds(
+    localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""
+  ))
+}
+
+export function syncAssetGroupSnapshotCookieFromLocalStorage(): void {
+  if (typeof document === "undefined") return
+  const encoded = encodeURIComponent(getAssetGroupOverridesSnapshot())
+  document.cookie = `${ASSET_GROUP_SNAPSHOT_COOKIE_NAME}=${encoded}; path=/; max-age=${ASSET_GROUP_SNAPSHOT_COOKIE_MAX_AGE}; samesite=lax`
 }
 
 function writeStandalonePropertyNavIds(ids: Set<string>): void {
@@ -265,6 +309,17 @@ function writeStandalonePropertyNavIds(ids: Set<string>): void {
     STANDALONE_PROPERTY_NAV_KEY,
     JSON.stringify([...ids])
   )
+  syncAssetGroupSnapshotCookieFromLocalStorage()
+  window.dispatchEvent(new Event(CHANGED))
+}
+
+function writeRemovedPortfolioGroupIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(
+    REMOVED_PORTFOLIO_GROUP_IDS_KEY,
+    JSON.stringify([...ids])
+  )
+  syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CHANGED))
 }
 
@@ -276,10 +331,76 @@ export function markPropertyStandaloneNav(assetId: string): void {
   writeStandalonePropertyNavIds(next)
 }
 
+export function markPropertiesStandaloneNav(assetIds: readonly string[]): boolean {
+  const next = readStandalonePropertyNavIds()
+  let changed = false
+  for (const assetId of assetIds) {
+    if (!assetId || next.has(assetId)) continue
+    next.add(assetId)
+    changed = true
+  }
+  if (changed) writeStandalonePropertyNavIds(next)
+  return changed
+}
+
 function clearStandalonePropertyNav(assetId: string): void {
   const next = readStandalonePropertyNavIds()
   if (!next.delete(assetId)) return
   writeStandalonePropertyNavIds(next)
+}
+
+function restoreRemovedPortfolioGroup(groupId: string): void {
+  if (!SEEDED_GROUP_IDS.has(groupId)) return
+  const next = readRemovedPortfolioGroupIds()
+  if (!next.delete(groupId)) return
+  writeRemovedPortfolioGroupIds(next)
+}
+
+export function removeSeededPortfolioGroupById(groupId: string): boolean {
+  if (typeof window === "undefined") return false
+  if (!SEEDED_GROUP_IDS.has(groupId)) return false
+
+  let changed = false
+  const removed = readRemovedPortfolioGroupIds()
+  if (!removed.has(groupId)) {
+    removed.add(groupId)
+    localStorage.setItem(
+      REMOVED_PORTFOLIO_GROUP_IDS_KEY,
+      JSON.stringify([...removed])
+    )
+    changed = true
+  }
+
+  const labels = readFundDisplayLabels()
+  if (Object.hasOwn(labels, groupId)) {
+    delete labels[groupId]
+    if (Object.keys(labels).length === 0) {
+      localStorage.removeItem(FUND_DISPLAY_LABELS_KEY)
+    } else {
+      localStorage.setItem(FUND_DISPLAY_LABELS_KEY, JSON.stringify(labels))
+    }
+    changed = true
+  }
+
+  const descriptions = readFundDescriptionOverrides()
+  if (Object.hasOwn(descriptions, groupId)) {
+    delete descriptions[groupId]
+    if (Object.keys(descriptions).length === 0) {
+      localStorage.removeItem(FUND_DESCRIPTION_OVERRIDES_KEY)
+    } else {
+      localStorage.setItem(
+        FUND_DESCRIPTION_OVERRIDES_KEY,
+        JSON.stringify(descriptions)
+      )
+    }
+    changed = true
+  }
+
+  if (changed) {
+    syncAssetGroupSnapshotCookieFromLocalStorage()
+    window.dispatchEvent(new Event(CHANGED))
+  }
+  return changed
 }
 
 export function parseAssetGroupOverrideSnapshot(snapshot: string): {
@@ -289,6 +410,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   customGroupDescriptions: Record<string, string>
   fundDescriptionOverrides: Record<string, string>
   standalonePropertyNavIds: ReadonlySet<string>
+  removedPortfolioGroupIds: ReadonlySet<string>
 } {
   const parts = snapshot.split("\0")
   const overridesRaw = parts[0] ?? ""
@@ -297,6 +419,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   const descriptionsRaw = parts[3] ?? ""
   const fundDescriptionsRaw = parts[4] ?? ""
   const standaloneRaw = parts[5] ?? ""
+  const removedGroupsRaw = parts[6] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
@@ -310,6 +433,9 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
       : {},
     standalonePropertyNavIds: standaloneRaw
       ? parseStandalonePropertyNavIds(standaloneRaw)
+      : new Set(),
+    removedPortfolioGroupIds: removedGroupsRaw
+      ? parseRemovedPortfolioGroupIds(removedGroupsRaw)
       : new Set(),
   }
 }
@@ -325,7 +451,7 @@ function slugifyForGroupId(text: string): string {
 
 /**
  * Creates a new custom asset group and persists its display label.
- * IDs are prefixed with `grp-` so they do not collide with built-in groups.
+ * IDs are prefixed with `grp-` so they do not collide with seeded demo groups.
  */
 export function addCustomAssetGroup(
   displayName: string,
@@ -346,6 +472,7 @@ export function addCustomAssetGroup(
 
   const next = { ...existing, [id]: trimmed }
   localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(next))
+  syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CUSTOM_CHANGED))
   window.dispatchEvent(new Event(CHANGED))
 
@@ -368,6 +495,7 @@ function isCustomGroupId(
 function writeAssetGroupOverrides(overrides: Record<string, string>): void {
   if (typeof window === "undefined") return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides))
+  syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CHANGED))
 }
 
@@ -388,6 +516,7 @@ export function updateCustomAssetGroupById(
   if (custom[groupId] !== trimmedName) {
     const next = { ...custom, [groupId]: trimmedName }
     localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(next))
+    syncAssetGroupSnapshotCookieFromLocalStorage()
     window.dispatchEvent(new Event(CUSTOM_CHANGED))
     window.dispatchEvent(new Event(CHANGED))
   }
@@ -448,7 +577,7 @@ export function removeCustomAssetGroupById(groupId: string): boolean {
 
 /**
  * New custom group with the same member assets as the source (same override
- * edges), suitable for a “Copy of …” portfolio scope. Built-in scopes cannot
+ * edges), suitable for a “Copy of …” portfolio scope. Seeded demo groups cannot
  * be duplicated.
  */
 export function duplicateCustomAssetGroupFromId(
@@ -480,10 +609,9 @@ export function duplicateCustomAssetGroupFromId(
 
 export function setAssetGroupOverride(assetId: string, groupId: string): void {
   if (typeof window === "undefined") return
+  restoreRemovedPortfolioGroup(groupId)
   clearStandalonePropertyNav(assetId)
-  const next = { ...readAssetGroupOverrides(), [assetId]: groupId }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  window.dispatchEvent(new Event(CHANGED))
+  writeAssetGroupOverrides({ ...readAssetGroupOverrides(), [assetId]: groupId })
 }
 
 /** Clears a stored portfolio-group assignment so the asset falls back to seed data. */
@@ -494,6 +622,20 @@ export function removeAssetGroupOverride(assetId: string): boolean {
   const { [assetId]: _removed, ...rest } = current
   writeAssetGroupOverrides(rest)
   return true
+}
+
+export function clearAssetGroupOverrides(assetIds: readonly string[]): boolean {
+  if (typeof window === "undefined") return false
+  const current = readAssetGroupOverrides()
+  const next = { ...current }
+  let changed = false
+  for (const assetId of assetIds) {
+    if (!Object.hasOwn(next, assetId)) continue
+    delete next[assetId]
+    changed = true
+  }
+  if (changed) writeAssetGroupOverrides(next)
+  return changed
 }
 
 export function subscribeAssetGroupOverrides(
@@ -510,7 +652,8 @@ export function subscribeAssetGroupOverrides(
       e.key === FUND_DISPLAY_LABELS_KEY ||
       e.key === FUND_DESCRIPTION_OVERRIDES_KEY ||
       e.key === CUSTOM_GROUP_DESCRIPTIONS_KEY ||
-      e.key === STANDALONE_PROPERTY_NAV_KEY
+      e.key === STANDALONE_PROPERTY_NAV_KEY ||
+      e.key === REMOVED_PORTFOLIO_GROUP_IDS_KEY
     ) {
       run()
     }
@@ -525,5 +668,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}\0${localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""}`
 }

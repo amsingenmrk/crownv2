@@ -17,24 +17,24 @@ const BUILDING_IMAGES = [
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
 ] as const
 
-/** Historical built-in portfolio scope ids. They map to Fund I/II/III, not sectors. */
+/** Historical seeded portfolio group ids. They map to Fund I/II/III, not sectors. */
 export type AssetGroupId = "office" | "industrial" | "retail"
 
 export const OFFICE_SECTOR_LABEL = "Office"
 
-export const BUILT_IN_ASSET_GROUP_IDS: readonly AssetGroupId[] = [
+export const SEEDED_PORTFOLIO_GROUP_IDS: readonly AssetGroupId[] = [
   "office",
   "industrial",
   "retail",
 ]
 
-const BUILT_IN_PORTFOLIO_SCOPE_SLUGS: Record<AssetGroupId, string> = {
+const SEEDED_PORTFOLIO_SCOPE_SLUGS: Record<AssetGroupId, string> = {
   office: "fund-i",
   industrial: "fund-ii",
   retail: "fund-iii",
 }
 
-const BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
+const SEEDED_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
   "fund-i": "office",
   "fund-ii": "industrial",
   "fund-iii": "retail",
@@ -53,7 +53,7 @@ export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {
   retail: "Fund III",
 }
 
-/** Default subtitles for built-in fund scopes (Fund I–III). */
+/** Default subtitles for the seeded demo portfolio groups (Fund I–III). */
 export const ASSET_GROUP_DESCRIPTIONS: Record<AssetGroupId, string> = {
   office: "Core gateway office with trophy concentration in New York and Boston.",
   industrial: "Diversified value-add office in growth CBD and Sun Belt markets.",
@@ -297,14 +297,14 @@ export function portfolioScopeSlug(scopeId: string): string {
     scopeId === "industrial" ||
     scopeId === "retail"
   ) {
-    return BUILT_IN_PORTFOLIO_SCOPE_SLUGS[scopeId]
+    return SEEDED_PORTFOLIO_SCOPE_SLUGS[scopeId]
   }
   return scopeId
 }
 
 export function portfolioScopeIdFromRouteParam(scopeParam: string): string {
   const decoded = decodeURIComponent(scopeParam)
-  return BUILT_IN_PORTFOLIO_SCOPE_IDS_BY_SLUG[decoded] ?? decoded
+  return SEEDED_PORTFOLIO_SCOPE_IDS_BY_SLUG[decoded] ?? decoded
 }
 
 export function portfolioScopeHref(scopeId: string): string {

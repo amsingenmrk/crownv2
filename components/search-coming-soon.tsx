@@ -30,7 +30,7 @@ import {
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
-  BUILT_IN_ASSET_GROUP_IDS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
   assetHref,
   getAssetById,
   resolveAssetGroupLabel,
@@ -420,7 +420,8 @@ export function SearchComingSoon() {
     )
     const minLift = Math.min(...liftPcts)
     const maxLift = Math.max(...liftPcts)
-    const portfolioRaw = ASSETS.map((a, index) => {
+    const portfolioRaw = ASSETS.flatMap((a, index) => {
+      if (assetGroupData.standalonePropertyNavIds.has(a.id)) return []
       const liftPct = liftPcts[index]!
       const effective = getAssetById(a.id, assetGroupData) ?? a
       const [longitude, latitude] = lngLatForPortfolioAsset(
@@ -428,19 +429,21 @@ export function SearchComingSoon() {
         effective.groupId,
         coordinates
       )
-      return {
-        id: a.id,
-        longitude,
-        latitude,
-        building: a.name,
-        lift: `+${liftPct}%`,
-        liftPercent: liftPct,
-        liftStrength: normalizedLiftStrength(liftPct, minLift, maxLift),
-        listingScope: "portfolio" as const,
-        assetDetailHref: assetHref(a.id),
-        imageUrl: a.imageUrl,
-        location: a.address,
-      }
+      return [
+        {
+          id: a.id,
+          longitude,
+          latitude,
+          building: a.name,
+          lift: `+${liftPct}%`,
+          liftPercent: liftPct,
+          liftStrength: normalizedLiftStrength(liftPct, minLift, maxLift),
+          listingScope: "portfolio" as const,
+          assetDetailHref: assetHref(a.id),
+          imageUrl: a.imageUrl,
+          location: a.address,
+        },
+      ]
     })
     const marketRaw = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
     const spread = spreadPortfolioMapPinsForDisplay([
@@ -570,12 +573,14 @@ export function SearchComingSoon() {
       .sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       )
-    const builtIn = BUILT_IN_ASSET_GROUP_IDS.map((groupId) => ({
+    const seededGroups = SEEDED_PORTFOLIO_GROUP_IDS.filter(
+      (groupId) => !assetGroupData.removedPortfolioGroupIds.has(groupId)
+    ).map((groupId) => ({
       name: resolveAssetGroupLabel(groupId, assetGroupData.customGroups),
       groupId,
     }))
-    return [...builtIn, ...custom]
-  }, [assetGroupData.customGroups])
+    return [...seededGroups, ...custom]
+  }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
 
   const showMapbox = mapboxEnabled
   const propertyCount = mapSearchFilteredPins.length

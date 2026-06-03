@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { LayoutDashboard, LineChart } from "lucide-react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import { HeaderRsfOccupancyCluster } from "@/components/header-rsf-occupancy-cluster"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
-  BUILT_IN_ASSET_GROUP_IDS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
   PORTFOLIO_OVERVIEW_LABEL,
   getAssetById,
   portfolioScopeIdFromRouteParam,
@@ -45,6 +46,8 @@ function weightedOccupiedPercentForAssets(
 
 export function PortfolioPageHeader() {
   const params = useParams()
+  const router = useRouter()
+  const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
   const scopeParam = typeof params?.scopeId === "string" ? params.scopeId : null
   const portfolioScopeId = React.useMemo(
     () => (scopeParam ? portfolioScopeIdFromRouteParam(scopeParam) : null),
@@ -54,15 +57,41 @@ export function PortfolioPageHeader() {
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
-    () => ""
+    () => initialAssetGroupOverrideSnapshot
   )
   const assetGroupData = React.useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
   )
 
+  const isKnownPortfolioScope = React.useMemo(() => {
+    if (portfolioScopeId == null) return true
+    return (
+      ((SEEDED_PORTFOLIO_GROUP_IDS as readonly string[]).includes(portfolioScopeId) &&
+        !assetGroupData.removedPortfolioGroupIds.has(portfolioScopeId)) ||
+      Object.hasOwn(assetGroupData.customGroups, portfolioScopeId)
+    )
+  }, [
+    assetGroupData.customGroups,
+    assetGroupData.removedPortfolioGroupIds,
+    portfolioScopeId,
+  ])
+
+  React.useEffect(() => {
+    if (portfolioScopeId != null && !isKnownPortfolioScope) {
+      router.replace("/portfolio")
+    }
+  }, [isKnownPortfolioScope, portfolioScopeId, router])
+
+  if (portfolioScopeId != null && !isKnownPortfolioScope) {
+    return null
+  }
+
   const effectiveAssets = React.useMemo(
-    () => ASSETS.map((asset) => getAssetById(asset.id, assetGroupData) ?? asset),
+    () =>
+      ASSETS.filter(
+        (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
+      ).map((asset) => getAssetById(asset.id, assetGroupData) ?? asset),
     [assetGroupData]
   )
 
@@ -72,7 +101,9 @@ export function PortfolioPageHeader() {
   }, [effectiveAssets, portfolioScopeId])
 
   const scopedPortfolioRows = React.useMemo(() => {
-    const rows = ASSETS.map((asset, index) =>
+    const rows = ASSETS.filter(
+      (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
+    ).map((asset, index) =>
       portfolioAssetRowForAsset(getAssetById(asset.id, assetGroupData) ?? asset, index)
     )
     if (portfolioScopeId == null) return rows
@@ -105,10 +136,12 @@ export function PortfolioPageHeader() {
 
   const overviewPortfolioSubtitle = React.useMemo(() => {
     const n =
-      BUILT_IN_ASSET_GROUP_IDS.length +
+      SEEDED_PORTFOLIO_GROUP_IDS.filter(
+        (groupId) => !assetGroupData.removedPortfolioGroupIds.has(groupId)
+      ).length +
       Object.keys(assetGroupData.customGroups).length
     return n === 1 ? "1 portfolio group" : `${n} portfolio groups`
-  }, [assetGroupData.customGroups])
+  }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
 
   const occupiedPercent = React.useMemo(
     () => weightedOccupiedPercentForAssets(scopedAssets),

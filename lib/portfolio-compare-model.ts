@@ -1,8 +1,11 @@
-import { readCustomAssetGroups } from "@/lib/asset-group-overrides"
+import {
+  readCustomAssetGroups,
+  readRemovedPortfolioGroupIds,
+} from "@/lib/asset-group-overrides"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
-  BUILT_IN_ASSET_GROUP_IDS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
   getAssetById,
   resolveAssetGroupLabel,
 } from "@/lib/assets"
@@ -455,6 +458,7 @@ export function buildComparePickerOptions(
   userScenarios: readonly UserScenario[]
 ): ComparePickerOption[] {
   const out: ComparePickerOption[] = []
+  const removedSeededGroups = readRemovedPortfolioGroupIds()
 
   out.push({
     value: PORTFOLIO_KEY,
@@ -463,7 +467,8 @@ export function buildComparePickerOptions(
     keywords: "portfolio entire full all assets",
   })
 
-  for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+  for (const id of SEEDED_PORTFOLIO_GROUP_IDS) {
+    if (removedSeededGroups.has(id)) continue
     out.push({
       value: groupKey(id),
       label: resolveAssetGroupLabel(id),

@@ -32,7 +32,7 @@ import {
 } from "@/lib/asset-group-overrides"
 import {
   ASSET_GROUP_SIDEBAR_LABELS,
-  BUILT_IN_ASSET_GROUP_IDS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
 } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { cn } from "@/lib/utils"
@@ -70,7 +70,7 @@ export function AssetScopeSelect({
     const custom = assetGroupData.customGroups
     const fundOv = assetGroupData.fundLabelOverrides
     const labels: Record<string, string> = {}
-    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+    for (const id of SEEDED_PORTFOLIO_GROUP_IDS) {
       const override = fundOv[id]?.trim()
       labels[id] =
         override != null && override.length > 0
@@ -122,7 +122,9 @@ export function AssetScopeSelect({
           sideOffset={6}
           className="min-w-60 w-max max-w-[min(calc(100vw-1.5rem),22rem)]"
         >
-          {BUILT_IN_ASSET_GROUP_IDS.map((gid) => {
+          {SEEDED_PORTFOLIO_GROUP_IDS.filter(
+            (gid) => !assetGroupData.removedPortfolioGroupIds.has(gid)
+          ).map((gid) => {
             const label = portfolioScopeLabels[gid] ?? ASSET_GROUP_SIDEBAR_LABELS[gid]
             const selected = groupId === gid
             return (

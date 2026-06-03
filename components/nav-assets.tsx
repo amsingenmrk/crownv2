@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Briefcase, ChevronDown, ChevronRight, Plus } from "lucide-react"
+import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,10 +25,13 @@ import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
+  syncAssetGroupSnapshotCookieFromLocalStorage,
 } from "@/lib/asset-group-overrides"
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
+  type Asset,
   getAssetById,
   PORTFOLIO_OVERVIEW_LABEL,
   type AssetGroupId,
@@ -36,40 +40,92 @@ import {
   portfolioScopeHref,
 } from "@/lib/assets"
 
-const ASSET_GROUPS: { label: string; groupId: AssetGroupId }[] = [
-  { label: ASSET_GROUP_SIDEBAR_LABELS.office, groupId: "office" },
-  { label: ASSET_GROUP_SIDEBAR_LABELS.industrial, groupId: "industrial" },
-  { label: ASSET_GROUP_SIDEBAR_LABELS.retail, groupId: "retail" },
-]
-
 const INITIAL_GROUP_OPEN: Record<string, boolean> = {
   office: false,
   industrial: false,
   retail: false,
 }
 
+function PortfolioNavAssetRow({
+  asset,
+  pathname,
+}: {
+  asset: Pick<Asset, "id" | "name">
+  pathname: string
+}) {
+  const href = assetHref(asset.id)
+  const active =
+    pathname === href || pathname.startsWith(`/properties/${asset.id}/`)
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton
+        size="sm"
+        className="h-auto min-h-6 py-1 leading-snug"
+        isActive={active}
+        render={<Link href={href} />}
+      >
+        <span className="line-clamp-2 text-left">{asset.name}</span>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  )
+}
+
 export function NavAssets() {
   const pathname = usePathname()
   const [newScopeOpen, setNewScopeOpen] = React.useState(false)
+  const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
+  const [portfolioAssetsExpanded, setPortfolioAssetsExpanded] =
+    React.useState(false)
   const [openByGroup, setOpenByGroup] =
     React.useState<Record<string, boolean>>(INITIAL_GROUP_OPEN)
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
-    () => ""
+    () => initialAssetGroupOverrideSnapshot
   )
   const assetGroupData = React.useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
   )
 
+  React.useEffect(() => {
+    syncAssetGroupSnapshotCookieFromLocalStorage()
+  }, [])
+
   const navAssetSections = React.useMemo(() => {
+    const seededGroups = SEEDED_PORTFOLIO_GROUP_IDS.filter(
+      (groupId) => !assetGroupData.removedPortfolioGroupIds.has(groupId)
+    ).map((groupId) => {
+      const override = assetGroupData.fundLabelOverrides[groupId]?.trim()
+      return {
+        label:
+          override != null && override.length > 0
+            ? override
+            : ASSET_GROUP_SIDEBAR_LABELS[groupId],
+        groupId,
+      } satisfies { label: string; groupId: AssetGroupId }
+    })
     const custom = Object.entries(assetGroupData.customGroups)
       .map(([groupId, label]) => ({ label, groupId }))
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       )
-    return [...ASSET_GROUPS, ...custom]
+    return [...seededGroups, ...custom]
+  }, [
+    assetGroupData.customGroups,
+    assetGroupData.fundLabelOverrides,
+    assetGroupData.removedPortfolioGroupIds,
+  ])
+
+  const allPortfolioNavAssets = React.useMemo(() => {
+    return ASSETS.filter(
+      (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
+    )
+      .map((asset) => getAssetById(asset.id, assetGroupData) ?? asset)
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
   }, [assetGroupData])
 
   /** Accordion: only one property group expanded at a time. */
@@ -95,9 +151,9 @@ export function NavAssets() {
   const activeAssetGroupId = React.useMemo(() => {
     const match = pathname.match(/^\/properties\/([^/]+)/)
     if (!match?.[1]) return null
-    return (
-      getAssetById(decodeURIComponent(match[1]), assetGroupData)?.groupId ?? null
-    )
+    const assetId = decodeURIComponent(match[1])
+    if (assetGroupData.standalonePropertyNavIds.has(assetId)) return null
+    return getAssetById(assetId, assetGroupData)?.groupId ?? null
   }, [assetGroupData, pathname])
 
   const closeAllPortfolioGroups = React.useCallback(() => {
@@ -147,6 +203,7 @@ export function NavAssets() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip={PORTFOLIO_OVERVIEW_LABEL}
+              className="pr-14"
               isActive={pathname === "/portfolio"}
               render={
                 <Link
@@ -160,8 +217,32 @@ export function NavAssets() {
             </SidebarMenuButton>
             <SidebarMenuAction
               type="button"
+              className="right-7"
+              aria-expanded={portfolioAssetsExpanded}
+              aria-label={`${portfolioAssetsExpanded ? "Collapse" : "Expand"} ${PORTFOLIO_OVERVIEW_LABEL} assets`}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                setPortfolioAssetsExpanded((open) => !open)
+              }}
+            >
+              {portfolioAssetsExpanded ? (
+                <ChevronDown
+                  className="size-4 shrink-0 transition-transform duration-200"
+                  aria-hidden
+                />
+              ) : (
+                <ChevronRight
+                  className="size-4 shrink-0 transition-transform duration-200"
+                  aria-hidden
+                />
+              )}
+            </SidebarMenuAction>
+            <SidebarMenuAction
+              type="button"
               title="New portfolio group"
               aria-label="New portfolio group"
+              className="right-1"
               onClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -173,9 +254,30 @@ export function NavAssets() {
           </SidebarMenuItem>
           <li className="list-none group-data-[collapsible=icon]:hidden">
             <SidebarMenuSub className="gap-0 py-0.5">
+              {portfolioAssetsExpanded
+                ? allPortfolioNavAssets.map((asset) => (
+                    <PortfolioNavAssetRow
+                      key={`portfolio-${asset.id}`}
+                      asset={asset}
+                      pathname={pathname}
+                    />
+                  ))
+                : null}
+              {portfolioAssetsExpanded &&
+              allPortfolioNavAssets.length > 0 &&
+              navAssetSections.length > 0 ? (
+                <li
+                  aria-hidden
+                  className="list-none px-1 py-1.5"
+                >
+                  <div className="border-t border-sidebar-border/70" />
+                </li>
+              ) : null}
               {navAssetSections.map((group) => {
                 const assets = ASSETS.filter(
-                  (a) => getAssetById(a.id, assetGroupData)?.groupId === group.groupId
+                  (a) =>
+                    !assetGroupData.standalonePropertyNavIds.has(a.id) &&
+                    getAssetById(a.id, assetGroupData)?.groupId === group.groupId
                 )
                 return (
                   <Collapsible
@@ -228,23 +330,12 @@ export function NavAssets() {
                     <CollapsibleContent>
                       <SidebarMenuSub className="mt-0.5 gap-0 py-0.5">
                         {assets.map((asset) => {
-                          const href = assetHref(asset.id)
-                          const active =
-                            pathname === href ||
-                            pathname.startsWith(`/properties/${asset.id}/`)
                           return (
-                            <SidebarMenuSubItem key={asset.id}>
-                              <SidebarMenuSubButton
-                                size="sm"
-                                className="h-auto min-h-6 py-1 leading-snug"
-                                isActive={active}
-                                render={<Link href={href} />}
-                              >
-                                <span className="line-clamp-2 text-left">
-                                  {asset.name}
-                                </span>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
+                            <PortfolioNavAssetRow
+                              key={asset.id}
+                              asset={asset}
+                              pathname={pathname}
+                            />
                           )
                         })}
                       </SidebarMenuSub>

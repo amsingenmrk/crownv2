@@ -12,6 +12,7 @@ import {
 import { Check, ChevronDown, MoreVertical } from "lucide-react"
 import Link from "next/link"
 import { useParams, usePathname, useRouter } from "next/navigation"
+import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -40,9 +41,12 @@ import {
 } from "@/components/ui/dialog"
 import { useAppToast } from "@/components/app-toast"
 import {
+  clearAssetGroupOverrides,
   getAssetGroupOverridesSnapshot,
+  markPropertiesStandaloneNav,
   parseAssetGroupOverrideSnapshot,
   removeCustomAssetGroupById,
+  removeSeededPortfolioGroupById,
   subscribeAssetGroupOverrides,
   updateCustomAssetGroupById,
   updateFundByGroupId,
@@ -50,7 +54,7 @@ import {
 import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
-  BUILT_IN_ASSET_GROUP_IDS,
+  SEEDED_PORTFOLIO_GROUP_IDS,
   getAssetById,
   portfolioScopeHref,
   portfolioScopeIdFromRouteParam,
@@ -222,6 +226,7 @@ export function AppTopbar() {
   const params = useParams()
   const router = useRouter()
   const showToast = useAppToast()
+  const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
   const [assetMenuOpen, setAssetMenuOpen] = useState(false)
   const [assetSearch, setAssetSearch] = useState("")
   const userScenarios = useSyncExternalStore(
@@ -237,7 +242,7 @@ export function AppTopbar() {
   const assetGroupOverrideSnap = useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
-    () => ""
+    () => initialAssetGroupOverrideSnapshot
   )
   const assetGroupData = useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
@@ -288,13 +293,20 @@ export function AppTopbar() {
   const portfolioScopeBreadcrumbId =
     portfolioScopeIdFromPathname(pathname ?? null)
   const showPortfolioScopeBreadcrumb = portfolioScopeBreadcrumbId != null
-  const isBuiltInPortfolioScope = useMemo(
+  const isSeededPortfolioScope = useMemo(
     () =>
       portfolioScopeBreadcrumbId != null &&
-      (BUILT_IN_ASSET_GROUP_IDS as readonly string[]).includes(
+      (SEEDED_PORTFOLIO_GROUP_IDS as readonly string[]).includes(
         portfolioScopeBreadcrumbId
       ),
     [portfolioScopeBreadcrumbId]
+  )
+  const canDeletePortfolioScope = useMemo(
+    () =>
+      portfolioScopeBreadcrumbId != null &&
+      (isSeededPortfolioScope ||
+        Object.hasOwn(assetGroupData.customGroups, portfolioScopeBreadcrumbId)),
+    [assetGroupData.customGroups, isSeededPortfolioScope, portfolioScopeBreadcrumbId]
   )
   const showCompareSavedBreadcrumb = compareSavedId != null
   const showCompareMoreMenu = showCompareSavedBreadcrumb
@@ -327,7 +339,7 @@ export function AppTopbar() {
     const custom = assetGroupData.customGroups
     const fundOv = assetGroupData.fundLabelOverrides
     const labels: Record<string, string> = {}
-    for (const id of BUILT_IN_ASSET_GROUP_IDS) {
+    for (const id of SEEDED_PORTFOLIO_GROUP_IDS) {
       const override = fundOv[id]?.trim()
       labels[id] =
         override != null && override.length > 0
@@ -382,7 +394,7 @@ export function AppTopbar() {
     if (portfolioScopeBreadcrumbId == null) return
     const id = portfolioScopeBreadcrumbId
     setPortfolioScopeRenameDraft(portfolioScopeLabels[id] ?? id)
-    if (isBuiltInPortfolioScope) {
+    if (isSeededPortfolioScope) {
       setPortfolioScopeRenameDescriptionDraft(
         resolvePortfolioScopeDescription(
           id,
@@ -399,7 +411,7 @@ export function AppTopbar() {
   }, [
     assetGroupData.customGroupDescriptions,
     assetGroupData.fundDescriptionOverrides,
-    isBuiltInPortfolioScope,
+    isSeededPortfolioScope,
     portfolioScopeBreadcrumbId,
     portfolioScopeLabels,
   ])
@@ -457,7 +469,7 @@ export function AppTopbar() {
     const name = portfolioScopeRenameDraft.trim()
     if (!name || portfolioScopeBreadcrumbId == null) return
     const id = portfolioScopeBreadcrumbId
-    if (isBuiltInPortfolioScope) {
+    if (isSeededPortfolioScope) {
       const prevName = portfolioScopeLabels[id] ?? id
       const prevDesc = (
         resolvePortfolioScopeDescription(
@@ -501,7 +513,7 @@ export function AppTopbar() {
   }, [
     assetGroupData.customGroupDescriptions,
     assetGroupData.fundDescriptionOverrides,
-    isBuiltInPortfolioScope,
+    isSeededPortfolioScope,
     portfolioScopeBreadcrumbId,
     portfolioScopeLabels,
     portfolioScopeRenameDescriptionDraft,
@@ -539,7 +551,7 @@ export function AppTopbar() {
       return true
     }
     const id = portfolioScopeBreadcrumbId
-    if (isBuiltInPortfolioScope) {
+    if (isSeededPortfolioScope) {
       const prevName = portfolioScopeLabels[id] ?? id
       const prevDesc = (
         resolvePortfolioScopeDescription(
@@ -560,7 +572,7 @@ export function AppTopbar() {
   }, [
     assetGroupData.customGroupDescriptions,
     assetGroupData.fundDescriptionOverrides,
-    isBuiltInPortfolioScope,
+    isSeededPortfolioScope,
     portfolioScopeBreadcrumbId,
     portfolioScopeLabels,
     portfolioScopeRenameDescriptionDraft,
@@ -976,21 +988,14 @@ export function AppTopbar() {
                 <DropdownMenuItem onClick={openPortfolioScopeRename}>
                   Rename
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={isBuiltInPortfolioScope}
-                  title={
-                    isBuiltInPortfolioScope
-                      ? "Built-in funds cannot be deleted"
-                      : undefined
-                  }
-                  onClick={() => {
-                    if (isBuiltInPortfolioScope) return
-                    setDeletePortfolioScopeOpen(true)
-                  }}
-                >
-                  Delete
-                </DropdownMenuItem>
+                {canDeletePortfolioScope ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeletePortfolioScopeOpen(true)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
             <Dialog
@@ -1019,7 +1024,7 @@ export function AppTopbar() {
                       id={portfolioRenameNameFieldId}
                       value={portfolioScopeRenameDraft}
                       onChange={(e) => setPortfolioScopeRenameDraft(e.target.value)}
-                      placeholder="e.g. Fund I"
+                      placeholder="e.g. West Coast logistics"
                       autoComplete="off"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -1080,9 +1085,9 @@ export function AppTopbar() {
                 <DialogHeader>
                   <DialogTitle>Delete portfolio group</DialogTitle>
                   <DialogDescription>
-                    This removes &ldquo;{pageTitle}&rdquo; and clears
-                    which assets were assigned to this portfolio group. Assets
-                    return to their default fund groups. This cannot be undone.
+                    This removes &ldquo;{pageTitle}&rdquo; and unassigns any
+                    properties currently in this portfolio group. This cannot
+                    be undone.
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
@@ -1098,13 +1103,50 @@ export function AppTopbar() {
                     variant="destructive"
                     onClick={() => {
                       if (portfolioScopeBreadcrumbId == null) return
-                      const ok = removeCustomAssetGroupById(
-                        portfolioScopeBreadcrumbId
-                      )
+                      const groupId = portfolioScopeBreadcrumbId
+                      let ok = false
+                      let standaloneAssetIds: string[] = []
+                      let revertedAssetIds: string[] = []
+
+                      if (isSeededPortfolioScope) {
+                        const activeAssets = ASSETS.filter((asset) => {
+                          if (assetGroupData.standalonePropertyNavIds.has(asset.id)) {
+                            return false
+                          }
+                          const effective = getAssetById(asset.id, assetGroupData) ?? asset
+                          return effective.groupId === groupId
+                        })
+                        standaloneAssetIds = activeAssets
+                          .filter((asset) => asset.groupId === groupId)
+                          .map((asset) => asset.id)
+                        revertedAssetIds = activeAssets
+                          .filter((asset) => asset.groupId !== groupId)
+                          .map((asset) => asset.id)
+
+                        const removedGroup = removeSeededPortfolioGroupById(groupId)
+                        const clearedOverrides = clearAssetGroupOverrides(
+                          activeAssets.map((asset) => asset.id)
+                        )
+                        const markedStandalone = markPropertiesStandaloneNav(
+                          standaloneAssetIds
+                        )
+                        ok = removedGroup || clearedOverrides || markedStandalone
+                      } else {
+                        ok = removeCustomAssetGroupById(groupId)
+                      }
+
                       setDeletePortfolioScopeOpen(false)
                       if (ok) {
-                        router.push("/portfolio")
+                        router.replace("/portfolio")
                         showToast("Portfolio group deleted.")
+                      } else {
+                        console.warn("Failed to delete portfolio group.", {
+                          groupId,
+                          isSeededPortfolioScope,
+                          standaloneAssetIds,
+                          revertedAssetIds,
+                        })
+                        showToast("Could not delete portfolio group.")
                       }
                     }}
                   >
