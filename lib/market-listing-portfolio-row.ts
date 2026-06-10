@@ -31,6 +31,7 @@ export function portfolioAssetRowForMarketPin(
     return {
       id: pin.id,
       groupId: g,
+      groupIds: [g],
       building: pin.building,
       location: pin.location ?? "",
       ownership: "Market",
@@ -66,6 +67,7 @@ export function portfolioAssetRowForMarketPin(
   return {
     id: pin.id,
     groupId: g,
+    groupIds: [g],
     building: pin.building,
     location: pin.location ?? "",
     ownership: "Market",

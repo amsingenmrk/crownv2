@@ -26,29 +26,57 @@ const RESERVED_GROUP_IDS = new Set([
   "",
 ])
 
-function parseOverrides(raw: string): Record<string, string> {
+function parseOverrides(raw: string): Record<string, string[]> {
   try {
     const parsed: unknown = JSON.parse(raw)
     if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {}
     }
-    const out: Record<string, string> = {}
+    const out: Record<string, string[]> = {}
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (
-        typeof k === "string" &&
-        k.length > 0 &&
-        k.length < 200 &&
-        typeof v === "string" &&
-        v.length > 0 &&
-        v.length < 200
-      ) {
-        out[k] = v
+      if (typeof k !== "string" || k.length === 0 || k.length >= 200) continue
+      if (typeof v === "string" && v.length > 0 && v.length < 200) {
+        out[k] = [v]
+        continue
       }
+      if (!Array.isArray(v)) continue
+      const groups: string[] = []
+      for (const item of v) {
+        if (
+          typeof item === "string" &&
+          item.length > 0 &&
+          item.length < 200 &&
+          !groups.includes(item)
+        ) {
+          groups.push(item)
+        }
+      }
+      if (groups.length > 0) out[k] = groups
     }
     return out
   } catch {
     return {}
   }
+}
+
+/** Effective group membership for an asset (override list or `[baseGroupId]`). */
+export function resolveAssetGroupIds(
+  assetId: string,
+  baseGroupId: string,
+  overrides: Record<string, string[]>
+): string[] {
+  const stored = overrides[assetId]
+  if (stored == null || stored.length === 0) return [baseGroupId]
+  return stored
+}
+
+export function assetBelongsToGroup(
+  assetId: string,
+  groupId: string,
+  baseGroupId: string,
+  overrides: Record<string, string[]>
+): boolean {
+  return resolveAssetGroupIds(assetId, baseGroupId, overrides).includes(groupId)
 }
 
 export function parseCustomAssetGroups(raw: string): Record<string, string> {
@@ -116,7 +144,7 @@ function writeCustomGroupDescriptions(next: Record<string, string>): void {
   window.dispatchEvent(new Event(CHANGED))
 }
 
-export function readAssetGroupOverrides(): Record<string, string> {
+export function readAssetGroupOverrides(): Record<string, string[]> {
   if (typeof window === "undefined") return {}
   const raw = localStorage.getItem(STORAGE_KEY)
   if (raw == null || raw === "") return {}
@@ -404,7 +432,7 @@ export function removeSeededPortfolioGroupById(groupId: string): boolean {
 }
 
 export function parseAssetGroupOverrideSnapshot(snapshot: string): {
-  overrides: Record<string, string>
+  overrides: Record<string, string[]>
   customGroups: Record<string, string>
   fundLabelOverrides: Record<string, string>
   customGroupDescriptions: Record<string, string>
@@ -492,7 +520,7 @@ function isCustomGroupId(
   return Object.hasOwn(customGroups, groupId)
 }
 
-function writeAssetGroupOverrides(overrides: Record<string, string>): void {
+function writeAssetGroupOverrides(overrides: Record<string, string[]>): void {
   if (typeof window === "undefined") return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides))
   syncAssetGroupSnapshotCookieFromLocalStorage()
@@ -566,10 +594,10 @@ export function removeCustomAssetGroupById(groupId: string): boolean {
     writeCustomGroupDescriptions(descRest)
   }
   const overrides = readAssetGroupOverrides()
-  const nextOverrides: Record<string, string> = {}
-  for (const [assetId, gid] of Object.entries(overrides)) {
-    if (gid === groupId) continue
-    nextOverrides[assetId] = gid
+  const nextOverrides: Record<string, string[]> = {}
+  for (const [assetId, groupIds] of Object.entries(overrides)) {
+    const filtered = groupIds.filter((gid) => gid !== groupId)
+    if (filtered.length > 0) nextOverrides[assetId] = filtered
   }
   writeAssetGroupOverrides(nextOverrides)
   return true
@@ -600,18 +628,83 @@ export function duplicateCustomAssetGroupFromId(
   }
   const overrides = readAssetGroupOverrides()
   const nextOverrides = { ...overrides }
-  for (const [assetId, gid] of Object.entries(overrides)) {
-    if (gid === sourceGroupId) nextOverrides[assetId] = created.id
+  for (const [assetId, groupIds] of Object.entries(overrides)) {
+    if (groupIds.includes(sourceGroupId)) {
+      nextOverrides[assetId] = [...new Set([...groupIds, created.id])]
+    }
   }
   writeAssetGroupOverrides(nextOverrides)
   return created
 }
 
-export function setAssetGroupOverride(assetId: string, groupId: string): void {
+export function addAssetToGroup(
+  assetId: string,
+  groupId: string,
+  baseGroupId: string
+): void {
   if (typeof window === "undefined") return
   restoreRemovedPortfolioGroup(groupId)
   clearStandalonePropertyNav(assetId)
-  writeAssetGroupOverrides({ ...readAssetGroupOverrides(), [assetId]: groupId })
+  const overrides = readAssetGroupOverrides()
+  const current = resolveAssetGroupIds(assetId, baseGroupId, overrides)
+  if (current.includes(groupId)) return
+  writeAssetGroupOverrides({
+    ...overrides,
+    [assetId]: [...current, groupId],
+  })
+}
+
+export function removeAssetFromGroup(
+  assetId: string,
+  groupId: string,
+  baseGroupId: string
+): void {
+  if (typeof window === "undefined") return
+  const overrides = readAssetGroupOverrides()
+  const current = resolveAssetGroupIds(assetId, baseGroupId, overrides)
+  const next = current.filter((gid) => gid !== groupId)
+  if (next.length === 0) {
+    removeAssetGroupOverride(assetId)
+    return
+  }
+  if (next.length === 1 && next[0] === baseGroupId && !(assetId in overrides)) {
+    return
+  }
+  if (next.length === 1 && next[0] === baseGroupId) {
+    removeAssetGroupOverride(assetId)
+    return
+  }
+  writeAssetGroupOverrides({ ...overrides, [assetId]: next })
+}
+
+export function toggleAssetGroupMembership(
+  assetId: string,
+  groupId: string,
+  baseGroupId: string
+): void {
+  const overrides = readAssetGroupOverrides()
+  const current = resolveAssetGroupIds(assetId, baseGroupId, overrides)
+  if (current.includes(groupId)) {
+    removeAssetFromGroup(assetId, groupId, baseGroupId)
+  } else {
+    addAssetToGroup(assetId, groupId, baseGroupId)
+  }
+}
+
+/** @deprecated Prefer {@link addAssetToGroup} for multi-group membership. */
+export function setAssetGroupOverride(
+  assetId: string,
+  groupId: string,
+  baseGroupId?: string
+): void {
+  if (typeof window === "undefined") return
+  if (baseGroupId != null) {
+    addAssetToGroup(assetId, groupId, baseGroupId)
+    return
+  }
+  restoreRemovedPortfolioGroup(groupId)
+  clearStandalonePropertyNav(assetId)
+  writeAssetGroupOverrides({ ...readAssetGroupOverrides(), [assetId]: [groupId] })
 }
 
 /** Clears a stored portfolio-group assignment so the asset falls back to seed data. */

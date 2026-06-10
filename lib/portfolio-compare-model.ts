@@ -202,11 +202,14 @@ function entirePortfolioCompareColumn(): CompareColumn {
 
 function portfolioGroupCompareColumn(groupId: string, index: number): CompareColumn {
   const label = resolveAssetGroupLabel(groupId)
-  const rows = allPortfolioAssetRowsBase().filter((r) => r.groupId === groupId)
+  const rows = allPortfolioAssetRowsBase().filter((r) => r.groupIds.includes(groupId))
   if (rows.length === 0) {
     return fallbackColumn(label, "No assets in this group", index)
   }
-  const asset = ASSETS.find((a) => a.groupId === groupId) ?? ASSETS[0]
+  const asset =
+    ASSETS.find((a) => a.groupId === groupId) ??
+    ASSETS.find((a) => rows.some((r) => r.id === a.id)) ??
+    ASSETS[0]
   const { metrics, numeric } = headerKpiFromPortfolioRows(rows)
   return {
     id: groupKey(groupId),

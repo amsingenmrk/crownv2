@@ -25,7 +25,7 @@ import { addPortfolioAssetToScenarioBySlug } from "@/lib/add-portfolio-asset-to-
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
-  setAssetGroupOverride,
+  toggleAssetGroupMembership,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
@@ -33,6 +33,7 @@ import {
   SEEDED_PORTFOLIO_GROUP_IDS,
   assetHref,
   getAssetById,
+  resolveAssetGroupIdsForAsset,
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
@@ -101,16 +102,18 @@ type PortfolioMenuOption = { name: string; groupId: string }
 
 function SearchListingCardActions({
   assetId,
-  portfolioCurrentGroupId,
+  membershipGroupIds,
   portfoliosForMenu,
   scenariosForMenu,
 }: {
   assetId: string
-  portfolioCurrentGroupId: string | null
+  membershipGroupIds: readonly string[]
   portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
 }) {
   const showToast = useAppToast()
+  const baseGroupId =
+    ASSETS.find((asset) => asset.id === assetId)?.groupId ?? "office"
 
   return (
     <DropdownMenu>
@@ -138,16 +141,19 @@ function SearchListingCardActions({
             Portfolio groups
           </DropdownMenuLabel>
           {portfoliosForMenu.map((p) => {
-            const selected = portfolioCurrentGroupId === p.groupId
+            const selected = membershipGroupIds.includes(p.groupId)
             return (
               <DropdownMenuItem
                 key={p.groupId}
-                disabled={selected}
                 onClick={() => {
-                  if (selected) return
-                  setAssetGroupOverride(assetId, p.groupId)
+                  const wasSelected = selected
+                  toggleAssetGroupMembership(assetId, p.groupId, baseGroupId)
                   queueMicrotask(() =>
-                    showToast(`Property moved to “${p.name}”.`)
+                    showToast(
+                      wasSelected
+                        ? `Property removed from “${p.name}”.`
+                        : `Property added to “${p.name}”.`
+                    )
                   )
                 }}
               >
@@ -157,7 +163,7 @@ function SearchListingCardActions({
                     className="ml-2 text-xs text-muted-foreground"
                     aria-hidden
                   >
-                    Current
+                    Added
                   </span>
                 ) : null}
               </DropdownMenuItem>
@@ -217,12 +223,10 @@ function SearchListingPreviewCard({
     const a = getAssetById(pin.id, assetGroupData) ?? ASSETS[index]!
     return portfolioAssetRowForAsset(a, index)
   }, [assetGroupData, isMarket, pin.id])
-  const portfolioCurrentGroupId = React.useMemo(() => {
-    if (isMarket) {
-      return assetGroupData.overrides[pin.id] ?? null
-    }
-    return getAssetById(pin.id, assetGroupData)?.groupId ?? null
-  }, [assetGroupData, isMarket, pin.id])
+  const membershipGroupIds = React.useMemo(
+    () => resolveAssetGroupIdsForAsset(pin.id, assetGroupData),
+    [assetGroupData, pin.id]
+  )
   const liftText =
     pin.lift.trim() !== ""
       ? pin.lift
@@ -315,7 +319,7 @@ function SearchListingPreviewCard({
       <div className="shrink-0">
         <SearchListingCardActions
           assetId={pin.id}
-          portfolioCurrentGroupId={portfolioCurrentGroupId}
+          membershipGroupIds={membershipGroupIds}
           portfoliosForMenu={portfoliosForMenu}
           scenariosForMenu={scenariosForMenu}
         />

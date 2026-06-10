@@ -34,12 +34,14 @@ import {
   ASSET_GROUP_SIDEBAR_LABELS,
   SEEDED_PORTFOLIO_GROUP_IDS,
   type Asset,
+  assetIsInPortfolioGroup,
   getAssetById,
   PORTFOLIO_OVERVIEW_LABEL,
   type AssetGroupId,
   assetHref,
   portfolioScopeIdFromRouteParam,
   portfolioScopeHref,
+  resolveAssetGroupIdsForAsset,
 } from "@/lib/assets"
 
 const INITIAL_GROUP_OPEN: Record<string, boolean> = {
@@ -155,7 +157,9 @@ export function NavAssets() {
     if (!match?.[1]) return null
     const assetId = decodeURIComponent(match[1])
     if (assetGroupData.standalonePropertyNavIds.has(assetId)) return null
-    return getAssetById(assetId, assetGroupData)?.groupId ?? null
+    return getAssetById(assetId, assetGroupData)?.groupIds?.find((gid) =>
+      navAssetSections.some((g) => g.groupId === gid)
+    ) ?? null
   }, [assetGroupData, pathname])
 
   const closeAllPortfolioGroups = React.useCallback(() => {
@@ -180,11 +184,20 @@ export function NavAssets() {
     const nextOpenIds = [activeScopeId, activeAssetGroupId].filter(
       (value): value is string => value != null && value !== "all"
     )
+    const pathAssetMatch = pathname.match(/^\/properties\/([^/]+)/)
+    const pathAssetGroupIds =
+      pathAssetMatch?.[1] != null
+        ? resolveAssetGroupIdsForAsset(
+            decodeURIComponent(pathAssetMatch[1]),
+            assetGroupData
+          )
+        : []
     setOpenByGroup((current) => {
       const next: Record<string, boolean> = {}
       for (const g of navAssetSections) {
         next[g.groupId] =
-          nextOpenIds.length > 0 && nextOpenIds.includes(g.groupId)
+          nextOpenIds.includes(g.groupId) ||
+          pathAssetGroupIds.includes(g.groupId)
       }
       const keys = new Set([...Object.keys(current), ...Object.keys(next)])
       let changed = false
@@ -271,7 +284,7 @@ export function NavAssets() {
             const assets = ASSETS.filter(
               (a) =>
                 !assetGroupData.standalonePropertyNavIds.has(a.id) &&
-                getAssetById(a.id, assetGroupData)?.groupId === group.groupId
+                assetIsInPortfolioGroup(a.id, group.groupId, assetGroupData)
             )
             return (
               <Collapsible

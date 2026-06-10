@@ -15,6 +15,7 @@ import {
   ASSETS,
   SEEDED_PORTFOLIO_GROUP_IDS,
   PORTFOLIO_OVERVIEW_LABEL,
+  assetIsInPortfolioGroup,
   getAssetById,
   portfolioScopeIdFromRouteParam,
   resolveAssetGroupLabel,
@@ -97,7 +98,9 @@ export function PortfolioPageHeader() {
 
   const scopedAssets = React.useMemo(() => {
     if (portfolioScopeId == null) return effectiveAssets
-    return effectiveAssets.filter((asset) => asset.groupId === portfolioScopeId)
+    return effectiveAssets.filter((asset) =>
+      assetIsInPortfolioGroup(asset.id, portfolioScopeId, assetGroupData)
+    )
   }, [effectiveAssets, portfolioScopeId])
 
   const scopedPortfolioRows = React.useMemo(() => {
@@ -107,7 +110,7 @@ export function PortfolioPageHeader() {
       portfolioAssetRowForAsset(getAssetById(asset.id, assetGroupData) ?? asset, index)
     )
     if (portfolioScopeId == null) return rows
-    return rows.filter((row) => row.groupId === portfolioScopeId)
+    return rows.filter((row) => row.groupIds.includes(portfolioScopeId))
   }, [assetGroupData, portfolioScopeId])
 
   const scopedPortfolioAggregate = React.useMemo(

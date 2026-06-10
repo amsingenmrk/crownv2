@@ -6,6 +6,8 @@ import {
   readAssetGroupOverrides,
   readCustomAssetGroups,
   readFundDisplayLabels,
+  resolveAssetGroupIds,
+  type parseAssetGroupOverrideSnapshot,
 } from "@/lib/asset-group-overrides"
 
 const BUILDING_IMAGES = [
@@ -64,6 +66,8 @@ export interface Asset {
   id: string
   name: string
   groupId: string
+  /** All portfolio groups this asset belongs to (resolved). */
+  groupIds?: string[]
   groupLabel: string
   address: string
   imageUrl: string
@@ -71,8 +75,10 @@ export interface Asset {
   occupiedPercent: number
 }
 
+type AssetGroupSnapshot = ReturnType<typeof parseAssetGroupOverrideSnapshot>
+
 type AssetGroupResolutionOptions = {
-  overrides?: Record<string, string>
+  overrides?: Record<string, string[]>
   customGroups?: Record<string, string>
 }
 
@@ -258,29 +264,77 @@ export function resolveAssetGroupLabel(
   return readCustomAssetGroups()[groupId] ?? groupId
 }
 
+export function resolveAssetGroupIdsForAsset(
+  id: string,
+  options?: AssetGroupResolutionOptions | AssetGroupSnapshot
+): string[] {
+  const base = ASSETS.find((a) => a.id === id)
+  if (!base) return []
+
+  if (options != null && "overrides" in options && "customGroups" in options) {
+    return resolveAssetGroupIds(id, base.groupId, options.overrides ?? {})
+  }
+
+  const resolution = options as AssetGroupResolutionOptions | undefined
+  const overrides =
+    resolution?.overrides ??
+    (typeof window !== "undefined" ? readAssetGroupOverrides() : {})
+  return resolveAssetGroupIds(id, base.groupId, overrides)
+}
+
+export function assetIsInPortfolioGroup(
+  assetId: string,
+  groupId: string,
+  options?: AssetGroupResolutionOptions | AssetGroupSnapshot
+): boolean {
+  return resolveAssetGroupIdsForAsset(assetId, options).includes(groupId)
+}
+
+function assetWithResolvedGroups(
+  base: Asset,
+  options?: AssetGroupResolutionOptions | AssetGroupSnapshot
+): Asset {
+  const groupIds = resolveAssetGroupIdsForAsset(base.id, options)
+  const primaryGroupId = groupIds[0] ?? base.groupId
+  if (
+    primaryGroupId === base.groupId &&
+    groupIds.length === 1 &&
+    groupIds[0] === base.groupId
+  ) {
+    return { ...base, groupIds }
+  }
+  const customGroups =
+    options != null && "customGroups" in options
+      ? options.customGroups
+      : (options as AssetGroupResolutionOptions | undefined)?.customGroups
+  return {
+    ...base,
+    groupId: primaryGroupId,
+    groupIds,
+    groupLabel: resolveAssetGroupLabel(primaryGroupId, customGroups),
+  }
+}
+
 export function getAssetById(
   id: string,
-  options?: AssetGroupResolutionOptions
+  options?: AssetGroupResolutionOptions | AssetGroupSnapshot
 ): Asset | undefined {
   const base = ASSETS.find((a) => a.id === id)
   if (!base) return undefined
-  if (options != null) {
-    const override = options.overrides?.[id]
-    if (!override || override === base.groupId) return base
-    return {
-      ...base,
-      groupId: override,
-      groupLabel: resolveAssetGroupLabel(override, options.customGroups),
-    }
+  if (options != null || typeof window !== "undefined") {
+    return assetWithResolvedGroups(base, options)
   }
-  if (typeof window === "undefined") return base
-  const o = readAssetGroupOverrides()[id]
-  if (!o || o === base.groupId) return base
-  return {
-    ...base,
-    groupId: o,
-    groupLabel: resolveAssetGroupLabel(o),
-  }
+  return { ...base, groupIds: [base.groupId] }
+}
+
+export function formatPortfolioGroupMembershipLabel(
+  groupIds: readonly string[],
+  labels: Record<string, string>
+): string {
+  if (groupIds.length === 0) return ""
+  const names = groupIds.map((id) => labels[id] ?? id)
+  if (names.length === 1) return names[0]
+  return `${names[0]} +${names.length - 1}`
 }
 
 export function assetHref(id: string): string {

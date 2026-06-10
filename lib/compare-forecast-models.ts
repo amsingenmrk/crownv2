@@ -1,5 +1,5 @@
 import { INITIAL_MOD_VALUES } from "@/lib/building-modifications"
-import { ASSETS } from "@/lib/assets"
+import { ASSETS, assetIsInPortfolioGroup } from "@/lib/assets"
 import {
   buildAssetForecastModel,
   buildDefaultForecastScenarios,
@@ -40,7 +40,9 @@ export function assetIdsForCompareSlotKey(
   }
   if (key.startsWith(GROUP_KEY_PREFIX)) {
     const groupId = key.slice(GROUP_KEY_PREFIX.length)
-    return ASSETS.filter((a) => a.groupId === groupId).map((a) => a.id)
+    return ASSETS.filter((a) => assetIsInPortfolioGroup(a.id, groupId)).map(
+      (a) => a.id
+    )
   }
   if (key.startsWith(ASSET_KEY_PREFIX)) {
     return [key.slice(ASSET_KEY_PREFIX.length)]

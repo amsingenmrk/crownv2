@@ -440,7 +440,6 @@ export function createPortfolioAssetColumns(
         <AssetScopeSelect
           assetId={row.original.id}
           building={row.original.building}
-          groupId={row.original.groupId}
         />
       ),
       enableSorting: false,

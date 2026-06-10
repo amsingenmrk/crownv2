@@ -3,6 +3,7 @@ import type { ModificationRecommendation } from "@/lib/modification-recommendati
 export type PortfolioAssetRow = {
   id: string
   groupId: string
+  groupIds: string[]
   building: string
   location: string
   /** Owned vs market listing label (e.g. dashboard export). */

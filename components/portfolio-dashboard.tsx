@@ -288,7 +288,7 @@ function PortfolioDashboardInner({
       effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
         ? portfolioAssetRows
         : portfolioAssetRows.filter(
-            (r) => r.groupId === effectivePortfolioGroupFilter
+            (r) => r.groupIds.includes(effectivePortfolioGroupFilter)
           )
 
     const q = assetTableSearch.trim().toLowerCase()
@@ -359,7 +359,7 @@ function PortfolioDashboardInner({
         const r = portfolioAssetRowForMarketPin(pin)
         if (
           effectivePortfolioGroupFilter !== ALL_PORTFOLIO_GROUPS_VALUE &&
-          r.groupId !== effectivePortfolioGroupFilter
+          r.groupIds.includes(effectivePortfolioGroupFilter)
         ) {
           return
         }

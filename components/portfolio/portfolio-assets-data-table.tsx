@@ -539,7 +539,6 @@ export function PortfolioAssetsDataTable({
                         <AssetScopeSelect
                           assetId={row.id}
                           building={row.building}
-                          groupId={row.groupId}
                         />
                       </span>
                     </div>

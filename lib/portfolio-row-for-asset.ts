@@ -45,6 +45,7 @@ export function portfolioAssetRowForAsset(
     return {
       id: asset.id,
       groupId: asset.groupId,
+      groupIds: asset.groupIds ?? [asset.groupId],
       building: asset.name,
       location: asset.address,
       ownership: "Owned",
@@ -77,6 +78,7 @@ export function portfolioAssetRowForAsset(
   return {
     id: asset.id,
     groupId: asset.groupId,
+    groupIds: asset.groupIds ?? [asset.groupId],
     building: asset.name,
     location: asset.address,
     ownership: "Owned",

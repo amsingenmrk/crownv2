@@ -45,6 +45,7 @@ import {
   getAssetGroupOverridesSnapshot,
   markPropertiesStandaloneNav,
   parseAssetGroupOverrideSnapshot,
+  removeAssetFromGroup,
   removeCustomAssetGroupById,
   removeSeededPortfolioGroupById,
   subscribeAssetGroupOverrides,
@@ -55,9 +56,12 @@ import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
   SEEDED_PORTFOLIO_GROUP_IDS,
+  assetIsInPortfolioGroup,
+  formatPortfolioGroupMembershipLabel,
   getAssetById,
   portfolioScopeHref,
   portfolioScopeIdFromRouteParam,
+  resolveAssetGroupIdsForAsset,
   resolvePortfolioScopeDescription,
 } from "@/lib/assets"
 import {
@@ -352,14 +356,16 @@ export function AppTopbar() {
     return labels
   }, [assetGroupData])
 
-  const marketListingPortfolioGroupId =
+  const marketListingPortfolioGroupIds =
     marketListingPin != null && assetId != null
-      ? assetGroupData.overrides[assetId] ?? null
-      : null
+      ? resolveAssetGroupIdsForAsset(assetId, assetGroupData)
+      : []
   const marketListingPortfolioGroupLabel =
-    marketListingPortfolioGroupId != null
-      ? portfolioScopeLabels[marketListingPortfolioGroupId] ??
-        marketListingPortfolioGroupId
+    marketListingPortfolioGroupIds.length > 0
+      ? formatPortfolioGroupMembershipLabel(
+          marketListingPortfolioGroupIds,
+          portfolioScopeLabels
+        )
       : null
 
   const propertyStandaloneNav =
@@ -780,7 +786,7 @@ export function AppTopbar() {
             </BreadcrumbList>
           </Breadcrumb>
         ) : showNonAssetPropertyBreadcrumb && marketListingPin != null ? (
-          marketListingPortfolioGroupId != null &&
+          marketListingPortfolioGroupIds.length > 0 &&
           marketListingPortfolioGroupLabel != null ? (
             <Breadcrumb className="min-w-0 flex-1">
               <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
@@ -801,7 +807,9 @@ export function AppTopbar() {
                   <BreadcrumbLink
                     render={
                       <Link
-                        href={portfolioScopeHref(marketListingPortfolioGroupId)}
+                        href={portfolioScopeHref(
+                          marketListingPortfolioGroupIds[0]
+                        )}
                         className="block truncate font-medium text-muted-foreground"
                       />
                     }
@@ -957,14 +965,18 @@ export function AppTopbar() {
         {showAssetBreadcrumb && asset != null ? (
           <PortfolioGroupBadgeDropdown
             assetId={asset.id}
-            resolvedGroupId={propertyStandaloneNav ? null : asset.groupId}
+            resolvedGroupIds={
+              propertyStandaloneNav
+                ? []
+                : asset.groupIds ?? [asset.groupId]
+            }
           />
         ) : showNonAssetPropertyBreadcrumb &&
           marketListingPin != null &&
           assetId != null ? (
           <PortfolioGroupBadgeDropdown
             assetId={assetId}
-            resolvedGroupId={assetGroupData.overrides[assetId] ?? null}
+            resolvedGroupIds={marketListingPortfolioGroupIds}
             propertyDisplayName={marketListingPin.building}
           />
         ) : null}
@@ -1109,28 +1121,55 @@ export function AppTopbar() {
                       let revertedAssetIds: string[] = []
 
                       if (isSeededPortfolioScope) {
-                        const activeAssets = ASSETS.filter((asset) => {
-                          if (assetGroupData.standalonePropertyNavIds.has(asset.id)) {
+                        const membersInGroup = ASSETS.filter((asset) => {
+                          if (
+                            assetGroupData.standalonePropertyNavIds.has(
+                              asset.id
+                            )
+                          ) {
                             return false
                           }
-                          const effective = getAssetById(asset.id, assetGroupData) ?? asset
-                          return effective.groupId === groupId
+                          return assetIsInPortfolioGroup(
+                            asset.id,
+                            groupId,
+                            assetGroupData
+                          )
                         })
-                        standaloneAssetIds = activeAssets
-                          .filter((asset) => asset.groupId === groupId)
-                          .map((asset) => asset.id)
-                        revertedAssetIds = activeAssets
-                          .filter((asset) => asset.groupId !== groupId)
-                          .map((asset) => asset.id)
+                        for (const asset of membersInGroup) {
+                          const base =
+                            ASSETS.find((a) => a.id === asset.id) ?? asset
+                          const groupIds = resolveAssetGroupIdsForAsset(
+                            asset.id,
+                            assetGroupData
+                          )
+                          if (
+                            groupIds.length === 1 &&
+                            groupIds[0] === groupId
+                          ) {
+                            standaloneAssetIds.push(asset.id)
+                          } else {
+                            removeAssetFromGroup(
+                              asset.id,
+                              groupId,
+                              base.groupId
+                            )
+                            revertedAssetIds.push(asset.id)
+                          }
+                        }
 
-                        const removedGroup = removeSeededPortfolioGroupById(groupId)
+                        const removedGroup =
+                          removeSeededPortfolioGroupById(groupId)
                         const clearedOverrides = clearAssetGroupOverrides(
-                          activeAssets.map((asset) => asset.id)
+                          standaloneAssetIds
                         )
                         const markedStandalone = markPropertiesStandaloneNav(
                           standaloneAssetIds
                         )
-                        ok = removedGroup || clearedOverrides || markedStandalone
+                        ok =
+                          removedGroup ||
+                          clearedOverrides ||
+                          markedStandalone ||
+                          revertedAssetIds.length > 0
                       } else {
                         ok = removeCustomAssetGroupById(groupId)
                       }

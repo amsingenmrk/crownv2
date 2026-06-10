@@ -23,15 +23,19 @@ import { Input } from "@/components/ui/input"
 import { useAppToast } from "@/components/app-toast"
 import {
   addCustomAssetGroup,
+  addAssetToGroup,
   getAssetGroupOverridesSnapshot,
   markPropertyStandaloneNav,
   parseAssetGroupOverrideSnapshot,
   removeAssetGroupOverride,
-  setAssetGroupOverride,
   subscribeAssetGroupOverrides,
+  toggleAssetGroupMembership,
 } from "@/lib/asset-group-overrides"
 import {
+  ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
+  formatPortfolioGroupMembershipLabel,
+  resolveAssetGroupIdsForAsset,
   SEEDED_PORTFOLIO_GROUP_IDS,
 } from "@/lib/assets"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
@@ -40,14 +44,12 @@ import { cn } from "@/lib/utils"
 type AssetScopeSelectProps = {
   assetId: string
   building: string
-  groupId: string
   className?: string
 }
 
 export function AssetScopeSelect({
   assetId,
   building,
-  groupId,
   className,
 }: AssetScopeSelectProps) {
   const showToast = useAppToast()
@@ -55,6 +57,9 @@ export function AssetScopeSelect({
   const [createAssetGroupOpen, setCreateAssetGroupOpen] = React.useState(false)
   const [newAssetGroupName, setNewAssetGroupName] = React.useState("")
   const [removeConfirmOpen, setRemoveConfirmOpen] = React.useState(false)
+
+  const baseGroupId =
+    ASSETS.find((asset) => asset.id === assetId)?.groupId ?? "office"
 
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
@@ -64,6 +69,11 @@ export function AssetScopeSelect({
   const assetGroupData = React.useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
+  )
+
+  const membershipGroupIds = React.useMemo(
+    () => resolveAssetGroupIdsForAsset(assetId, assetGroupData),
+    [assetId, assetGroupData]
   )
 
   const portfolioScopeLabels = React.useMemo(() => {
@@ -83,7 +93,10 @@ export function AssetScopeSelect({
     return labels
   }, [assetGroupData])
 
-  const displayLabel = portfolioScopeLabels[groupId] ?? groupId
+  const displayLabel = formatPortfolioGroupMembershipLabel(
+    membershipGroupIds,
+    portfolioScopeLabels
+  )
 
   const showRemoveFromPortfolio =
     !assetGroupData.standalonePropertyNavIds.has(assetId) &&
@@ -105,8 +118,8 @@ export function AssetScopeSelect({
                 "inline-flex w-full min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2.5 py-1 text-left text-xs font-medium text-foreground outline-none transition-colors",
                 "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
-              title={`Portfolio group: ${displayLabel}`}
-              aria-label={`Current portfolio group: ${displayLabel}. Choose portfolio group`}
+              title={`Portfolio groups: ${displayLabel}`}
+              aria-label={`Portfolio groups: ${displayLabel}. Choose groups`}
             />
           }
         >
@@ -126,15 +139,13 @@ export function AssetScopeSelect({
             (gid) => !assetGroupData.removedPortfolioGroupIds.has(gid)
           ).map((gid) => {
             const label = portfolioScopeLabels[gid] ?? ASSET_GROUP_SIDEBAR_LABELS[gid]
-            const selected = groupId === gid
+            const selected = membershipGroupIds.includes(gid)
             return (
               <DropdownMenuItem
                 key={gid}
                 className="gap-2"
-                disabled={selected}
                 onClick={() => {
-                  if (selected) return
-                  setAssetGroupOverride(assetId, gid)
+                  toggleAssetGroupMembership(assetId, gid, baseGroupId)
                 }}
               >
                 <span className="flex size-4 shrink-0 items-center justify-center">
@@ -149,15 +160,13 @@ export function AssetScopeSelect({
               a[1].localeCompare(b[1], undefined, { sensitivity: "base" })
             )
             .map(([gid, label]) => {
-              const selected = groupId === gid
+              const selected = membershipGroupIds.includes(gid)
               return (
                 <DropdownMenuItem
                   key={gid}
                   className="gap-2"
-                  disabled={selected}
                   onClick={() => {
-                    if (selected) return
-                    setAssetGroupOverride(assetId, gid)
+                    toggleAssetGroupMembership(assetId, gid, baseGroupId)
                   }}
                 >
                   <span className="flex size-4 shrink-0 items-center justify-center">
@@ -208,8 +217,8 @@ export function AssetScopeSelect({
           <DialogHeader>
             <DialogTitle>New portfolio group</DialogTitle>
             <DialogDescription>
-              Name this portfolio group. This property ({building}) will be moved
-              into it.
+              Name this portfolio group. This property ({building}) will be added
+              to it.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-1">
@@ -230,7 +239,7 @@ export function AssetScopeSelect({
                   e.preventDefault()
                   const created = addCustomAssetGroup(newAssetGroupName)
                   if (created != null) {
-                    setAssetGroupOverride(assetId, created.id)
+                    addAssetToGroup(assetId, created.id, baseGroupId)
                     showToast(`Portfolio group “${created.label}” created.`)
                     setCreateAssetGroupOpen(false)
                     setNewAssetGroupName("")
@@ -260,7 +269,7 @@ export function AssetScopeSelect({
                   showToast("Enter a portfolio group name.")
                   return
                 }
-                setAssetGroupOverride(assetId, created.id)
+                addAssetToGroup(assetId, created.id, baseGroupId)
                 showToast(`Portfolio group “${created.label}” created.`)
                 setCreateAssetGroupOpen(false)
                 setNewAssetGroupName("")
@@ -278,7 +287,7 @@ export function AssetScopeSelect({
             <DialogTitle>Remove from portfolio?</DialogTitle>
             <DialogDescription>
               <span className="font-medium text-foreground">{building}</span>{" "}
-              will no longer be assigned to this portfolio group. You can add it
+              will no longer be assigned to portfolio groups. You can add it
               again anytime.
             </DialogDescription>
           </DialogHeader>

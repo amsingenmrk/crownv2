@@ -168,7 +168,9 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
         })
       }
       if (portfolioScopeId != null) {
-        return portfolioAssetRows.filter((row) => row.groupId === portfolioScopeId)
+        return portfolioAssetRows.filter((row) =>
+          row.groupIds.includes(portfolioScopeId)
+        )
       }
       return portfolioAssetRows
     })()
