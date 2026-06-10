@@ -44,7 +44,7 @@ const SEEDED_PORTFOLIO_SCOPE_IDS_BY_SLUG: Record<string, AssetGroupId> = {
   retail: "retail",
 }
 
-export const PORTFOLIO_OVERVIEW_LABEL = "Entire portfolio"
+export const PORTFOLIO_OVERVIEW_LABEL = "Portfolio"
 
 /** Labels used in the sidebar asset groups and portfolio group filter. */
 export const ASSET_GROUP_SIDEBAR_LABELS: Record<AssetGroupId, string> = {

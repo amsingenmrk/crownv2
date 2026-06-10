@@ -13,6 +13,8 @@ import {
 import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
 import {
   SidebarGroup,
+  SidebarGroupAction,
+  SidebarGroupLabel,
   SidebarMenuAction,
   SidebarMenu,
   SidebarMenuButton,
@@ -203,7 +205,7 @@ export function NavAssets() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip={PORTFOLIO_OVERVIEW_LABEL}
-              className="pr-14"
+              className="pr-8"
               isActive={pathname === "/portfolio"}
               render={
                 <Link
@@ -217,7 +219,6 @@ export function NavAssets() {
             </SidebarMenuButton>
             <SidebarMenuAction
               type="button"
-              className="right-7"
               aria-expanded={portfolioAssetsExpanded}
               aria-label={`${portfolioAssetsExpanded ? "Collapse" : "Expand"} ${PORTFOLIO_OVERVIEW_LABEL} assets`}
               onClick={(event) => {
@@ -238,113 +239,102 @@ export function NavAssets() {
                 />
               )}
             </SidebarMenuAction>
-            <SidebarMenuAction
-              type="button"
-              title="New portfolio group"
-              aria-label="New portfolio group"
-              className="right-1"
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setNewScopeOpen(true)
-              }}
-            >
-              <Plus />
-            </SidebarMenuAction>
           </SidebarMenuItem>
-          <li className="list-none group-data-[collapsible=icon]:hidden">
-            <SidebarMenuSub className="gap-0 py-0.5">
-              {portfolioAssetsExpanded
-                ? allPortfolioNavAssets.map((asset) => (
-                    <PortfolioNavAssetRow
-                      key={`portfolio-${asset.id}`}
-                      asset={asset}
-                      pathname={pathname}
-                    />
-                  ))
-                : null}
-              {portfolioAssetsExpanded &&
-              allPortfolioNavAssets.length > 0 &&
-              navAssetSections.length > 0 ? (
-                <li
-                  aria-hidden
-                  className="list-none px-1 py-1.5"
-                >
-                  <div className="border-t border-sidebar-border/70" />
-                </li>
-              ) : null}
-              {navAssetSections.map((group) => {
-                const assets = ASSETS.filter(
-                  (a) =>
-                    !assetGroupData.standalonePropertyNavIds.has(a.id) &&
-                    getAssetById(a.id, assetGroupData)?.groupId === group.groupId
-                )
-                return (
-                  <Collapsible
-                    key={group.groupId}
-                    open={openByGroup[group.groupId] ?? false}
-                    onOpenChange={(open) => {
-                      if (open) {
-                        openOnlyGroup(group.groupId)
-                      } else {
-                        setOpenByGroup((s) => ({ ...s, [group.groupId]: false }))
-                      }
-                    }}
-                    className="group/collapsible"
-                    render={<SidebarMenuItem />}
+          {portfolioAssetsExpanded ? (
+            <li className="list-none group-data-[collapsible=icon]:hidden">
+              <SidebarMenuSub className="gap-0 py-0.5">
+                {allPortfolioNavAssets.map((asset) => (
+                  <PortfolioNavAssetRow
+                    key={`portfolio-${asset.id}`}
+                    asset={asset}
+                    pathname={pathname}
+                  />
+                ))}
+              </SidebarMenuSub>
+            </li>
+          ) : null}
+        </SidebarMenu>
+      </SidebarGroup>
+
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Groups</SidebarGroupLabel>
+        <SidebarGroupAction
+          type="button"
+          title="New portfolio group"
+          aria-label="New portfolio group"
+          onClick={() => setNewScopeOpen(true)}
+        >
+          <Plus />
+        </SidebarGroupAction>
+        <SidebarMenu className="gap-0">
+          {navAssetSections.map((group) => {
+            const assets = ASSETS.filter(
+              (a) =>
+                !assetGroupData.standalonePropertyNavIds.has(a.id) &&
+                getAssetById(a.id, assetGroupData)?.groupId === group.groupId
+            )
+            return (
+              <Collapsible
+                key={group.groupId}
+                open={openByGroup[group.groupId] ?? false}
+                onOpenChange={(open) => {
+                  if (open) {
+                    openOnlyGroup(group.groupId)
+                  } else {
+                    setOpenByGroup((s) => ({ ...s, [group.groupId]: false }))
+                  }
+                }}
+                className="group/collapsible"
+                render={<SidebarMenuItem />}
+              >
+                <div className="relative">
+                  <SidebarMenuButton
+                    tooltip={group.label}
+                    className="h-8 pr-8"
+                    isActive={
+                      activeScopeId === group.groupId ||
+                      activeAssetGroupId === group.groupId
+                    }
+                    render={<Link href={portfolioScopeHref(group.groupId)} />}
                   >
-                    <div className="relative">
-                      <SidebarMenuButton
-                        tooltip={group.label}
-                        className="h-8 pr-8"
-                        isActive={
-                          activeScopeId === group.groupId ||
-                          activeAssetGroupId === group.groupId
-                        }
-                        render={
-                          <Link href={portfolioScopeHref(group.groupId)} />
-                        }
-                      >
-                        <span className="truncate">{group.label}</span>
-                      </SidebarMenuButton>
-                      <CollapsibleTrigger
-                        render={
-                          <SidebarMenuAction
-                            aria-label={`${openByGroup[group.groupId] ? "Collapse" : "Expand"} ${group.label}`}
-                          />
-                        }
-                      >
-                        {openByGroup[group.groupId] ? (
-                          <ChevronDown
-                            className="size-4 shrink-0 transition-transform duration-200"
-                            aria-hidden
-                          />
-                        ) : (
-                          <ChevronRight
-                            className="size-4 shrink-0 transition-transform duration-200"
-                            aria-hidden
-                          />
-                        )}
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent>
-                      <SidebarMenuSub className="mt-0.5 gap-0 py-0.5">
-                        {assets.map((asset) => {
-                          return (
-                            <PortfolioNavAssetRow
-                              key={asset.id}
-                              asset={asset}
-                              pathname={pathname}
-                            />
-                          )
-                        })}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )
-              })}
-            </SidebarMenuSub>
-          </li>
+                    <span className="truncate">{group.label}</span>
+                  </SidebarMenuButton>
+                  <CollapsibleTrigger
+                    render={
+                      <SidebarMenuAction
+                        aria-label={`${openByGroup[group.groupId] ? "Collapse" : "Expand"} ${group.label}`}
+                      />
+                    }
+                  >
+                    {openByGroup[group.groupId] ? (
+                      <ChevronDown
+                        className="size-4 shrink-0 transition-transform duration-200"
+                        aria-hidden
+                      />
+                    ) : (
+                      <ChevronRight
+                        className="size-4 shrink-0 transition-transform duration-200"
+                        aria-hidden
+                      />
+                    )}
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  <SidebarMenuSub className="mt-0.5 gap-0 py-0.5">
+                    {assets.map((asset) => {
+                      return (
+                        <PortfolioNavAssetRow
+                          key={asset.id}
+                          asset={asset}
+                          pathname={pathname}
+                        />
+                      )
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </Collapsible>
+            )
+          })}
         </SidebarMenu>
       </SidebarGroup>
 
