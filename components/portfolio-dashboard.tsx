@@ -738,7 +738,7 @@ function PortfolioDashboardInner({
               </div>
             </div>
           ) : (
-            <div className="min-w-0 w-full max-w-full overflow-clip rounded-xl border border-border bg-card p-0 shadow-sm">
+            <div className="min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
               <PortfolioAssetsDataTable
                 table={portfolioTable}
                 variant={assetsTableVariant}

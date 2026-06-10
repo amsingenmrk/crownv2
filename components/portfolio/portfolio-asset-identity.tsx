@@ -157,6 +157,30 @@ export function ScenarioRemoveAssetButton({
   )
 }
 
+export function canRemoveAssetFromPortfolio(
+  assetId: string,
+  assetGroupData: ReturnType<typeof parseAssetGroupOverrideSnapshot>
+): boolean {
+  return (
+    !assetGroupData.standalonePropertyNavIds.has(assetId) &&
+    (Object.hasOwn(assetGroupData.overrides, assetId) ||
+      !isMarketListingRowId(assetId))
+  )
+}
+
+function useCanRemoveAssetFromPortfolio(assetId: string): boolean {
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
+  return canRemoveAssetFromPortfolio(assetId, assetGroupData)
+}
+
 /** Remove from portfolio (same rules as the remove action in `AssetScopeSelect`). */
 export function PortfolioRemoveAssetButton({
   assetId,
@@ -167,22 +191,9 @@ export function PortfolioRemoveAssetButton({
 }) {
   const showToast = useAppToast()
   const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const canRemove = useCanRemoveAssetFromPortfolio(assetId)
 
-  const assetGroupOverrideSnap = React.useSyncExternalStore(
-    subscribeAssetGroupOverrides,
-    getAssetGroupOverridesSnapshot,
-    () => ""
-  )
-  const assetGroupData = React.useMemo(
-    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
-    [assetGroupOverrideSnap]
-  )
-
-  const showRemove =
-    !assetGroupData.standalonePropertyNavIds.has(assetId) &&
-    (Object.hasOwn(assetGroupData.overrides, assetId) || !isMarketListingRowId(assetId))
-
-  if (!showRemove) {
+  if (!canRemove) {
     return null
   }
 
@@ -229,5 +240,24 @@ export function PortfolioRemoveAssetButton({
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/** Mobile card footer — omits the bordered row when remove is not available. */
+export function PortfolioRemoveAssetFooter({
+  assetId,
+  building,
+}: {
+  assetId: string
+  building: string
+}) {
+  const canRemove = useCanRemoveAssetFromPortfolio(assetId)
+  if (!canRemove) {
+    return null
+  }
+  return (
+    <div className="flex justify-end border-t border-border pt-3">
+      <PortfolioRemoveAssetButton assetId={assetId} building={building} />
+    </div>
   )
 }

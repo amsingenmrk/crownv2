@@ -8,6 +8,7 @@ import { ChevronDown, Plus } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
   PortfolioAssetIdentity,
+  PortfolioRemoveAssetFooter,
   PortfolioRemoveAssetButton,
   ScenarioRemoveAssetButton,
 } from "@/components/portfolio/portfolio-asset-identity"
@@ -363,93 +364,99 @@ export function PortfolioAssetsDataTable({
           )}
         </div>
       </div>
-      <div className="min-w-0 w-full overflow-x-auto overscroll-x-contain">
+      <div className="hidden min-w-0 w-full overflow-x-auto overscroll-x-contain lg:block">
         <div className="portfolio-assets-table-scroll-inner">
-      <table
-        className="hidden w-full min-w-max px-0 caption-bottom text-sm max-lg:hidden lg:grid"
-        style={{ gridTemplateColumns }}
-      >
-        <TableHeader className="contents">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow
-              key={headerGroup.id}
-              className="grid items-center border-b-2 border-border bg-muted hover:bg-muted/90"
-              style={gridRowStyle}
-            >
-              {headerGroup.headers.map((header) => {
-                const isStickyTrash = isStickyTrashPortfolioColumn(header.column.id)
-                return (
-                  <TableHead
-                    key={header.id}
-                    scope="col"
-                    className={cn(
-                      "h-auto min-w-0 text-left align-middle",
-                      header.column.id === "select"
-                        ? "flex items-center justify-start py-2 pl-3 pr-0"
-                        : isStickyTrash
-                          ? "portfolio-assets-scenario-remove-col-head flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
-                          : "px-2 py-2 font-medium"
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+          <table
+            className="w-full min-w-max px-0 caption-bottom text-sm grid"
+            style={{ gridTemplateColumns }}
+          >
+            <TableHeader className="contents">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
+                  className="grid items-center border-b-2 border-border bg-muted hover:bg-muted/90"
+                  style={gridRowStyle}
+                >
+                  {headerGroup.headers.map((header) => {
+                    const isStickyTrash = isStickyTrashPortfolioColumn(
+                      header.column.id
+                    )
+                    return (
+                      <TableHead
+                        key={header.id}
+                        scope="col"
+                        className={cn(
+                          "h-auto min-w-0 text-left align-middle",
+                          header.column.id === "select"
+                            ? "flex items-center justify-start py-2 pl-3 pr-0"
+                            : isStickyTrash
+                              ? "portfolio-assets-scenario-remove-col-head flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
+                              : "px-2 py-2 font-medium"
                         )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody className="contents [&_tr:last-child]:border-b-0">
-          {sortedRows.length ? (
-            sortedRows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-                className="portfolio-assets-row grid items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
-                style={gridRowStyle}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const isStickyTrash = isStickyTrashPortfolioColumn(cell.column.id)
-                  return (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        "min-w-0 border-0 text-left align-middle",
-                        cell.column.id === "select"
-                          ? "py-2 pl-3 pr-0"
-                          : isStickyTrash
-                            ? "portfolio-assets-scenario-remove-col-body flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
-                            : "px-2 py-2"
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow
-              className="grid border-0 hover:bg-transparent"
-              style={gridRowStyle}
-            >
-              <TableCell
-                className="h-24 border-0 px-3 py-10 text-center text-sm text-muted-foreground"
-                style={{ gridColumn: "1 / -1" }}
-              >
-                No assets in this view.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </table>
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody className="contents [&_tr:last-child]:border-b-0">
+              {sortedRows.length ? (
+                sortedRows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="portfolio-assets-row grid items-center border-b border-border hover:bg-muted/50 data-[state=selected]:bg-muted"
+                    style={gridRowStyle}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isStickyTrash = isStickyTrashPortfolioColumn(
+                        cell.column.id
+                      )
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            "min-w-0 border-0 text-left align-middle",
+                            cell.column.id === "select"
+                              ? "py-2 pl-3 pr-0"
+                              : isStickyTrash
+                                ? "portfolio-assets-scenario-remove-col-body flex min-h-10 items-center justify-center border-l border-border/70 px-2 py-2"
+                                : "px-2 py-2"
+                          )}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow
+                  className="grid border-0 hover:bg-transparent"
+                  style={gridRowStyle}
+                >
+                  <TableCell
+                    className="h-24 border-0 px-3 py-10 text-center text-sm text-muted-foreground"
+                    style={{ gridColumn: "1 / -1" }}
+                  >
+                    No assets in this view.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </table>
+        </div>
+      </div>
 
       {sortedRows.length > 0 ? (
         <div className="flex items-start gap-2 border-b border-border bg-muted/15 px-4 py-2 lg:hidden">
@@ -600,9 +607,10 @@ export function PortfolioAssetsDataTable({
                     </>
                   ) : null}
                   {variant === "portfolio" ? (
-                    <div className="flex justify-end border-t border-border pt-3">
-                      <PortfolioRemoveAssetButton assetId={row.id} building={row.building} />
-                    </div>
+                    <PortfolioRemoveAssetFooter
+                      assetId={row.id}
+                      building={row.building}
+                    />
                   ) : null}
                 </div>
               </li>
@@ -610,8 +618,6 @@ export function PortfolioAssetsDataTable({
           })
         )}
       </ul>
-        </div>
-      </div>
     </>
   )
 }
