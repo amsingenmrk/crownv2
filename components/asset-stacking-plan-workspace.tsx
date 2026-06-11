@@ -3413,8 +3413,9 @@ function CompactTenantEditor({
         event.preventDefault()
         onSave()
       }}
-      className={cn("min-w-0 space-y-4", className)}
+      className={cn("flex min-h-0 min-w-0 flex-col", className)}
     >
+      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-6 py-4">
       <div className="grid min-w-0 grid-cols-1 gap-3">
         {!tenant.isVacant ? (
           <SuiteEditorField label="Tenant">
@@ -3560,8 +3561,9 @@ function CompactTenantEditor({
           showRenewalProbability={!tenant.isVacant}
         />
       </div>
+      </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-background px-6 py-3">
         {onClose ? (
           <Button
             type="button"
@@ -3623,7 +3625,7 @@ function StackingPlanSuiteEditorSheet({
               Floor {floor.floor} • {tenant.space}
             </SheetTitle>
           </div>
-          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <CompactTenantEditor
               tenant={tenant}
               draft={draft}
@@ -3631,7 +3633,7 @@ function StackingPlanSuiteEditorSheet({
               onCancel={onCancel}
               onClose={onClose}
               onSave={onSave}
-              className="mt-0"
+              className="h-full"
             />
           </div>
         </div>
@@ -3685,14 +3687,14 @@ function HoverCardFieldGrid({
   }
 
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs leading-snug">
+    <dl className="space-y-0.5 text-xs leading-snug">
       {lines.map((line, index) => {
         if (line.type === "heading") {
           return (
             <div
               key={`heading-${index}`}
               className={cn(
-                "col-span-2 text-[11px] font-semibold text-muted-foreground",
+                "pt-0.5 text-[11px] font-semibold text-muted-foreground",
                 headingClassName
               )}
             >
@@ -3703,7 +3705,7 @@ function HoverCardFieldGrid({
 
         if (line.type === "text") {
           return (
-            <div key={`text-${index}`} className="col-span-2 text-foreground">
+            <div key={`text-${index}`} className="text-foreground">
               {line.text}
             </div>
           )
@@ -3712,10 +3714,10 @@ function HoverCardFieldGrid({
         return (
           <div
             key={`row-${line.label}-${index}`}
-            className="min-w-0 space-y-0.5"
+            className="flex min-w-0 items-baseline justify-between gap-2"
           >
-            <dt className="text-muted-foreground">{line.label}</dt>
-            <dd className="font-medium text-foreground tabular-nums">
+            <dt className="shrink-0 text-muted-foreground">{line.label}</dt>
+            <dd className="min-w-0 truncate text-right font-medium text-foreground tabular-nums">
               {line.value}
             </dd>
           </div>
@@ -3759,20 +3761,20 @@ function StackingHoverSummary({
       <HoverCardTrigger delay={200} closeDelay={100} render={trigger} />
       <HoverCardContent
         side="top"
-        sideOffset={8}
+        sideOffset={6}
         align="start"
-        className="w-[min(32rem,calc(100vw-2rem))] max-w-[32rem] overflow-hidden p-0"
+        className="w-[17rem] overflow-hidden p-0"
       >
-        <div className="space-y-2.5 px-3 py-2.5">
+        <div className="space-y-1 px-2 py-1.5">
           {title ? (
-            <p className="text-sm leading-snug font-semibold text-foreground">
+            <p className="truncate text-xs leading-snug font-semibold text-foreground">
               {title}
             </p>
           ) : null}
           <HoverCardFieldGrid lines={mainLines} />
         </div>
         {assumptionLines.length > 0 ? (
-          <div className="w-full bg-muted/50 px-3 py-2.5">
+          <div className="w-full bg-muted/65 px-2 py-1.5">
             <HoverCardFieldGrid
               lines={assumptionLines}
               headingClassName="pt-0"
