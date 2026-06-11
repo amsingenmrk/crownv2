@@ -41,12 +41,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 import {
   getSampleStackingPlanData,
   STACKING_EXPIRATION_LEGEND,
@@ -56,7 +61,11 @@ import {
   type StackingPlanTenant,
   type StackingViewMode,
 } from "@/lib/stacking-plan-data"
-import { buildStackingPlanSuiteEditorTooltipText } from "@/lib/stacking-plan-tooltip"
+import {
+  buildStackingPlanSuiteEditorTooltipText,
+  parseStackingPlanHoverCardText,
+  type StackingPlanHoverCardLine,
+} from "@/lib/stacking-plan-tooltip"
 import {
   buildTenantForecastAssumptionOverrideFromEditor,
   resolveSpaceAssumptionsForEditor,
@@ -1178,6 +1187,15 @@ export function AssetStackingPlanWorkspace({
         .find((tenant) => tenant.id === selectedTenantId) ?? null,
     [floors, selectedTenantId]
   )
+  const selectedTenantFloor = React.useMemo(
+    () =>
+      selectedTenantId == null
+        ? null
+        : (floors.find((floor) =>
+            floor.tenants.some((tenant) => tenant.id === selectedTenantId)
+          ) ?? null),
+    [floors, selectedTenantId]
+  )
   const selectedTenantDraft = React.useMemo(
     () =>
       selectedTenant == null ? null : buildTenantEditorDraft(selectedTenant),
@@ -1392,6 +1410,7 @@ export function AssetStackingPlanWorkspace({
   const closeTenantEditor = React.useCallback(() => {
     setSelectedTenantId(null)
     setTenantEditorDraft(null)
+    setIsDrawerOpen(false)
   }, [])
 
   const requestTenantEditorClose = React.useCallback(() => {
@@ -1433,7 +1452,7 @@ export function AssetStackingPlanWorkspace({
         setExpandedFloor(null)
         setSelectedTenantId(tenant.id)
         setTenantEditorDraft(buildTenantEditorDraft(tenant))
-        setIsDrawerOpen(false)
+        setIsDrawerOpen(true)
         return
       }
 
@@ -2056,13 +2075,7 @@ export function AssetStackingPlanWorkspace({
               expandedFloor={expandedFloor}
               onToggleFloor={handleToggleExpandedFloor}
               onTenantSelect={handleTenantSelect}
-              selectedTenant={selectedTenant}
               selectedTenantId={selectedTenantId}
-              tenantEditorDraft={tenantEditorDraft}
-              onTenantDraftChange={handleTenantDraftChange}
-              onTenantEditCancel={handleTenantEditCancel}
-              onTenantEditClose={handleTenantEditClose}
-              onTenantEditSave={handleTenantEditSave}
             />
           </div>
         ) : (
@@ -2291,6 +2304,23 @@ export function AssetStackingPlanWorkspace({
         </Dialog>
       ) : null}
 
+      {effectiveViewMode === "matrix" &&
+      selectedTenant != null &&
+      selectedTenantFloor != null &&
+      tenantEditorDraft != null ? (
+        <StackingPlanSuiteEditorSheet
+          open={isDrawerOpen}
+          onOpenChange={handleDrawerOpenChange}
+          floor={selectedTenantFloor}
+          tenant={selectedTenant}
+          draft={tenantEditorDraft}
+          onDraftChange={handleTenantDraftChange}
+          onCancel={handleTenantEditCancel}
+          onClose={handleTenantEditClose}
+          onSave={handleTenantEditSave}
+        />
+      ) : null}
+
       {effectiveViewMode !== "matrix" &&
       simplifiedTenantInteraction === "drawer" ? (
         <AssetStackingPlanDrawer
@@ -2457,7 +2487,7 @@ function DetailedFloorRow({
               valueClassName={qualityScoreValueClass(averageViewScore)}
             />
           </div>
-          <div className="flex min-h-[60px] min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-h-[60px] min-w-0 flex-1 items-stretch gap-1.5 overflow-hidden rounded-sm border border-border/70 bg-muted/20 p-0.5 shadow-sm">
             {floor.tenants.map((tenant, index) => (
               <TenantSegment
                 key={tenant.id}
@@ -2472,7 +2502,6 @@ function DetailedFloorRow({
                   tenant,
                   buildingLeasingAssumptions,
                 })}
-                isLastTenant={index === floor.tenants.length - 1}
                 isSelected={selectedTenantId === tenant.id}
                 onOpenTenant={onTenantSelect}
               />
@@ -2488,14 +2517,12 @@ function TenantSegment({
   tenant,
   visualColor,
   title,
-  isLastTenant,
   isSelected,
   onOpenTenant,
 }: {
   tenant: StackingPlanTenant
   visualColor: string
   title: string
-  isLastTenant: boolean
   isSelected: boolean
   onOpenTenant: (tenant: StackingPlanTenant) => void
 }) {
@@ -2522,15 +2549,14 @@ function TenantSegment({
               : `expires ${tenant.expiration}`
           }. Open details.`}
           className={cn(
-            "relative flex h-full min-h-[60px] cursor-pointer flex-col justify-center gap-1 px-2 py-1.5 text-left transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
+            "relative flex h-full min-h-[60px] min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-sm px-2 py-1.5 text-left ring-1 ring-inset ring-border/55 transition-[ring-color,box-shadow,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
             tone.fillClass,
-            !isLastTenant && "border-r border-border/30",
             isSelected
-              ? "z-10 ring-2 ring-primary/70 ring-inset"
+              ? "z-10 ring-2 ring-primary/55 ring-inset"
               : hoverInteractionClass
           )}
           style={{
-            width: `${tenant.widthPercent}%`,
+            flex: `${tenant.widthPercent} 1 0px`,
             minWidth: isVeryCompact ? "12px" : "28px",
           }}
         >
@@ -2683,13 +2709,7 @@ function DetailedStackingMatrix({
   expandedFloor,
   onToggleFloor,
   onTenantSelect,
-  selectedTenant,
   selectedTenantId,
-  tenantEditorDraft,
-  onTenantDraftChange,
-  onTenantEditCancel,
-  onTenantEditClose,
-  onTenantEditSave,
 }: {
   assetId: string
   floors: readonly StackingPlanFloor[]
@@ -2705,13 +2725,7 @@ function DetailedStackingMatrix({
   expandedFloor: number | null
   onToggleFloor: (floorNumber: number) => void
   onTenantSelect: (tenant: StackingPlanTenant) => void
-  selectedTenant: StackingPlanTenant | null
   selectedTenantId: string | null
-  tenantEditorDraft: TenantEditorDraft | null
-  onTenantDraftChange: (field: keyof TenantEditorDraft, value: string) => void
-  onTenantEditCancel: () => void
-  onTenantEditClose: () => void
-  onTenantEditSave: () => void
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
@@ -2730,13 +2744,7 @@ function DetailedStackingMatrix({
             onTenantSelect={onTenantSelect}
             onVacantSpaceCombine={onVacantSpaceCombine}
             onVacantSpaceSplit={onVacantSpaceSplit}
-            selectedTenant={selectedTenant}
             selectedTenantId={selectedTenantId}
-            tenantEditorDraft={tenantEditorDraft}
-            onTenantDraftChange={onTenantDraftChange}
-            onTenantEditCancel={onTenantEditCancel}
-            onTenantEditClose={onTenantEditClose}
-            onTenantEditSave={onTenantEditSave}
           />
         ))}
         <StackSummaryRow
@@ -2825,13 +2833,7 @@ function StackFirstRow({
   onTenantSelect,
   onVacantSpaceCombine,
   onVacantSpaceSplit,
-  selectedTenant,
   selectedTenantId,
-  tenantEditorDraft,
-  onTenantDraftChange,
-  onTenantEditCancel,
-  onTenantEditClose,
-  onTenantEditSave,
 }: {
   assetId: string
   floor: StackingPlanFloor
@@ -2843,19 +2845,11 @@ function StackFirstRow({
   onTenantSelect: (tenant: StackingPlanTenant) => void
   onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
   onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
-  selectedTenant: StackingPlanTenant | null
   selectedTenantId: string | null
-  tenantEditorDraft: TenantEditorDraft | null
-  onTenantDraftChange: (field: keyof TenantEditorDraft, value: string) => void
-  onTenantEditCancel: () => void
-  onTenantEditClose: () => void
-  onTenantEditSave: () => void
 }) {
-  const activeTenant =
-    selectedTenant != null &&
-    floor.tenants.some((tenant) => tenant.id === selectedTenant.id)
-      ? selectedTenant
-      : null
+  const hasSelectedTenantOnFloor =
+    selectedTenantId != null &&
+    floor.tenants.some((tenant) => tenant.id === selectedTenantId)
   return (
     <div className="group border-b border-border/70 last:border-b-0">
       <div
@@ -2880,7 +2874,7 @@ function StackFirstRow({
           <div
             className={cn(
               "grid h-full min-w-0 grid-cols-[minmax(0,1fr)_56px] overflow-hidden rounded-xl border border-border/60 bg-background/80 shadow-sm transition-[background-color,border-color,box-shadow]",
-              activeTenant != null
+              hasSelectedTenantOnFloor
                 ? "border-primary/25 bg-primary/[0.04] shadow-[0_0_0_1px_rgba(59,130,246,0.06)]"
                 : isExpanded
                   ? "border-border/70 bg-background/84 shadow-[0_0_0_1px_rgba(148,163,184,0.06)]"
@@ -2909,7 +2903,7 @@ function StackFirstRow({
             <div
               className={cn(
                 "border-l border-border/60 bg-background/55",
-                activeTenant != null
+                hasSelectedTenantOnFloor
                   ? "bg-primary/5"
                   : isExpanded
                     ? "bg-muted/20"
@@ -2935,19 +2929,7 @@ function StackFirstRow({
           </div>
         </div>
       </div>
-      {activeTenant != null && tenantEditorDraft != null ? (
-        <SelectedTenantEditorRow
-          floor={floor}
-          tenant={activeTenant}
-          draft={tenantEditorDraft}
-          onDraftChange={onTenantDraftChange}
-          onCancel={onTenantEditCancel}
-          onClose={onTenantEditClose}
-          onSave={onTenantEditSave}
-        />
-      ) : isExpanded ? (
-        <ExpandedFloorDetails floor={floor} />
-      ) : null}
+      {isExpanded ? <ExpandedFloorDetails floor={floor} /> : null}
     </div>
   )
 }
@@ -3130,12 +3112,12 @@ function StackBand({
     return (
       <div
         className={cn(
-          "isolate flex h-[36px] w-full items-stretch overflow-hidden rounded-lg border border-border/50 bg-muted/10 ring-1 ring-inset ring-border/30",
+          "isolate flex h-[36px] w-full items-stretch gap-1.5 overflow-hidden rounded-lg border border-border/70 bg-muted/20 p-0.5 shadow-sm ring-1 ring-inset ring-border/30",
           isMetricDrivenView &&
             "border-border/60 bg-background/55 ring-border/40"
         )}
       >
-        <div className="h-full w-full rounded-md bg-muted/55" aria-hidden />
+        <div className="h-full w-full rounded-sm bg-muted/55" aria-hidden />
       </div>
     )
   }
@@ -3143,7 +3125,7 @@ function StackBand({
   return (
     <div
       className={cn(
-        "isolate flex h-[78px] w-full items-stretch overflow-hidden rounded-lg border border-border/50 bg-muted/10 ring-1 ring-inset ring-border/30",
+        "isolate flex h-[78px] w-full items-stretch gap-1.5 overflow-hidden rounded-lg border border-border/70 bg-muted/20 p-0.5 shadow-sm ring-1 ring-inset ring-border/30",
         isMetricDrivenView && "border-border/60 bg-background/55 ring-border/40"
       )}
     >
@@ -3155,14 +3137,7 @@ function StackBand({
           floor={floor}
           vizMode={vizMode}
           averagePredictedRentPsf={averagePredictedRentPsf}
-          isFirstTenant={index === 0}
-          isLastTenant={index === floor.tenants.length - 1}
           isSelected={selectedTenantId === tenant.id}
-          showTrailingDivider={
-            index !== floor.tenants.length - 1 &&
-            selectedTenantId !== tenant.id &&
-            selectedTenantId !== floor.tenants[index + 1]?.id
-          }
           onTenantSelect={onTenantSelect}
           onVacantSpaceCombine={onVacantSpaceCombine}
           onVacantSpaceSplit={onVacantSpaceSplit}
@@ -3178,10 +3153,7 @@ function StackBandSegment({
   floor,
   vizMode,
   averagePredictedRentPsf,
-  isFirstTenant,
-  isLastTenant,
   isSelected,
-  showTrailingDivider,
   onTenantSelect,
   onVacantSpaceCombine,
   onVacantSpaceSplit,
@@ -3191,10 +3163,7 @@ function StackBandSegment({
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
-  isFirstTenant: boolean
-  isLastTenant: boolean
   isSelected: boolean
-  showTrailingDivider: boolean
   onTenantSelect: (tenant: StackingPlanTenant) => void
   onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
   onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
@@ -3237,13 +3206,10 @@ function StackBandSegment({
   const canSplitVacant = tenant.isVacant && tenant.sqft >= 2
 
   const segmentSurfaceClass = cn(
-    "relative flex h-full min-h-0 flex-col justify-center gap-1.5 overflow-hidden text-left transition-[ring-color,box-shadow,transform] duration-150",
+    "relative flex h-full min-h-0 flex-col justify-center gap-1.5 overflow-hidden rounded-sm text-left ring-1 ring-inset ring-border/55 transition-[ring-color,box-shadow,transform] duration-150",
     tenant.isVacant ? "stacking-plan-vacant-slot" : tone.fillClass,
-    isFirstTenant && "rounded-l-[7px]",
-    isLastTenant && "rounded-r-[7px]",
-    showTrailingDivider && "border-r border-border/30",
     isSelected
-      ? "z-10 ring-2 ring-inset ring-primary/80"
+      ? "z-10 ring-2 ring-inset ring-primary/55"
       : hoverInteractionClass
   )
 
@@ -3251,7 +3217,7 @@ function StackBandSegment({
     <div
       className="relative isolate flex h-full min-h-0 min-w-0 flex-col"
       style={{
-        width: `${tenant.widthPercent}%`,
+        flex: `${tenant.widthPercent} 1 0px`,
         minWidth: isVeryCompact ? "18px" : "40px",
       }}
     >
@@ -3265,11 +3231,12 @@ function StackBandSegment({
             type="button"
             onClick={() => onTenantSelect(tenant)}
             aria-expanded={isSelected}
+            aria-haspopup="dialog"
             aria-label={`${tenant.name}, ${tenant.space}, ${tenant.sqftLabel}, ${
               tenant.isVacant
                 ? tenant.availabilityStatus
                 : `expires ${tenant.expiration}`
-            }. Edit inline.`}
+            }. Open suite editor.`}
             className={cn(
               "relative z-0 flex h-full min-h-0 w-full min-w-0 cursor-pointer flex-col justify-center gap-1.5 overflow-hidden px-2.5 py-2 text-left focus-visible:z-[5] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset",
               segmentSurfaceClass,
@@ -3379,6 +3346,25 @@ function StackBandSegment({
   )
 }
 
+function SuiteEditorField({
+  label,
+  children,
+  className,
+}: {
+  label: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <label className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      <span className={cn(INPUT_LABEL_TEXT_CLASS, "whitespace-nowrap")}>
+        {label}
+      </span>
+      <div className="min-w-0 w-full">{children}</div>
+    </label>
+  )
+}
+
 function CompactTenantEditor({
   tenant,
   draft,
@@ -3427,42 +3413,28 @@ function CompactTenantEditor({
         event.preventDefault()
         onSave()
       }}
-      className={cn("space-y-4", className)}
+      className={cn("min-w-0 space-y-4", className)}
     >
-      <div
-        className={cn(
-          "grid gap-3",
-          tenant.isVacant ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"
-        )}
-      >
+      <div className="grid min-w-0 grid-cols-1 gap-3">
         {!tenant.isVacant ? (
-          <label className="space-y-1.5">
-            <span className={INPUT_LABEL_TEXT_CLASS}>
-              Tenant
-            </span>
+          <SuiteEditorField label="Tenant">
             <Input
               value={draft.name}
               onChange={(event) => onDraftChange("name", event.target.value)}
               placeholder="Tenant name"
             />
-          </label>
+          </SuiteEditorField>
         ) : null}
 
-        <label className="space-y-1.5">
-          <span className={INPUT_LABEL_TEXT_CLASS}>
-            Suite
-          </span>
+        <SuiteEditorField label="Suite">
           <Input
             value={draft.suite}
             onChange={(event) => onDraftChange("suite", event.target.value)}
             placeholder="1201"
           />
-        </label>
+        </SuiteEditorField>
 
-        <label className="space-y-1.5">
-          <span className={INPUT_LABEL_TEXT_CLASS}>
-            SF
-          </span>
+        <SuiteEditorField label="SF">
           <Input
             type="number"
             min="1"
@@ -3471,12 +3443,9 @@ function CompactTenantEditor({
             onChange={(event) => onDraftChange("sqft", event.target.value)}
             placeholder="10000"
           />
-        </label>
+        </SuiteEditorField>
 
-        <label className="space-y-1.5">
-          <span className={INPUT_LABEL_TEXT_CLASS}>
-            Buildout
-          </span>
+        <SuiteEditorField label="Buildout">
           <Select
             value={draft.buildout}
             onValueChange={(value) => {
@@ -3489,7 +3458,7 @@ function CompactTenantEditor({
               }
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">
@@ -3500,13 +3469,10 @@ function CompactTenantEditor({
               ))}
             </SelectContent>
           </Select>
-        </label>
+        </SuiteEditorField>
 
         {tenant.isVacant ? (
-          <label className="space-y-1.5">
-            <span className={INPUT_LABEL_TEXT_CLASS}>
-              Availability
-            </span>
+          <SuiteEditorField label="Availability">
             <Input
               value={draft.availabilityStatus}
               onChange={(event) =>
@@ -3514,13 +3480,10 @@ function CompactTenantEditor({
               }
               placeholder="Available now"
             />
-          </label>
+          </SuiteEditorField>
         ) : (
           <>
-            <label className="space-y-1.5">
-              <span className={INPUT_LABEL_TEXT_CLASS}>
-                Lease Type
-              </span>
+            <SuiteEditorField label="Lease Type">
               <Select
                 value={
                   TENANT_LEASE_TYPE_OPTIONS.includes(
@@ -3531,7 +3494,7 @@ function CompactTenantEditor({
                 }
                 onValueChange={(value) => onDraftChange("leaseType", value ?? "")}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue placeholder="Select lease type" />
                 </SelectTrigger>
                 <SelectContent align="start">
@@ -3542,12 +3505,9 @@ function CompactTenantEditor({
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </SuiteEditorField>
 
-            <label className="space-y-1.5">
-              <span className={INPUT_LABEL_TEXT_CLASS}>
-                Commencement
-              </span>
+            <SuiteEditorField label="Commencement">
               <Input
                 type="date"
                 value={draft.commencement}
@@ -3555,12 +3515,9 @@ function CompactTenantEditor({
                   onDraftChange("commencement", event.target.value)
                 }
               />
-            </label>
+            </SuiteEditorField>
 
-            <label className="space-y-1.5">
-              <span className={INPUT_LABEL_TEXT_CLASS}>
-                Expiration
-              </span>
+            <SuiteEditorField label="Expiration">
               <Input
                 type="date"
                 value={draft.expiration}
@@ -3568,12 +3525,9 @@ function CompactTenantEditor({
                   onDraftChange("expiration", event.target.value)
                 }
               />
-            </label>
+            </SuiteEditorField>
 
-            <label className="space-y-1.5">
-              <span className={INPUT_LABEL_TEXT_CLASS}>
-                Contract Rate
-              </span>
+            <SuiteEditorField label="Contract Rate">
               <Input
                 type="number"
                 min="0"
@@ -3584,12 +3538,12 @@ function CompactTenantEditor({
                 }
                 placeholder="42.50"
               />
-            </label>
+            </SuiteEditorField>
           </>
         )}
       </div>
 
-      <div className="space-y-3 rounded-lg border border-border/70 bg-muted/50 px-3 py-3 dark:border-border/60 dark:bg-muted/35">
+      <div className="min-w-0 space-y-3 rounded-lg border border-border/70 bg-muted/50 px-3 py-3 dark:border-border/60 dark:bg-muted/35">
         <div className="space-y-1">
           <h4 className="text-sm font-semibold text-foreground">Space assumptions</h4>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -3599,7 +3553,8 @@ function CompactTenantEditor({
         </div>
         <AssetLeasingAssumptionsFields
           idPrefix={spaceAssumptionIdPrefix}
-          layout="two-column"
+          layout="single"
+          fieldStyle="stacked"
           assumptions={spaceAssumptions}
           onAssumptionsChange={handleSpaceAssumptionsChange}
           showRenewalProbability={!tenant.isVacant}
@@ -3635,7 +3590,9 @@ function CompactTenantEditor({
   )
 }
 
-function SelectedTenantEditorRow({
+function StackingPlanSuiteEditorSheet({
+  open,
+  onOpenChange,
   floor,
   tenant,
   draft,
@@ -3644,6 +3601,8 @@ function SelectedTenantEditorRow({
   onClose,
   onSave,
 }: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
   floor: StackingPlanFloor
   tenant: StackingPlanTenant
   draft: TenantEditorDraft
@@ -3653,27 +3612,31 @@ function SelectedTenantEditorRow({
   onSave: () => void
 }) {
   return (
-    <div className={cn(MATRIX_ROW_GRID_CLASS, "bg-primary/[0.02]")}>
-      <div />
-      <div className={MATRIX_ROW_CONTENT_CLASS}>
-        <div className="rounded-xl border border-primary/15 bg-background/72 px-3 py-3">
-          <div className="mb-3">
-            <p className="text-sm font-semibold text-foreground">
-              Suite Editor • Floor {floor.floor} • {tenant.space}
-            </p>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-[min(520px,100vw)] gap-0 border-l border-border bg-background p-0 shadow-xl sm:max-w-[520px]"
+      >
+        <div className="flex h-full min-h-0 flex-col bg-background">
+          <div className="shrink-0 border-b border-border px-6 py-4 pr-14">
+            <SheetTitle className="text-base font-semibold tracking-tight text-foreground">
+              Floor {floor.floor} • {tenant.space}
+            </SheetTitle>
           </div>
-          <CompactTenantEditor
-            tenant={tenant}
-            draft={draft}
-            onDraftChange={onDraftChange}
-            onCancel={onCancel}
-            onClose={onClose}
-            onSave={onSave}
-            className="mt-0"
-          />
+          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-4">
+            <CompactTenantEditor
+              tenant={tenant}
+              draft={draft}
+              onDraftChange={onDraftChange}
+              onCancel={onCancel}
+              onClose={onClose}
+              onSave={onSave}
+              className="mt-0"
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -3710,6 +3673,73 @@ function ExpandedFloorDetails({ floor }: { floor: StackingPlanFloor }) {
   )
 }
 
+function HoverCardFieldGrid({
+  lines,
+  headingClassName,
+}: {
+  lines: StackingPlanHoverCardLine[]
+  headingClassName?: string
+}) {
+  if (lines.length === 0) {
+    return null
+  }
+
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs leading-snug">
+      {lines.map((line, index) => {
+        if (line.type === "heading") {
+          return (
+            <div
+              key={`heading-${index}`}
+              className={cn(
+                "col-span-2 text-[11px] font-semibold text-muted-foreground",
+                headingClassName
+              )}
+            >
+              {line.text}
+            </div>
+          )
+        }
+
+        if (line.type === "text") {
+          return (
+            <div key={`text-${index}`} className="col-span-2 text-foreground">
+              {line.text}
+            </div>
+          )
+        }
+
+        return (
+          <div
+            key={`row-${line.label}-${index}`}
+            className="min-w-0 space-y-0.5"
+          >
+            <dt className="text-muted-foreground">{line.label}</dt>
+            <dd className="font-medium text-foreground tabular-nums">
+              {line.value}
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
+function splitHoverCardLines(lines: StackingPlanHoverCardLine[]) {
+  const assumptionIndex = lines.findIndex(
+    (line) => line.type === "heading" && line.text === "Space assumptions"
+  )
+
+  if (assumptionIndex === -1) {
+    return { mainLines: lines, assumptionLines: [] as StackingPlanHoverCardLine[] }
+  }
+
+  return {
+    mainLines: lines.slice(0, assumptionIndex),
+    assumptionLines: lines.slice(assumptionIndex),
+  }
+}
+
 function StackingHoverSummary({
   text,
   trigger,
@@ -3721,17 +3751,36 @@ function StackingHoverSummary({
     return trigger
   }
 
+  const { title, lines } = parseStackingPlanHoverCardText(text)
+  const { mainLines, assumptionLines } = splitHoverCardLines(lines)
+
   return (
-    <Tooltip>
-      <TooltipTrigger render={trigger} />
-      <TooltipContent
+    <HoverCard>
+      <HoverCardTrigger delay={200} closeDelay={100} render={trigger} />
+      <HoverCardContent
         side="top"
-        sideOffset={6}
-        className="max-w-[min(22rem,calc(100vw-2rem))] px-3 py-2 text-left text-xs leading-snug font-medium text-background"
+        sideOffset={8}
+        align="start"
+        className="w-[min(32rem,calc(100vw-2rem))] max-w-[32rem] overflow-hidden p-0"
       >
-        <span className="block whitespace-pre-line">{text}</span>
-      </TooltipContent>
-    </Tooltip>
+        <div className="space-y-2.5 px-3 py-2.5">
+          {title ? (
+            <p className="text-sm leading-snug font-semibold text-foreground">
+              {title}
+            </p>
+          ) : null}
+          <HoverCardFieldGrid lines={mainLines} />
+        </div>
+        {assumptionLines.length > 0 ? (
+          <div className="w-full bg-muted/50 px-3 py-2.5">
+            <HoverCardFieldGrid
+              lines={assumptionLines}
+              headingClassName="pt-0"
+            />
+          </div>
+        ) : null}
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 

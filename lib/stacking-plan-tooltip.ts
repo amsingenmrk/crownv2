@@ -120,3 +120,47 @@ export function buildStackingPlanSuiteEditorTooltipText({
     ),
   ].filter((line): line is string => line != null).join("\n")
 }
+
+export type StackingPlanHoverCardLine =
+  | { type: "heading"; text: string }
+  | { type: "row"; label: string; value: string }
+  | { type: "text"; text: string }
+
+/** Parses multiline stacking hover text into a title and key/value rows. */
+export function parseStackingPlanHoverCardText(text: string): {
+  title: string
+  lines: StackingPlanHoverCardLine[]
+} {
+  const rawLines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (rawLines.length === 0) {
+    return { title: "", lines: [] }
+  }
+
+  const [title, ...rest] = rawLines
+  const lines: StackingPlanHoverCardLine[] = []
+
+  for (const line of rest) {
+    if (line === "Space assumptions") {
+      lines.push({ type: "heading", text: line })
+      continue
+    }
+
+    const colonIdx = line.indexOf(": ")
+    if (colonIdx > 0) {
+      lines.push({
+        type: "row",
+        label: line.slice(0, colonIdx),
+        value: line.slice(colonIdx + 2),
+      })
+      continue
+    }
+
+    lines.push({ type: "text", text: line })
+  }
+
+  return { title: title ?? "", lines }
+}

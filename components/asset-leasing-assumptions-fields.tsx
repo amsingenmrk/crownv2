@@ -7,6 +7,7 @@ import {
   SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS,
   type ScopedForecastLeasingAssumptionFieldKey,
 } from "@/components/scoped-forecast-leasing-assumptions"
+import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -21,6 +22,57 @@ import {
 } from "@/lib/asset-leasing-assumptions"
 import { cn } from "@/lib/utils"
 
+function StackedAssumptionNumberField({
+  id,
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  suffix,
+}: {
+  id?: string
+  label: string
+  value: number
+  onChange: (next: number) => void
+  min: number
+  max: number
+  step: number
+  suffix: string
+}) {
+  return (
+    <label className="min-w-0 space-y-1.5">
+      <span className={cn(INPUT_LABEL_TEXT_CLASS, "whitespace-nowrap")}>
+        {label}
+      </span>
+      <div className="flex min-w-0 items-center overflow-hidden rounded-md border border-input bg-background shadow-xs">
+        <Input
+          id={id}
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          className="min-w-0 flex-1 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          onChange={(event) => {
+            const next = Number(event.target.value)
+            if (Number.isNaN(next)) return
+            onChange(
+              Math.min(max, Math.max(min, step === 1 ? Math.round(next) : next))
+            )
+          }}
+        />
+        <span
+          className="shrink-0 border-l border-border px-2.5 py-2 text-xs font-medium tabular-nums text-muted-foreground"
+        >
+          {suffix}
+        </span>
+      </div>
+    </label>
+  )
+}
+
 export function AssetLeasingAssumptionsFields({
   assumptions,
   onAssumptionsChange,
@@ -28,6 +80,7 @@ export function AssetLeasingAssumptionsFields({
   idPrefix = "",
   showRenewalProbability = true,
   layout = "single",
+  fieldStyle = "inline",
 }: {
   assumptions: AssetLeasingAssumptionsState
   onAssumptionsChange: (updates: Partial<AssetLeasingAssumptionsState>) => void
@@ -36,6 +89,8 @@ export function AssetLeasingAssumptionsFields({
   showRenewalProbability?: boolean
   /** `two-column` puts lease type and term in a second column (space editor). */
   layout?: "single" | "two-column"
+  /** `stacked` uses label-above-control fields (suite editor drawer). */
+  fieldStyle?: "inline" | "stacked"
 }) {
   const leaseTypeItems = React.useMemo(() => {
     const items: Record<string, React.ReactNode> = {}
@@ -50,6 +105,95 @@ export function AssetLeasingAssumptionsFields({
     : SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.filter(
         (field) => field.key !== "defaultRenewalProbabilityPct"
       )
+
+  if (fieldStyle === "stacked") {
+    return (
+      <div className={cn("grid min-w-0 grid-cols-1 gap-3", className)}>
+        {leasingFields.map((field) => (
+          <StackedAssumptionNumberField
+            key={field.key}
+            id={`${idPrefix}leasing-${field.key}`}
+            label={field.label}
+            value={assumptions[field.key]}
+            min={field.min}
+            max={field.max}
+            step={field.step}
+            suffix={field.suffix}
+            onChange={(next) =>
+              onAssumptionsChange({
+                [field.key]:
+                  field.key === "timeToLeaseMonths" ||
+                  field.key === "occupancyTargetPct" ||
+                  field.key === "defaultRenewalProbabilityPct"
+                    ? Math.round(next)
+                    : next,
+              } as Pick<
+                AssetLeasingAssumptionsState,
+                ScopedForecastLeasingAssumptionFieldKey
+              >)
+            }
+          />
+        ))}
+        <label className="min-w-0 space-y-1.5">
+          <span className={cn(INPUT_LABEL_TEXT_CLASS, "whitespace-nowrap")}>
+            Lease type
+          </span>
+          <Select
+            items={leaseTypeItems}
+            value={assumptions.leaseType}
+            onValueChange={(value) => {
+              if (value == null) return
+              onAssumptionsChange({
+                leaseType: value as AssetLeasingAssumptionsState["leaseType"],
+              })
+            }}
+          >
+            <SelectTrigger
+              id={`${idPrefix}leasing-lease-type`}
+              className="w-full min-w-0"
+            >
+              <SelectValue placeholder="Select lease type" />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {LEASE_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="min-w-0 space-y-1.5">
+          <span className={cn(INPUT_LABEL_TEXT_CLASS, "whitespace-nowrap")}>
+            Lease term
+          </span>
+          <div className="flex min-w-0 items-center overflow-hidden rounded-md border border-input bg-background shadow-xs">
+            <Input
+              id={`${idPrefix}leasing-lease-term`}
+              type="number"
+              value={assumptions.leaseTermYears}
+              min={1}
+              max={30}
+              step={1}
+              className="min-w-0 flex-1 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              onChange={(event) => {
+                const next = Number(event.target.value)
+                if (Number.isNaN(next)) return
+                onAssumptionsChange({
+                  leaseTermYears: Math.min(30, Math.max(1, Math.round(next))),
+                })
+              }}
+            />
+            <span
+              className="shrink-0 border-l border-border px-2.5 py-2 text-xs font-medium tabular-nums text-muted-foreground"
+            >
+              yrs
+            </span>
+          </div>
+        </label>
+      </div>
+    )
+  }
 
   const numericFields = (
     <div className="grid min-w-0 gap-3">
