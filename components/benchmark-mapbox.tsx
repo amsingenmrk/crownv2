@@ -9,6 +9,7 @@ import { useTheme } from "@/components/theme-provider"
 
 import {
   benchmarkAreaPolygon,
+  maxZoomForBenchmarkArea,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
 import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
@@ -45,6 +46,12 @@ export function BenchmarkMapbox({
     [area.bounds]
   )
 
+  const boundary = area.boundary
+  const highlightFill =
+    resolvedTheme === "dark" ? "#a78bfa" : "#7c3aed"
+  const highlightLine =
+    resolvedTheme === "dark" ? "#ddd6fe" : "#5b21b6"
+
   const fitToArea = React.useCallback(
     (animate: boolean) => {
       const map = mapRef.current?.getMap()
@@ -52,7 +59,7 @@ export function BenchmarkMapbox({
       const run = () => {
         map.fitBounds(area.bounds, {
           padding: { top: 72, bottom: 40, left: 48, right: 48 },
-          maxZoom: area.id === "us-national" ? 4.5 : 11,
+          maxZoom: maxZoomForBenchmarkArea(area),
           duration: animate ? 700 : 0,
         })
       }
@@ -143,35 +150,64 @@ export function BenchmarkMapbox({
         onLoad={handleMapLoad}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        <Source
-          id="benchmark-area"
-          type="geojson"
-          data={areaFeature}
-        >
-          <Layer
-            id={AREA_FILL_LAYER_ID}
-            type="fill"
-            paint={{
-              "fill-color":
-                resolvedTheme === "dark" ? "#a78bfa" : "#7c3aed",
-              "fill-opacity": 0.18,
-            }}
-          />
-          <Layer
-            id={AREA_LINE_LAYER_ID}
-            type="line"
-            layout={{
-              "line-cap": "round",
-              "line-join": "round",
-            }}
-            paint={{
-              "line-color":
-                resolvedTheme === "dark" ? "#ddd6fe" : "#5b21b6",
-              "line-width": 3,
-              "line-opacity": 1,
-            }}
-          />
-        </Source>
+        {boundary ? (
+          <Source
+            key={boundary.sourceId}
+            id={boundary.sourceId}
+            type="vector"
+            url={boundary.tilesetUrl}
+          >
+            <Layer
+              id={`${boundary.sourceId}-fill`}
+              type="fill"
+              source-layer={boundary.sourceLayer}
+              filter={boundary.filter}
+              paint={{
+                "fill-color": highlightFill,
+                "fill-opacity": 0.18,
+              }}
+            />
+            <Layer
+              id={`${boundary.sourceId}-line`}
+              type="line"
+              source-layer={boundary.sourceLayer}
+              filter={boundary.filter}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": highlightLine,
+                "line-width": 3,
+                "line-opacity": 1,
+              }}
+            />
+          </Source>
+        ) : (
+          <Source id="benchmark-area" type="geojson" data={areaFeature}>
+            <Layer
+              id={AREA_FILL_LAYER_ID}
+              type="fill"
+              paint={{
+                "fill-color": highlightFill,
+                "fill-opacity": 0.18,
+              }}
+            />
+            <Layer
+              id={AREA_LINE_LAYER_ID}
+              type="line"
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": highlightLine,
+                "line-width": 3,
+                "line-opacity": 1,
+              }}
+            />
+          </Source>
+        )}
       </Map>
     </div>
   )

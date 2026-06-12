@@ -16,6 +16,7 @@ import {
   US_NATIONAL_BENCHMARK_AREA,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
+import { enrichBenchmarkAreaWithBoundary } from "@/lib/mapbox-benchmark-boundaries"
 import { cn } from "@/lib/utils"
 
 const BenchmarkMapbox = dynamic(
@@ -58,22 +59,48 @@ export function BenchmarkWorkspace() {
   const [searchPending, setSearchPending] = React.useState(false)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
 
-  const applyArea = React.useCallback((area: BenchmarkArea) => {
-    setSelectedArea(area)
-    setSuggestionsOpen(false)
-  }, [])
+  const applyArea = React.useCallback(
+    async (area: BenchmarkArea) => {
+      setSuggestionsOpen(false)
+      setSearchPending(true)
+      try {
+        const resolved =
+          mapboxToken && !area.boundary
+            ? await enrichBenchmarkAreaWithBoundary(
+                area,
+                mapboxToken,
+                area.geocodeHint
+              )
+            : area
+        setSelectedArea(resolved)
+        setSearchQuery(resolved.label)
+      } finally {
+        setSearchPending(false)
+      }
+    },
+    [mapboxToken]
+  )
 
   const runSearch = React.useCallback(
     async (query: string) => {
+      const trimmed = query.trim()
+      if (!trimmed) {
+        setSelectedArea(US_NATIONAL_BENCHMARK_AREA)
+        setSearchQuery(US_NATIONAL_BENCHMARK_AREA.label)
+        setSuggestionsOpen(false)
+        return
+      }
       if (!mapboxToken) {
         const preset = filterBenchmarkAreaPresets(query)[0]
-        if (preset) applyArea(preset)
+        if (preset) await applyArea(preset)
         return
       }
       setSearchPending(true)
       try {
         const area = await resolveBenchmarkAreaFromSearch(query, mapboxToken)
-        applyArea(area)
+        setSelectedArea(area)
+        setSearchQuery(area.label)
+        setSuggestionsOpen(false)
       } finally {
         setSearchPending(false)
       }
@@ -162,7 +189,7 @@ export function BenchmarkWorkspace() {
                           setSuggestionsOpen(false)
                         }
                       }}
-                      placeholder="Search city, metro, or region…"
+                      placeholder="Search city, metro, zip, or region…"
                       autoComplete="off"
                       role="combobox"
                       aria-expanded={suggestionsOpen}
@@ -188,7 +215,7 @@ export function BenchmarkWorkspace() {
                           )}
                           onClick={() => {
                             setSearchQuery(suggestion.label)
-                            applyArea(suggestion)
+                            void applyArea(suggestion)
                           }}
                         >
                           {suggestion.label}

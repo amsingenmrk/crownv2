@@ -1,9 +1,19 @@
+import {
+  enrichBenchmarkAreaWithBoundary,
+  geocodeHintFromFeature,
+  usCountryBoundarySpec,
+  type BenchmarkAreaGeocodeHint,
+  type BenchmarkBoundarySpec,
+} from "@/lib/mapbox-benchmark-boundaries"
+
 export type BenchmarkAreaBounds = [[number, number], [number, number]]
 
 export type BenchmarkArea = {
   id: string
   label: string
   bounds: BenchmarkAreaBounds
+  boundary?: BenchmarkBoundarySpec
+  geocodeHint?: BenchmarkAreaGeocodeHint
 }
 
 export const US_NATIONAL_BENCHMARK_AREA: BenchmarkArea = {
@@ -13,6 +23,7 @@ export const US_NATIONAL_BENCHMARK_AREA: BenchmarkArea = {
     [-125, 24],
     [-66, 50],
   ],
+  boundary: usCountryBoundarySpec("us-national"),
 }
 
 const BENCHMARK_SEARCH_PRESETS: BenchmarkArea[] = [
@@ -105,14 +116,53 @@ type GeocodeFeature = {
   center?: [number, number]
   bbox?: [number, number, number, number]
   place_type?: string[]
+  context?: Array<{ id: string; short_code?: string }>
 }
 
 type GeocodeResponse = {
   features?: GeocodeFeature[]
 }
 
+const GEOCODE_TYPES =
+  "country,region,district,place,locality,neighborhood,postcode"
+
+const PLACE_TYPE_ZOOM: Record<string, number> = {
+  postcode: 14,
+  neighborhood: 13,
+  locality: 12,
+  place: 12,
+  district: 11,
+  region: 8,
+  country: 4.5,
+}
+
 function normalizeQuery(query: string): string {
   return query.trim().toLowerCase()
+}
+
+export function isUsPostcodeQuery(query: string): boolean {
+  return /^\d{5}(-\d{4})?$/.test(query.trim())
+}
+
+function isNationalAreaQuery(query: string): boolean {
+  const q = normalizeQuery(query)
+  return (
+    q === "us" ||
+    q === "usa" ||
+    q === "united states" ||
+    q === "national" ||
+    q === "country"
+  )
+}
+
+export function maxZoomForBenchmarkArea(area: BenchmarkArea): number {
+  if (area.id === "us-national") return PLACE_TYPE_ZOOM.country
+  const placeType = area.geocodeHint?.placeTypes?.[0]
+  if (placeType && placeType in PLACE_TYPE_ZOOM) {
+    return PLACE_TYPE_ZOOM[placeType]
+  }
+  if (area.id.startsWith("metro-")) return 10
+  return 11
 }
 
 function areaFromBounds(
@@ -131,14 +181,33 @@ function areaFromBounds(
   }
 }
 
+function centerSpanForPlaceTypes(placeTypes?: string[]): {
+  spanLng: number
+  spanLat: number
+} {
+  if (placeTypes?.includes("postcode")) {
+    return { spanLng: 0.06, spanLat: 0.05 }
+  }
+  if (placeTypes?.includes("neighborhood")) {
+    return { spanLng: 0.04, spanLat: 0.035 }
+  }
+  if (placeTypes?.includes("place") || placeTypes?.includes("locality")) {
+    return { spanLng: 0.22, spanLat: 0.18 }
+  }
+  if (placeTypes?.includes("district")) {
+    return { spanLng: 0.35, spanLat: 0.28 }
+  }
+  return { spanLng: 0.45, spanLat: 0.35 }
+}
+
 function areaFromCenter(
   id: string,
   label: string,
   center: [number, number],
-  spanLng = 0.45,
-  spanLat = 0.35
+  placeTypes?: string[]
 ): BenchmarkArea {
   const [lng, lat] = center
+  const { spanLng, spanLat } = centerSpanForPlaceTypes(placeTypes)
   return {
     id,
     label,
@@ -149,7 +218,7 @@ function areaFromCenter(
   }
 }
 
-function presetMatches(query: string): BenchmarkArea | null {
+function presetMatchesExact(query: string): BenchmarkArea | null {
   const q = normalizeQuery(query)
   if (!q) return null
 
@@ -160,20 +229,109 @@ function presetMatches(query: string): BenchmarkArea | null {
   )
   if (exact) return exact
 
-  if (
-    q === "us" ||
-    q === "usa" ||
-    q === "united states" ||
-    q === "national" ||
-    q === "country"
-  ) {
+  if (isNationalAreaQuery(query)) {
     return US_NATIONAL_BENCHMARK_AREA
   }
 
-  const partial = BENCHMARK_SEARCH_PRESETS.find((preset) =>
-    normalizeQuery(preset.label).includes(q)
+  return null
+}
+
+async function fetchGeocodeFeatures(
+  query: string,
+  accessToken: string
+): Promise<GeocodeFeature[]> {
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json`
   )
-  return partial ?? null
+  url.searchParams.set("access_token", accessToken)
+  url.searchParams.set("country", "US")
+  url.searchParams.set("types", GEOCODE_TYPES)
+  url.searchParams.set("limit", "6")
+
+  try {
+    const res = await fetch(url.toString())
+    if (!res.ok) return []
+    const data = (await res.json()) as GeocodeResponse
+    return data.features ?? []
+  } catch {
+    return []
+  }
+}
+
+const PLACE_TYPE_RANK: Record<string, number> = {
+  postcode: 0,
+  neighborhood: 1,
+  locality: 2,
+  place: 3,
+  district: 4,
+  region: 5,
+  country: 6,
+}
+
+function pickBestGeocodeFeature(
+  features: GeocodeFeature[],
+  query: string
+): GeocodeFeature | null {
+  if (features.length === 0) return null
+
+  if (isUsPostcodeQuery(query)) {
+    const postcode = features.find((feature) =>
+      feature.place_type?.includes("postcode")
+    )
+    if (postcode) return postcode
+  }
+
+  const q = normalizeQuery(query)
+  const wantsRegion =
+    q.includes("state") ||
+    q.endsWith(" county") ||
+    q.includes(" metro") ||
+    q.includes(" cbsa")
+
+  const ranked = [...features].sort((a, b) => {
+    const aType = a.place_type?.[0] ?? "unknown"
+    const bType = b.place_type?.[0] ?? "unknown"
+    const aRank = PLACE_TYPE_RANK[aType] ?? 99
+    const bRank = PLACE_TYPE_RANK[bType] ?? 99
+
+    if (!wantsRegion) {
+      if (aType === "region" && (bType === "place" || bType === "locality")) {
+        return 1
+      }
+      if (bType === "region" && (aType === "place" || aType === "locality")) {
+        return -1
+      }
+    }
+
+    return aRank - bRank
+  })
+
+  return ranked[0] ?? features[0]
+}
+
+function areaFromGeocodeFeature(feature: GeocodeFeature): BenchmarkArea | null {
+  const label = shortLabel(feature.place_name)
+  const geocodeHint = geocodeHintFromFeature(feature)
+
+  if (feature.place_type?.includes("country")) {
+    return US_NATIONAL_BENCHMARK_AREA
+  }
+
+  if (feature.bbox && feature.bbox.length === 4) {
+    return {
+      ...areaFromBounds(feature.id, label, feature.bbox),
+      geocodeHint,
+    }
+  }
+
+  if (feature.center && feature.center.length === 2) {
+    return {
+      ...areaFromCenter(feature.id, label, feature.center, feature.place_type),
+      geocodeHint,
+    }
+  }
+
+  return null
 }
 
 function shortLabel(placeName: string): string {
@@ -220,52 +378,30 @@ export async function searchBenchmarkAreas(
   if (!trimmed) return [US_NATIONAL_BENCHMARK_AREA]
 
   const presetHits = filterBenchmarkAreaPresets(trimmed)
-  const presetExact = presetMatches(trimmed)
+  const presetExact = presetMatchesExact(trimmed)
+  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
 
-  const url = new URL(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json`
-  )
-  url.searchParams.set("access_token", accessToken)
-  url.searchParams.set("country", "US")
-  url.searchParams.set(
-    "types",
-    "country,region,district,place,locality,neighborhood"
-  )
-  url.searchParams.set("limit", "5")
-
-  let geocodeFeatures: GeocodeFeature[] = []
-  try {
-    const res = await fetch(url.toString())
-    if (res.ok) {
-      const data = (await res.json()) as GeocodeResponse
-      geocodeFeatures = data.features ?? []
-    }
-  } catch {
-    // fall back to presets only
-  }
-
-  const geocodeAreas = geocodeFeatures.map((feature) => {
-    const label = shortLabel(feature.place_name)
-    if (feature.bbox && feature.bbox.length === 4) {
-      return areaFromBounds(feature.id, label, feature.bbox)
-    }
-    if (feature.center && feature.center.length === 2) {
-      const isCountry = feature.place_type?.includes("country")
-      if (isCountry) return US_NATIONAL_BENCHMARK_AREA
-      return areaFromCenter(feature.id, label, feature.center)
-    }
-    return null
-  }).filter((area): area is BenchmarkArea => area != null)
+  const geocodeAreas = geocodeFeatures
+    .map((feature) => areaFromGeocodeFeature(feature))
+    .filter((area): area is BenchmarkArea => area != null)
 
   const merged: BenchmarkArea[] = []
   const seen = new Set<string>()
 
-  if (presetExact) {
-    merged.push(presetExact)
-    seen.add(presetExact.id)
+  for (const area of geocodeAreas) {
+    if (seen.has(area.id)) continue
+    seen.add(area.id)
+    merged.push(area)
   }
 
-  for (const area of [...presetHits, ...geocodeAreas]) {
+  if (presetExact) {
+    if (!seen.has(presetExact.id)) {
+      merged.unshift(presetExact)
+      seen.add(presetExact.id)
+    }
+  }
+
+  for (const area of presetHits) {
     if (seen.has(area.id)) continue
     seen.add(area.id)
     merged.push(area)
@@ -279,11 +415,32 @@ export async function resolveBenchmarkAreaFromSearch(
   accessToken: string
 ): Promise<BenchmarkArea> {
   const trimmed = query.trim()
-  if (!trimmed) return US_NATIONAL_BENCHMARK_AREA
+  if (!trimmed || isNationalAreaQuery(trimmed)) {
+    return US_NATIONAL_BENCHMARK_AREA
+  }
 
-  const preset = presetMatches(trimmed)
-  if (preset) return preset
+  const exactPreset = presetMatchesExact(trimmed)
+  if (exactPreset) {
+    return enrichBenchmarkAreaWithBoundary(exactPreset, accessToken)
+  }
 
-  const results = await searchBenchmarkAreas(trimmed, accessToken)
-  return results[0] ?? US_NATIONAL_BENCHMARK_AREA
+  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
+  const bestFeature = pickBestGeocodeFeature(geocodeFeatures, trimmed)
+  if (bestFeature) {
+    const area = areaFromGeocodeFeature(bestFeature)
+    if (area) {
+      return enrichBenchmarkAreaWithBoundary(
+        area,
+        accessToken,
+        area.geocodeHint
+      )
+    }
+  }
+
+  const presetFallback = filterBenchmarkAreaPresets(trimmed)[0]
+  if (presetFallback) {
+    return enrichBenchmarkAreaWithBoundary(presetFallback, accessToken)
+  }
+
+  return US_NATIONAL_BENCHMARK_AREA
 }
