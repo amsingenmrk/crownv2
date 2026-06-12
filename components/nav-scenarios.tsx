@@ -15,11 +15,10 @@ import {
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import {
   BUILTIN_SCENARIO,
-  BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT,
-  BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY,
-  readUserScenarios,
-  scenarioDisplayTitleForSlug,
-  USER_SCENARIOS_CHANGED_EVENT,
+  getBuiltinScenarioDisplayNameStoreSnapshot,
+  getUserScenariosStoreSnapshot,
+  subscribeUserScenarios,
+  USER_SCENARIOS_SERVER_SNAPSHOT,
   type UserScenario,
 } from "@/lib/user-scenarios"
 
@@ -28,7 +27,16 @@ const BUILTIN_HREF = `/scenarios/${BUILTIN_SCENARIO.slug}` as const
 export function NavScenarios() {
   const pathname = usePathname()
   const [dialogOpen, setDialogOpen] = React.useState(false)
-  const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
+  const userScenarios = React.useSyncExternalStore(
+    subscribeUserScenarios,
+    getUserScenariosStoreSnapshot,
+    () => USER_SCENARIOS_SERVER_SNAPSHOT
+  )
+  const builtinTitle = React.useSyncExternalStore(
+    subscribeUserScenarios,
+    getBuiltinScenarioDisplayNameStoreSnapshot,
+    () => BUILTIN_SCENARIO.name
+  )
 
   const builtinActive =
     pathname === BUILTIN_HREF || pathname.startsWith(`${BUILTIN_HREF}/`)
@@ -39,33 +47,6 @@ export function NavScenarios() {
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       ),
     [userScenarios]
-  )
-
-  React.useEffect(() => {
-    const sync = () => setUserScenarios(readUserScenarios())
-    sync()
-    const onStorage = (e: StorageEvent) => {
-      if (
-        e.key !== "glassbox:user-scenarios" &&
-        e.key !== BUILTIN_SCENARIO_DISPLAY_STORAGE_KEY
-      ) {
-        return
-      }
-      sync()
-    }
-    window.addEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
-    window.addEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
-    window.addEventListener("storage", onStorage)
-    return () => {
-      window.removeEventListener(USER_SCENARIOS_CHANGED_EVENT, sync)
-      window.removeEventListener(BUILTIN_SCENARIO_DISPLAY_CHANGED_EVENT, sync)
-      window.removeEventListener("storage", onStorage)
-    }
-  }, [])
-
-  const builtinTitle = scenarioDisplayTitleForSlug(
-    BUILTIN_SCENARIO.slug,
-    userScenarios
   )
 
   return (

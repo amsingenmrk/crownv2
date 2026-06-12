@@ -21,6 +21,12 @@ import {
 } from "@/lib/listing-preview-card-layout"
 import { cn } from "@/lib/utils"
 
+export type MapViewportState = {
+  bounds: [[number, number], [number, number]]
+  center: { longitude: number; latitude: number }
+  zoom: number
+}
+
 export type PortfolioMapboxPin = {
   id: string
   longitude: number
@@ -135,15 +141,49 @@ const NO_MAP_VIEW_PADDING = {
   right: 0,
 } as const
 
+function readMapViewportState(
+  map: NonNullable<ReturnType<NonNullable<MapRef["getMap"]>>>
+): MapViewportState {
+  const b = map.getBounds()
+  if (b == null) {
+    const center = map.getCenter()
+    return {
+      bounds: [
+        [center.lng - 8, center.lat - 5],
+        [center.lng + 8, center.lat + 5],
+      ],
+      center: { longitude: center.lng, latitude: center.lat },
+      zoom: map.getZoom(),
+    }
+  }
+  return {
+    bounds: [
+      [b.getWest(), b.getSouth()],
+      [b.getEast(), b.getNorth()],
+    ],
+    center: {
+      longitude: map.getCenter().lng,
+      latitude: map.getCenter().lat,
+    },
+    zoom: map.getZoom(),
+  }
+}
+
 export function PortfolioMapbox({
   pins,
   className,
   edgeToEdge = false,
+  autoFitPins = true,
+  onViewportChange,
 }: {
   pins: PortfolioMapboxPin[]
   className?: string
   /** When true, clears Mapbox viewport padding so the canvas fills the container edge-to-edge. */
   edgeToEdge?: boolean
+  /** When false, the map keeps its initial viewport instead of fitting to pins. */
+  autoFitPins?: boolean
+  /** Fires on load and after pan/zoom settles. */
+  onViewportChange?: (viewport: MapViewportState) => void
 }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
   const { resolvedTheme } = useTheme()
@@ -160,11 +200,18 @@ export function PortfolioMapbox({
 
   const bounds = React.useMemo(() => boundsFromPins(pins), [pins])
 
+  const emitViewportChange = React.useCallback(() => {
+    const map = mapRef.current?.getMap()
+    if (!map?.loaded() || !onViewportChange) return
+    onViewportChange(readMapViewportState(map))
+  }, [onViewportChange])
+
   const fitToPins = React.useCallback(() => {
+    if (!autoFitPins) return
     const map = mapRef.current?.getMap()
     if (!map?.loaded() || !bounds || pins.length === 0) return
     map.fitBounds(bounds, { padding: 52, maxZoom: 11, duration: 450 })
-  }, [bounds, pins.length])
+  }, [autoFitPins, bounds, pins.length])
 
   const openPin = openPinId
     ? pins.find((p) => p.id === openPinId) ?? null
@@ -193,6 +240,7 @@ export function PortfolioMapbox({
       map?.resize()
       fitToPins()
       syncOpenPinScreenPos()
+      emitViewportChange()
       setMapLoadGeneration((g) => g + 1)
     }
     requestAnimationFrame(() => {
@@ -217,7 +265,7 @@ export function PortfolioMapbox({
         syncOpenPinScreenPos()
       }, ms)
     )
-  }, [edgeToEdge, fitToPins, syncOpenPinScreenPos])
+  }, [edgeToEdge, emitViewportChange, fitToPins, syncOpenPinScreenPos])
 
   React.useEffect(
     () => () => {
@@ -259,6 +307,26 @@ export function PortfolioMapbox({
     })
     return () => cancelAnimationFrame(id)
   }, [edgeToEdge, fitToPins])
+
+  React.useEffect(() => {
+    const map = mapRef.current?.getMap()
+    if (!map || !onViewportChange) return
+
+    const onMoveEnd = () => {
+      emitViewportChange()
+    }
+
+    map.on("moveend", onMoveEnd)
+    if (map.loaded()) {
+      emitViewportChange()
+    } else {
+      map.once("load", emitViewportChange)
+    }
+
+    return () => {
+      map.off("moveend", onMoveEnd)
+    }
+  }, [emitViewportChange, onViewportChange, mapLoadGeneration])
 
   React.useEffect(() => {
     if (!openPin) {

@@ -74,6 +74,7 @@ import {
 import {
   BUILTIN_SCENARIO,
   duplicateScenarioFromSourceSlug,
+  getBuiltinScenarioDisplayNameStoreSnapshot,
   getUserScenariosStoreSnapshot,
   removeUserScenarioBySlug,
   scenarioDescriptionForDisplay,
@@ -129,7 +130,8 @@ function titleForPathname(
   pathname: string | null,
   userScenarios: readonly { name: string; slug: string }[],
   savedComparisons: readonly { id: string; name: string }[],
-  portfolioScopeLabels: Record<string, string>
+  portfolioScopeLabels: Record<string, string>,
+  builtinScenarioDisplayName: string
 ): string {
   if (!pathname) return "Glassbox"
   const explicit = TITLES[pathname]
@@ -141,7 +143,11 @@ function titleForPathname(
   if (pathname.startsWith("/scenarios/")) {
     const slug = pathname.slice("/scenarios/".length).split("/")[0]
     if (slug) {
-      return scenarioDisplayTitleForSlug(slug, userScenarios)
+      return scenarioDisplayTitleForSlug(
+        slug,
+        userScenarios,
+        builtinScenarioDisplayName
+      )
     }
   }
   if (pathname.startsWith("/compare/")) {
@@ -237,6 +243,11 @@ export function AppTopbar() {
     subscribeUserScenarios,
     getUserScenariosStoreSnapshot,
     () => USER_SCENARIOS_SERVER_SNAPSHOT
+  )
+  const builtinScenarioDisplayName = useSyncExternalStore(
+    subscribeUserScenarios,
+    getBuiltinScenarioDisplayNameStoreSnapshot,
+    () => BUILTIN_SCENARIO.name
   )
   const savedComparisons = useSyncExternalStore(
     subscribeSavedComparisons,
@@ -376,14 +387,19 @@ export function AppTopbar() {
     pathname ?? null,
     userScenarios,
     savedComparisons,
-    portfolioScopeLabels
+    portfolioScopeLabels,
+    builtinScenarioDisplayName
   )
 
   const openScenarioRename = useCallback(() => {
     if (scenarioSlug == null || !canRenameScenarioInline) return
     if (scenarioSlug === BUILTIN_SCENARIO.slug) {
       setScenarioRenameDraft(
-        scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+        scenarioDisplayTitleForSlug(
+          scenarioSlug,
+          userScenarios,
+          builtinScenarioDisplayName
+        )
       )
       setScenarioRenameDescriptionDraft(
         scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
@@ -394,7 +410,13 @@ export function AppTopbar() {
       setScenarioRenameDescriptionDraft(row?.description ?? "")
     }
     setScenarioRenameOpen(true)
-  }, [canRenameScenarioInline, pageTitle, scenarioSlug, userScenarios])
+  }, [
+    builtinScenarioDisplayName,
+    canRenameScenarioInline,
+    pageTitle,
+    scenarioSlug,
+    userScenarios,
+  ])
 
   const openPortfolioScopeRename = useCallback(() => {
     if (portfolioScopeBreadcrumbId == null) return
@@ -426,7 +448,11 @@ export function AppTopbar() {
     const name = scenarioRenameDraft.trim()
     if (!name || scenarioSlug == null) return
     if (scenarioSlug === BUILTIN_SCENARIO.slug) {
-      const prevName = scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+      const prevName = scenarioDisplayTitleForSlug(
+        scenarioSlug,
+        userScenarios,
+        builtinScenarioDisplayName
+      )
       const prevDesc = (
         scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
       ).trim()
@@ -464,6 +490,7 @@ export function AppTopbar() {
       showToast("Saved.")
     }
   }, [
+    builtinScenarioDisplayName,
     scenarioRenameDescriptionDraft,
     scenarioRenameDraft,
     scenarioSlug,
@@ -530,7 +557,11 @@ export function AppTopbar() {
   const scenarioRenameSaveDisabled = useMemo(() => {
     if (!scenarioRenameDraft.trim() || scenarioSlug == null) return true
     if (scenarioSlug === BUILTIN_SCENARIO.slug) {
-      const effName = scenarioDisplayTitleForSlug(scenarioSlug, userScenarios)
+      const effName = scenarioDisplayTitleForSlug(
+        scenarioSlug,
+        userScenarios,
+        builtinScenarioDisplayName
+      )
       const effDesc = (
         scenarioDescriptionForDisplay(scenarioSlug, userScenarios) ?? ""
       ).trim()
@@ -546,6 +577,7 @@ export function AppTopbar() {
       scenarioRenameDescriptionDraft.trim() === (row.description ?? "").trim()
     )
   }, [
+    builtinScenarioDisplayName,
     scenarioRenameDescriptionDraft,
     scenarioRenameDraft,
     scenarioSlug,

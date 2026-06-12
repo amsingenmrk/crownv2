@@ -108,14 +108,22 @@ export function updateBuiltinScenarioDisplay(updates: {
 /** Title shown in chrome for a scenario route (built-in overrides + user scenarios). */
 export function scenarioDisplayTitleForSlug(
   slug: string,
-  userScenarios: readonly UserScenario[]
+  userScenarios: readonly UserScenario[],
+  builtinDisplayName?: string
 ): string {
   if (slug === BUILTIN_SCENARIO.slug) {
-    const n = readBuiltinScenarioDisplay().name?.trim()
+    const n = builtinDisplayName?.trim()
     return n && n.length > 0 ? n : BUILTIN_SCENARIO.name
   }
   const row = userScenarios.find((s) => s.slug === slug)
   return row?.name ?? humanizeScenarioSlug(slug)
+}
+
+/** Hydration-safe built-in scenario display name for `useSyncExternalStore`. */
+export function getBuiltinScenarioDisplayNameStoreSnapshot(): string {
+  if (typeof window === "undefined") return BUILTIN_SCENARIO.name
+  const n = readBuiltinScenarioDisplay().name?.trim()
+  return n && n.length > 0 ? n : BUILTIN_SCENARIO.name
 }
 
 function userScenariosListStorageRaw(): string {
@@ -268,7 +276,8 @@ export function duplicateScenarioFromSourceSlug(
   if (sourceSlug === BUILTIN_SCENARIO.slug) {
     sourceDisplayName = scenarioDisplayTitleForSlug(
       sourceSlug,
-      readUserScenarios()
+      readUserScenarios(),
+      getBuiltinScenarioDisplayNameStoreSnapshot()
     )
     sourceDescription =
       scenarioDescriptionForDisplay(sourceSlug, readUserScenarios()) ??
