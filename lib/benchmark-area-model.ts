@@ -1,4 +1,5 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
+import { trackedBenchmarkSnapshot } from "@/lib/benchmark-market-stats"
 import { ASSETS } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
@@ -248,10 +249,78 @@ function participantNote(
   return undefined
 }
 
+export type BenchmarkStatsRaw = {
+  askingRentPsf: number
+  inPlaceRentPsf: number
+  occupancyPct: number
+  intrinsicRentPsf: number
+  sunScore: number
+  viewScore: number
+  amenityQuality: number
+  accessibilityScore: number
+  buildingCount: number
+  fullParticipantCount: number
+}
+
+export function benchmarkSnapshotFromRaw(
+  areaLabel: string,
+  raw: BenchmarkStatsRaw
+): BenchmarkAreaSnapshot {
+  const total = raw.buildingCount
+  const fullCount = raw.fullParticipantCount
+
+  const values: Record<BenchmarkKpiKey, BenchmarkKpiValue> = {
+    askingRent: {
+      key: "askingRent",
+      value: formatRentPsf(raw.askingRentPsf),
+    },
+    inPlaceRent: {
+      key: "inPlaceRent",
+      value: formatRentPsf(raw.inPlaceRentPsf),
+    },
+    occupancy: {
+      key: "occupancy",
+      value: formatPercent(raw.occupancyPct),
+    },
+    intrinsicRent: {
+      key: "intrinsicRent",
+      value: formatRentPsf(raw.intrinsicRentPsf),
+      participantNote: participantNote(fullCount, total, "full participants"),
+    },
+    sunScore: {
+      key: "sunScore",
+      value: formatScore(raw.sunScore),
+    },
+    viewScore: {
+      key: "viewScore",
+      value: formatScore(raw.viewScore),
+    },
+    amenityQuality: {
+      key: "amenityQuality",
+      value: formatScore(raw.amenityQuality),
+      participantNote: participantNote(fullCount, total, "full participants"),
+    },
+    accessibilityScore: {
+      key: "accessibilityScore",
+      value: formatScore(raw.accessibilityScore),
+    },
+  }
+
+  return {
+    areaLabel,
+    buildingCount: total,
+    fullParticipantCount: fullCount,
+    kpis: BENCHMARK_KPI_DEFINITIONS.map((def) => values[def.key]),
+  }
+}
+
 export function benchmarkAreaSnapshot(
   area: BenchmarkArea,
   coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkAreaSnapshot {
+  const tracked = trackedBenchmarkSnapshot(area.label, area.id)
+  if (tracked) return tracked
+
   const buildings = benchmarkBuildingCatalog(coordinates).filter((b) =>
     isInBounds(b.longitude, b.latitude, area.bounds)
   )
@@ -297,6 +366,18 @@ export function benchmarkAreaSnapshot(
     }))
   )
 
+  if (total === 0) {
+    return {
+      areaLabel: area.label,
+      buildingCount: 0,
+      fullParticipantCount: 0,
+      kpis: BENCHMARK_KPI_DEFINITIONS.map((def) => ({
+        key: def.key,
+        value: "—",
+      })),
+    }
+  }
+
   const values: Record<BenchmarkKpiKey, BenchmarkKpiValue> = {
     askingRent: {
       key: "askingRent",
@@ -313,11 +394,7 @@ export function benchmarkAreaSnapshot(
     intrinsicRent: {
       key: "intrinsicRent",
       value: formatRentPsf(intrinsicRent),
-      participantNote: participantNote(
-        fullCount,
-        total,
-        "full participants"
-      ),
+      participantNote: participantNote(fullCount, total, "full participants"),
     },
     sunScore: {
       key: "sunScore",
@@ -330,11 +407,7 @@ export function benchmarkAreaSnapshot(
     amenityQuality: {
       key: "amenityQuality",
       value: formatScore(amenityQuality),
-      participantNote: participantNote(
-        fullCount,
-        total,
-        "full participants"
-      ),
+      participantNote: participantNote(fullCount, total, "full participants"),
     },
     accessibilityScore: {
       key: "accessibilityScore",

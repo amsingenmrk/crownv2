@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 
 import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
 import { BenchmarkKpiPanel } from "@/components/benchmark-kpi-panel"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
@@ -82,7 +83,7 @@ export function BenchmarkWorkspace() {
             )
           : US_NATIONAL_BENCHMARK_AREA
         setSelectedArea(national)
-        setSearchQuery(national.label)
+        setSearchQuery("")
         setSuggestionsOpen(false)
         return
       }
@@ -115,7 +116,6 @@ export function BenchmarkWorkspace() {
         : US_NATIONAL_BENCHMARK_AREA
       if (!cancelled) {
         setSelectedArea(area)
-        setSearchQuery(area.label)
       }
     }
     void initArea()
@@ -166,6 +166,8 @@ export function BenchmarkWorkspace() {
   )
 
   const showMapbox = mapboxEnabled
+  const showSearchClear =
+    selectedArea?.id !== US_NATIONAL_BENCHMARK_AREA.id
 
   return (
     <div
@@ -198,7 +200,7 @@ export function BenchmarkWorkspace() {
                     />
                     <Input
                       id={searchInputId}
-                      type="search"
+                      type="text"
                       value={searchQuery}
                       onChange={(e) => {
                         const value = e.target.value
@@ -258,8 +260,25 @@ export function BenchmarkWorkspace() {
                           ? `${suggestionsListId}-option-${highlightedIndex}`
                           : undefined
                       }
-                      className="h-9 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                      className={cn(
+                        "h-9 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0 dark:bg-transparent",
+                        showSearchClear && "pr-9"
+                      )}
                     />
+                    {showSearchClear ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        aria-label="Clear search and show national view"
+                        onClick={() => {
+                          void runSearch("")
+                        }}
+                      >
+                        <X className="size-4" aria-hidden />
+                      </Button>
+                    ) : null}
                   </div>
                   {suggestionsOpen && suggestions.length > 0 ? (
                     <ul
