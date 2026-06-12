@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
 import { Search } from "lucide-react"
 
+import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
 import { BenchmarkKpiPanel } from "@/components/benchmark-kpi-panel"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,20 +12,12 @@ import { benchmarkAreaSnapshot } from "@/lib/benchmark-area-model"
 import {
   filterBenchmarkAreaPresets,
   resolveBenchmarkAreaFromSearch,
+  resolveBenchmarkAreaSelection,
   searchBenchmarkAreas,
   US_NATIONAL_BENCHMARK_AREA,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
-import { enrichBenchmarkAreaWithBoundary } from "@/lib/mapbox-benchmark-boundaries"
 import { cn } from "@/lib/utils"
-
-const BenchmarkMapbox = dynamic(
-  () =>
-    import("@/lib/configure-mapbox-gl-worker").then(() =>
-      import("@/components/benchmark-mapbox").then((m) => m.BenchmarkMapbox)
-    ),
-  { ssr: false }
-)
 
 function BenchmarkMapSkeleton() {
   return (
@@ -50,12 +42,15 @@ export function BenchmarkWorkspace() {
   const searchInputId = React.useId()
   const suggestionsListId = React.useId()
 
-  const [selectedArea, setSelectedArea] = React.useState<BenchmarkArea>(
-    US_NATIONAL_BENCHMARK_AREA
+  const [selectedArea, setSelectedArea] = React.useState<BenchmarkArea | null>(
+    null
   )
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [suggestions, setSuggestions] = React.useState<BenchmarkArea[]>([])
+  const [suggestions, setSuggestions] = React.useState<BenchmarkArea[]>(() =>
+    filterBenchmarkAreaPresets("")
+  )
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
 
@@ -64,14 +59,9 @@ export function BenchmarkWorkspace() {
       setSuggestionsOpen(false)
       setSearchPending(true)
       try {
-        const resolved =
-          mapboxToken && !area.boundary
-            ? await enrichBenchmarkAreaWithBoundary(
-                area,
-                mapboxToken,
-                area.geocodeHint
-              )
-            : area
+        const resolved = mapboxToken
+          ? await resolveBenchmarkAreaSelection(area, mapboxToken)
+          : area
         setSelectedArea(resolved)
         setSearchQuery(resolved.label)
       } finally {
@@ -85,8 +75,14 @@ export function BenchmarkWorkspace() {
     async (query: string) => {
       const trimmed = query.trim()
       if (!trimmed) {
-        setSelectedArea(US_NATIONAL_BENCHMARK_AREA)
-        setSearchQuery(US_NATIONAL_BENCHMARK_AREA.label)
+        const national = mapboxToken
+          ? await resolveBenchmarkAreaSelection(
+              US_NATIONAL_BENCHMARK_AREA,
+              mapboxToken
+            )
+          : US_NATIONAL_BENCHMARK_AREA
+        setSelectedArea(national)
+        setSearchQuery(national.label)
         setSuggestionsOpen(false)
         return
       }
@@ -109,19 +105,42 @@ export function BenchmarkWorkspace() {
   )
 
   React.useEffect(() => {
+    let cancelled = false
+    const initArea = async () => {
+      const area = mapboxToken
+        ? await resolveBenchmarkAreaSelection(
+            US_NATIONAL_BENCHMARK_AREA,
+            mapboxToken
+          )
+        : US_NATIONAL_BENCHMARK_AREA
+      if (!cancelled) {
+        setSelectedArea(area)
+        setSearchQuery(area.label)
+      }
+    }
+    void initArea()
+    return () => {
+      cancelled = true
+    }
+  }, [mapboxToken])
+
+  React.useEffect(() => {
     const q = searchQuery.trim()
     if (!q) {
       setSuggestions(filterBenchmarkAreaPresets(""))
+      setHighlightedIndex(-1)
       return
     }
 
     const timeout = window.setTimeout(async () => {
       if (!mapboxToken) {
         setSuggestions(filterBenchmarkAreaPresets(q))
+        setHighlightedIndex(-1)
         return
       }
       const results = await searchBenchmarkAreas(q, mapboxToken)
       setSuggestions(results)
+      setHighlightedIndex(-1)
     }, 220)
 
     return () => window.clearTimeout(timeout)
@@ -138,7 +157,11 @@ export function BenchmarkWorkspace() {
   }, [])
 
   const snapshot = React.useMemo(
-    () => benchmarkAreaSnapshot(selectedArea, coordinates),
+    () =>
+      benchmarkAreaSnapshot(
+        selectedArea ?? US_NATIONAL_BENCHMARK_AREA,
+        coordinates
+      ),
     [selectedArea, coordinates]
   )
 
@@ -151,18 +174,20 @@ export function BenchmarkWorkspace() {
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
-          <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
-            {showMapbox ? (
-              <BenchmarkMapbox area={selectedArea} />
-            ) : (
-              <BenchmarkMapSkeleton />
-            )}
+          <div className="relative min-h-0 min-w-0 w-full flex-1 min-h-[min(50vh,420px)] border-b border-border bg-muted/20 lg:min-h-0 lg:border-b-0 lg:border-r">
+            <div className="absolute inset-0 overflow-hidden">
+              {showMapbox && selectedArea ? (
+                <BenchmarkMapbox area={selectedArea} />
+              ) : (
+                <BenchmarkMapSkeleton />
+              )}
+            </div>
             <div className="pointer-events-none absolute inset-0 z-20 flex justify-start">
               <div
                 ref={searchContainerRef}
-                className="pointer-events-auto relative w-full max-w-[min(100%,22rem)] p-3 sm:max-w-sm md:p-4"
+                className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-3 sm:max-w-sm md:p-4"
               >
-                <div className="rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
+                <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
                   <label htmlFor={searchInputId} className="sr-only">
                     Search benchmark area
                   </label>
@@ -176,17 +201,50 @@ export function BenchmarkWorkspace() {
                       type="search"
                       value={searchQuery}
                       onChange={(e) => {
-                        setSearchQuery(e.target.value)
+                        const value = e.target.value
+                        if (!value.trim()) {
+                          void runSearch("")
+                          return
+                        }
+                        setSearchQuery(value)
                         setSuggestionsOpen(true)
                       }}
                       onFocus={() => setSuggestionsOpen(true)}
                       onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault()
+                          setSuggestionsOpen(true)
+                          setHighlightedIndex((index) =>
+                            index < suggestions.length - 1 ? index + 1 : 0
+                          )
+                          return
+                        }
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault()
+                          setSuggestionsOpen(true)
+                          setHighlightedIndex((index) =>
+                            index > 0
+                              ? index - 1
+                              : Math.max(suggestions.length - 1, 0)
+                          )
+                          return
+                        }
                         if (e.key === "Enter") {
                           e.preventDefault()
+                          const highlighted =
+                            highlightedIndex >= 0
+                              ? suggestions[highlightedIndex]
+                              : undefined
+                          if (suggestionsOpen && highlighted) {
+                            void applyArea(highlighted)
+                            return
+                          }
                           void runSearch(searchQuery)
+                          return
                         }
                         if (e.key === "Escape") {
                           setSuggestionsOpen(false)
+                          setHighlightedIndex(-1)
                         }
                       }}
                       placeholder="Search city, metro, zip, or region…"
@@ -195,35 +253,50 @@ export function BenchmarkWorkspace() {
                       aria-expanded={suggestionsOpen}
                       aria-controls={suggestionsListId}
                       aria-autocomplete="list"
+                      aria-activedescendant={
+                        highlightedIndex >= 0
+                          ? `${suggestionsListId}-option-${highlightedIndex}`
+                          : undefined
+                      }
                       className="h-9 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0 dark:bg-transparent"
                     />
                   </div>
-                </div>
-                {suggestionsOpen && suggestions.length > 0 ? (
-                  <ul
-                    id={suggestionsListId}
-                    role="listbox"
-                    className="absolute left-3 right-3 top-[calc(100%-0.25rem)] z-30 max-h-56 overflow-y-auto rounded-lg border border-border bg-background py-1 shadow-lg sm:left-4 sm:right-4"
-                  >
-                    {suggestions.map((suggestion) => (
-                      <li key={suggestion.id} role="option">
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted",
-                            selectedArea.id === suggestion.id && "bg-muted/70"
-                          )}
-                          onClick={() => {
-                            setSearchQuery(suggestion.label)
-                            void applyArea(suggestion)
-                          }}
+                  {suggestionsOpen && suggestions.length > 0 ? (
+                    <ul
+                      id={suggestionsListId}
+                      role="listbox"
+                      className="max-h-72 overflow-y-auto border-t border-border py-1"
+                    >
+                      {suggestions.map((suggestion, index) => (
+                        <li
+                          key={suggestion.id}
+                          id={`${suggestionsListId}-option-${index}`}
+                          role="option"
+                          aria-selected={
+                            highlightedIndex === index ||
+                            selectedArea?.id === suggestion.id
+                          }
                         >
-                          {suggestion.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                          <button
+                            type="button"
+                            className={cn(
+                              "flex w-full items-center px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted",
+                              (highlightedIndex === index ||
+                                selectedArea?.id === suggestion.id) &&
+                                "bg-muted"
+                            )}
+                            onMouseEnter={() => setHighlightedIndex(index)}
+                            onClick={() => {
+                              void applyArea(suggestion)
+                            }}
+                          >
+                            {suggestion.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
                 {searchPending ? (
                   <p className="mt-2 px-1 text-xs text-muted-foreground">
                     Updating benchmark area…

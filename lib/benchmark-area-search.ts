@@ -1,114 +1,334 @@
 import {
+  applyStoredBoundary,
+  US_NATIONAL_BENCHMARK_AREA,
+} from "@/lib/benchmark-market-boundaries"
+import {
   enrichBenchmarkAreaWithBoundary,
   geocodeHintFromFeature,
-  usCountryBoundarySpec,
-  type BenchmarkAreaGeocodeHint,
-  type BenchmarkBoundarySpec,
 } from "@/lib/mapbox-benchmark-boundaries"
+import type {
+  BenchmarkArea,
+  BenchmarkAreaBounds,
+  BenchmarkAreaGeocodeHint,
+  BenchmarkBoundarySpec,
+} from "@/lib/benchmark-area-types"
 
-export type BenchmarkAreaBounds = [[number, number], [number, number]]
+export type {
+  BenchmarkArea,
+  BenchmarkAreaBounds,
+  BenchmarkAreaGeocodeHint,
+  BenchmarkBoundarySpec,
+} from "@/lib/benchmark-area-types"
 
-export type BenchmarkArea = {
-  id: string
-  label: string
-  bounds: BenchmarkAreaBounds
-  boundary?: BenchmarkBoundarySpec
-  geocodeHint?: BenchmarkAreaGeocodeHint
+export { US_NATIONAL_BENCHMARK_AREA }
+
+type BenchmarkMarketPreset = BenchmarkArea & {
+  aliases?: string[]
+  geocodeQuery: string
 }
 
-export const US_NATIONAL_BENCHMARK_AREA: BenchmarkArea = {
-  id: "us-national",
-  label: "United States",
-  bounds: [
-    [-125, 24],
-    [-66, 50],
-  ],
-  boundary: usCountryBoundarySpec("us-national"),
-}
-
-const BENCHMARK_SEARCH_PRESETS: BenchmarkArea[] = [
-  US_NATIONAL_BENCHMARK_AREA,
+/** Curated benchmark markets shown in the typeahead starter list. */
+const BENCHMARK_MARKET_PRESETS: BenchmarkMarketPreset[] = [
   {
-    id: "metro-new-york",
-    label: "New York metro",
+    id: "market-los-angeles",
+    label: "Los Angeles",
+    geocodeQuery: "Los Angeles, CA",
     bounds: [
-      [-74.45, 40.35],
-      [-73.45, 41.05],
+      [-118.95, 33.65],
+      [-117.65, 34.35],
+    ],
+    aliases: ["la"],
+  },
+  {
+    id: "market-dc",
+    label: "D.C.",
+    geocodeQuery: "Washington, DC",
+    bounds: [
+      [-77.5, 38.75],
+      [-76.8, 39.15],
+    ],
+    aliases: ["dc", "washington dc", "washington d.c."],
+  },
+  {
+    id: "market-phoenix",
+    label: "Phoenix",
+    geocodeQuery: "Phoenix, AZ",
+    bounds: [
+      [-112.45, 33.2],
+      [-111.55, 33.85],
     ],
   },
   {
-    id: "metro-chicago",
-    label: "Chicago metro",
-    bounds: [
-      [-88.15, 41.55],
-      [-87.35, 42.15],
-    ],
-  },
-  {
-    id: "metro-los-angeles",
-    label: "Los Angeles metro",
-    bounds: [
-      [-118.65, 33.65],
-      [-117.95, 34.35],
-    ],
-  },
-  {
-    id: "metro-denver",
-    label: "Denver metro",
-    bounds: [
-      [-105.2, 39.55],
-      [-104.65, 39.95],
-    ],
-  },
-  {
-    id: "metro-seattle",
-    label: "Seattle metro",
+    id: "market-seattle",
+    label: "Seattle",
+    geocodeQuery: "Seattle, WA",
     bounds: [
       [-122.55, 47.35],
       [-122.05, 47.85],
     ],
   },
   {
-    id: "metro-dallas",
-    label: "Dallas metro",
+    id: "market-philadelphia",
+    label: "Philadelphia",
+    geocodeQuery: "Philadelphia, PA",
     bounds: [
-      [-97.15, 32.55],
-      [-96.45, 33.15],
+      [-75.45, 39.8],
+      [-74.9, 40.2],
+    ],
+    aliases: ["philly"],
+  },
+  {
+    id: "market-new-jersey",
+    label: "New Jersey",
+    geocodeQuery: "New Jersey",
+    bounds: [
+      [-75.6, 38.9],
+      [-73.9, 41.4],
+    ],
+    aliases: ["nj"],
+  },
+  {
+    id: "market-minneapolis-st-paul",
+    label: "Minneapolis/St. Paul",
+    geocodeQuery: "Minneapolis, MN",
+    bounds: [
+      [-93.55, 44.7],
+      [-92.9, 45.25],
+    ],
+    aliases: ["minneapolis", "st paul", "twin cities"],
+  },
+  {
+    id: "market-chicago",
+    label: "Chicago",
+    geocodeQuery: "Chicago, IL",
+    bounds: [
+      [-88.15, 41.55],
+      [-87.35, 42.15],
     ],
   },
   {
-    id: "metro-atlanta",
-    label: "Atlanta metro",
+    id: "market-houston",
+    label: "Houston",
+    geocodeQuery: "Houston, TX",
     bounds: [
-      [-84.65, 33.55],
-      [-84.15, 34.05],
+      [-95.85, 29.45],
+      [-95.0, 30.15],
     ],
   },
   {
-    id: "metro-miami",
-    label: "Miami metro",
+    id: "market-san-diego",
+    label: "San Diego",
+    geocodeQuery: "San Diego, CA",
+    bounds: [
+      [-117.35, 32.5],
+      [-116.9, 33.15],
+    ],
+  },
+  {
+    id: "market-utah",
+    label: "Utah",
+    geocodeQuery: "Utah",
+    bounds: [
+      [-114.2, 36.9],
+      [-109.0, 42.1],
+    ],
+  },
+  {
+    id: "market-portland",
+    label: "Portland",
+    geocodeQuery: "Portland, OR",
+    bounds: [
+      [-123.0, 45.3],
+      [-122.4, 45.65],
+    ],
+  },
+  {
+    id: "market-fort-lauderdale",
+    label: "Fort Lauderdale",
+    geocodeQuery: "Fort Lauderdale, FL",
+    bounds: [
+      [-80.4, 26.0],
+      [-80.0, 26.35],
+    ],
+    aliases: ["ft lauderdale"],
+  },
+  {
+    id: "market-cincinnati",
+    label: "Cincinnati",
+    geocodeQuery: "Cincinnati, OH",
+    bounds: [
+      [-84.75, 39.0],
+      [-84.35, 39.35],
+    ],
+  },
+  {
+    id: "market-tampa-bay",
+    label: "Tampa Bay",
+    geocodeQuery: "Tampa, FL",
+    bounds: [
+      [-82.85, 27.7],
+      [-82.2, 28.25],
+    ],
+    aliases: ["tampa"],
+  },
+  {
+    id: "market-miami",
+    label: "Miami",
+    geocodeQuery: "Miami, FL",
     bounds: [
       [-80.45, 25.55],
       [-80.05, 26.05],
     ],
   },
   {
-    id: "metro-san-francisco",
-    label: "San Francisco metro",
+    id: "market-sacramento",
+    label: "Sacramento",
+    geocodeQuery: "Sacramento, CA",
     bounds: [
-      [-122.65, 37.55],
-      [-122.15, 37.95],
+      [-121.65, 38.4],
+      [-121.2, 38.75],
     ],
   },
   {
-    id: "metro-boston",
-    label: "Boston metro",
+    id: "market-charlotte",
+    label: "Charlotte",
+    geocodeQuery: "Charlotte, NC",
     bounds: [
-      [-71.25, 42.2],
-      [-70.85, 42.55],
+      [-81.05, 35.05],
+      [-80.6, 35.45],
     ],
   },
+  {
+    id: "market-san-jose",
+    label: "San Jose",
+    geocodeQuery: "San Jose, CA",
+    bounds: [
+      [-122.15, 37.2],
+      [-121.7, 37.55],
+    ],
+  },
+  {
+    id: "market-pittsburgh",
+    label: "Pittsburgh",
+    geocodeQuery: "Pittsburgh, PA",
+    bounds: [
+      [-80.25, 40.3],
+      [-79.75, 40.65],
+    ],
+  },
+  {
+    id: "market-cleveland",
+    label: "Cleveland",
+    geocodeQuery: "Cleveland, OH",
+    bounds: [
+      [-81.95, 41.3],
+      [-81.45, 41.65],
+    ],
+  },
+  {
+    id: "market-columbus",
+    label: "Columbus",
+    geocodeQuery: "Columbus, OH",
+    bounds: [
+      [-83.2, 39.85],
+      [-82.8, 40.2],
+    ],
+  },
+  {
+    id: "market-new-york",
+    label: "New York",
+    geocodeQuery: "New York, NY",
+    bounds: [
+      [-74.45, 40.35],
+      [-73.45, 41.05],
+    ],
+    aliases: ["nyc", "new york city"],
+  },
 ]
+
+const BENCHMARK_SEARCH_PRESETS: BenchmarkArea[] = BENCHMARK_MARKET_PRESETS.map(
+  (preset) => applyStoredBoundary(preset)
+)
+
+export function isBenchmarkMarketPreset(area: BenchmarkArea): boolean {
+  return area.id.startsWith("market-")
+}
+
+function findMarketPreset(query: string): BenchmarkMarketPreset | null {
+  const q = normalizeQuery(query)
+  if (!q) return null
+
+  return (
+    BENCHMARK_MARKET_PRESETS.find((preset) => {
+      if (normalizeQuery(preset.label) === q) return true
+      if (preset.id === q.replace(/\s+/g, "-")) return true
+      return (preset.aliases ?? []).some((alias) => normalizeQuery(alias) === q)
+    }) ?? null
+  )
+}
+
+function marketPresetMatchesQuery(
+  preset: BenchmarkMarketPreset,
+  query: string
+): boolean {
+  const q = normalizeQuery(query)
+  if (!q) return true
+
+  const label = normalizeQuery(preset.label)
+  if (label.includes(q)) return true
+
+  return (preset.aliases ?? []).some((alias) =>
+    normalizeQuery(alias).includes(q)
+  )
+}
+
+async function resolveMarketPreset(
+  preset: BenchmarkMarketPreset,
+  accessToken: string
+): Promise<BenchmarkArea> {
+  const withStoredBoundary = applyStoredBoundary(preset)
+  if (withStoredBoundary.boundaryGeometry) {
+    return withStoredBoundary
+  }
+
+  const geocodeFeatures = await fetchGeocodeFeatures(
+    preset.geocodeQuery,
+    accessToken
+  )
+  const bestFeature = pickBestGeocodeFeature(geocodeFeatures, preset.geocodeQuery)
+  const geocoded = bestFeature ? areaFromGeocodeFeature(bestFeature) : null
+
+  const area: BenchmarkArea = geocoded
+    ? {
+        id: preset.id,
+        label: preset.label,
+        bounds: geocoded.bounds,
+        geocodeHint: geocoded.geocodeHint,
+      }
+    : preset
+
+  return enrichBenchmarkAreaWithBoundary(area, accessToken, area.geocodeHint)
+}
+
+export async function resolveBenchmarkAreaSelection(
+  area: BenchmarkArea,
+  accessToken: string
+): Promise<BenchmarkArea> {
+  if (area.id === "us-national") {
+    return enrichBenchmarkAreaWithBoundary(area, accessToken)
+  }
+
+  const preset = BENCHMARK_MARKET_PRESETS.find((item) => item.id === area.id)
+  if (preset) return resolveMarketPreset(preset, accessToken)
+
+  if (area.boundary) return area
+
+  return enrichBenchmarkAreaWithBoundary(
+    area,
+    accessToken,
+    area.geocodeHint
+  )
+}
 
 type GeocodeFeature = {
   id: string
@@ -161,7 +381,7 @@ export function maxZoomForBenchmarkArea(area: BenchmarkArea): number {
   if (placeType && placeType in PLACE_TYPE_ZOOM) {
     return PLACE_TYPE_ZOOM[placeType]
   }
-  if (area.id.startsWith("metro-")) return 10
+  if (area.id.startsWith("market-")) return 10
   return 11
 }
 
@@ -218,19 +438,15 @@ function areaFromCenter(
   }
 }
 
-function presetMatchesExact(query: string): BenchmarkArea | null {
+function presetMatchesExact(query: string): BenchmarkMarketPreset | null {
   const q = normalizeQuery(query)
   if (!q) return null
 
-  const exact = BENCHMARK_SEARCH_PRESETS.find(
-    (preset) =>
-      normalizeQuery(preset.label) === q ||
-      preset.id === q.replace(/\s+/g, "-")
-  )
+  const exact = findMarketPreset(query)
   if (exact) return exact
 
   if (isNationalAreaQuery(query)) {
-    return US_NATIONAL_BENCHMARK_AREA
+    return null
   }
 
   return null
@@ -363,11 +579,11 @@ export function benchmarkAreaPolygon(
 
 export function filterBenchmarkAreaPresets(query: string): BenchmarkArea[] {
   const q = normalizeQuery(query)
-  if (!q) return BENCHMARK_SEARCH_PRESETS.slice(0, 6)
+  if (!q) return BENCHMARK_SEARCH_PRESETS
 
-  return BENCHMARK_SEARCH_PRESETS.filter((preset) =>
-    normalizeQuery(preset.label).includes(q)
-  ).slice(0, 8)
+  return BENCHMARK_MARKET_PRESETS.filter((preset) =>
+    marketPresetMatchesQuery(preset, q)
+  )
 }
 
 export async function searchBenchmarkAreas(
@@ -375,7 +591,7 @@ export async function searchBenchmarkAreas(
   accessToken: string
 ): Promise<BenchmarkArea[]> {
   const trimmed = query.trim()
-  if (!trimmed) return [US_NATIONAL_BENCHMARK_AREA]
+  if (!trimmed) return BENCHMARK_SEARCH_PRESETS
 
   const presetHits = filterBenchmarkAreaPresets(trimmed)
   const presetExact = presetMatchesExact(trimmed)
@@ -421,7 +637,7 @@ export async function resolveBenchmarkAreaFromSearch(
 
   const exactPreset = presetMatchesExact(trimmed)
   if (exactPreset) {
-    return enrichBenchmarkAreaWithBoundary(exactPreset, accessToken)
+    return resolveMarketPreset(exactPreset, accessToken)
   }
 
   const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
@@ -437,9 +653,11 @@ export async function resolveBenchmarkAreaFromSearch(
     }
   }
 
-  const presetFallback = filterBenchmarkAreaPresets(trimmed)[0]
+  const presetFallback = BENCHMARK_MARKET_PRESETS.find((preset) =>
+    marketPresetMatchesQuery(preset, trimmed)
+  )
   if (presetFallback) {
-    return enrichBenchmarkAreaWithBoundary(presetFallback, accessToken)
+    return resolveMarketPreset(presetFallback, accessToken)
   }
 
   return US_NATIONAL_BENCHMARK_AREA

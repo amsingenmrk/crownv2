@@ -1,21 +1,14 @@
 import type { FilterSpecification } from "mapbox-gl"
 
-import type { BenchmarkArea, BenchmarkAreaBounds } from "@/lib/benchmark-area-search"
+import { applyStoredBoundary } from "@/lib/benchmark-market-boundaries"
+import type {
+  BenchmarkArea,
+  BenchmarkAreaBounds,
+  BenchmarkAreaGeocodeHint,
+  BenchmarkBoundarySpec,
+} from "@/lib/benchmark-area-types"
 
-export type BenchmarkBoundarySpec = {
-  sourceId: string
-  tilesetUrl: string
-  sourceLayer: string
-  filter: FilterSpecification
-}
-
-export type BenchmarkAreaGeocodeHint = {
-  placeTypes?: string[]
-  center?: [number, number]
-  regionShortCode?: string
-  districtShortCode?: string
-  countryShortCode?: string
-}
+export type { BenchmarkAreaGeocodeHint, BenchmarkBoundarySpec } from "@/lib/benchmark-area-types"
 
 type BoundaryTileset = {
   tilesetId: string
@@ -27,10 +20,14 @@ const US_WORLDVIEW_FILTER: FilterSpecification = [
   "all",
   [
     "any",
-    ["==", ["get", "worldview"], "all"],
-    ["in", "US", ["get", "worldview"]],
+    ["==", ["get", "disputed"], false],
+    ["==", ["get", "disputed"], "false"],
   ],
-  ["==", ["get", "disputed"], "false"],
+  [
+    "any",
+    ["==", ["get", "worldview"], "all"],
+    ["==", ["get", "worldview"], "US"],
+  ],
 ]
 
 const BOUNDARY_TILESETS = {
@@ -78,6 +75,59 @@ function boundarySourceId(areaId: string, tilesetKey: string): string {
   return `benchmark-boundary-${areaId}-${tilesetKey}`.replace(/[^a-zA-Z0-9-_]/g, "-")
 }
 
+const tilesetAccessCache = new Map<string, boolean>()
+let boundariesLicensedCache: boolean | null = null
+
+function tilesetIdFromUrl(tilesetUrl: string): string {
+  return tilesetUrl.replace(/^mapbox:\/\//, "")
+}
+
+export async function mapboxBoundariesLicensed(
+  accessToken: string
+): Promise<boolean> {
+  if (boundariesLicensedCache !== null) return boundariesLicensedCache
+  boundariesLicensedCache = await isBoundaryTilesetAccessible(
+    BOUNDARY_TILESETS.adm1.tilesetUrl,
+    accessToken
+  )
+  return boundariesLicensedCache
+}
+
+export async function isBoundaryTilesetAccessible(
+  tilesetUrl: string,
+  accessToken: string
+): Promise<boolean> {
+  const tilesetId = tilesetIdFromUrl(tilesetUrl)
+  const cached = tilesetAccessCache.get(tilesetId)
+  if (cached !== undefined) return cached
+
+  try {
+    const url = new URL(`https://api.mapbox.com/v4/${tilesetId}.json`)
+    url.searchParams.set("access_token", accessToken)
+    const res = await fetch(url.toString())
+    const ok = res.ok
+    tilesetAccessCache.set(tilesetId, ok)
+    return ok
+  } catch {
+    tilesetAccessCache.set(tilesetId, false)
+    return false
+  }
+}
+
+async function boundaryIfAccessible(
+  area: BenchmarkArea,
+  boundary: BenchmarkBoundarySpec | null,
+  accessToken: string
+): Promise<BenchmarkArea> {
+  if (!boundary) return { ...area, boundary: undefined }
+  const accessible = await isBoundaryTilesetAccessible(
+    boundary.tilesetUrl,
+    accessToken
+  )
+  if (!accessible) return { ...area, boundary: undefined }
+  return { ...area, boundary }
+}
+
 function boundarySpec(
   areaId: string,
   tileset: BoundaryTileset,
@@ -92,15 +142,38 @@ function boundarySpec(
   }
 }
 
-export function usCountryBoundarySpec(areaId = "us-national"): BenchmarkBoundarySpec {
+const US_CONTINENTAL_BOUNDARY = boundarySpec(
+  "us-national",
+  BOUNDARY_TILESETS.adm1,
+  "adm1-lower48",
+  [
+    "all",
+    US_WORLDVIEW_FILTER,
+    ["==", ["get", "iso_3166_1"], "US"],
+    ["!=", ["get", "iso_3166_2"], "US-AK"],
+    ["!=", ["get", "iso_3166_2"], "US-HI"],
+    ["!=", ["get", "iso_3166_2"], "us-ak"],
+    ["!=", ["get", "iso_3166_2"], "us-hi"],
+  ]
+)
+
+/** Lower 48 + DC state outlines — excludes Alaska and Hawaii. */
+export function usContinentalBoundarySpec(
+  areaId = "us-national"
+): BenchmarkBoundarySpec {
+  if (areaId === "us-national") return US_CONTINENTAL_BOUNDARY
   return boundarySpec(
     areaId,
-    BOUNDARY_TILESETS.country,
-    "country",
+    BOUNDARY_TILESETS.adm1,
+    "adm1-lower48",
     [
       "all",
       US_WORLDVIEW_FILTER,
       ["==", ["get", "iso_3166_1"], "US"],
+      ["!=", ["get", "iso_3166_2"], "US-AK"],
+      ["!=", ["get", "iso_3166_2"], "US-HI"],
+      ["!=", ["get", "iso_3166_2"], "us-ak"],
+      ["!=", ["get", "iso_3166_2"], "us-hi"],
     ]
   )
 }
@@ -138,22 +211,23 @@ async function tilequeryAt(
   tilesetId: string,
   lng: number,
   lat: number,
-  accessToken: string
-): Promise<TilequeryFeature | null> {
+  accessToken: string,
+  limit = 5
+): Promise<TilequeryFeature[]> {
   const url = new URL(
     `https://api.mapbox.com/v4/${tilesetId}/tilequery/${lng},${lat}.json`
   )
   url.searchParams.set("geometry", "polygon")
-  url.searchParams.set("limit", "1")
+  url.searchParams.set("limit", String(limit))
   url.searchParams.set("access_token", accessToken)
 
   try {
     const res = await fetch(url.toString())
-    if (!res.ok) return null
+    if (!res.ok) return []
     const data = (await res.json()) as TilequeryResponse
-    return data.features?.[0] ?? null
+    return data.features ?? []
   } catch {
-    return null
+    return []
   }
 }
 
@@ -172,18 +246,21 @@ async function tilequeryBoundarySpec(
   center: [number, number],
   accessToken: string
 ): Promise<BenchmarkBoundarySpec | null> {
-  const feature = await tilequeryAt(
+  const features = await tilequeryAt(
     tileset.tilesetId,
     center[0],
     center[1],
     accessToken
   )
-  if (!feature) return null
 
-  const mapboxId = mapboxIdFromTilequery(feature)
-  if (!mapboxId) return null
+  for (const feature of features) {
+    const mapboxId = mapboxIdFromTilequery(feature)
+    if (mapboxId) {
+      return boundarySpecFromMapboxId(areaId, tileset, tilesetKey, mapboxId)
+    }
+  }
 
-  return boundarySpecFromMapboxId(areaId, tileset, tilesetKey, mapboxId)
+  return null
 }
 
 async function resolveBoundaryFromHint(
@@ -195,7 +272,7 @@ async function resolveBoundaryFromHint(
   const center = hint.center ?? boundsCenter(area.bounds)
 
   if (placeType === "country" || hint.countryShortCode === "us") {
-    return usCountryBoundarySpec(area.id)
+    return usContinentalBoundarySpec(area.id)
   }
 
   if (placeType === "region" && hint.regionShortCode) {
@@ -219,9 +296,9 @@ async function resolveBoundaryFromHint(
           ]
         : placeType === "place" || placeType === "locality"
           ? [
-              { tileset: BOUNDARY_TILESETS.statistical, key: "statistical" },
               { tileset: BOUNDARY_TILESETS.adm3, key: "adm3" },
               { tileset: BOUNDARY_TILESETS.adm2, key: "adm2" },
+              { tileset: BOUNDARY_TILESETS.statistical, key: "statistical" },
             ]
           : [
               { tileset: BOUNDARY_TILESETS.statistical, key: "statistical" },
@@ -248,8 +325,21 @@ export async function enrichBenchmarkAreaWithBoundary(
   accessToken: string,
   hint?: BenchmarkAreaGeocodeHint
 ): Promise<BenchmarkArea> {
+  const withStored = applyStoredBoundary(area)
+  if (withStored.boundaryGeometry) {
+    return withStored
+  }
+
+  if (!(await mapboxBoundariesLicensed(accessToken))) {
+    return { ...area, boundary: undefined }
+  }
+
   if (area.id === "us-national") {
-    return { ...area, boundary: usCountryBoundarySpec(area.id) }
+    return boundaryIfAccessible(
+      area,
+      usContinentalBoundarySpec(area.id),
+      accessToken
+    )
   }
 
   const boundary =
@@ -261,8 +351,7 @@ export async function enrichBenchmarkAreaWithBoundary(
           accessToken
         )
 
-  if (!boundary) return area
-  return { ...area, boundary }
+  return boundaryIfAccessible(area, boundary, accessToken)
 }
 
 export function geocodeHintFromFeature(feature: {
