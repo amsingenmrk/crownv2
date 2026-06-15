@@ -14,7 +14,6 @@ import {
   filterBenchmarkAreaPresets,
   resolveBenchmarkAreaFromSearch,
   resolveBenchmarkAreaSelection,
-  searchBenchmarkAreas,
   US_NATIONAL_BENCHMARK_AREA,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
@@ -126,25 +125,9 @@ export function BenchmarkWorkspace() {
 
   React.useEffect(() => {
     const q = searchQuery.trim()
-    if (!q) {
-      setSuggestions(filterBenchmarkAreaPresets(""))
-      setHighlightedIndex(-1)
-      return
-    }
-
-    const timeout = window.setTimeout(async () => {
-      if (!mapboxToken) {
-        setSuggestions(filterBenchmarkAreaPresets(q))
-        setHighlightedIndex(-1)
-        return
-      }
-      const results = await searchBenchmarkAreas(q, mapboxToken)
-      setSuggestions(results)
-      setHighlightedIndex(-1)
-    }, 220)
-
-    return () => window.clearTimeout(timeout)
-  }, [mapboxToken, searchQuery])
+    setSuggestions(filterBenchmarkAreaPresets(q))
+    setHighlightedIndex(-1)
+  }, [searchQuery])
 
   React.useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
