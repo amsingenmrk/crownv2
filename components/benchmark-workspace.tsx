@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, X } from "lucide-react"
+import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react"
 
 import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
 import { BenchmarkKpiPanel } from "@/components/benchmark-kpi-panel"
@@ -49,6 +49,7 @@ export function BenchmarkWorkspace() {
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
+  const [mapExpanded, setMapExpanded] = React.useState(true)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
 
   const suggestions = React.useMemo(
@@ -156,7 +157,12 @@ export function BenchmarkWorkspace() {
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
+        <div
+          className={cn(
+            "flex min-h-[min(50vh,420px)] min-w-0 flex-col lg:h-full lg:min-h-0",
+            mapExpanded ? "lg:flex-[2]" : "lg:flex-1"
+          )}
+        >
           <div className="relative min-h-0 min-w-0 w-full flex-1 min-h-[min(50vh,420px)] border-b border-border bg-muted/20 lg:min-h-0 lg:border-b-0 lg:border-r">
             <div className="absolute inset-0 overflow-hidden">
               {showMapbox && selectedArea ? (
@@ -309,9 +315,36 @@ export function BenchmarkWorkspace() {
           </div>
         </div>
 
-        <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden border-t border-border bg-muted/15 p-4 lg:h-full lg:max-h-full lg:w-[min(100%,416px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[448px]">
+        <div
+          className={cn(
+            "relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-full lg:max-h-full lg:border-l lg:border-t-0",
+            mapExpanded ? "lg:flex-1" : "lg:flex-[2]"
+          )}
+        >
+          <div className="flex shrink-0 items-center justify-end border-b border-border px-4 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs font-medium"
+              aria-pressed={mapExpanded}
+              onClick={() => setMapExpanded((expanded) => !expanded)}
+            >
+              {mapExpanded ? (
+                <PanelLeftClose className="size-3.5 shrink-0" aria-hidden />
+              ) : (
+                <PanelLeftOpen className="size-3.5 shrink-0" aria-hidden />
+              )}
+              {mapExpanded ? "Less Map" : "More Map"}
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden p-4 pt-3">
           {showMapbox ? (
-            <BenchmarkKpiPanel snapshot={snapshot} className="h-full" />
+            <BenchmarkKpiPanel
+              area={selectedArea ?? US_NATIONAL_BENCHMARK_AREA}
+              snapshot={snapshot}
+              className="h-full"
+            />
           ) : (
             <div className="space-y-3">
               <Skeleton className="h-5 w-2/3" />
@@ -329,6 +362,7 @@ export function BenchmarkWorkspace() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

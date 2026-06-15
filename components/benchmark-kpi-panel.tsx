@@ -1,12 +1,18 @@
 "use client"
 
+import * as React from "react"
 import { Info } from "lucide-react"
 
+import { AssetForecastCharts } from "@/components/asset-forecast-charts"
+import { AssetForecastsTable } from "@/components/asset-forecasts-table"
 import {
   BENCHMARK_KPI_DEFINITIONS,
   type BenchmarkAreaSnapshot,
   type BenchmarkKpiDefinition,
 } from "@/lib/benchmark-area-model"
+import type { BenchmarkArea } from "@/lib/benchmark-area-search"
+import { buildBenchmarkAreaForecastModel } from "@/lib/benchmark-area-forecast"
+import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import {
   Tooltip,
@@ -77,12 +83,22 @@ function BenchmarkKpiCard({
 }
 
 export function BenchmarkKpiPanel({
+  area,
   snapshot,
   className,
 }: {
+  area: BenchmarkArea
   snapshot: BenchmarkAreaSnapshot
   className?: string
 }) {
+  const [forecastChartMetricTab, setForecastChartMetricTab] =
+    React.useState<ForecastChartTab>("grossRevenue")
+
+  const forecastModel = React.useMemo(
+    () => buildBenchmarkAreaForecastModel(area),
+    [area.id, area.label]
+  )
+
   const kpiByKey = Object.fromEntries(
     snapshot.kpis.map((kpi) => [kpi.key, kpi])
   ) as Record<
@@ -115,11 +131,9 @@ export function BenchmarkKpiPanel({
             : null}
         </p>
       </div>
-      <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]"
-        role="list"
-      >
-        <div className="grid grid-cols-2 gap-2">
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="grid grid-cols-2 gap-2" role="list">
           {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
             const kpi = kpiByKey[definition.key]
             return (
@@ -133,6 +147,31 @@ export function BenchmarkKpiPanel({
             )
           })}
         </div>
+
+        <section
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+          aria-label="Forecast statement"
+        >
+          <div className="border-b border-border/60 px-4 py-4">
+            <h2 className="text-sm font-semibold text-foreground">
+              Forecast Statement
+            </h2>
+          </div>
+          <AssetForecastsTable
+            key={area.id}
+            periods={forecastModel.periods}
+            rows={forecastModel.statementRows}
+            revenueBreakdown={forecastModel.revenueBreakdown}
+          />
+        </section>
+
+        <AssetForecastCharts
+          key={area.id}
+          models={[forecastModel]}
+          metricTab={forecastChartMetricTab}
+          onMetricTabChange={setForecastChartMetricTab}
+          metricToolbarInCard
+        />
       </div>
     </aside>
   )

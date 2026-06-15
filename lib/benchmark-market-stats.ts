@@ -382,6 +382,12 @@ const TRACKED_MARKET_STATS = Object.fromEntries(
   ])
 ) as Record<string, TrackedMarketStatsSeed>
 
+export function getTrackedMarketStats(
+  areaId: string
+): TrackedMarketStatsSeed | null {
+  return TRACKED_MARKET_STATS[areaId] ?? null
+}
+
 export function isTrackedBenchmarkArea(areaId: string): boolean {
   return areaId in TRACKED_MARKET_STATS
 }
