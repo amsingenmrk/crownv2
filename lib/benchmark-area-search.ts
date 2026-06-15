@@ -583,7 +583,21 @@ export function filterBenchmarkAreaPresets(query: string): BenchmarkArea[] {
 
   return BENCHMARK_MARKET_PRESETS.filter((preset) =>
     marketPresetMatchesQuery(preset, q)
-  )
+  ).map((preset) => applyStoredBoundary(preset))
+}
+
+/** Best matching curated market for a query, or null if none match. */
+export function matchBenchmarkPresetFromQuery(
+  query: string
+): BenchmarkArea | null {
+  const exact = findMarketPreset(query)
+  if (exact) {
+    return (
+      BENCHMARK_SEARCH_PRESETS.find((preset) => preset.id === exact.id) ??
+      applyStoredBoundary(exact)
+    )
+  }
+  return filterBenchmarkAreaPresets(query)[0] ?? null
 }
 
 export async function searchBenchmarkAreas(

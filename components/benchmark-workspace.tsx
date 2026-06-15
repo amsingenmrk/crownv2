@@ -12,7 +12,7 @@ import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordi
 import { benchmarkAreaSnapshot } from "@/lib/benchmark-area-model"
 import {
   filterBenchmarkAreaPresets,
-  resolveBenchmarkAreaFromSearch,
+  matchBenchmarkPresetFromQuery,
   resolveBenchmarkAreaSelection,
   US_NATIONAL_BENCHMARK_AREA,
   type BenchmarkArea,
@@ -43,16 +43,18 @@ export function BenchmarkWorkspace() {
   const suggestionsListId = React.useId()
 
   const [selectedArea, setSelectedArea] = React.useState<BenchmarkArea | null>(
-    null
+    US_NATIONAL_BENCHMARK_AREA
   )
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [suggestions, setSuggestions] = React.useState<BenchmarkArea[]>(() =>
-    filterBenchmarkAreaPresets("")
-  )
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
+
+  const suggestions = React.useMemo(
+    () => filterBenchmarkAreaPresets(searchQuery.trim()),
+    [searchQuery]
+  )
 
   const applyArea = React.useCallback(
     async (area: BenchmarkArea) => {
@@ -87,16 +89,18 @@ export function BenchmarkWorkspace() {
         return
       }
       if (!mapboxToken) {
-        const preset = filterBenchmarkAreaPresets(query)[0]
+        const preset = matchBenchmarkPresetFromQuery(query)
         if (preset) await applyArea(preset)
         return
       }
       setSearchPending(true)
       try {
-        const area = await resolveBenchmarkAreaFromSearch(query, mapboxToken)
-        setSelectedArea(area)
-        setSearchQuery(area.label)
-        setSuggestionsOpen(false)
+        const preset = matchBenchmarkPresetFromQuery(query)
+        if (preset) {
+          await applyArea(preset)
+          return
+        }
+        setSuggestionsOpen(true)
       } finally {
         setSearchPending(false)
       }
@@ -122,12 +126,6 @@ export function BenchmarkWorkspace() {
       cancelled = true
     }
   }, [mapboxToken])
-
-  React.useEffect(() => {
-    const q = searchQuery.trim()
-    setSuggestions(filterBenchmarkAreaPresets(q))
-    setHighlightedIndex(-1)
-  }, [searchQuery])
 
   React.useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -187,7 +185,9 @@ export function BenchmarkWorkspace() {
                       value={searchQuery}
                       onChange={(e) => {
                         const value = e.target.value
+                        setHighlightedIndex(-1)
                         if (!value.trim()) {
+                          setSearchQuery("")
                           void runSearch("")
                           return
                         }
