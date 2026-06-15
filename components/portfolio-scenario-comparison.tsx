@@ -155,7 +155,7 @@ export function PortfolioScenarioComparison({
   )
 
   return (
-    <div className="mb-6 flex flex-col gap-6">
+    <div className="@container mb-6 flex flex-col gap-6">
       <PortfolioCompareDataTable
         slotKeys={slotKeys}
         setSlot={setSlot}

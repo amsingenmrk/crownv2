@@ -1,86 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Info } from "lucide-react"
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
-import { AssetForecastsTable } from "@/components/asset-forecasts-table"
-import {
-  BENCHMARK_KPI_DEFINITIONS,
-  type BenchmarkAreaSnapshot,
-  type BenchmarkKpiDefinition,
-} from "@/lib/benchmark-area-model"
+import { ScopedForecastsPortfolioTotalsTable } from "@/components/scoped-forecasts-table"
+import type { BenchmarkAreaSnapshot } from "@/lib/benchmark-area-model"
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
-import { buildBenchmarkAreaForecastModel } from "@/lib/benchmark-area-forecast"
+import { buildBenchmarkAreaForecastRollup } from "@/lib/benchmark-area-forecast"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
-import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-
-function scoreValueClass(
-  definition: BenchmarkKpiDefinition,
-  value: string
-): string | undefined {
-  if (definition.format !== "score" || value === "—") return undefined
-  const n = Number(value)
-  if (!Number.isFinite(n)) return undefined
-  return qualityScoreValueClass(n)
-}
-
-function BenchmarkKpiCard({
-  definition,
-  value,
-  participantNote,
-}: {
-  definition: BenchmarkKpiDefinition
-  value: string
-  participantNote?: string
-}) {
-  const valueClassName = scoreValueClass(definition, value)
-
-  return (
-    <article className="flex h-full min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-1.5">
-        <h3 className="text-xs font-medium leading-snug text-muted-foreground">
-          {definition.label}
-        </h3>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                aria-label={`Info: ${definition.label}`}
-              />
-            }
-          >
-            <Info className="size-3 stroke-[1.5]" aria-hidden />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-[280px] text-pretty text-xs">
-            {definition.methodology}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <p
-        className={cn(
-          "mt-1 text-lg font-semibold leading-tight tracking-tight tabular-nums",
-          valueClassName ?? "text-foreground"
-        )}
-      >
-        {value}
-      </p>
-      {participantNote ? (
-        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
-          {participantNote}
-        </p>
-      ) : null}
-    </article>
-  )
-}
 
 export function BenchmarkKpiPanel({
   area,
@@ -91,33 +19,22 @@ export function BenchmarkKpiPanel({
   snapshot: BenchmarkAreaSnapshot
   className?: string
 }) {
-  const [forecastChartMetricTab, setForecastChartMetricTab] =
-    React.useState<ForecastChartTab>("grossRevenue")
+  const [metricTab, setMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
 
-  const forecastModel = React.useMemo(
-    () => buildBenchmarkAreaForecastModel(area),
+  const forecastRollup = React.useMemo(
+    () => buildBenchmarkAreaForecastRollup(area),
     [area.id, area.label]
   )
-
-  const kpiByKey = Object.fromEntries(
-    snapshot.kpis.map((kpi) => [kpi.key, kpi])
-  ) as Record<
-    (typeof BENCHMARK_KPI_DEFINITIONS)[number]["key"],
-    (typeof snapshot.kpis)[number]
-  >
 
   return (
     <aside
       className={cn(
-        "flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden",
+        "@container flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden",
         className
       )}
       aria-label="Benchmark metrics for map area"
     >
       <div className="shrink-0 space-y-0.5 border-b border-border pb-2.5">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          Area benchmarks
-        </p>
         <h2 className="text-base font-semibold tracking-tight text-foreground">
           {snapshot.areaLabel}
         </h2>
@@ -133,43 +50,30 @@ export function BenchmarkKpiPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
-        <div className="grid grid-cols-2 gap-2" role="list">
-          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
-            const kpi = kpiByKey[definition.key]
-            return (
-              <div key={definition.key} role="listitem" className="min-w-0">
-                <BenchmarkKpiCard
-                  definition={definition}
-                  value={kpi?.value ?? "—"}
-                  participantNote={kpi?.participantNote}
-                />
-              </div>
-            )
-          })}
-        </div>
-
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label="Forecast statement"
+          aria-label={`${snapshot.areaLabel} portfolio totals`}
         >
-          <div className="border-b border-border/60 px-4 py-4">
-            <h2 className="text-sm font-semibold text-foreground">
-              Forecast Statement
+          <div className="border-b border-border/60 px-4 py-3">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              Portfolio totals
             </h2>
           </div>
-          <AssetForecastsTable
+          <ScopedForecastsPortfolioTotalsTable
             key={area.id}
-            periods={forecastModel.periods}
-            rows={forecastModel.statementRows}
-            revenueBreakdown={forecastModel.revenueBreakdown}
+            periods={forecastRollup.expectedModel.periods}
+            rows={forecastRollup.expectedModel.statementRows}
+            assetModels={[]}
+            outlookModels={forecastRollup.outlookModels}
+            metricFocus={metricTab}
           />
         </section>
 
         <AssetForecastCharts
           key={area.id}
-          models={[forecastModel]}
-          metricTab={forecastChartMetricTab}
-          onMetricTabChange={setForecastChartMetricTab}
+          models={forecastRollup.chartModels}
+          metricTab={metricTab}
+          onMetricTabChange={setMetricTab}
           metricToolbarInCard
         />
       </div>

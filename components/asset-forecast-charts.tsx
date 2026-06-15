@@ -189,7 +189,7 @@ export function AssetForecastChartMetricToolbar({
   const activeChartMeta = getForecastStatementChartMeta(metricTab)
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+    <div className="flex flex-col gap-3 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-6">
       <div className="min-w-0 flex-1 space-y-1">
         {showMetricTitle ? (
           <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -305,7 +305,7 @@ export function AssetForecastCharts({
 
   return (
     <section
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+      className="@container overflow-hidden rounded-xl border border-border bg-card shadow-sm"
       aria-label="Forecast charts"
     >
       {chartInner}

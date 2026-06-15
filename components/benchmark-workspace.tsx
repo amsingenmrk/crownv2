@@ -321,7 +321,10 @@ export function BenchmarkWorkspace() {
             mapExpanded ? "lg:flex-1" : "lg:flex-[2]"
           )}
         >
-          <div className="flex shrink-0 items-center justify-end border-b border-border px-4 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Area benchmarks
+            </p>
             <Button
               type="button"
               variant="ghost"

@@ -168,7 +168,7 @@ function featureFromState(stateCollection, stusps) {
   return feature
 }
 
-const LOWER_48_EXCLUDED = new Set(["AK", "HI"])
+const LOWER_48_EXCLUDED = new Set(["AK", "HI", "PR"])
 
 function lower48Geometry(stateCollection) {
   /** @type {number[][][][]} */

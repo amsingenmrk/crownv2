@@ -5,12 +5,15 @@ import {
   scenarioEffectsForPeriod,
   type AssetForecastModel,
   type ForecastAssumptions,
+  type ForecastEconomicOutlookScenario,
   type ForecastRevenueFloorRow,
   type ForecastRowKind,
   type ForecastStatementRow,
 } from "@/lib/forecast-data"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
+import { DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES } from "@/lib/scoped-forecast"
+import type { ScopedForecastPortfolioOutlookModel } from "@/lib/scoped-forecast-rollup"
 
 const AVG_MARKET_BUILDING_RSF = 175_000
 
@@ -19,6 +22,12 @@ const MARKET_REVENUE_SEGMENTS = [
   { id: "segment-class-bc", label: "Class B/C office", share: 0.24 },
   { id: "segment-other", label: "Retail & other", share: 0.08 },
 ] as const
+
+export type BenchmarkAreaForecastRollup = {
+  expectedModel: AssetForecastModel
+  outlookModels: ScopedForecastPortfolioOutlookModel[]
+  chartModels: AssetForecastModel[]
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -157,11 +166,200 @@ function marketAssumptions(
   }
 }
 
-export function buildBenchmarkAreaForecastModel(
+function marketOpexRatio(areaId: string) {
+  return clamp(0.58 + (marketSearchDemoHash32(areaId) % 80) / 1000, 0.54, 0.66)
+}
+
+function probabilityWeightedSeries(
+  models: AssetForecastModel[],
+  weights: readonly number[],
+  rowId: string
+) {
+  const periodCount = models[0]?.periods.length ?? 0
+  return Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const rowValue =
+        model.statementRows.find((statementRow) => statementRow.id === rowId)?.values[
+          index
+        ] ?? 0
+      weightedTotal += rowValue * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+}
+
+function probabilityWeightedUncertaintyBand(
+  models: AssetForecastModel[],
+  weights: readonly number[],
+  rowId: string
+): ForecastStatementRow["uncertaintyBand"] {
+  const hasAnyBand = models.some(
+    (model) =>
+      model.statementRows.find((statementRow) => statementRow.id === rowId)
+        ?.uncertaintyBand != null
+  )
+  if (!hasAnyBand) return undefined
+
+  const periodCount = models[0]?.periods.length ?? 0
+  const lowerValues = Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const band = model.statementRows.find(
+        (statementRow) => statementRow.id === rowId
+      )?.uncertaintyBand
+      weightedTotal += (band?.lowerValues[index] ?? 0) * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+  const upperValues = Array.from({ length: periodCount }, (_, index) => {
+    let weightedTotal = 0
+    let totalWeight = 0
+
+    for (const [modelIndex, model] of models.entries()) {
+      const weight = weights[modelIndex] ?? 0
+      const band = model.statementRows.find(
+        (statementRow) => statementRow.id === rowId
+      )?.uncertaintyBand
+      weightedTotal += (band?.upperValues[index] ?? 0) * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? Number((weightedTotal / totalWeight).toFixed(2)) : 0
+  })
+
+  return {
+    lowerValues,
+    upperValues,
+    label: "Probability-weighted range across outlooks.",
+  }
+}
+
+function buildProbabilityWeightedMarketModel({
+  area,
+  models,
+  weights,
+  assumptions,
+}: {
   area: BenchmarkArea
+  models: AssetForecastModel[]
+  weights: readonly number[]
+  assumptions: ForecastAssumptions
+}): AssetForecastModel {
+  const baselineScenario = buildDefaultForecastScenarios()[0]!
+  const grossRevenue = probabilityWeightedSeries(models, weights, "grossRevenue")
+  const opex = probabilityWeightedSeries(models, weights, "opex")
+  const noi = probabilityWeightedSeries(models, weights, "noi")
+  const salePrice = probabilityWeightedSeries(models, weights, "salePrice")
+  const capRate = probabilityWeightedSeries(models, weights, "capRate")
+
+  const statementRows: ForecastStatementRow[] = [
+    {
+      id: "grossRevenue",
+      label: "Gross Revenue",
+      kind: "currency",
+      values: grossRevenue,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(
+        models,
+        weights,
+        "grossRevenue"
+      ),
+    },
+    {
+      id: "opex",
+      label: "OpEx",
+      kind: "expense",
+      values: opex,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "opex"),
+    },
+    {
+      id: "noi",
+      label: "NOI",
+      kind: "currency",
+      values: noi,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "noi"),
+    },
+    {
+      id: "salePrice",
+      label: "Asset Value",
+      kind: "currency",
+      values: salePrice,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(
+        models,
+        weights,
+        "salePrice"
+      ),
+    },
+    {
+      id: "capRate",
+      label: "Cap Rate",
+      kind: "percent",
+      values: capRate,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(models, weights, "capRate"),
+    },
+  ]
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const weightedSummaryValue = (
+    read: (model: AssetForecastModel) => number,
+    digits = 2
+  ) => {
+    if (totalWeight <= 0) return 0
+    const value =
+      models.reduce((sum, model, index) => {
+        return sum + read(model) * (weights[index] ?? 0)
+      }, 0) / totalWeight
+    return Number(value.toFixed(digits))
+  }
+
+  return {
+    assetId: area.id,
+    assetName: area.label,
+    scenario: {
+      ...baselineScenario,
+      id: "benchmark-market-expected",
+      name: "Probability-weighted",
+    },
+    assumptions,
+    periods: models[0]?.periods ?? buildForecastPeriods(),
+    statementRows,
+    revenueBreakdown: [],
+    summary: {
+      currentOccupancyPct: weightedSummaryValue(
+        (model) => model.summary.currentOccupancyPct
+      ),
+      targetOccupancyPct: weightedSummaryValue(
+        (model) => model.summary.targetOccupancyPct
+      ),
+      currentAnnualRevenue: weightedSummaryValue(
+        (model) => model.summary.currentAnnualRevenue
+      ),
+      currentAnnualOpex: weightedSummaryValue(
+        (model) => model.summary.currentAnnualOpex
+      ),
+      currentAnnualNoi: weightedSummaryValue(
+        (model) => model.summary.currentAnnualNoi
+      ),
+      exitCapRatePct: weightedSummaryValue((model) => model.summary.exitCapRatePct),
+    },
+  }
+}
+
+export function buildBenchmarkAreaForecastModelForScenario(
+  area: BenchmarkArea,
+  scenario: ForecastEconomicOutlookScenario
 ): AssetForecastModel {
   const stats = getTrackedMarketStats(area.id)
-  const scenario = buildDefaultForecastScenarios()[0]!
   const periods = buildForecastPeriods()
 
   const buildingCount = stats?.buildingCount ?? 420
@@ -174,12 +372,11 @@ export function buildBenchmarkAreaForecastModel(
     occupancyPct,
     askingRentPsf
   )
-  const opexRatio = clamp(0.58 + (marketSearchDemoHash32(area.id) % 80) / 1000, 0.54, 0.66)
+  const opexRatio = marketOpexRatio(area.id)
 
   const grossRevenue = periods.map((period) => {
-    const macro = scenario.macroPeriods[
-      Math.min(period.index, scenario.macroPeriods.length - 1)
-    ]!
+    const macro =
+      scenario.macroPeriods[Math.min(period.index, scenario.macroPeriods.length - 1)]!
     const effects = scenarioEffectsForPeriod(macro)
     const trend = Math.pow(effects.rentFactor, period.index)
     const occupancyLift = 1 + (occupancyPct - 85) * 0.0025
@@ -187,9 +384,8 @@ export function buildBenchmarkAreaForecastModel(
   })
 
   const opex = grossRevenue.map((value, index) => {
-    const macro = scenario.macroPeriods[
-      Math.min(index, scenario.macroPeriods.length - 1)
-    ]!
+    const macro =
+      scenario.macroPeriods[Math.min(index, scenario.macroPeriods.length - 1)]!
     const effects = scenarioEffectsForPeriod(macro)
     return Number((value * opexRatio * effects.opexFactor).toFixed(2))
   })
@@ -199,16 +395,11 @@ export function buildBenchmarkAreaForecastModel(
   )
 
   const capRate = periods.map((period) => {
-    const macro = scenario.macroPeriods[
-      Math.min(period.index, scenario.macroPeriods.length - 1)
-    ]!
+    const macro =
+      scenario.macroPeriods[Math.min(period.index, scenario.macroPeriods.length - 1)]!
     const effects = scenarioEffectsForPeriod(macro)
     return clamp(
-      Number(
-        (
-          assumptions.exitCapRatePct + effects.exitCapAdjustmentPct
-        ).toFixed(2)
-      ),
+      Number((assumptions.exitCapRatePct + effects.exitCapAdjustmentPct).toFixed(2)),
       5.5,
       8.25
     )
@@ -250,5 +441,58 @@ export function buildBenchmarkAreaForecastModel(
       currentAnnualNoi: (noi[0] ?? 0) * 4,
       exitCapRatePct: capRate[capRate.length - 1] ?? assumptions.exitCapRatePct,
     },
+  }
+}
+
+export function buildBenchmarkAreaForecastModel(
+  area: BenchmarkArea
+): AssetForecastModel {
+  return buildBenchmarkAreaForecastModelForScenario(
+    area,
+    buildDefaultForecastScenarios()[0]!
+  )
+}
+
+export function buildBenchmarkAreaForecastRollup(
+  area: BenchmarkArea
+): BenchmarkAreaForecastRollup {
+  const scenarios = buildDefaultForecastScenarios()
+  const stats = getTrackedMarketStats(area.id)
+  const assumptions = marketAssumptions(
+    stats?.occupancyPct ?? 86,
+    stats?.askingRentPsf ?? 34.5
+  )
+
+  const outlookModels: ScopedForecastPortfolioOutlookModel[] = scenarios.map(
+    (scenario) => {
+      const portfolioModel = buildBenchmarkAreaForecastModelForScenario(area, scenario)
+      const probabilityPct =
+        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES[
+          scenario.id as keyof typeof DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+        ] ?? 0
+
+      return {
+        scenarioId: scenario.id as ScopedForecastPortfolioOutlookModel["scenarioId"],
+        probabilityPct,
+        portfolioModel,
+        assetModels: [],
+      }
+    }
+  )
+
+  const expectedModel = buildProbabilityWeightedMarketModel({
+    area,
+    models: outlookModels.map((entry) => entry.portfolioModel),
+    weights: outlookModels.map((entry) => entry.probabilityPct),
+    assumptions,
+  })
+
+  return {
+    expectedModel,
+    outlookModels,
+    chartModels: [
+      expectedModel,
+      ...outlookModels.map((entry) => entry.portfolioModel),
+    ],
   }
 }
