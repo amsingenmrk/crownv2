@@ -1,14 +1,86 @@
 "use client"
 
 import * as React from "react"
+import { Info } from "lucide-react"
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
 import { ScopedForecastsPortfolioTotalsTable } from "@/components/scoped-forecasts-table"
-import type { BenchmarkAreaSnapshot } from "@/lib/benchmark-area-model"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  BENCHMARK_KPI_DEFINITIONS,
+  type BenchmarkAreaSnapshot,
+  type BenchmarkKpiDefinition,
+} from "@/lib/benchmark-area-model"
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import { buildBenchmarkAreaForecastRollup } from "@/lib/benchmark-area-forecast"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
+import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
+
+function scoreValueClass(
+  definition: BenchmarkKpiDefinition,
+  value: string
+): string | undefined {
+  if (definition.format !== "score" || value === "—") return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n)) return undefined
+  return qualityScoreValueClass(n)
+}
+
+function BenchmarkKpiCard({
+  definition,
+  value,
+  participantNote,
+}: {
+  definition: BenchmarkKpiDefinition
+  value: string
+  participantNote?: string
+}) {
+  const valueClassName = scoreValueClass(definition, value)
+
+  return (
+    <article className="flex h-full min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-1.5">
+        <h3 className="text-xs font-medium leading-snug text-muted-foreground">
+          {definition.label}
+        </h3>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                aria-label={`Info: ${definition.label}`}
+              />
+            }
+          >
+            <Info className="size-3 stroke-[1.5]" aria-hidden />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-pretty text-xs">
+            {definition.methodology}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <p
+        className={cn(
+          "mt-1 text-lg font-semibold leading-tight tracking-tight tabular-nums",
+          valueClassName ?? "text-foreground"
+        )}
+      >
+        {value}
+      </p>
+      {participantNote ? (
+        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+          {participantNote}
+        </p>
+      ) : null}
+    </article>
+  )
+}
 
 export function BenchmarkKpiPanel({
   area,
@@ -25,6 +97,13 @@ export function BenchmarkKpiPanel({
     () => buildBenchmarkAreaForecastRollup(area),
     [area.id, area.label]
   )
+
+  const kpiByKey = Object.fromEntries(
+    snapshot.kpis.map((kpi) => [kpi.key, kpi])
+  ) as Record<
+    (typeof BENCHMARK_KPI_DEFINITIONS)[number]["key"],
+    (typeof snapshot.kpis)[number]
+  >
 
   return (
     <aside
@@ -50,13 +129,28 @@ export function BenchmarkKpiPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
+          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
+            const kpi = kpiByKey[definition.key]
+            return (
+              <div key={definition.key} role="listitem" className="min-w-0">
+                <BenchmarkKpiCard
+                  definition={definition}
+                  value={kpi?.value ?? "—"}
+                  participantNote={kpi?.participantNote}
+                />
+              </div>
+            )
+          })}
+        </div>
+
         <section
           className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label={`${snapshot.areaLabel} portfolio totals`}
+          aria-label={`${snapshot.areaLabel} forecasts`}
         >
           <div className="border-b border-border/60 px-4 py-3">
             <h2 className="text-base font-semibold tracking-tight text-foreground">
-              Portfolio totals
+              Forecasts
             </h2>
           </div>
           <ScopedForecastsPortfolioTotalsTable
