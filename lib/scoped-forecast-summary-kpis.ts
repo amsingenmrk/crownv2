@@ -32,6 +32,7 @@ import {
   buildValuationConditionMetricMap,
   probabilityWeightedValuationConditionMetrics,
   scaleDisplayedMetricsForValuationCondition,
+  type ValuationConditionMetrics,
 } from "@/lib/valuation-condition-metrics"
 
 function sumSeries(values: number[]) {
@@ -72,6 +73,16 @@ const FORECAST_VALUATION_ROW_META: readonly {
   { label: "Asset Value", field: "assetValue", rowSuffix: "terminal" },
   { label: "Cap Rate", field: "capRate", rowSuffix: "terminal" },
 ] as const
+
+const valuationMetricsByAssetModelsCache = new WeakMap<
+  readonly ScopedForecastResolvedAssetModel[],
+  Map<ValuationConditionId, ValuationConditionMetrics>
+>()
+
+const probabilityWeightedValuationMetricsCache = new WeakMap<
+  readonly ScopedForecastPortfolioOutlookModel[],
+  Map<ValuationConditionId, ValuationConditionMetrics>
+>()
 
 function formatForecastValuationField(
   field: ForecastValuationStripField,
@@ -163,7 +174,16 @@ function valuationMetricsForResolvedAssetModels(
   assetModels: readonly ScopedForecastResolvedAssetModel[],
   valuationCondition: ValuationConditionId
 ) {
-  return aggregateValuationConditionMetrics(
+  let byCondition = valuationMetricsByAssetModelsCache.get(assetModels)
+  if (byCondition == null) {
+    byCondition = new Map<ValuationConditionId, ValuationConditionMetrics>()
+    valuationMetricsByAssetModelsCache.set(assetModels, byCondition)
+  }
+
+  const cached = byCondition.get(valuationCondition)
+  if (cached != null) return cached
+
+  const metrics = aggregateValuationConditionMetrics(
     assetModels.map((entry) => {
       const metricMap = buildValuationConditionMetricMap({
         assetId: entry.selection.row.id,
@@ -176,21 +196,32 @@ function valuationMetricsForResolvedAssetModels(
       return metricMap[valuationCondition]
     })
   )
+  byCondition.set(valuationCondition, metrics)
+  return metrics
 }
 
 function probabilityWeightedValuationMetricsForOutlooks(
   outlookModels: readonly ScopedForecastPortfolioOutlookModel[],
   valuationCondition: ValuationConditionId
 ) {
-  return probabilityWeightedValuationConditionMetrics({
+  let byCondition = probabilityWeightedValuationMetricsCache.get(outlookModels)
+  if (byCondition == null) {
+    byCondition = new Map<ValuationConditionId, ValuationConditionMetrics>()
+    probabilityWeightedValuationMetricsCache.set(outlookModels, byCondition)
+  }
+
+  const cached = byCondition.get(valuationCondition)
+  if (cached != null) return cached
+
+  const metrics = probabilityWeightedValuationConditionMetrics({
     metrics: outlookModels.map((outlook) =>
-      valuationMetricsForResolvedAssetModels(
-        outlook.assetModels,
-        valuationCondition
-      )
+      outlook.valuationMetricsByCondition?.[valuationCondition] ??
+      valuationMetricsForResolvedAssetModels(outlook.assetModels, valuationCondition)
     ),
     weights: outlookModels.map((outlook) => outlook.probabilityPct),
   })
+  byCondition.set(valuationCondition, metrics)
+  return metrics
 }
 
 export function buildScopedForecastSummaryKpis({
@@ -498,47 +529,63 @@ export function buildScopedForecastSummaryKpis({
   ]
 }
 
-function portfolioForecastScaled(
+function buildPortfolioForecastScaledByCondition(
   portfolioOverview: NonNullable<ScopedForecastRollup["portfolioOverview"]>,
-  useReferenceModel: boolean,
-  condition: ValuationConditionId
-): ForecastSummaryMetricValues {
+  useReferenceModel: boolean
+): Record<ValuationConditionId, ForecastSummaryMetricValues> {
   const statementRows = useReferenceModel
     ? portfolioOverview.referenceExpectedModel.statementRows
     : portfolioOverview.expectedModel.statementRows
-  const base = getForecastSummaryMetricValues(statementRows, true)
+  const displayedMetrics = getForecastSummaryMetricValues(statementRows, true)
   const outlookModels = useReferenceModel
     ? portfolioOverview.referenceOutlookModels
     : portfolioOverview.outlookModels
-  return scaleDisplayedMetricsForValuationCondition({
-    displayedMetrics: base,
-    baseAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
-      outlookModels,
-      "inPlace"
-    ),
-    selectedAnnualMetrics: probabilityWeightedValuationMetricsForOutlooks(
-      outlookModels,
-      condition
-    ),
-  })
+  const baseAnnualMetrics = probabilityWeightedValuationMetricsForOutlooks(
+    outlookModels,
+    "inPlace"
+  )
+
+  return Object.fromEntries(
+    VALUATION_CONDITION_OPTIONS.map((option) => [
+      option.id,
+      scaleDisplayedMetricsForValuationCondition({
+        displayedMetrics,
+        baseAnnualMetrics,
+        selectedAnnualMetrics:
+          option.id === "inPlace"
+            ? baseAnnualMetrics
+            : probabilityWeightedValuationMetricsForOutlooks(
+                outlookModels,
+                option.id
+              ),
+      }),
+    ])
+  ) as Record<ValuationConditionId, ForecastSummaryMetricValues>
 }
 
-function assetForecastScaled(
+function buildAssetForecastScaledByCondition(
   statementRows: ForecastStatementRow[],
   assetModels: readonly ScopedForecastResolvedAssetModel[],
-  condition: ValuationConditionId
-): ForecastSummaryMetricValues {
-  return scaleDisplayedMetricsForValuationCondition({
-    displayedMetrics: getForecastSummaryMetricValues(statementRows, true),
-    baseAnnualMetrics: valuationMetricsForResolvedAssetModels(
-      assetModels,
-      "inPlace"
-    ),
-    selectedAnnualMetrics: valuationMetricsForResolvedAssetModels(
-      assetModels,
-      condition
-    ),
-  })
+): Record<ValuationConditionId, ForecastSummaryMetricValues> {
+  const displayedMetrics = getForecastSummaryMetricValues(statementRows, true)
+  const baseAnnualMetrics = valuationMetricsForResolvedAssetModels(
+    assetModels,
+    "inPlace"
+  )
+
+  return Object.fromEntries(
+    VALUATION_CONDITION_OPTIONS.map((option) => [
+      option.id,
+      scaleDisplayedMetricsForValuationCondition({
+        displayedMetrics,
+        baseAnnualMetrics,
+        selectedAnnualMetrics:
+          option.id === "inPlace"
+            ? baseAnnualMetrics
+            : valuationMetricsForResolvedAssetModels(assetModels, option.id),
+      }),
+    ])
+  ) as Record<ValuationConditionId, ForecastSummaryMetricValues>
 }
 
 /** Multi-condition KPI strip for scoped forecasts (replaces valuation toggle + summary strip). */
@@ -571,19 +618,12 @@ export function buildScopedForecastValuationKpiStripRows({
     const showPortfolioPair =
       portfolioModificationMode !== "baseline" ||
       !portfolioProbabilitiesMatchDefault(portfolioScenarioProbabilities)
-    const currentByCondition = Object.fromEntries(
-      VALUATION_CONDITION_OPTIONS.map((option) => [
-        option.id,
-        portfolioForecastScaled(portfolioOverview, false, option.id),
-      ])
-    ) as Record<ValuationConditionId, ForecastSummaryMetricValues>
+    const currentByCondition = buildPortfolioForecastScaledByCondition(
+      portfolioOverview,
+      false
+    )
     const baselineByCondition = showPortfolioPair
-      ? (Object.fromEntries(
-          VALUATION_CONDITION_OPTIONS.map((option) => [
-            option.id,
-            portfolioForecastScaled(portfolioOverview, true, option.id),
-          ])
-        ) as Record<ValuationConditionId, ForecastSummaryMetricValues>)
+      ? buildPortfolioForecastScaledByCondition(portfolioOverview, true)
       : undefined
 
     return buildForecastValuationStripRowsFromConditionMaps(
@@ -608,23 +648,15 @@ export function buildScopedForecastValuationKpiStripRows({
     activeVariant === "selected" &&
     (hasAnySelectedModifications || hasAnySelectedOutlookChanges)
 
-  const currentByCondition = Object.fromEntries(
-    VALUATION_CONDITION_OPTIONS.map((option) => [
-      option.id,
-      assetForecastScaled(activeModelStatementRows, activeAssetModels, option.id),
-    ])
-  ) as Record<ValuationConditionId, ForecastSummaryMetricValues>
+  const currentByCondition = buildAssetForecastScaledByCondition(
+    activeModelStatementRows,
+    activeAssetModels
+  )
   const baselineByCondition = showScenarioPair
-    ? (Object.fromEntries(
-        VALUATION_CONDITION_OPTIONS.map((option) => [
-          option.id,
-          assetForecastScaled(
-            baselineModelStatementRows,
-            baselineAssetModels,
-            option.id
-          ),
-        ])
-      ) as Record<ValuationConditionId, ForecastSummaryMetricValues>)
+    ? buildAssetForecastScaledByCondition(
+        baselineModelStatementRows,
+        baselineAssetModels
+      )
     : undefined
 
   return buildForecastValuationStripRowsFromConditionMaps(

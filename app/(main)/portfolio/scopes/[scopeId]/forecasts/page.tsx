@@ -1,4 +1,3 @@
-import { ScopedForecastsWorkspace } from "@/components/scoped-forecasts-workspace"
 import { redirect } from "next/navigation"
 
 import {
@@ -21,8 +20,6 @@ export default async function PortfolioScopeForecastsPage({
   }
 
   return (
-    <ScopedForecastsWorkspace
-      scope={{ kind: "portfolio", portfolioScopeId: resolvedScopeId }}
-    />
+    null
   )
 }

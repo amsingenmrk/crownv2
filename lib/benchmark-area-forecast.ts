@@ -1,7 +1,9 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
+import type { BenchmarkStatsRaw } from "@/lib/benchmark-area-model"
 import {
   buildDefaultForecastScenarios,
   buildForecastPeriods,
+  deriveLeaseUpShare,
   scenarioEffectsForPeriod,
   type AssetForecastModel,
   type ForecastAssumptions,
@@ -12,8 +14,14 @@ import {
 } from "@/lib/forecast-data"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
-import { DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES } from "@/lib/scoped-forecast"
-import type { ScopedForecastPortfolioOutlookModel } from "@/lib/scoped-forecast-rollup"
+import {
+  DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
+  normalizeScopedForecastPortfolioScenarioProbabilities,
+  type ScopedForecastPortfolioScenarioProbabilities,
+} from "@/lib/scoped-forecast"
+import type {
+  ScopedForecastPortfolioOutlookModel,
+} from "@/lib/scoped-forecast-rollup"
 
 const AVG_MARKET_BUILDING_RSF = 175_000
 
@@ -27,6 +35,37 @@ export type BenchmarkAreaForecastRollup = {
   expectedModel: AssetForecastModel
   outlookModels: ScopedForecastPortfolioOutlookModel[]
   chartModels: AssetForecastModel[]
+}
+
+export type BenchmarkAreaForecastInputs = Pick<
+  BenchmarkStatsRaw,
+  | "buildingCount"
+  | "occupancyPct"
+  | "askingRentPsf"
+  | "inPlaceRentPsf"
+  | "intrinsicRentPsf"
+>
+
+type BuildBenchmarkAreaForecastModelArgs = {
+  area: BenchmarkArea
+  scenario: ForecastEconomicOutlookScenario
+  marketInputs: BenchmarkAreaForecastInputs
+  assumptions: ForecastAssumptions
+}
+
+type BuildBenchmarkAreaForecastRollupArgs = {
+  area: BenchmarkArea
+  marketInputs?: BenchmarkAreaForecastInputs | null
+  assumptions?: ForecastAssumptions
+  scenarioProbabilities?: ScopedForecastPortfolioScenarioProbabilities
+}
+
+const DEFAULT_BENCHMARK_FORECAST_INPUTS: BenchmarkAreaForecastInputs = {
+  buildingCount: 420,
+  occupancyPct: 86,
+  askingRentPsf: 34.5,
+  inPlaceRentPsf: 31.2,
+  intrinsicRentPsf: 33.8,
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -98,6 +137,8 @@ function withUncertaintyBand(
         ? "Asset Value"
         : rowId === "grossRevenue"
           ? "Gross Revenue"
+          : rowId === "intrinsicRent"
+            ? "Intrinsic Rent"
           : rowId === "opex"
             ? "OpEx"
             : rowId === "noi"
@@ -153,16 +194,43 @@ function buildMarketRevenueBreakdown(
   })
 }
 
-function marketAssumptions(
-  occupancyPct: number,
-  askingRentPsf: number
+export function benchmarkAreaForecastInputs(
+  area: BenchmarkArea,
+  rawStats?: BenchmarkAreaForecastInputs | null
+): BenchmarkAreaForecastInputs {
+  if (rawStats != null) {
+    return {
+      buildingCount: rawStats.buildingCount,
+      occupancyPct: rawStats.occupancyPct,
+      askingRentPsf: rawStats.askingRentPsf,
+      inPlaceRentPsf: rawStats.inPlaceRentPsf,
+      intrinsicRentPsf: rawStats.intrinsicRentPsf,
+    }
+  }
+
+  const tracked = getTrackedMarketStats(area.id)
+  if (tracked != null) {
+    return {
+      buildingCount: tracked.buildingCount,
+      occupancyPct: tracked.occupancyPct,
+      askingRentPsf: tracked.askingRentPsf,
+      inPlaceRentPsf: tracked.inPlaceRentPsf,
+      intrinsicRentPsf: tracked.intrinsicRentPsf,
+    }
+  }
+
+  return { ...DEFAULT_BENCHMARK_FORECAST_INPUTS }
+}
+
+export function defaultBenchmarkForecastAssumptions(
+  inputs: BenchmarkAreaForecastInputs
 ): ForecastAssumptions {
   return {
     markToMarketEnabled: true,
     timeToLeaseMonths: 9,
-    occupancyTargetPct: clamp(Math.round(occupancyPct + 2), 75, 96),
+    occupancyTargetPct: clamp(Math.round(inputs.occupancyPct + 2), 75, 96),
     defaultRenewalProbabilityPct: 62,
-    exitCapRatePct: marketExitCapRatePct(askingRentPsf),
+    exitCapRatePct: marketExitCapRatePct(inputs.askingRentPsf),
   }
 }
 
@@ -258,6 +326,7 @@ function buildProbabilityWeightedMarketModel({
 }): AssetForecastModel {
   const baselineScenario = buildDefaultForecastScenarios()[0]!
   const grossRevenue = probabilityWeightedSeries(models, weights, "grossRevenue")
+  const intrinsicRent = probabilityWeightedSeries(models, weights, "intrinsicRent")
   const opex = probabilityWeightedSeries(models, weights, "opex")
   const noi = probabilityWeightedSeries(models, weights, "noi")
   const salePrice = probabilityWeightedSeries(models, weights, "salePrice")
@@ -273,6 +342,17 @@ function buildProbabilityWeightedMarketModel({
         models,
         weights,
         "grossRevenue"
+      ),
+    },
+    {
+      id: "intrinsicRent",
+      label: "Intrinsic Rent",
+      kind: "rentPsf",
+      values: intrinsicRent,
+      uncertaintyBand: probabilityWeightedUncertaintyBand(
+        models,
+        weights,
+        "intrinsicRent"
       ),
     },
     {
@@ -355,32 +435,117 @@ function buildProbabilityWeightedMarketModel({
   }
 }
 
-export function buildBenchmarkAreaForecastModelForScenario(
-  area: BenchmarkArea,
-  scenario: ForecastEconomicOutlookScenario
-): AssetForecastModel {
-  const stats = getTrackedMarketStats(area.id)
+export function buildBenchmarkAreaForecastModelForScenario({
+  area,
+  scenario,
+  marketInputs,
+  assumptions,
+}: BuildBenchmarkAreaForecastModelArgs): AssetForecastModel {
   const periods = buildForecastPeriods()
-
-  const buildingCount = stats?.buildingCount ?? 420
-  const occupancyPct = stats?.occupancyPct ?? 86
-  const askingRentPsf = stats?.askingRentPsf ?? 34.5
-  const assumptions = marketAssumptions(occupancyPct, askingRentPsf)
-
-  const baseRevenue = baseQuarterlyGrossRevenue(
-    buildingCount,
-    occupancyPct,
-    askingRentPsf
+  const buildingCount = marketInputs.buildingCount
+  const currentOccupancyPct = clamp(marketInputs.occupancyPct, 0, 100)
+  const currentInPlaceRentPsf = Math.max(0, marketInputs.inPlaceRentPsf)
+  const intrinsicRentBasePsf = Math.max(
+    0,
+    marketInputs.intrinsicRentPsf || marketInputs.askingRentPsf * 0.98
+  )
+  const timeToLeaseQuarters = Math.max(
+    1,
+    Math.ceil(clamp(assumptions.timeToLeaseMonths, 3, 24) / 3)
+  )
+  const renewalProbability = clamp(
+    assumptions.defaultRenewalProbabilityPct / 100,
+    0.1,
+    0.95
   )
   const opexRatio = marketOpexRatio(area.id)
+
+  const effectiveOccupancyPctSeries = periods.map((period) => {
+    const macro =
+      scenario.macroPeriods[Math.min(period.index, scenario.macroPeriods.length - 1)]!
+    const effects = scenarioEffectsForPeriod(macro)
+    const horizonProgress = clamp((period.index + 1) / periods.length, 0, 1)
+    const releaseProgress = clamp(
+      (period.index + 1) / timeToLeaseQuarters,
+      0,
+      1
+    )
+    const effectiveTargetOccupancyPct = clamp(
+      assumptions.occupancyTargetPct + effects.occupancyTargetAdjustmentPct,
+      65,
+      99
+    )
+    const renewalHeadwindPct = (1 - renewalProbability) * 6 * horizonProgress
+    const retainedOccupancyPct = clamp(
+      currentOccupancyPct - renewalHeadwindPct,
+      55,
+      99
+    )
+
+    if (effectiveTargetOccupancyPct >= retainedOccupancyPct) {
+      const leaseUpShare = deriveLeaseUpShare(
+        retainedOccupancyPct,
+        effectiveTargetOccupancyPct
+      )
+      const absorbedVacancyPct =
+        Math.max(0, 100 - retainedOccupancyPct) *
+        leaseUpShare *
+        releaseProgress *
+        effects.releaseFactor
+      return Number(
+        clamp(retainedOccupancyPct + absorbedVacancyPct, 0, 100).toFixed(2)
+      )
+    }
+
+    return Number(
+      clamp(
+        retainedOccupancyPct +
+          (effectiveTargetOccupancyPct - retainedOccupancyPct) * releaseProgress,
+        0,
+        100
+      ).toFixed(2)
+    )
+  })
+
+  const intrinsicRent = periods.map((period) => {
+    const macro =
+      scenario.macroPeriods[Math.min(period.index, scenario.macroPeriods.length - 1)]!
+    const effects = scenarioEffectsForPeriod(macro)
+    const trend = Math.pow(effects.rentFactor, period.index)
+    const tightnessLift = clamp(
+      1 +
+        ((effectiveOccupancyPctSeries[period.index] ?? currentOccupancyPct) -
+          currentOccupancyPct) *
+          0.0035,
+      0.9,
+      1.15
+    )
+    return Number((intrinsicRentBasePsf * trend * tightnessLift).toFixed(2))
+  })
 
   const grossRevenue = periods.map((period) => {
     const macro =
       scenario.macroPeriods[Math.min(period.index, scenario.macroPeriods.length - 1)]!
     const effects = scenarioEffectsForPeriod(macro)
-    const trend = Math.pow(effects.rentFactor, period.index)
-    const occupancyLift = 1 + (occupancyPct - 85) * 0.0025
-    return Number((baseRevenue * trend * occupancyLift).toFixed(2))
+    const repricingProgress = assumptions.markToMarketEnabled
+      ? clamp((period.index + 1) / (timeToLeaseQuarters + 2), 0, 1) *
+        effects.releaseFactor
+      : 0
+    const realizedRentPsf =
+      currentInPlaceRentPsf +
+      ((intrinsicRent[period.index] ?? intrinsicRentBasePsf) -
+        currentInPlaceRentPsf) *
+        repricingProgress
+
+    return Number(
+      (
+        baseQuarterlyGrossRevenue(
+          buildingCount,
+          effectiveOccupancyPctSeries[period.index] ?? currentOccupancyPct,
+          realizedRentPsf
+        )
+      ).toFixed(2)
+    )
   })
 
   const opex = grossRevenue.map((value, index) => {
@@ -419,6 +584,7 @@ export function buildBenchmarkAreaForecastModelForScenario(
 
   const statementRows: ForecastStatementRow[] = [
     withUncertaintyBand("grossRevenue", "currency", grossRevenue),
+    withUncertaintyBand("intrinsicRent", "rentPsf", intrinsicRent),
     withUncertaintyBand("opex", "expense", opex),
     withUncertaintyBand("noi", "currency", noi),
     withUncertaintyBand("salePrice", "currency", salePrice),
@@ -434,7 +600,7 @@ export function buildBenchmarkAreaForecastModelForScenario(
     statementRows,
     revenueBreakdown: buildMarketRevenueBreakdown(grossRevenue, buildingCount),
     summary: {
-      currentOccupancyPct: occupancyPct,
+      currentOccupancyPct: currentOccupancyPct,
       targetOccupancyPct: assumptions.occupancyTargetPct,
       currentAnnualRevenue: (grossRevenue[0] ?? 0) * 4,
       currentAnnualOpex: (opex[0] ?? 0) * 4,
@@ -447,28 +613,47 @@ export function buildBenchmarkAreaForecastModelForScenario(
 export function buildBenchmarkAreaForecastModel(
   area: BenchmarkArea
 ): AssetForecastModel {
-  return buildBenchmarkAreaForecastModelForScenario(
+  const marketInputs = benchmarkAreaForecastInputs(area)
+  return buildBenchmarkAreaForecastModelForScenario({
     area,
-    buildDefaultForecastScenarios()[0]!
-  )
+    scenario: buildDefaultForecastScenarios()[0]!,
+    marketInputs,
+    assumptions: defaultBenchmarkForecastAssumptions(marketInputs),
+  })
 }
 
 export function buildBenchmarkAreaForecastRollup(
-  area: BenchmarkArea
+  {
+    area,
+    marketInputs,
+    assumptions,
+    scenarioProbabilities,
+  }: BuildBenchmarkAreaForecastRollupArgs
 ): BenchmarkAreaForecastRollup {
   const scenarios = buildDefaultForecastScenarios()
-  const stats = getTrackedMarketStats(area.id)
-  const assumptions = marketAssumptions(
-    stats?.occupancyPct ?? 86,
-    stats?.askingRentPsf ?? 34.5
+  const resolvedMarketInputs = benchmarkAreaForecastInputs(
+    area,
+    marketInputs
   )
+  const resolvedAssumptions =
+    assumptions ?? defaultBenchmarkForecastAssumptions(resolvedMarketInputs)
+  const normalizedProbabilities =
+    normalizeScopedForecastPortfolioScenarioProbabilities(
+      scenarioProbabilities ??
+        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+    )
 
   const outlookModels: ScopedForecastPortfolioOutlookModel[] = scenarios.map(
     (scenario) => {
-      const portfolioModel = buildBenchmarkAreaForecastModelForScenario(area, scenario)
+      const portfolioModel = buildBenchmarkAreaForecastModelForScenario({
+        area,
+        scenario,
+        marketInputs: resolvedMarketInputs,
+        assumptions: resolvedAssumptions,
+      })
       const probabilityPct =
-        DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES[
-          scenario.id as keyof typeof DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+        normalizedProbabilities[
+          scenario.id as keyof typeof normalizedProbabilities
         ] ?? 0
 
       return {
@@ -484,7 +669,7 @@ export function buildBenchmarkAreaForecastRollup(
     area,
     models: outlookModels.map((entry) => entry.portfolioModel),
     weights: outlookModels.map((entry) => entry.probabilityPct),
-    assumptions,
+    assumptions: resolvedAssumptions,
   })
 
   return {

@@ -45,7 +45,12 @@ import {
   type ScopedForecastScope,
   outlookWeightSliderToProbabilities,
 } from "@/lib/scoped-forecast"
-import { buildScopedForecastRollup } from "@/lib/scoped-forecast-rollup"
+import {
+  buildScopedForecastRollup,
+  buildScopedPortfolioOutlookAssetModels,
+  type ScopedForecastPortfolioOutlookModel,
+  type ScopedForecastResolvedAssetModel,
+} from "@/lib/scoped-forecast-rollup"
 import { buildScopedForecastValuationKpiStripRows } from "@/lib/scoped-forecast-summary-kpis"
 import {
   getUserScenariosStoreSnapshot,
@@ -65,6 +70,22 @@ const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
 > = {
   baseline: "None",
   recommended: "Recommended",
+}
+
+function measureScopedForecastStep<T>(label: string, compute: () => T): T {
+  if (
+    typeof window === "undefined" ||
+    typeof performance === "undefined" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return compute()
+  }
+
+  const startedAt = performance.now()
+  const result = compute()
+  const elapsedMs = performance.now() - startedAt
+  console.info(`[forecast-perf] ${label}: ${elapsedMs.toFixed(1)}ms`)
+  return result
 }
 
 function SectionTitleTooltip({
@@ -403,17 +424,21 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
   const rollup = React.useMemo(
     () =>
-      buildScopedForecastRollup({
-        scopeLabel,
-        assetSelections,
-        assumptions,
-        portfolioControls: isPortfolioScope
-          ? {
-              modificationMode: portfolioModificationMode,
-              scenarioProbabilities: portfolioScenarioProbabilities,
-            }
-          : undefined,
-      }),
+      measureScopedForecastStep(
+        `${scopeLabel} aggregate rollup`,
+        () =>
+          buildScopedForecastRollup({
+            scopeLabel,
+            assetSelections,
+            assumptions,
+            portfolioControls: isPortfolioScope
+              ? {
+                  modificationMode: portfolioModificationMode,
+                  scenarioProbabilities: portfolioScenarioProbabilities,
+                }
+              : undefined,
+          })
+      ),
     [
       assetSelections,
       assumptions,
@@ -460,27 +485,41 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     },
     [setAssumptions]
   )
+  const [forecastSummaryHydrated, setForecastSummaryHydrated] =
+    React.useState(false)
+
+  React.useEffect(() => {
+    setForecastSummaryHydrated(true)
+  }, [])
 
   const forecastValuationStripRows = React.useMemo(
-    () =>
-      buildScopedForecastValuationKpiStripRows({
-        isPortfolioScope,
-        scopeKind: scope.kind,
-        portfolioOverview: rollup.portfolioOverview,
-        portfolioModificationMode,
-        portfolioScenarioProbabilities,
-        activeModelStatementRows: activeModel.statementRows,
-        baselineModelStatementRows: rollup.baselineModel.statementRows,
-        activeVariant,
-        assetSelections,
-        activeAssetModels,
-        baselineAssetModels: rollup.baselineAssetModels,
-      }),
+    () => {
+      if (!forecastSummaryHydrated) return null
+
+      return measureScopedForecastStep(
+        `${scopeLabel} KPI strip`,
+        () =>
+          buildScopedForecastValuationKpiStripRows({
+            isPortfolioScope,
+            scopeKind: scope.kind,
+            portfolioOverview: rollup.portfolioOverview,
+            portfolioModificationMode,
+            portfolioScenarioProbabilities,
+            activeModelStatementRows: activeModel.statementRows,
+            baselineModelStatementRows: rollup.baselineModel.statementRows,
+            activeVariant,
+            assetSelections,
+            activeAssetModels,
+            baselineAssetModels: rollup.baselineAssetModels,
+          })
+      )
+    },
     [
       activeAssetModels,
       activeModel.statementRows,
       activeVariant,
       assetSelections,
+      forecastSummaryHydrated,
       isPortfolioScope,
       portfolioModificationMode,
       portfolioScenarioProbabilities,
@@ -491,15 +530,8 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     ]
   )
 
-  const [forecastSummaryHydrated, setForecastSummaryHydrated] =
-    React.useState(false)
-  React.useEffect(() => {
-    setForecastSummaryHydrated(true)
-  }, [])
-
-  const forecastValuationStripRowsDisplay = forecastSummaryHydrated
-    ? forecastValuationStripRows
-    : FORECAST_VALUATION_STRIP_PLACEHOLDERS
+  const forecastValuationStripRowsDisplay =
+    forecastValuationStripRows ?? FORECAST_VALUATION_STRIP_PLACEHOLDERS
 
   const [metricTab, setMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
   const [projectionMetricTab, setProjectionMetricTab] =
@@ -537,6 +569,37 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
       setProjectionMetricTab(tab)
     },
     []
+  )
+  const portfolioOutlookAssetModelsCacheRef = React.useRef(
+    new Map<
+      ScopedForecastPortfolioOutlookModel["scenarioId"],
+      readonly ScopedForecastResolvedAssetModel[]
+    >()
+  )
+
+  React.useEffect(() => {
+    portfolioOutlookAssetModelsCacheRef.current.clear()
+  }, [assetSelections, assumptions, portfolioModificationMode, scopeLabel])
+
+  const resolvePortfolioOutlookAssetModels = React.useCallback(
+    (scenarioId: ScopedForecastPortfolioOutlookModel["scenarioId"]) => {
+      const cached = portfolioOutlookAssetModelsCacheRef.current.get(scenarioId)
+      if (cached != null) return cached
+
+      const detailAssetModels = measureScopedForecastStep(
+        `${scopeLabel} deferred detail ${scenarioId}`,
+        () =>
+          buildScopedPortfolioOutlookAssetModels({
+            assetSelections,
+            assumptions,
+            modificationMode: portfolioModificationMode,
+            scenarioId,
+          })
+      )
+      portfolioOutlookAssetModelsCacheRef.current.set(scenarioId, detailAssetModels)
+      return detailAssetModels
+    },
+    [assetSelections, assumptions, portfolioModificationMode, scopeLabel]
   )
 
   if (isPortfolioScope && rollup.portfolioOverview != null) {
@@ -579,6 +642,8 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
                   rows={rollup.portfolioOverview.expectedModel.statementRows}
                   assetModels={[]}
                   outlookModels={rollup.portfolioOverview.outlookModels}
+                  resolveOutlookAssetModels={resolvePortfolioOutlookAssetModels}
+                  outlookAssetCount={assetSelections.length}
                   metricFocus={metricTab}
                 />
               </section>
@@ -588,6 +653,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
                 metricTab={metricTab}
                 onMetricTabChange={setMetricTab}
                 metricToolbarInCard
+                debugLabel={`${scopeLabel} scoped`}
               />
             </div>
           </div>

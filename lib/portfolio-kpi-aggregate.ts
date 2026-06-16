@@ -43,6 +43,12 @@ export type PortfolioRowAggregate = {
   portfolioCapPct: number
 }
 
+const DEFAULT_PORTFOLIO_BASELINE_SCENARIO = buildDefaultForecastScenarios()[0] ?? null
+const portfolioRowValuationMetricMapCache = new Map<
+  string,
+  Record<ValuationConditionId, ValuationConditionMetrics>
+>()
+
 function emptyKpiStrip(): PortfolioKpiDisplay[] {
   const dash = "—"
   return [
@@ -111,11 +117,15 @@ function buildPortfolioRowValuationMetricMaps(
   scenario: NonNullable<ReturnType<typeof buildDefaultForecastScenarios>[number]>
 ): Record<ValuationConditionId, ValuationConditionMetrics>[] {
   return rows.map((row) => {
+    const cacheKey = `${scenario.id}\0${row.id}`
+    const cached = portfolioRowValuationMetricMapCache.get(cacheKey)
+    if (cached != null) return cached
+
     const dataset = getSampleStackingPlanData(row.id)
     const assumptions = defaultForecastAssumptionsForAsset(row.id, dataset)
     const financials = financialMetricsForAssetId(row.id)
 
-    return buildValuationConditionMetricMap({
+    const metricMap = buildValuationConditionMetricMap({
       assetId: row.id,
       dataset,
       assumptions,
@@ -123,6 +133,9 @@ function buildPortfolioRowValuationMetricMaps(
       baseCapRatePct: financials?.capRatePct ?? assumptions.exitCapRatePct,
       modValues: INITIAL_MOD_VALUES,
     })
+
+    portfolioRowValuationMetricMapCache.set(cacheKey, metricMap)
+    return metricMap
   })
 }
 
@@ -131,7 +144,7 @@ export function aggregatePortfolioValuationByCondition(
   rows: PortfolioAssetRow[]
 ): Record<ValuationConditionId, ValuationConditionMetrics> | null {
   if (rows.length === 0) return null
-  const baselineScenario = buildDefaultForecastScenarios()[0]
+  const baselineScenario = DEFAULT_PORTFOLIO_BASELINE_SCENARIO
   if (baselineScenario == null) return null
 
   const rowMetricMaps = buildPortfolioRowValuationMetricMaps(rows, baselineScenario)
@@ -152,7 +165,7 @@ export function portfolioKpiStripFromRows(
 ): PortfolioKpiDisplay[] {
   if (rows.length === 0) return emptyKpiStrip()
 
-  const baselineScenario = buildDefaultForecastScenarios()[0]
+  const baselineScenario = DEFAULT_PORTFOLIO_BASELINE_SCENARIO
   if (baselineScenario == null) return emptyKpiStrip()
 
   const rowMetricMaps = buildPortfolioRowValuationMetricMaps(rows, baselineScenario)

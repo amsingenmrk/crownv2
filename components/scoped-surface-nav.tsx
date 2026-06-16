@@ -56,6 +56,12 @@ export function ScopedSurfaceNav({
                   : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => router.push(item.href)}
+              onMouseEnter={() => {
+                void router.prefetch(item.href)
+              }}
+              onFocus={() => {
+                void router.prefetch(item.href)
+              }}
               aria-current={isActive ? "page" : undefined}
               aria-label={item.title != null ? `${item.label} — ${item.title}` : undefined}
             >

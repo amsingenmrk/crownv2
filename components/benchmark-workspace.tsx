@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
-import { benchmarkAreaSnapshot } from "@/lib/benchmark-area-model"
+import {
+  benchmarkAreaStats,
+  benchmarkSnapshotFromRaw,
+} from "@/lib/benchmark-area-model"
 import {
   filterBenchmarkAreaPresets,
   matchBenchmarkPresetFromQuery,
@@ -38,7 +41,6 @@ function BenchmarkMapSkeleton() {
 
 export function BenchmarkWorkspace() {
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? ""
   const searchInputId = React.useId()
   const suggestionsListId = React.useId()
 
@@ -62,36 +64,26 @@ export function BenchmarkWorkspace() {
       setSuggestionsOpen(false)
       setSearchPending(true)
       try {
-        const resolved = mapboxToken
-          ? await resolveBenchmarkAreaSelection(area, mapboxToken)
-          : area
+        const resolved = await resolveBenchmarkAreaSelection(area)
         setSelectedArea(resolved)
         setSearchQuery(resolved.label)
       } finally {
         setSearchPending(false)
       }
     },
-    [mapboxToken]
+    []
   )
 
   const runSearch = React.useCallback(
     async (query: string) => {
       const trimmed = query.trim()
       if (!trimmed) {
-        const national = mapboxToken
-          ? await resolveBenchmarkAreaSelection(
-              US_NATIONAL_BENCHMARK_AREA,
-              mapboxToken
-            )
-          : US_NATIONAL_BENCHMARK_AREA
+        const national = await resolveBenchmarkAreaSelection(
+          US_NATIONAL_BENCHMARK_AREA
+        )
         setSelectedArea(national)
         setSearchQuery("")
         setSuggestionsOpen(false)
-        return
-      }
-      if (!mapboxToken) {
-        const preset = matchBenchmarkPresetFromQuery(query)
-        if (preset) await applyArea(preset)
         return
       }
       setSearchPending(true)
@@ -106,27 +98,8 @@ export function BenchmarkWorkspace() {
         setSearchPending(false)
       }
     },
-    [applyArea, mapboxToken]
+    [applyArea]
   )
-
-  React.useEffect(() => {
-    let cancelled = false
-    const initArea = async () => {
-      const area = mapboxToken
-        ? await resolveBenchmarkAreaSelection(
-            US_NATIONAL_BENCHMARK_AREA,
-            mapboxToken
-          )
-        : US_NATIONAL_BENCHMARK_AREA
-      if (!cancelled) {
-        setSelectedArea(area)
-      }
-    }
-    void initArea()
-    return () => {
-      cancelled = true
-    }
-  }, [mapboxToken])
 
   React.useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -138,13 +111,28 @@ export function BenchmarkWorkspace() {
     return () => window.removeEventListener("pointerdown", onPointerDown)
   }, [])
 
-  const snapshot = React.useMemo(
+  const activeArea = selectedArea ?? US_NATIONAL_BENCHMARK_AREA
+
+  const statsRaw = React.useMemo(
     () =>
-      benchmarkAreaSnapshot(
-        selectedArea ?? US_NATIONAL_BENCHMARK_AREA,
+      benchmarkAreaStats(
+        activeArea,
         coordinates
       ),
-    [selectedArea, coordinates]
+    [activeArea, coordinates]
+  )
+
+  const snapshot = React.useMemo(
+    () =>
+      statsRaw == null
+        ? {
+            areaLabel: activeArea.label,
+            buildingCount: 0,
+            fullParticipantCount: 0,
+            kpis: [],
+          }
+        : benchmarkSnapshotFromRaw(activeArea.label, statsRaw),
+    [activeArea.label, statsRaw]
   )
 
   const showMapbox = mapboxEnabled
@@ -166,15 +154,18 @@ export function BenchmarkWorkspace() {
           <div className="relative min-h-0 min-w-0 w-full flex-1 min-h-[min(50vh,420px)] border-b border-border bg-muted/20 lg:min-h-0 lg:border-b-0 lg:border-r">
             <div className="absolute inset-0 overflow-hidden">
               {showMapbox && selectedArea ? (
-                <BenchmarkMapbox area={selectedArea} />
+                <BenchmarkMapbox
+                  area={selectedArea}
+                  compactMode={!mapExpanded}
+                />
               ) : (
                 <BenchmarkMapSkeleton />
               )}
             </div>
-            <div className="pointer-events-none absolute inset-0 z-20 flex justify-start">
+            <div className="pointer-events-none absolute inset-0 z-20 flex justify-start pr-24 md:pr-28">
               <div
                 ref={searchContainerRef}
-                className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-3 sm:max-w-sm md:p-4"
+                className="pointer-events-auto w-full max-w-[22rem] p-3 sm:max-w-sm md:p-4"
               >
                 <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
                   <label htmlFor={searchInputId} className="sr-only">
@@ -344,8 +335,9 @@ export function BenchmarkWorkspace() {
           <div className="min-h-0 flex-1 overflow-hidden p-4 pt-3">
           {showMapbox ? (
             <BenchmarkKpiPanel
-              area={selectedArea ?? US_NATIONAL_BENCHMARK_AREA}
+              area={activeArea}
               snapshot={snapshot}
+              statsRaw={statsRaw}
               className="h-full"
             />
           ) : (

@@ -49,6 +49,30 @@ type Ctx = {
   restoreAssetsToScenario: (assetIds: readonly string[]) => void
 }
 
+const EMPTY_SCENARIO_TABLE_SELECTIONS = Object.freeze(
+  {}
+) as ScenarioTableSelections
+const EMPTY_SCENARIO_TABLE_OUTLOOK_SELECTIONS = Object.freeze(
+  {}
+) as ScenarioTableOutlookSelections
+const EMPTY_SCENARIO_ASSET_IDS = new Set<string>()
+
+function noopSetTableSelection(_assetId: string, _setId: string) {}
+function noopSetOutlookTableSelection(_assetId: string, _outlookSetId: string) {}
+function noopAssetIdsAction(_assetIds: readonly string[]) {}
+
+const INACTIVE_SCENARIO_MODIFICATION_SELECTIONS_CONTEXT: Ctx = {
+  scenarioMembershipMode: "off",
+  selections: EMPTY_SCENARIO_TABLE_SELECTIONS,
+  setTableSelection: noopSetTableSelection,
+  outlookSelections: EMPTY_SCENARIO_TABLE_OUTLOOK_SELECTIONS,
+  setOutlookTableSelection: noopSetOutlookTableSelection,
+  scenarioExcludedAssetIds: EMPTY_SCENARIO_ASSET_IDS,
+  scenarioIncludedAssetIds: EMPTY_SCENARIO_ASSET_IDS,
+  excludeAssetsFromScenario: noopAssetIdsAction,
+  restoreAssetsToScenario: noopAssetIdsAction,
+}
+
 const ScenarioModificationSelectionsContext = React.createContext<Ctx | null>(
   null
 )
@@ -394,6 +418,20 @@ export function ScenarioModificationSelectionsProvider({
 
   return (
     <ScenarioModificationSelectionsContext.Provider value={value}>
+      {children}
+    </ScenarioModificationSelectionsContext.Provider>
+  )
+}
+
+export function InactiveScenarioModificationSelectionsProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <ScenarioModificationSelectionsContext.Provider
+      value={INACTIVE_SCENARIO_MODIFICATION_SELECTIONS_CONTEXT}
+    >
       {children}
     </ScenarioModificationSelectionsContext.Provider>
   )

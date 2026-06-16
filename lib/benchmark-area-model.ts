@@ -1,5 +1,5 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
-import { trackedBenchmarkSnapshot } from "@/lib/benchmark-market-stats"
+import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { ASSETS } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
@@ -314,12 +314,25 @@ export function benchmarkSnapshotFromRaw(
   }
 }
 
-export function benchmarkAreaSnapshot(
+export function benchmarkAreaStats(
   area: BenchmarkArea,
   coordinates: Record<string, readonly [number, number]> = {}
-): BenchmarkAreaSnapshot {
-  const tracked = trackedBenchmarkSnapshot(area.label, area.id)
-  if (tracked) return tracked
+): BenchmarkStatsRaw | null {
+  const tracked = getTrackedMarketStats(area.id)
+  if (tracked) {
+    return {
+      askingRentPsf: tracked.askingRentPsf,
+      inPlaceRentPsf: tracked.inPlaceRentPsf,
+      occupancyPct: tracked.occupancyPct,
+      intrinsicRentPsf: tracked.intrinsicRentPsf,
+      sunScore: tracked.sunScore,
+      viewScore: tracked.viewScore,
+      amenityQuality: tracked.amenityQuality,
+      accessibilityScore: tracked.accessibilityScore,
+      buildingCount: tracked.buildingCount,
+      fullParticipantCount: tracked.fullParticipantCount,
+    }
+  }
 
   const buildings = benchmarkBuildingCatalog(coordinates).filter((b) =>
     isInBounds(b.longitude, b.latitude, area.bounds)
@@ -367,6 +380,29 @@ export function benchmarkAreaSnapshot(
   )
 
   if (total === 0) {
+    return null
+  }
+
+  return {
+    askingRentPsf: askingRent ?? 0,
+    inPlaceRentPsf: inPlaceRent ?? askingRent ?? 0,
+    occupancyPct: occupancy ?? 0,
+    intrinsicRentPsf: intrinsicRent ?? askingRent ?? inPlaceRent ?? 0,
+    sunScore: sunScore ?? 0,
+    viewScore: viewScore ?? 0,
+    amenityQuality: amenityQuality ?? 0,
+    accessibilityScore: accessibilityScore ?? 0,
+    buildingCount: total,
+    fullParticipantCount: fullCount,
+  }
+}
+
+export function benchmarkAreaSnapshot(
+  area: BenchmarkArea,
+  coordinates: Record<string, readonly [number, number]> = {}
+): BenchmarkAreaSnapshot {
+  const raw = benchmarkAreaStats(area, coordinates)
+  if (raw == null) {
     return {
       areaLabel: area.label,
       buildingCount: 0,
@@ -378,47 +414,5 @@ export function benchmarkAreaSnapshot(
     }
   }
 
-  const values: Record<BenchmarkKpiKey, BenchmarkKpiValue> = {
-    askingRent: {
-      key: "askingRent",
-      value: formatRentPsf(askingRent),
-    },
-    inPlaceRent: {
-      key: "inPlaceRent",
-      value: formatRentPsf(inPlaceRent),
-    },
-    occupancy: {
-      key: "occupancy",
-      value: formatPercent(occupancy),
-    },
-    intrinsicRent: {
-      key: "intrinsicRent",
-      value: formatRentPsf(intrinsicRent),
-      participantNote: participantNote(fullCount, total, "full participants"),
-    },
-    sunScore: {
-      key: "sunScore",
-      value: formatScore(sunScore),
-    },
-    viewScore: {
-      key: "viewScore",
-      value: formatScore(viewScore),
-    },
-    amenityQuality: {
-      key: "amenityQuality",
-      value: formatScore(amenityQuality),
-      participantNote: participantNote(fullCount, total, "full participants"),
-    },
-    accessibilityScore: {
-      key: "accessibilityScore",
-      value: formatScore(accessibilityScore),
-    },
-  }
-
-  return {
-    areaLabel: area.label,
-    buildingCount: total,
-    fullParticipantCount: fullCount,
-    kpis: BENCHMARK_KPI_DEFINITIONS.map((def) => values[def.key]),
-  }
+  return benchmarkSnapshotFromRaw(area.label, raw)
 }

@@ -30,8 +30,27 @@ import {
   getSampleStackingPlanData,
   type StackingPlanDataset,
 } from "@/lib/stacking-plan-data"
+import {
+  VALUATION_CONDITION_OPTIONS,
+  type ValuationConditionId,
+} from "@/lib/valuation-condition-config"
+import {
+  aggregateValuationConditionMetrics,
+  buildValuationConditionMetricMap,
+  type ValuationConditionMetrics,
+} from "@/lib/valuation-condition-metrics"
 
 type ScopedForecastVariant = "baseline" | "selected"
+const DEFAULT_FORECAST_SCENARIOS = buildDefaultForecastScenarios()
+const stackingPlanDataCache = new Map<string, StackingPlanDataset>()
+
+type CachedResolvedAssetModel = {
+  model: AssetForecastModel
+  stackingPlanData: StackingPlanDataset
+  modValues: typeof INITIAL_MOD_VALUES
+}
+
+const resolvedAssetModelCache = new Map<string, CachedResolvedAssetModel>()
 
 export type ScopedForecastResolvedAssetModel = {
   selection: ScopedForecastAssetSelection
@@ -40,11 +59,17 @@ export type ScopedForecastResolvedAssetModel = {
   modValues: typeof INITIAL_MOD_VALUES
 }
 
+export type ScopedForecastPortfolioOutlookValuationMetrics = Record<
+  ValuationConditionId,
+  ValuationConditionMetrics
+>
+
 export type ScopedForecastPortfolioOutlookModel = {
   scenarioId: ScopedForecastPortfolioScenarioId
   probabilityPct: number
   portfolioModel: AssetForecastModel
   assetModels: ScopedForecastResolvedAssetModel[]
+  valuationMetricsByCondition?: ScopedForecastPortfolioOutlookValuationMetrics
 }
 
 export type ScopedForecastRollup = {
@@ -288,7 +313,7 @@ function aggregateAssetForecastModels({
   models: AssetForecastModel[]
   assumptions: ForecastAssumptions
 }): AssetForecastModel {
-  const baselineScenarioTemplate = buildDefaultForecastScenarios()[0]!
+  const baselineScenarioTemplate = DEFAULT_FORECAST_SCENARIOS[0]!
 
   if (models.length === 0) {
     const periods = buildForecastPeriods()
@@ -444,14 +469,50 @@ function aggregateAssetForecastModels({
 }
 
 function stackingPlanDataForAsset(assetId: string) {
-  const overrides = parseStackingPlanTenantForecastOverrideSnapshot(
-    getStackingPlanTenantForecastOverrideSnapshot(assetId)
-  )
+  const overrideSnapshot = getStackingPlanTenantForecastOverrideSnapshot(assetId) ?? ""
+  const cacheKey = `${assetId}::${overrideSnapshot}`
+  const cached = stackingPlanDataCache.get(cacheKey)
+  if (cached) {
+    return {
+      cacheKey,
+      dataset: cached,
+    }
+  }
 
-  return applyStackingPlanTenantForecastOverrides(
+  const overrides = parseStackingPlanTenantForecastOverrideSnapshot(
+    overrideSnapshot === "" ? null : overrideSnapshot
+  )
+  const dataset = applyStackingPlanTenantForecastOverrides(
     getSampleStackingPlanData(assetId),
     overrides
   )
+  stackingPlanDataCache.set(cacheKey, dataset)
+  return {
+    cacheKey,
+    dataset,
+  }
+}
+
+function buildResolvedAssetModelCacheKey({
+  assetId,
+  scenario,
+  assumptions,
+  modValues,
+  stackingPlanCacheKey,
+}: {
+  assetId: string
+  scenario: ForecastEconomicOutlookScenario
+  assumptions: ForecastAssumptions
+  modValues: typeof INITIAL_MOD_VALUES
+  stackingPlanCacheKey: string
+}) {
+  return JSON.stringify({
+    assetId,
+    stackingPlanCacheKey,
+    scenario,
+    assumptions,
+    modValues,
+  })
 }
 
 function buildResolvedAssetModel({
@@ -465,16 +526,40 @@ function buildResolvedAssetModel({
   scenario: ForecastEconomicOutlookScenario
   modValues: typeof INITIAL_MOD_VALUES
 }): ScopedForecastResolvedAssetModel {
-  const stackingPlanData = stackingPlanDataForAsset(selection.row.id)
+  const {
+    cacheKey: stackingPlanCacheKey,
+    dataset: stackingPlanData,
+  } = stackingPlanDataForAsset(selection.row.id)
+  const resolvedModelCacheKey = buildResolvedAssetModelCacheKey({
+    assetId: selection.row.id,
+    scenario,
+    assumptions,
+    modValues,
+    stackingPlanCacheKey,
+  })
+  const cached = resolvedAssetModelCache.get(resolvedModelCacheKey)
+  if (cached) {
+    return {
+      selection,
+      model: {
+        ...cached.model,
+        assetName: selection.row.building,
+      },
+      stackingPlanData: cached.stackingPlanData,
+      modValues: cached.modValues,
+    }
+  }
+
   const model = buildAssetForecastModel({
     assetId: selection.row.id,
     scenario,
     assumptions,
     modValues,
     stackingPlanData,
+    includeRevenueBreakdown: false,
   })
 
-  return {
+  const resolved: ScopedForecastResolvedAssetModel = {
     selection,
     model: {
       ...model,
@@ -483,6 +568,12 @@ function buildResolvedAssetModel({
     stackingPlanData,
     modValues,
   }
+  resolvedAssetModelCache.set(resolvedModelCacheKey, {
+    model: resolved.model,
+    stackingPlanData,
+    modValues,
+  })
+  return resolved
 }
 
 function buildVariantAssetModel({
@@ -499,7 +590,7 @@ function buildVariantAssetModel({
     assumptions,
     scenario:
       variant === "baseline"
-        ? buildDefaultForecastScenarios()[0]!
+        ? DEFAULT_FORECAST_SCENARIOS[0]!
         : selection.selectedOutlookSet.activeScenario,
     modValues:
       variant === "baseline"
@@ -514,39 +605,73 @@ function recommendedModValuesForSelection(selection: ScopedForecastAssetSelectio
   )
 }
 
-function buildPortfolioOutlookModels({
+function modValuesForPortfolioSelection(
+  selection: ScopedForecastAssetSelection,
+  modificationMode: ScopedForecastPortfolioModificationMode
+) {
+  return modificationMode === "recommended"
+    ? recommendedModValuesForSelection(selection)
+    : INITIAL_MOD_VALUES
+}
+
+function valuationMetricsByConditionForResolvedAssetModels(
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+): ScopedForecastPortfolioOutlookValuationMetrics {
+  const metricsByCondition = {
+    inPlace: [] as ValuationConditionMetrics[],
+    markToMarket: [] as ValuationConditionMetrics[],
+    grossPotential: [] as ValuationConditionMetrics[],
+  }
+
+  for (const entry of assetModels) {
+    const metricMap = buildValuationConditionMetricMap({
+      assetId: entry.selection.row.id,
+      dataset: entry.stackingPlanData,
+      assumptions: entry.model.assumptions,
+      scenario: entry.model.scenario,
+      baseCapRatePct: entry.model.summary.exitCapRatePct,
+      modValues: entry.modValues,
+    })
+
+    metricsByCondition.inPlace.push(metricMap.inPlace)
+    metricsByCondition.markToMarket.push(metricMap.markToMarket)
+    metricsByCondition.grossPotential.push(metricMap.grossPotential)
+  }
+
+  return Object.fromEntries(
+    VALUATION_CONDITION_OPTIONS.map((option) => [
+      option.id,
+      aggregateValuationConditionMetrics(metricsByCondition[option.id]),
+    ])
+  ) as ScopedForecastPortfolioOutlookValuationMetrics
+}
+
+function buildPortfolioAggregateOutlookModels({
   scopeLabel,
   assetSelections,
   assumptions,
   modificationMode,
-  scenarioProbabilities,
 }: {
   scopeLabel: string
   assetSelections: readonly ScopedForecastAssetSelection[]
   assumptions: ForecastAssumptions
   modificationMode: ScopedForecastPortfolioModificationMode
-  scenarioProbabilities: ScopedForecastPortfolioControlState["scenarioProbabilities"]
 }): ScopedForecastPortfolioOutlookModel[] {
-  const defaultScenarios = buildDefaultForecastScenarios()
-
-  return defaultScenarios.map((scenario) => {
+  return DEFAULT_FORECAST_SCENARIOS.map((scenario) => {
     const assetModels = assetSelections.map((selection) =>
       buildResolvedAssetModel({
         selection,
         assumptions,
         scenario,
-        modValues:
-          modificationMode === "recommended"
-            ? recommendedModValuesForSelection(selection)
-            : INITIAL_MOD_VALUES,
+        modValues: modValuesForPortfolioSelection(selection, modificationMode),
       })
     )
-    const probabilityPct =
-      scenarioProbabilities[scenario.id as ScopedForecastPortfolioScenarioId] ?? 0
+    const valuationMetricsByCondition =
+      valuationMetricsByConditionForResolvedAssetModels(assetModels)
 
     return {
       scenarioId: scenario.id as ScopedForecastPortfolioScenarioId,
-      probabilityPct,
+      probabilityPct: 0,
       portfolioModel: aggregateAssetForecastModels({
         scopeLabel,
         scenarioName: scenario.name,
@@ -554,9 +679,65 @@ function buildPortfolioOutlookModels({
         models: assetModels.map((entry) => entry.model),
         assumptions,
       }),
-      assetModels,
+      assetModels: [],
+      valuationMetricsByCondition,
     } satisfies ScopedForecastPortfolioOutlookModel
   })
+}
+
+export function buildScopedPortfolioOutlookAssetModels({
+  assetSelections,
+  assumptions,
+  modificationMode,
+  scenarioId,
+}: {
+  assetSelections: readonly ScopedForecastAssetSelection[]
+  assumptions: ForecastAssumptions
+  modificationMode: ScopedForecastPortfolioModificationMode
+  scenarioId: ScopedForecastPortfolioScenarioId
+}): ScopedForecastResolvedAssetModel[] {
+  const normalizedAssumptions =
+    assetSelections.length > 0
+      ? assumptions
+      : buildDefaultScopedForecastAssumptions([])
+  const scenario = DEFAULT_FORECAST_SCENARIOS.find(
+    (entry) => entry.id === scenarioId
+  )
+  if (scenario == null) return []
+
+  return assetSelections.map((selection) =>
+    buildResolvedAssetModel({
+      selection,
+      assumptions: normalizedAssumptions,
+      scenario,
+      modValues: modValuesForPortfolioSelection(selection, modificationMode),
+    })
+  )
+}
+
+function applyScenarioProbabilitiesToOutlookModels(
+  outlookModels: readonly ScopedForecastPortfolioOutlookModel[],
+  scenarioProbabilities: ScopedForecastPortfolioControlState["scenarioProbabilities"]
+): ScopedForecastPortfolioOutlookModel[] {
+  return outlookModels.map((outlookModel) => ({
+    ...outlookModel,
+    probabilityPct:
+      scenarioProbabilities[outlookModel.scenarioId as ScopedForecastPortfolioScenarioId] ??
+      0,
+  }))
+}
+
+function portfolioProbabilitiesMatchDefault(
+  probabilities: ScopedForecastPortfolioControlState["scenarioProbabilities"]
+): boolean {
+  return (
+    probabilities.baseline ===
+      DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES.baseline &&
+    probabilities.optimistic ===
+      DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES.optimistic &&
+    probabilities.pessimistic ===
+      DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES.pessimistic
+  )
 }
 
 function buildProbabilityWeightedPortfolioModel({
@@ -570,7 +751,7 @@ function buildProbabilityWeightedPortfolioModel({
   models: AssetForecastModel[]
   weights: readonly number[]
 }): AssetForecastModel {
-  const baselineScenarioTemplate = buildDefaultForecastScenarios()[0]!
+  const baselineScenarioTemplate = DEFAULT_FORECAST_SCENARIOS[0]!
 
   if (models.length === 0) {
     return aggregateAssetForecastModels({
@@ -698,6 +879,74 @@ export function buildScopedForecastRollup({
       ? assumptions
       : buildDefaultScopedForecastAssumptions([])
 
+  if (portfolioControls != null) {
+    const currentOutlookModelBase = buildPortfolioAggregateOutlookModels({
+      scopeLabel,
+      assetSelections,
+      assumptions: normalizedAssumptions,
+      modificationMode: portfolioControls.modificationMode,
+    })
+    const portfolioOutlookModels = applyScenarioProbabilitiesToOutlookModels(
+      currentOutlookModelBase,
+      portfolioControls.scenarioProbabilities
+    )
+    const expectedModel = buildProbabilityWeightedPortfolioModel({
+      scopeLabel,
+      assumptions: normalizedAssumptions,
+      models: portfolioOutlookModels.map((entry) => entry.portfolioModel),
+      weights: portfolioOutlookModels.map((entry) => entry.probabilityPct),
+    })
+
+    const currentMatchesReferenceMode =
+      portfolioControls.modificationMode === "baseline"
+    const currentMatchesReferenceProbabilities = portfolioProbabilitiesMatchDefault(
+      portfolioControls.scenarioProbabilities
+    )
+
+    const referenceOutlookModels = currentMatchesReferenceMode
+      ? applyScenarioProbabilitiesToOutlookModels(
+          currentOutlookModelBase,
+          DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+        )
+      : applyScenarioProbabilitiesToOutlookModels(
+          buildPortfolioAggregateOutlookModels({
+            scopeLabel,
+            assetSelections,
+            assumptions: normalizedAssumptions,
+            modificationMode: "baseline",
+          }),
+          DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES
+        )
+
+    const referenceExpectedModel =
+      currentMatchesReferenceMode && currentMatchesReferenceProbabilities
+        ? expectedModel
+        : buildProbabilityWeightedPortfolioModel({
+            scopeLabel,
+            assumptions: normalizedAssumptions,
+            models: referenceOutlookModels.map((entry) => entry.portfolioModel),
+            weights: referenceOutlookModels.map((entry) => entry.probabilityPct),
+          })
+
+    return {
+      baselineModel: referenceExpectedModel,
+      selectedModel: expectedModel,
+      comparisonModels: [referenceExpectedModel, expectedModel],
+      baselineAssetModels: [],
+      selectedAssetModels: [],
+      portfolioOverview: {
+        expectedModel,
+        referenceExpectedModel,
+        outlookModels: portfolioOutlookModels,
+        referenceOutlookModels,
+        chartModels: [
+          expectedModel,
+          ...portfolioOutlookModels.map((entry) => entry.portfolioModel),
+        ],
+      },
+    }
+  }
+
   const baselineAssetModels = assetSelections.map((selection) =>
     buildVariantAssetModel({
       selection,
@@ -728,56 +977,12 @@ export function buildScopedForecastRollup({
     assumptions: normalizedAssumptions,
   })
 
-  const portfolioOverview =
-    portfolioControls == null
-      ? undefined
-      : (() => {
-          const portfolioOutlookModels = buildPortfolioOutlookModels({
-            scopeLabel,
-            assetSelections,
-            assumptions: normalizedAssumptions,
-            modificationMode: portfolioControls.modificationMode,
-            scenarioProbabilities: portfolioControls.scenarioProbabilities,
-          })
-          const expectedModel = buildProbabilityWeightedPortfolioModel({
-            scopeLabel,
-            assumptions: normalizedAssumptions,
-            models: portfolioOutlookModels.map((entry) => entry.portfolioModel),
-            weights: portfolioOutlookModels.map((entry) => entry.probabilityPct),
-          })
-          const referenceOutlookModels = buildPortfolioOutlookModels({
-            scopeLabel,
-            assetSelections,
-            assumptions: normalizedAssumptions,
-            modificationMode: "baseline",
-            scenarioProbabilities:
-              DEFAULT_SCOPED_FORECAST_PORTFOLIO_SCENARIO_PROBABILITIES,
-          })
-          const referenceExpectedModel = buildProbabilityWeightedPortfolioModel({
-            scopeLabel,
-            assumptions: normalizedAssumptions,
-            models: referenceOutlookModels.map((entry) => entry.portfolioModel),
-            weights: referenceOutlookModels.map((entry) => entry.probabilityPct),
-          })
-
-          return {
-            expectedModel,
-            referenceExpectedModel,
-            outlookModels: portfolioOutlookModels,
-            referenceOutlookModels,
-            chartModels: [
-              expectedModel,
-              ...portfolioOutlookModels.map((entry) => entry.portfolioModel),
-            ],
-          }
-        })()
-
   return {
     baselineModel,
     selectedModel,
     comparisonModels: [baselineModel, selectedModel],
     baselineAssetModels,
     selectedAssetModels,
-    portfolioOverview,
+    portfolioOverview: undefined,
   }
 }

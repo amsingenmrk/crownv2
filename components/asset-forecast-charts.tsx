@@ -79,7 +79,13 @@ function useForecastChartPalette() {
   return palette
 }
 
-function ForecastHighchart({ options }: { options: Highcharts.Options }) {
+function ForecastHighchart({
+  options,
+  debugLabel,
+}: {
+  options: Highcharts.Options
+  debugLabel?: string
+}) {
   const chartRef = React.useRef<HighchartsReact.RefObject>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
@@ -94,6 +100,18 @@ function ForecastHighchart({ options }: { options: Highcharts.Options }) {
     resizeObserver.observe(element)
     return () => resizeObserver.disconnect()
   }, [])
+
+  React.useEffect(() => {
+    if (
+      debugLabel == null ||
+      typeof window === "undefined" ||
+      process.env.NODE_ENV === "production"
+    ) {
+      return
+    }
+
+    console.info(`[forecast-perf] ${debugLabel} chart mounted`)
+  }, [debugLabel])
 
   return (
     <div ref={containerRef} className="relative h-[340px] w-full">
@@ -114,6 +132,7 @@ function ForecastHighchart({ options }: { options: Highcharts.Options }) {
 }
 
 const FORECAST_CHART_TAB_ROW_IDS: ForecastChartTab[] = [
+  "intrinsicRent",
   "grossRevenue",
   "opex",
   "noi",
@@ -121,14 +140,19 @@ const FORECAST_CHART_TAB_ROW_IDS: ForecastChartTab[] = [
   "capRate",
 ]
 
-function useForecastChartStatementTabs(models: AssetForecastModel[]) {
+function useForecastChartStatementTabs(
+  models: AssetForecastModel[],
+  allowedMetricTabs?: readonly ForecastChartTab[]
+) {
   return React.useMemo(
     () =>
       (models[0]?.statementRows ?? []).filter(
         (row): row is (typeof row & { id: ForecastChartTab }) =>
-          FORECAST_CHART_TAB_ROW_IDS.includes(row.id as ForecastChartTab)
+          FORECAST_CHART_TAB_ROW_IDS.includes(row.id as ForecastChartTab) &&
+          (allowedMetricTabs == null ||
+            allowedMetricTabs.includes(row.id as ForecastChartTab))
       ),
-    [models]
+    [allowedMetricTabs, models]
   )
 }
 
@@ -137,16 +161,18 @@ export function AssetForecastChartMetricToggleGroup({
   models,
   metricTab,
   onMetricTabChange,
+  allowedMetricTabs,
   ariaLabel = "Forecast chart metric",
   className,
 }: {
   models: AssetForecastModel[]
   metricTab: ForecastChartTab
   onMetricTabChange: (tab: ForecastChartTab) => void
+  allowedMetricTabs?: readonly ForecastChartTab[]
   ariaLabel?: string
   className?: string
 }) {
-  const chartRows = useForecastChartStatementTabs(models)
+  const chartRows = useForecastChartStatementTabs(models, allowedMetricTabs)
 
   return (
     <ToggleGroup
@@ -175,6 +201,7 @@ export function AssetForecastChartMetricToolbar({
   variant = "default",
   metricTab,
   onMetricTabChange,
+  allowedMetricTabs,
   ariaLabel = "Forecast chart metric",
   showMetricTitle = true,
 }: {
@@ -182,6 +209,7 @@ export function AssetForecastChartMetricToolbar({
   variant?: "default" | "compare"
   metricTab: ForecastChartTab
   onMetricTabChange: (tab: ForecastChartTab) => void
+  allowedMetricTabs?: readonly ForecastChartTab[]
   ariaLabel?: string
   /** When false, omit the metric `h2` (parent supplies a section title, e.g. “Gross revenue projection”). */
   showMetricTitle?: boolean
@@ -211,6 +239,7 @@ export function AssetForecastChartMetricToolbar({
         models={models}
         metricTab={metricTab}
         onMetricTabChange={onMetricTabChange}
+        allowedMetricTabs={allowedMetricTabs}
         ariaLabel={ariaLabel}
         className="shrink-0"
       />
@@ -222,16 +251,19 @@ export function AssetForecastCharts({
   models,
   metricTab: metricTabProp,
   onMetricTabChange,
+  allowedMetricTabs,
   metricToolbarInCard = false,
   toolbarVariant = "default",
   metricToolbarAriaLabel = "Forecast chart metric",
   metricToolbarShowMetricTitle = true,
   embedded = false,
+  debugLabel,
 }: {
   models: AssetForecastModel[]
   /** Controlled metric selection (use with `onMetricTabChange`). */
   metricTab?: ForecastChartTab
   onMetricTabChange?: (tab: ForecastChartTab) => void
+  allowedMetricTabs?: readonly ForecastChartTab[]
   /** When true, metric toggles render in the chart card above the plot. */
   metricToolbarInCard?: boolean
   toolbarVariant?: "default" | "compare"
@@ -240,9 +272,11 @@ export function AssetForecastCharts({
   metricToolbarShowMetricTitle?: boolean
   /** When true, omit outer card wrapper — parent combines chart with adjacent content (e.g. table). */
   embedded?: boolean
+  /** Dev-only perf label for chart mount logging. */
+  debugLabel?: string
 }) {
   const palette = useForecastChartPalette()
-  const chartRows = useForecastChartStatementTabs(models)
+  const chartRows = useForecastChartStatementTabs(models, allowedMetricTabs)
 
   const [uncontrolledTab, setUncontrolledTab] = React.useState<ForecastChartTab>("grossRevenue")
   const controlled = metricTabProp !== undefined
@@ -284,6 +318,7 @@ export function AssetForecastCharts({
             variant={toolbarVariant}
             metricTab={activeTab}
             onMetricTabChange={setActiveTab}
+            allowedMetricTabs={allowedMetricTabs}
             ariaLabel={metricToolbarAriaLabel}
             showMetricTitle={metricToolbarShowMetricTitle}
           />
@@ -294,7 +329,7 @@ export function AssetForecastCharts({
           embedded ? "border-b border-border/60 px-4 py-4" : "px-4 py-4"
         }
       >
-        <ForecastHighchart options={chartOptions} />
+        <ForecastHighchart options={chartOptions} debugLabel={debugLabel} />
       </div>
     </>
   )

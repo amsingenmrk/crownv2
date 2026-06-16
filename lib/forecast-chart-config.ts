@@ -31,6 +31,7 @@ export type ForecastChartPalette = {
 }
 
 export type ForecastChartTab =
+  | "intrinsicRent"
   | "grossRevenue"
   | "opex"
   | "noi"
@@ -44,6 +45,12 @@ type ForecastStatementChartMeta = {
 }
 
 const FORECAST_STATEMENT_CHART_META: Record<ForecastChartTab, ForecastStatementChartMeta> = {
+  intrinsicRent: {
+    title: "Intrinsic Rent Projection",
+    description:
+      "Quarterly intrinsic rent per square foot compared across the selected outlooks.",
+    yAxisTitle: "$ / SF",
+  },
   grossRevenue: {
     title: "Gross Revenue Projection",
     description: "Quarterly gross revenue compared across the selected outlooks.",
@@ -147,30 +154,63 @@ function buildCurrencyStatementSeries(row: ForecastStatementRow) {
   return row.values.map((value) => toMillions(Math.abs(value)))
 }
 
-function buildStatementChartValues(row: ForecastStatementRow, isPercent: boolean) {
-  return isPercent
+function isPercentStatementKind(kind: ForecastStatementRow["kind"]) {
+  return kind === "percent"
+}
+
+function isRentPsfStatementKind(kind: ForecastStatementRow["kind"]) {
+  return kind === "rentPsf"
+}
+
+function buildStatementChartValues(row: ForecastStatementRow) {
+  return isPercentStatementKind(row.kind) || isRentPsfStatementKind(row.kind)
     ? row.values.map((value) => Number(value.toFixed(2)))
     : buildCurrencyStatementSeries(row)
 }
 
-function buildStatementUncertaintyBand(
-  row: ForecastStatementRow,
-  isPercent: boolean
-) {
+function buildStatementUncertaintyBand(row: ForecastStatementRow) {
   const band = row.uncertaintyBand
   if (band == null) {
     return null
   }
 
   return {
-    lowerValues: isPercent
+    lowerValues:
+      isPercentStatementKind(row.kind) || isRentPsfStatementKind(row.kind)
       ? band.lowerValues.map((value) => Number(value.toFixed(2)))
       : band.lowerValues.map((value) => toMillions(Math.abs(value))),
-    upperValues: isPercent
+    upperValues:
+      isPercentStatementKind(row.kind) || isRentPsfStatementKind(row.kind)
       ? band.upperValues.map((value) => Number(value.toFixed(2)))
       : band.upperValues.map((value) => toMillions(Math.abs(value))),
     label: band.label,
   }
+}
+
+function formatChartTooltipValue(
+  value: number,
+  kind: ForecastStatementRow["kind"]
+) {
+  if (isPercentStatementKind(kind)) {
+    return `${Number(value).toFixed(2)}%`
+  }
+  if (isRentPsfStatementKind(kind)) {
+    return `$${Number(value).toFixed(2)}/SF`
+  }
+  return `$${Number(value).toFixed(2)}M`
+}
+
+function formatChartAxisValue(
+  value: number,
+  kind: ForecastStatementRow["kind"]
+) {
+  if (isPercentStatementKind(kind)) {
+    return `${Number(value).toFixed(1)}%`
+  }
+  if (isRentPsfStatementKind(kind)) {
+    return `$${Number(value).toFixed(1)}`
+  }
+  return `$${Number(value).toFixed(1)}M`
 }
 
 function gradientFillForColor(color: string): Highcharts.GradientColorObject {
@@ -226,7 +266,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
     expectedModel.statementRows[0]
   const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
   const meta = getForecastStatementChartMeta(resolvedRowId)
-  const isPercent = baseRow?.kind === "percent"
+  const rowKind = baseRow?.kind ?? "currency"
 
   const rowFor = (model: AssetForecastModel): ForecastStatementRow =>
     model.statementRows.find((r) => r.id === resolvedRowId) ??
@@ -237,10 +277,10 @@ function buildScopedPortfolioFanForecastStatementConfig(
       values: Array(categories.length).fill(0),
     }
 
-  const pessimisticValues = buildStatementChartValues(rowFor(pessimisticModel), isPercent)
-  const optimisticValues = buildStatementChartValues(rowFor(optimisticModel), isPercent)
-  const baselineValues = buildStatementChartValues(rowFor(baselineModel), isPercent)
-  const weightedValues = buildStatementChartValues(rowFor(expectedModel), isPercent)
+  const pessimisticValues = buildStatementChartValues(rowFor(pessimisticModel))
+  const optimisticValues = buildStatementChartValues(rowFor(optimisticModel))
+  const baselineValues = buildStatementChartValues(rowFor(baselineModel))
+  const weightedValues = buildStatementChartValues(rowFor(expectedModel))
 
   const rangeData: [number, number][] = categories.map((_, index) => {
     const low = pessimisticValues[index] ?? 0
@@ -252,8 +292,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
   const baselineColor = palette.accent
   const weightedColor = palette.secondary
 
-  const formatY = (value: number) =>
-    isPercent ? `${Number(value).toFixed(2)}%` : `$${Number(value).toFixed(2)}M`
+  const formatY = (value: number) => formatChartTooltipValue(value, rowKind)
 
   const series: Highcharts.SeriesOptionsType[] = [
     {
@@ -333,10 +372,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
       tickWidth: 0,
       labels: {
         formatter: function () {
-          if (isPercent) {
-            return `${Number(this.value).toFixed(1)}%`
-          }
-          return `$${Number(this.value).toFixed(1)}M`
+          return formatChartAxisValue(Number(this.value), rowKind)
         },
         style: {
           color: palette.mutedText,
@@ -435,7 +471,7 @@ function buildMultiModelFanForecastStatementConfig(
     baseModel?.statementRows[0]
   const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
   const meta = getForecastStatementChartMeta(resolvedRowId)
-  const isPercent = baseRow?.kind === "percent"
+  const rowKind = baseRow?.kind ?? "currency"
 
   const rowsByModel = models.map((model) => ({
     model,
@@ -448,14 +484,13 @@ function buildMultiModelFanForecastStatementConfig(
         values: Array(categories.length).fill(0),
       },
   }))
-  const valuesByModel = rowsByModel.map(({ row }) => buildStatementChartValues(row, isPercent))
+  const valuesByModel = rowsByModel.map(({ row }) => buildStatementChartValues(row))
   const rangeData: [number, number][] = categories.map((_, index) => {
     const values = valuesByModel.map((series) => series[index] ?? 0)
     return [Math.min(...values), Math.max(...values)]
   })
 
-  const formatY = (value: number) =>
-    isPercent ? `${Number(value).toFixed(2)}%` : `$${Number(value).toFixed(2)}M`
+  const formatY = (value: number) => formatChartTooltipValue(value, rowKind)
 
   const baselineLineColor = palette.accent
   const comparisonLineColors = [
@@ -546,10 +581,7 @@ function buildMultiModelFanForecastStatementConfig(
       tickWidth: 0,
       labels: {
         formatter: function () {
-          if (isPercent) {
-            return `${Number(this.value).toFixed(1)}%`
-          }
-          return `$${Number(this.value).toFixed(1)}M`
+          return formatChartAxisValue(Number(this.value), rowKind)
         },
         style: {
           color: palette.mutedText,
@@ -656,7 +688,7 @@ export function buildForecastStatementHighchartsConfig(
   const categories = baseModel?.periods.map((period) => period.label) ?? []
   const resolvedRowId = (baseRow?.id as ForecastChartTab | undefined) ?? "grossRevenue"
   const meta = getForecastStatementChartMeta(resolvedRowId)
-  const isPercent = baseRow?.kind === "percent"
+  const rowKind = baseRow?.kind ?? "currency"
   const colors = [
     palette.primary,
     palette.secondary,
@@ -675,8 +707,8 @@ export function buildForecastStatementHighchartsConfig(
         values: Array(categories.length).fill(0),
       }
     const color = colors[index % colors.length]
-    const data = buildStatementChartValues(row, isPercent)
-    const uncertaintyBand = buildStatementUncertaintyBand(row, isPercent)
+    const data = buildStatementChartValues(row)
+    const uncertaintyBand = buildStatementUncertaintyBand(row)
     const uncertaintyStack = `uncertainty-${index}`
 
     const envelopeSeries: Highcharts.SeriesOptionsType[] =
@@ -783,10 +815,7 @@ export function buildForecastStatementHighchartsConfig(
       tickWidth: 0,
       labels: {
         formatter: function () {
-          if (isPercent) {
-            return `${Number(this.value).toFixed(1)}%`
-          }
-          return `$${Number(this.value).toFixed(1)}M`
+          return formatChartAxisValue(Number(this.value), rowKind)
         },
         style: {
           color: palette.mutedText,
@@ -856,9 +885,7 @@ export function buildForecastStatementHighchartsConfig(
           `<b>${xLabel}</b>`,
           ...points.map(
             (point) =>
-              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${
-                isPercent ? `${Number(point.y).toFixed(2)}%` : `$${Number(point.y).toFixed(2)}M`
-              }`
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatChartTooltipValue(Number(point.y), rowKind)}`
           ),
           ...points
             .flatMap((point) => {

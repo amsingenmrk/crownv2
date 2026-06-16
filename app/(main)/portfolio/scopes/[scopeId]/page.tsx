@@ -1,4 +1,3 @@
-import { PortfolioDashboard } from "@/components/portfolio-dashboard"
 import { redirect } from "next/navigation"
 import {
   portfolioScopeHref,
@@ -20,9 +19,6 @@ export default async function PortfolioScopePage({
   }
 
   return (
-    <PortfolioDashboard
-      assetsTableVariant="portfolio"
-      portfolioScopeId={resolvedScopeId}
-    />
+    null
   )
 }

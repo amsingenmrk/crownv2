@@ -12,7 +12,12 @@ import {
   parseAssetGroupOverrideSnapshot,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
-import { ASSETS, getAssetById, portfolioScopeHref } from "@/lib/assets"
+import {
+  ASSETS,
+  assetIsInPortfolioGroup,
+  getAssetById,
+  portfolioScopeHref,
+} from "@/lib/assets"
 import {
   buildDefaultForecastScenarios,
   type ForecastAssumptions,
@@ -33,6 +38,7 @@ import {
   SCOPED_FORECAST_BASELINE_BUILDING_VERSION_ID,
   SCOPED_FORECAST_BASELINE_OUTLOOK_SET_ID,
   baselineScopedForecastBuildingVersionOption,
+  baselineScopedForecastOutlookSetOption,
   buildDefaultScopedForecastAssumptions,
   buildScopedPresetOutlookSetOptions,
   normalizeScopedForecastPortfolioScenarioProbabilities,
@@ -88,6 +94,14 @@ function syncSelectedIdsWithOptions({
 export function useScopedForecastState(scope: ScopedForecastScope) {
   const scenarioModificationsCtx = useScenarioModificationSelectionsOptional()
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
+  const baselineBuildingVersionOption = React.useMemo(
+    () => baselineScopedForecastBuildingVersionOption(),
+    []
+  )
+  const baselineOutlookSetOption = React.useMemo(
+    () => baselineScopedForecastOutlookSetOption(defaultOutlooks[0]!),
+    [defaultOutlooks]
+  )
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
     getAssetGroupOverridesSnapshot,
@@ -104,9 +118,25 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     Record<string, string>
   >({})
 
+  const isScenarioScope = scope.kind === "scenario"
+  const useScenarioTableModificationSelections =
+    isScenarioScope && scenarioModificationsCtx != null
+  const scenarioSlug = isScenarioScope ? scope.scenarioSlug : undefined
+  const portfolioScopeId =
+    scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
+  const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? "overview"}`
+  const scopeAssets = React.useMemo(() => {
+    if (portfolioScopeId == null || isScenarioScope) {
+      return ASSETS
+    }
+
+    return ASSETS.filter((asset) =>
+      assetIsInPortfolioGroup(asset.id, portfolioScopeId, assetGroupData)
+    )
+  }, [assetGroupData, isScenarioScope, portfolioScopeId])
   const portfolioAssetRows = React.useMemo(
     () =>
-      ASSETS.map((asset, index) =>
+      scopeAssets.map((asset, index) =>
         portfolioAssetRowForAsset(
           getAssetById(asset.id, assetGroupData) ?? asset,
           index
@@ -118,15 +148,8 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
             sensitivity: "base",
           })
       ),
-    [assetGroupData]
+    [assetGroupData, scopeAssets]
   )
-  const isScenarioScope = scope.kind === "scenario"
-  const useScenarioTableModificationSelections =
-    isScenarioScope && scenarioModificationsCtx != null
-  const scenarioSlug = isScenarioScope ? scope.scenarioSlug : undefined
-  const portfolioScopeId =
-    scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
-  const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? "overview"}`
   const snapshotSortVariant = isScenarioScope ? "scenarios" : "portfolio"
   const snapshotPathname = React.useMemo(() => {
     if (isScenarioScope && scenarioSlug != null) {
@@ -168,9 +191,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
         })
       }
       if (portfolioScopeId != null) {
-        return portfolioAssetRows.filter((row) =>
-          row.groupIds.includes(portfolioScopeId)
-        )
+        return portfolioAssetRows
       }
       return portfolioAssetRows
     })()
@@ -211,10 +232,13 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   const optionsByAssetId = React.useMemo<SelectionOptionsByAssetId>(() => {
     void optionsReloadTick
+    if (scope.kind === "portfolio") {
+      return {}
+    }
     const next: SelectionOptionsByAssetId = {}
     for (const row of scopedRows) {
       const buildingVersionOptions: ScopedForecastBuildingVersionOption[] = [
-        baselineScopedForecastBuildingVersionOption(),
+        baselineBuildingVersionOption,
         ...parseStoredSets(
           typeof localStorage === "undefined"
             ? null
@@ -239,7 +263,13 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     }
 
     return next
-  }, [defaultOutlooks, optionsReloadTick, scopedRows])
+  }, [
+    baselineBuildingVersionOption,
+    defaultOutlooks,
+    optionsReloadTick,
+    scope.kind,
+    scopedRows,
+  ])
 
   React.useEffect(() => {
     const assetIds = scopedRows.map((row) => row.id)
@@ -303,6 +333,18 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [scopeIdentity])
 
   const assetSelections = React.useMemo<ScopedForecastAssetSelection[]>(() => {
+    if (scope.kind === "portfolio") {
+      return scopedRows.map((row) => ({
+        row,
+        buildingVersionOptions: [baselineBuildingVersionOption],
+        outlookSetOptions: [baselineOutlookSetOption],
+        selectedBuildingVersionId: baselineBuildingVersionOption.id,
+        selectedOutlookSetId: baselineOutlookSetOption.id,
+        selectedBuildingVersion: baselineBuildingVersionOption,
+        selectedOutlookSet: baselineOutlookSetOption,
+      }))
+    }
+
     const tableSelections =
       useScenarioTableModificationSelections && scenarioModificationsCtx != null
         ? scenarioModificationsCtx.selections
@@ -314,7 +356,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
     return scopedRows.map((row) => {
       const rowOptions = optionsByAssetId[row.id] ?? {
-        buildingVersionOptions: [baselineScopedForecastBuildingVersionOption()],
+        buildingVersionOptions: [baselineBuildingVersionOption],
         outlookSetOptions: buildScopedPresetOutlookSetOptions(defaultOutlooks),
       }
       const resolvedBuildingVersionId =
@@ -354,8 +396,11 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       }
     })
   }, [
+    baselineBuildingVersionOption,
+    baselineOutlookSetOption,
     defaultOutlooks,
     optionsByAssetId,
+    scope.kind,
     scopedRows,
     scenarioModificationsCtx,
     selectedBuildingVersionIds,

@@ -78,6 +78,22 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
 const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
 
+function measurePortfolioDashboardStep<T>(label: string, compute: () => T): T {
+  if (
+    typeof window === "undefined" ||
+    typeof performance === "undefined" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return compute()
+  }
+
+  const startedAt = performance.now()
+  const result = compute()
+  const elapsedMs = performance.now() - startedAt
+  console.info(`[portfolio-perf] ${label}: ${elapsedMs.toFixed(1)}ms`)
+  return result
+}
+
 /** Fixed-width % strings so SSR and client match (avoids hydration drift from float formatting). */
 function toCssPercent(n: number): string {
   return `${n.toFixed(4)}%`
@@ -149,6 +165,7 @@ function PortfolioDashboardInner({
   assetsTableVariant,
   scenarioRelaxedAssetFilter = true,
   portfolioScopeId,
+  pathnameOverride,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   /**
@@ -160,8 +177,10 @@ function PortfolioDashboardInner({
    */
   scenarioRelaxedAssetFilter?: boolean
   portfolioScopeId?: string
+  pathnameOverride?: string
 }) {
-  const pathname = usePathname()
+  const livePathname = usePathname()
+  const pathname = pathnameOverride ?? livePathname
   const assetsHeadingId = React.useId()
   const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
   const [assetsMainView, setAssetsMainView] = React.useState<"table" | "map">(
@@ -433,11 +452,14 @@ function PortfolioDashboardInner({
 
   const portfolioKpiStripRows = React.useMemo(() => {
     if (assetsTableVariant !== "portfolio") return null
-    const byCondition =
-      aggregatePortfolioValuationByCondition(visibleAssetRows) ??
-      emptyValuationConditionMetricMap()
+    const byCondition = measurePortfolioDashboardStep(
+      `${effectivePortfolioGroupLabel} dashboard KPI strip`,
+      () =>
+        aggregatePortfolioValuationByCondition(visibleAssetRows) ??
+        emptyValuationConditionMetricMap()
+    )
     return valuationKpiStripRowsFromSingleConditionMap(byCondition)
-  }, [assetsTableVariant, visibleAssetRows])
+  }, [assetsTableVariant, effectivePortfolioGroupLabel, visibleAssetRows])
 
   const scenarioKpiStripRows = React.useMemo(() => {
     if (assetsTableVariant !== "scenarios") return null
@@ -757,16 +779,19 @@ export function PortfolioDashboard({
   assetsTableVariant,
   scenarioRelaxedAssetFilter,
   portfolioScopeId,
+  pathnameOverride,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   scenarioRelaxedAssetFilter?: boolean
   portfolioScopeId?: string
+  pathnameOverride?: string
 }) {
   return (
     <PortfolioDashboardInner
       assetsTableVariant={assetsTableVariant}
       scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
       portfolioScopeId={portfolioScopeId}
+      pathnameOverride={pathnameOverride}
     />
   )
 }

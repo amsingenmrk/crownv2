@@ -2,10 +2,6 @@ import {
   applyStoredBoundary,
   US_NATIONAL_BENCHMARK_AREA,
 } from "@/lib/benchmark-market-boundaries"
-import {
-  enrichBenchmarkAreaWithBoundary,
-  geocodeHintFromFeature,
-} from "@/lib/mapbox-benchmark-boundaries"
 import type {
   BenchmarkArea,
   BenchmarkAreaBounds,
@@ -283,51 +279,26 @@ function marketPresetMatchesQuery(
 }
 
 async function resolveMarketPreset(
-  preset: BenchmarkMarketPreset,
-  accessToken: string
+  preset: BenchmarkMarketPreset
 ): Promise<BenchmarkArea> {
-  const withStoredBoundary = applyStoredBoundary(preset)
-  if (withStoredBoundary.boundaryGeometry) {
-    return withStoredBoundary
-  }
-
-  const geocodeFeatures = await fetchGeocodeFeatures(
-    preset.geocodeQuery,
-    accessToken
-  )
-  const bestFeature = pickBestGeocodeFeature(geocodeFeatures, preset.geocodeQuery)
-  const geocoded = bestFeature ? areaFromGeocodeFeature(bestFeature) : null
-
-  const area: BenchmarkArea = geocoded
-    ? {
-        id: preset.id,
-        label: preset.label,
-        bounds: geocoded.bounds,
-        geocodeHint: geocoded.geocodeHint,
-      }
-    : preset
-
-  return enrichBenchmarkAreaWithBoundary(area, accessToken, area.geocodeHint)
+  return applyStoredBoundary(preset)
 }
 
 export async function resolveBenchmarkAreaSelection(
   area: BenchmarkArea,
-  accessToken: string
+  _accessToken?: string
 ): Promise<BenchmarkArea> {
   if (area.id === "us-national") {
-    return enrichBenchmarkAreaWithBoundary(area, accessToken)
+    return US_NATIONAL_BENCHMARK_AREA
   }
 
   const preset = BENCHMARK_MARKET_PRESETS.find((item) => item.id === area.id)
-  if (preset) return resolveMarketPreset(preset, accessToken)
+  if (preset) return resolveMarketPreset(preset)
 
-  if (area.boundary) return area
-
-  return enrichBenchmarkAreaWithBoundary(
-    area,
-    accessToken,
-    area.geocodeHint
-  )
+  return applyStoredBoundary({
+    ...area,
+    boundary: undefined,
+  })
 }
 
 type GeocodeFeature = {
@@ -474,6 +445,25 @@ async function fetchGeocodeFeatures(
   }
 }
 
+function geocodeHintFromFeature(feature: {
+  place_type?: string[]
+  center?: [number, number]
+  context?: Array<{ id: string; short_code?: string }>
+}): BenchmarkAreaGeocodeHint {
+  const context = feature.context ?? []
+  const region = context.find((item) => item.id.startsWith("region."))
+  const district = context.find((item) => item.id.startsWith("district."))
+  const country = context.find((item) => item.id.startsWith("country."))
+
+  return {
+    placeTypes: feature.place_type,
+    center: feature.center,
+    regionShortCode: region?.short_code,
+    districtShortCode: district?.short_code,
+    countryShortCode: country?.short_code,
+  }
+}
+
 const PLACE_TYPE_RANK: Record<string, number> = {
   postcode: 0,
   neighborhood: 1,
@@ -602,47 +592,16 @@ export function matchBenchmarkPresetFromQuery(
 
 export async function searchBenchmarkAreas(
   query: string,
-  accessToken: string
+  _accessToken?: string
 ): Promise<BenchmarkArea[]> {
   const trimmed = query.trim()
   if (!trimmed) return BENCHMARK_SEARCH_PRESETS
-
-  const presetHits = filterBenchmarkAreaPresets(trimmed)
-  const presetExact = presetMatchesExact(trimmed)
-  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
-
-  const geocodeAreas = geocodeFeatures
-    .map((feature) => areaFromGeocodeFeature(feature))
-    .filter((area): area is BenchmarkArea => area != null)
-
-  const merged: BenchmarkArea[] = []
-  const seen = new Set<string>()
-
-  for (const area of geocodeAreas) {
-    if (seen.has(area.id)) continue
-    seen.add(area.id)
-    merged.push(area)
-  }
-
-  if (presetExact) {
-    if (!seen.has(presetExact.id)) {
-      merged.unshift(presetExact)
-      seen.add(presetExact.id)
-    }
-  }
-
-  for (const area of presetHits) {
-    if (seen.has(area.id)) continue
-    seen.add(area.id)
-    merged.push(area)
-  }
-
-  return merged.slice(0, 8)
+  return filterBenchmarkAreaPresets(trimmed).slice(0, 8)
 }
 
 export async function resolveBenchmarkAreaFromSearch(
   query: string,
-  accessToken: string
+  _accessToken?: string
 ): Promise<BenchmarkArea> {
   const trimmed = query.trim()
   if (!trimmed || isNationalAreaQuery(trimmed)) {
@@ -651,27 +610,14 @@ export async function resolveBenchmarkAreaFromSearch(
 
   const exactPreset = presetMatchesExact(trimmed)
   if (exactPreset) {
-    return resolveMarketPreset(exactPreset, accessToken)
-  }
-
-  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
-  const bestFeature = pickBestGeocodeFeature(geocodeFeatures, trimmed)
-  if (bestFeature) {
-    const area = areaFromGeocodeFeature(bestFeature)
-    if (area) {
-      return enrichBenchmarkAreaWithBoundary(
-        area,
-        accessToken,
-        area.geocodeHint
-      )
-    }
+    return resolveMarketPreset(exactPreset)
   }
 
   const presetFallback = BENCHMARK_MARKET_PRESETS.find((preset) =>
     marketPresetMatchesQuery(preset, trimmed)
   )
   if (presetFallback) {
-    return resolveMarketPreset(presetFallback, accessToken)
+    return resolveMarketPreset(presetFallback)
   }
 
   return US_NATIONAL_BENCHMARK_AREA

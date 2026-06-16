@@ -22,27 +22,22 @@ import {
   resolvePortfolioScopeDescription,
 } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { aggregatePortfolioRows } from "@/lib/portfolio-kpi-aggregate"
-import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
-function weightedOccupiedPercentForAssets(
-  assets: readonly ReturnType<typeof getAssetById>[]
-) {
-  let weightedSqftTotal = 0
-  let weightedOccupiedTotal = 0
-
-  for (const asset of assets) {
-    if (asset == null) continue
-
-    const financials = financialMetricsForAssetId(asset.id)
-    if (financials == null || financials.rsfSqft <= 0) continue
-
-    weightedSqftTotal += financials.rsfSqft
-    weightedOccupiedTotal += financials.rsfSqft * financials.occupancyPct
+function measurePortfolioHeaderStep<T>(label: string, compute: () => T): T {
+  if (
+    typeof window === "undefined" ||
+    typeof performance === "undefined" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return compute()
   }
 
-  return weightedSqftTotal > 0 ? weightedOccupiedTotal / weightedSqftTotal : 0
+  const startedAt = performance.now()
+  const result = compute()
+  const elapsedMs = performance.now() - startedAt
+  console.info(`[portfolio-perf] ${label}: ${elapsedMs.toFixed(1)}ms`)
+  return result
 }
 
 export function PortfolioPageHeader() {
@@ -103,21 +98,6 @@ export function PortfolioPageHeader() {
     )
   }, [effectiveAssets, portfolioScopeId])
 
-  const scopedPortfolioRows = React.useMemo(() => {
-    const rows = ASSETS.filter(
-      (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
-    ).map((asset, index) =>
-      portfolioAssetRowForAsset(getAssetById(asset.id, assetGroupData) ?? asset, index)
-    )
-    if (portfolioScopeId == null) return rows
-    return rows.filter((row) => row.groupIds.includes(portfolioScopeId))
-  }, [assetGroupData, portfolioScopeId])
-
-  const scopedPortfolioAggregate = React.useMemo(
-    () => aggregatePortfolioRows(scopedPortfolioRows),
-    [scopedPortfolioRows]
-  )
-
   const title = React.useMemo(() => {
     if (portfolioScopeId == null) return PORTFOLIO_OVERVIEW_LABEL
     return resolveAssetGroupLabel(portfolioScopeId, assetGroupData.customGroups)
@@ -146,28 +126,51 @@ export function PortfolioPageHeader() {
     return n === 1 ? "1 portfolio group" : `${n} portfolio groups`
   }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
 
-  const occupiedPercent = React.useMemo(
-    () => weightedOccupiedPercentForAssets(scopedAssets),
-    [scopedAssets]
+  const headerClusterMetrics = React.useMemo(
+    () =>
+      measurePortfolioHeaderStep(
+        `${portfolioScopeId ?? "__portfolio__"} header cluster`,
+        () => {
+          let weightedSqftTotal = 0
+          let weightedOccupiedTotal = 0
+          let totalRsfSqft = 0
+          let stackingSpaceTotal = 0
+          let waleSum = 0
+          let waleCount = 0
+
+          for (const asset of scopedAssets) {
+            const financials = financialMetricsForAssetId(asset.id)
+            if (financials != null && financials.rsfSqft > 0) {
+              weightedSqftTotal += financials.rsfSqft
+              weightedOccupiedTotal +=
+                financials.rsfSqft * financials.occupancyPct
+              totalRsfSqft += financials.rsfSqft
+
+              if (
+                Number.isFinite(financials.waleYears) &&
+                financials.waleYears > 0
+              ) {
+                waleSum += financials.waleYears
+                waleCount += 1
+              }
+            }
+
+            stackingSpaceTotal += stackingPlanSpaceCountForAsset(asset.id, asset)
+          }
+
+          return {
+            occupiedPercent:
+              weightedSqftTotal > 0
+                ? weightedOccupiedTotal / weightedSqftTotal
+                : 0,
+            totalRsfSqft,
+            stackingSpaceTotal,
+            waleYears: waleCount > 0 ? waleSum / waleCount : null,
+          }
+        }
+      ),
+    [portfolioScopeId, scopedAssets]
   )
-
-  const totalRsfSqft = React.useMemo(() => {
-    let t = 0
-    for (const asset of scopedAssets) {
-      const fin = financialMetricsForAssetId(asset.id)
-      if (fin != null && fin.rsfSqft > 0) t += fin.rsfSqft
-    }
-    return t
-  }, [scopedAssets])
-
-  const stackingSpaceTotal = React.useMemo(() => {
-    let t = 0
-    for (const asset of scopedAssets) {
-      const resolved = getAssetById(asset.id, assetGroupData) ?? asset
-      t += stackingPlanSpaceCountForAsset(asset.id, resolved)
-    }
-    return t
-  }, [scopedAssets, assetGroupData])
 
   const basePath = scopeParam
     ? `/portfolio/scopes/${encodeURIComponent(scopeParam)}`
@@ -179,6 +182,11 @@ export function PortfolioPageHeader() {
     ],
     [basePath]
   )
+  const forecastsHref = `${basePath}/forecasts`
+
+  React.useEffect(() => {
+    void router.prefetch(forecastsHref)
+  }, [forecastsHref, router])
 
   return (
     <>
@@ -200,11 +208,11 @@ export function PortfolioPageHeader() {
           </div>
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">
             <HeaderRsfOccupancyCluster
-              totalRsfSqft={totalRsfSqft}
+              totalRsfSqft={headerClusterMetrics.totalRsfSqft}
               assetCount={scopedAssets.length}
-              spaceCount={stackingSpaceTotal}
-              occupiedPercent={occupiedPercent}
-              waleYears={scopedPortfolioAggregate?.avgWaleYears ?? null}
+              spaceCount={headerClusterMetrics.stackingSpaceTotal}
+              occupiedPercent={headerClusterMetrics.occupiedPercent}
+              waleYears={headerClusterMetrics.waleYears}
             />
           </div>
         </div>

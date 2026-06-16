@@ -130,6 +130,23 @@ type FloorSeed = {
   tenants: TenantSeed[]
 }
 
+const floorSeedsCache = new Map<string, FloorSeed[]>()
+const stackingPlanDatasetCache = new Map<string, StackingPlanDataset>()
+
+export function syntheticAssetDataCacheKey(
+  assetId: string,
+  assetOverride?: Asset
+): string {
+  if (assetOverride == null) return assetId
+  return [
+    assetId,
+    assetOverride.name,
+    assetOverride.address,
+    assetOverride.groupId,
+    String(assetOverride.occupiedPercent),
+  ].join("\0")
+}
+
 export const STACKING_EXPIRATION_LEGEND: readonly StackingLegendItem[] = [
   { label: "2025", color: "#ef4444" },
   { label: "2026", color: "#f97316" },
@@ -1066,6 +1083,10 @@ function buildSuiteSqfts(
 }
 
 function buildFloorSeedsForAsset(assetId: string, assetOverride?: Asset): FloorSeed[] {
+  const cacheKey = syntheticAssetDataCacheKey(assetId, assetOverride)
+  const cached = floorSeedsCache.get(cacheKey)
+  if (cached != null) return cached
+
   const asset = resolveSyntheticAssetRecord(assetId, assetOverride)
   const seed = hashText(`stacking:${assetId}`)
   const random = createPrng(seed)
@@ -1130,6 +1151,7 @@ function buildFloorSeedsForAsset(assetId: string, assetOverride?: Asset): FloorS
     })
   }
 
+  floorSeedsCache.set(cacheKey, floors)
   return floors
 }
 
@@ -1137,6 +1159,10 @@ export function getSampleStackingPlanData(
   assetId: string,
   assetOverride?: Asset
 ): StackingPlanDataset {
+  const cacheKey = syntheticAssetDataCacheKey(assetId, assetOverride)
+  const cached = stackingPlanDatasetCache.get(cacheKey)
+  if (cached != null) return cached
+
   /** Deterministic across SSR and hydration: avoid `getAssetById(id)` reading localStorage group overrides on the client. */
   const asset = resolveSyntheticAssetRecord(assetId, assetOverride)
   const assetContext =
@@ -1361,7 +1387,7 @@ export function getSampleStackingPlanData(
     getWeightedAverageTenantValue(allTenants, "predictedRentPsfValue") ?? 0
   const waleYears = getAverageRemainingLeaseYears(occupiedTenants) ?? 0
 
-  return {
+  const dataset = {
     floors,
     summary: {
       totalSqft,
@@ -1377,6 +1403,9 @@ export function getSampleStackingPlanData(
       waleYears: roundToHundredths(waleYears),
     },
   }
+
+  stackingPlanDatasetCache.set(cacheKey, dataset)
+  return dataset
 }
 
 /** Stacking-plan spaces: suite rows on every floor (occupied + vacant), summed for one asset. */

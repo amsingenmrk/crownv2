@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Briefcase, ChevronDown, ChevronRight, Plus } from "lucide-react"
 import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import {
@@ -77,6 +77,7 @@ function PortfolioNavAssetRow({
 
 export function NavAssets() {
   const pathname = usePathname()
+  const router = useRouter()
   const [newScopeOpen, setNewScopeOpen] = React.useState(false)
   const initialAssetGroupOverrideSnapshot = useInitialAssetGroupOverrideSnapshot()
   const [portfolioAssetsExpanded, setPortfolioAssetsExpanded] =
@@ -121,6 +122,13 @@ export function NavAssets() {
     assetGroupData.fundLabelOverrides,
     assetGroupData.removedPortfolioGroupIds,
   ])
+  const groupHrefById = React.useMemo(() => {
+    const next: Record<string, string> = {}
+    for (const group of navAssetSections) {
+      next[group.groupId] = portfolioScopeHref(group.groupId)
+    }
+    return next
+  }, [navAssetSections])
 
   const allPortfolioNavAssets = React.useMemo(() => {
     return ASSETS.filter(
@@ -131,6 +139,42 @@ export function NavAssets() {
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       )
   }, [assetGroupData])
+  const navAssetsByGroupId = React.useMemo(() => {
+    const next: Record<string, typeof allPortfolioNavAssets> = {}
+    for (const group of navAssetSections) {
+      next[group.groupId] = allPortfolioNavAssets.filter((asset) =>
+        assetIsInPortfolioGroup(asset.id, group.groupId, assetGroupData)
+      )
+    }
+    return next
+  }, [allPortfolioNavAssets, assetGroupData, navAssetSections])
+
+  const prefetchGroupHref = React.useCallback(
+    (href: string) => {
+      void router.prefetch(href)
+    },
+    [router]
+  )
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || navAssetSections.length === 0) return
+
+    const prefetchAllGroups = () => {
+      for (const href of Object.values(groupHrefById)) {
+        void router.prefetch(href)
+      }
+    }
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(prefetchAllGroups, {
+        timeout: 1500,
+      })
+      return () => window.cancelIdleCallback(idleId)
+    }
+
+    const timeoutId = globalThis.setTimeout(prefetchAllGroups, 0)
+    return () => globalThis.clearTimeout(timeoutId)
+  }, [groupHrefById, navAssetSections.length, router])
 
   /** Accordion: only one property group expanded at a time. */
   const openOnlyGroup = React.useCallback(
@@ -281,11 +325,8 @@ export function NavAssets() {
         </SidebarGroupAction>
         <SidebarMenu className="gap-0">
           {navAssetSections.map((group) => {
-            const assets = ASSETS.filter(
-              (a) =>
-                !assetGroupData.standalonePropertyNavIds.has(a.id) &&
-                assetIsInPortfolioGroup(a.id, group.groupId, assetGroupData)
-            )
+            const assets = navAssetsByGroupId[group.groupId] ?? []
+            const href = groupHrefById[group.groupId] ?? portfolioScopeHref(group.groupId)
             return (
               <Collapsible
                 key={group.groupId}
@@ -308,7 +349,9 @@ export function NavAssets() {
                       activeScopeId === group.groupId ||
                       activeAssetGroupId === group.groupId
                     }
-                    render={<Link href={portfolioScopeHref(group.groupId)} />}
+                    onMouseEnter={() => prefetchGroupHref(href)}
+                    onFocus={() => prefetchGroupHref(href)}
+                    render={<Link href={href} />}
                   >
                     <span className="truncate">{group.label}</span>
                   </SidebarMenuButton>

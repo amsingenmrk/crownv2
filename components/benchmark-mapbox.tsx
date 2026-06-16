@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { ErrorEvent, Map as MapboxMap } from "mapbox-gl"
+import type { Map as MapboxMap } from "mapbox-gl"
 
 import "@/lib/configure-mapbox-gl-worker"
 import "mapbox-gl/dist/mapbox-gl.css"
@@ -16,177 +16,132 @@ import {
 import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
 import { cn } from "@/lib/utils"
 
-const NO_MAP_VIEW_PADDING = {
-  top: 0,
-  bottom: 0,
-  left: 0,
-  right: 0,
-} as const
-
-const VECTOR_SOURCE_ID = "benchmark-boundary-vector"
-const GEOJSON_SOURCE_ID = "benchmark-boundary-geojson"
-const AREA_FILL_LAYER_ID = "benchmark-area-fill"
-const AREA_LINE_LAYER_ID = "benchmark-area-line"
+const BOUNDARY_SOURCE_ID = "benchmark-boundary"
+const BOUNDARY_FILL_LAYER_ID = "benchmark-boundary-fill"
+const BOUNDARY_LINE_LAYER_ID = "benchmark-boundary-line"
 
 function firstSymbolLayerId(map: MapboxMap): string | undefined {
   return map.getStyle()?.layers?.find((layer) => layer.type === "symbol")?.id
 }
 
-function boundsKey(bounds: BenchmarkArea["bounds"]): string {
-  const [[west, south], [east, north]] = bounds
-  return `${west},${south},${east},${north}`
-}
-
-function mapErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message
-  if (typeof error === "string" && error.trim()) return error
-  if (error && typeof error === "object") {
-    const record = error as Record<string, unknown>
-    if (typeof record.message === "string" && record.message.trim()) {
-      return record.message
-    }
-    if (typeof record.status === "number") {
-      return `HTTP ${record.status}`
-    }
-    try {
-      const serialized = JSON.stringify(error)
-      if (serialized && serialized !== "{}") return serialized
-    } catch {
-      // ignore circular structures
-    }
+function fitPaddingForBenchmarkMap(compactMode: boolean) {
+  if (compactMode) {
+    return { top: 72, bottom: 24, left: 20, right: 20 }
   }
-  return "Unknown map error"
+  return { top: 72, bottom: 40, left: 48, right: 48 }
 }
 
 export function BenchmarkMapbox({
   area,
   className,
+  compactMode = false,
 }: {
   area: BenchmarkArea
   className?: string
+  compactMode?: boolean
 }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
-  const postLoadResizeTimeoutsRef = React.useRef<number[]>([])
+  const resizeFrameRef = React.useRef<number | null>(null)
   const [labelLayerId, setLabelLayerId] = React.useState<string | undefined>()
-  const [vectorUnavailable, setVectorUnavailable] = React.useState(false)
 
   const mapStyle = resolveMapboxMapStyle(resolvedTheme)
-  const areaBoundsKey = boundsKey(area.bounds)
-  const boundaryGeometry = area.boundaryGeometry
-  const boundary = area.boundary
-  const useStoredGeometry = Boolean(boundaryGeometry)
-  const useVectorBoundary =
-    Boolean(boundary) && !vectorUnavailable && !useStoredGeometry
-  const mapInstanceKey = useStoredGeometry
-    ? `${area.id}-stored`
-    : useVectorBoundary
-      ? `${area.id}-vector`
-      : `${area.id}-geojson`
-
   const areaFeature = React.useMemo(
-    () => boundaryGeometry ?? benchmarkAreaPolygon(area.bounds),
-    [area.id, areaBoundsKey, boundaryGeometry]
+    () => area.boundaryGeometry ?? benchmarkAreaPolygon(area.bounds),
+    [area.boundaryGeometry, area.bounds]
   )
 
-  const highlightFill =
-    resolvedTheme === "dark" ? "#a78bfa" : "#7c3aed"
-  const highlightLine =
-    resolvedTheme === "dark" ? "#ddd6fe" : "#5b21b6"
-
+  const highlightFill = resolvedTheme === "dark" ? "#a78bfa" : "#7c3aed"
+  const highlightLine = resolvedTheme === "dark" ? "#ddd6fe" : "#5b21b6"
   const layerInsert = labelLayerId ? { beforeId: labelLayerId } : {}
-
-  const areaBoundaryModeKey = useStoredGeometry
-    ? `${area.id}:stored`
-    : `${area.id}:${boundary?.tilesetUrl ?? "none"}`
-
-  React.useEffect(() => {
-    setVectorUnavailable(false)
-  }, [areaBoundaryModeKey])
-
-  const handleMapError = React.useCallback(
-    (event: ErrorEvent) => {
-      const message = mapErrorMessage(event.error)
-      if (useVectorBoundary) {
-        setVectorUnavailable(true)
-        return
-      }
-      console.warn(`Benchmark map: ${message}`)
-    },
-    [useVectorBoundary]
-  )
 
   const fitToArea = React.useCallback(
     (animate: boolean) => {
       const map = mapRef.current?.getMap()
-      if (!map) return
+      if (!map?.loaded()) return
       map.fitBounds(area.bounds, {
-        padding: { top: 72, bottom: 40, left: 48, right: 48 },
+        padding: fitPaddingForBenchmarkMap(compactMode),
         maxZoom: maxZoomForBenchmarkArea(area),
         duration: animate ? 700 : 0,
       })
     },
-    [area.id, areaBoundsKey, area.bounds]
+    [area.bounds, area, compactMode]
   )
 
-  const handleMapLoad = React.useCallback(() => {
+  const scheduleResizeAndFit = React.useCallback(
+    (animate: boolean) => {
+      if (resizeFrameRef.current != null) {
+        window.cancelAnimationFrame(resizeFrameRef.current)
+      }
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        resizeFrameRef.current = null
+        const map = mapRef.current?.getMap()
+        if (!map) return
+        map.resize()
+        fitToArea(animate)
+      })
+    },
+    [fitToArea]
+  )
+
+  const syncLabelLayer = React.useCallback(() => {
     const map = mapRef.current?.getMap()
     if (!map) return
-
-    map.setPadding({ ...NO_MAP_VIEW_PADDING })
     setLabelLayerId(firstSymbolLayerId(map))
+  }, [])
 
-    const resizeAndFit = () => {
-      map.resize()
-      fitToArea(false)
-    }
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(resizeAndFit)
-    })
-
-    for (const id of postLoadResizeTimeoutsRef.current) {
-      window.clearTimeout(id)
-    }
-    postLoadResizeTimeoutsRef.current = [32, 100, 250].map((ms) =>
-      window.setTimeout(resizeAndFit, ms)
-    )
-  }, [fitToArea])
-
-  React.useEffect(
-    () => () => {
-      for (const id of postLoadResizeTimeoutsRef.current) {
-        window.clearTimeout(id)
-      }
-      postLoadResizeTimeoutsRef.current = []
-    },
-    []
-  )
+  const handleMapLoad = React.useCallback(() => {
+    syncLabelLayer()
+    scheduleResizeAndFit(false)
+  }, [scheduleResizeAndFit, syncLabelLayer])
 
   React.useLayoutEffect(() => {
     const el = mapContainerRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
-    const resizeMap = () => {
-      mapRef.current?.getMap()?.resize()
+    const handleResize = () => {
+      scheduleResizeAndFit(false)
     }
 
-    const ro = new ResizeObserver(resizeMap)
+    const ro = new ResizeObserver(handleResize)
     ro.observe(el)
-    window.addEventListener("resize", resizeMap)
+    window.addEventListener("resize", handleResize)
     return () => {
       ro.disconnect()
-      window.removeEventListener("resize", resizeMap)
+      window.removeEventListener("resize", handleResize)
     }
-  }, [])
+  }, [scheduleResizeAndFit])
 
   React.useEffect(() => {
     const map = mapRef.current?.getMap()
-    if (!map?.loaded()) return
-    fitToArea(true)
-  }, [area.id, areaBoundsKey, fitToArea, mapInstanceKey])
+    if (!map) return
+    const onLoad = () => {
+      syncLabelLayer()
+      fitToArea(true)
+    }
+
+    if (map.loaded()) {
+      syncLabelLayer()
+      fitToArea(true)
+      return
+    }
+
+    map.once("load", onLoad)
+    return () => {
+      map.off("load", onLoad)
+    }
+  }, [fitToArea, syncLabelLayer])
+
+  React.useEffect(
+    () => () => {
+      if (resizeFrameRef.current != null) {
+        window.cancelAnimationFrame(resizeFrameRef.current)
+      }
+    },
+    []
+  )
 
   if (!token) {
     return null
@@ -198,7 +153,6 @@ export function BenchmarkMapbox({
       className={cn("absolute inset-0 min-h-0 min-w-0 size-full", className)}
     >
       <Map
-        key={mapInstanceKey}
         ref={mapRef}
         mapboxAccessToken={token}
         mapStyle={mapStyle}
@@ -207,73 +161,36 @@ export function BenchmarkMapbox({
           longitude: -98,
           latitude: 39,
           zoom: 3,
-          padding: { ...NO_MAP_VIEW_PADDING },
         }}
         onLoad={handleMapLoad}
-        onError={handleMapError}
+        onStyleData={syncLabelLayer}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        {useVectorBoundary && boundary ? (
-          <Source
-            id={VECTOR_SOURCE_ID}
-            type="vector"
-            url={boundary.tilesetUrl}
-          >
-            <Layer
-              id={AREA_FILL_LAYER_ID}
-              type="fill"
-              source-layer={boundary.sourceLayer}
-              filter={boundary.filter}
-              {...layerInsert}
-              paint={{
-                "fill-color": highlightFill,
-                "fill-opacity": 0.18,
-              }}
-            />
-            <Layer
-              id={AREA_LINE_LAYER_ID}
-              type="line"
-              source-layer={boundary.sourceLayer}
-              filter={boundary.filter}
-              {...layerInsert}
-              layout={{
-                "line-cap": "round",
-                "line-join": "round",
-              }}
-              paint={{
-                "line-color": highlightLine,
-                "line-width": 3,
-                "line-opacity": 1,
-              }}
-            />
-          </Source>
-        ) : (
-          <Source id={GEOJSON_SOURCE_ID} type="geojson" data={areaFeature}>
-            <Layer
-              id={AREA_FILL_LAYER_ID}
-              type="fill"
-              {...layerInsert}
-              paint={{
-                "fill-color": highlightFill,
-                "fill-opacity": 0.18,
-              }}
-            />
-            <Layer
-              id={AREA_LINE_LAYER_ID}
-              type="line"
-              {...layerInsert}
-              layout={{
-                "line-cap": "round",
-                "line-join": "round",
-              }}
-              paint={{
-                "line-color": highlightLine,
-                "line-width": 3,
-                "line-opacity": 1,
-              }}
-            />
-          </Source>
-        )}
+        <Source id={BOUNDARY_SOURCE_ID} type="geojson" data={areaFeature}>
+          <Layer
+            id={BOUNDARY_FILL_LAYER_ID}
+            type="fill"
+            {...layerInsert}
+            paint={{
+              "fill-color": highlightFill,
+              "fill-opacity": 0.18,
+            }}
+          />
+          <Layer
+            id={BOUNDARY_LINE_LAYER_ID}
+            type="line"
+            {...layerInsert}
+            layout={{
+              "line-cap": "round",
+              "line-join": "round",
+            }}
+            paint={{
+              "line-color": highlightLine,
+              "line-width": 3,
+              "line-opacity": 1,
+            }}
+          />
+        </Source>
       </Map>
     </div>
   )

@@ -188,7 +188,7 @@ function buildPortfolioQuarterlySummaryRows(
   })
 }
 
-function buildPortfolioQuarterlySummaryRowsWithAssets(
+function buildPortfolioQuarterlySummaryRootRows(
   statementRows: ForecastStatementRow[],
   assetModels: readonly ScopedForecastResolvedAssetModel[]
 ): ScopedForecastTableRow[] {
@@ -208,7 +208,6 @@ function buildPortfolioQuarterlySummaryRowsWithAssets(
       highlightLabel: id === "salePrice",
       highlightValue: id === "salePrice",
       startsSection: id === "salePrice",
-      subRows: sourceRow == null ? undefined : assetSubRowsForStatementRow(sourceRow, assetModels),
     }
   })
 }
@@ -225,6 +224,15 @@ function convertScopedForecastTableRowForTotalHorizon(
     values: statementValuesForTotalHorizon(row),
     subRows: row.subRows?.map(convertScopedForecastTableRowForTotalHorizon),
   }
+}
+
+function rowsForTotalHorizonIfNeeded(
+  rows: ScopedForecastTableRow[],
+  periodGranularity: ForecastStatementPeriodGranularity
+): ScopedForecastTableRow[] {
+  return periodGranularity === "quarterly"
+    ? rows
+    : rows.map(convertScopedForecastTableRowForTotalHorizon)
 }
 
 function assetSubRowsForPortfolioOutlookStatement({
@@ -256,13 +264,9 @@ function assetSubRowsForPortfolioOutlookStatement({
   })
 }
 
-function buildPortfolioOutlookBreakdownRows({
-  rows,
-  outlookModels,
-}: {
+function buildPortfolioOutlookBreakdownRootRows(
   rows: ForecastStatementRow[]
-  outlookModels: readonly ScopedForecastPortfolioOutlookModel[]
-}): ScopedForecastTableRow[] {
+): ScopedForecastTableRow[] {
   return rows.map((row) => ({
     id: row.id,
     rowType: "statement",
@@ -272,28 +276,72 @@ function buildPortfolioOutlookBreakdownRows({
     highlightLabel: row.id === "salePrice",
     highlightValue: row.id === "salePrice",
     startsSection: row.id === "salePrice",
-    subRows: outlookModels.map((outlookModel) => {
-      const outlookRow =
-        outlookModel.portfolioModel.statementRows.find(
-          (statementRow) => statementRow.id === row.id
-        ) ?? row
-
-      return {
-        id: `${row.id}-${outlookModel.scenarioId}`,
-        rowType: "outlook",
-        label: `${outlookModel.portfolioModel.scenario.name} (${outlookModel.probabilityPct}%)`,
-        kind: outlookRow.kind,
-        values: outlookRow.values,
-        highlightLabel: row.id === "salePrice",
-        highlightValue: row.id === "salePrice",
-        subRows: assetSubRowsForPortfolioOutlookStatement({
-          statementRow: row,
-          assetModels: outlookModel.assetModels,
-          outlookId: outlookModel.scenarioId,
-        }),
-      } satisfies ScopedForecastTableRow
-    }),
   }))
+}
+
+function buildPortfolioOutlookRowsForMetric({
+  statementRow,
+  outlookModels,
+  periodGranularity,
+}: {
+  statementRow: ForecastStatementRow
+  outlookModels: readonly ScopedForecastPortfolioOutlookModel[]
+  periodGranularity: ForecastStatementPeriodGranularity
+}): ScopedForecastTableRow[] {
+  const rows = outlookModels.map((outlookModel) => {
+    const outlookRow =
+      outlookModel.portfolioModel.statementRows.find(
+        (candidateStatementRow) => candidateStatementRow.id === statementRow.id
+      ) ?? statementRow
+
+    return {
+      id: `${statementRow.id}-${outlookModel.scenarioId}`,
+      rowType: "outlook" as const,
+      label: `${outlookModel.portfolioModel.scenario.name} (${outlookModel.probabilityPct}%)`,
+      kind: outlookRow.kind,
+      values: outlookRow.values,
+      highlightLabel: statementRow.id === "salePrice",
+      highlightValue: statementRow.id === "salePrice",
+    }
+  })
+
+  return rowsForTotalHorizonIfNeeded(rows, periodGranularity)
+}
+
+function buildPortfolioAssetRowsForMetric({
+  statementRow,
+  assetModels,
+  periodGranularity,
+}: {
+  statementRow: ForecastStatementRow
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+  periodGranularity: ForecastStatementPeriodGranularity
+}): ScopedForecastTableRow[] {
+  return rowsForTotalHorizonIfNeeded(
+    assetSubRowsForStatementRow(statementRow, assetModels),
+    periodGranularity
+  )
+}
+
+function buildPortfolioAssetRowsForOutlookMetric({
+  statementRow,
+  assetModels,
+  outlookId,
+  periodGranularity,
+}: {
+  statementRow: ForecastStatementRow
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+  outlookId: string
+  periodGranularity: ForecastStatementPeriodGranularity
+}): ScopedForecastTableRow[] {
+  return rowsForTotalHorizonIfNeeded(
+    assetSubRowsForPortfolioOutlookStatement({
+      statementRow,
+      assetModels,
+      outlookId,
+    }),
+    periodGranularity
+  )
 }
 
 /** Wide enough for full building names (aligns with portfolio snapshot `building` grid track intent). */
@@ -326,20 +374,47 @@ const periodColumnStyle: React.CSSProperties = {
 const selectedScopedForecastSelectorTriggerClassName =
   "border-violet-500/45 bg-violet-500/[0.09] font-medium text-violet-800 shadow-sm hover:bg-violet-500/[0.12] hover:border-violet-500/55 focus-visible:border-violet-500 focus-visible:ring-violet-500/25 dark:border-violet-400/40 dark:bg-violet-500/[0.14] dark:text-violet-200 dark:hover:bg-violet-500/20 dark:hover:border-violet-400/55 dark:focus-visible:border-violet-400 dark:focus-visible:ring-violet-400/30 [&_svg]:text-violet-600 dark:[&_svg]:text-violet-400"
 
-function collectPortfolioTotalsRowIdToRootId(
+function portfolioTotalsMetricIdFromRowId(rowId: string): ForecastChartTab | undefined {
+  return forecastChartTabFromRootRowId(rowId) ?? statementMetricIdFromTableRowId(rowId)
+}
+
+function collectPortfolioTotalsRowIdToRootId({
+  roots,
+  hasOutlookBreakdown,
+  assetModels,
+  outlookModels,
+}: {
   roots: ScopedForecastTableRow[]
-): Map<string, string> {
+  hasOutlookBreakdown: boolean
+  assetModels: readonly ScopedForecastResolvedAssetModel[]
+  outlookModels: readonly ScopedForecastPortfolioOutlookModel[]
+}): Map<string, string> {
   const map = new Map<string, string>()
-  const visit = (nodes: ScopedForecastTableRow[], rootId: string) => {
-    for (const node of nodes) {
-      map.set(node.id, rootId)
-      if (node.subRows?.length) visit(node.subRows, rootId)
-    }
-  }
+
   for (const root of roots) {
     map.set(root.id, root.id)
-    if (root.subRows?.length) visit(root.subRows, root.id)
+    const metricId = portfolioTotalsMetricIdFromRowId(root.id)
+    if (metricId == null) continue
+
+    if (hasOutlookBreakdown) {
+      for (const outlookModel of outlookModels) {
+        const outlookRowId = `${metricId}-${outlookModel.scenarioId}`
+        map.set(outlookRowId, root.id)
+        for (const assetModel of outlookModel.assetModels) {
+          map.set(
+            `${metricId}-${outlookModel.scenarioId}-${assetModel.model.assetId}`,
+            root.id
+          )
+        }
+      }
+      continue
+    }
+
+    for (const assetModel of assetModels) {
+      map.set(`${metricId}-${assetModel.model.assetId}`, root.id)
+    }
   }
+
   return map
 }
 
@@ -437,6 +512,8 @@ export function ScopedForecastsPortfolioTotalsTable({
   rows,
   assetModels,
   outlookModels,
+  resolveOutlookAssetModels,
+  outlookAssetCount,
   metricFocus,
   periodGranularity = "quarterly",
   singleRootExpansion = false,
@@ -446,6 +523,10 @@ export function ScopedForecastsPortfolioTotalsTable({
   rows: ForecastStatementRow[]
   assetModels: readonly ScopedForecastResolvedAssetModel[]
   outlookModels?: readonly ScopedForecastPortfolioOutlookModel[]
+  resolveOutlookAssetModels?: (
+    scenarioId: ScopedForecastPortfolioOutlookModel["scenarioId"]
+  ) => readonly ScopedForecastResolvedAssetModel[]
+  outlookAssetCount?: number
   metricFocus?: ForecastChartTab
   periodGranularity?: ForecastStatementPeriodGranularity
   /** When true, expanding one statement line collapses other top-level sections (accordion). */
@@ -455,29 +536,46 @@ export function ScopedForecastsPortfolioTotalsTable({
 }) {
   const hasOutlookBreakdown =
     outlookModels != null && outlookModels.length > 0
+  const hasDeferredOutlookDetails =
+    hasOutlookBreakdown &&
+    resolveOutlookAssetModels != null &&
+    (outlookAssetCount ?? 0) > 0
   const [expanded, setExpanded] = React.useState<ExpandedState>({})
+  const resolvedOutlookModels = outlookModels ?? []
+  const statementRowsById = React.useMemo(
+    () => new Map(rows.map((row) => [row.id, row])),
+    [rows]
+  )
+  const outlookModelsById = React.useMemo(
+    () => new Map(resolvedOutlookModels.map((model) => [model.scenarioId, model])),
+    [resolvedOutlookModels]
+  )
 
   const tableRows = React.useMemo(() => {
     if (hasOutlookBreakdown) {
-      const nestedRows = buildPortfolioOutlookBreakdownRows({
-        rows,
-        outlookModels: outlookModels ?? [],
-      })
-      return periodGranularity === "quarterly"
-        ? nestedRows
-        : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
+      return rowsForTotalHorizonIfNeeded(
+        buildPortfolioOutlookBreakdownRootRows(rows),
+        periodGranularity
+      )
     }
 
-    const nestedRows = buildPortfolioQuarterlySummaryRowsWithAssets(rows, assetModels)
-    return periodGranularity === "quarterly"
-      ? nestedRows
-      : nestedRows.map(convertScopedForecastTableRowForTotalHorizon)
+    return rowsForTotalHorizonIfNeeded(
+      buildPortfolioQuarterlySummaryRootRows(rows, assetModels),
+      periodGranularity
+    )
   }, [assetModels, hasOutlookBreakdown, outlookModels, periodGranularity, rows])
 
   const rowIdToRootId = React.useMemo(
-    () => collectPortfolioTotalsRowIdToRootId(tableRows),
-    [tableRows]
+    () =>
+      collectPortfolioTotalsRowIdToRootId({
+        roots: tableRows,
+        hasOutlookBreakdown,
+        assetModels,
+        outlookModels: resolvedOutlookModels,
+      }),
+    [assetModels, hasOutlookBreakdown, resolvedOutlookModels, tableRows]
   )
+  const expandedRecord = React.useMemo(() => expandedStateToRecord(expanded), [expanded])
 
   React.useEffect(() => {
     if (metricFocus == null) return
@@ -524,8 +622,11 @@ export function ScopedForecastsPortfolioTotalsTable({
   }, [periodGranularity, periods])
 
   const hasExpandableRows = React.useMemo(
-    () => tableRows.some((row) => (row.subRows?.length ?? 0) > 0),
-    [tableRows]
+    () =>
+      hasOutlookBreakdown
+        ? resolvedOutlookModels.length > 0
+        : assetModels.length > 0,
+    [assetModels.length, hasOutlookBreakdown, resolvedOutlookModels.length]
   )
 
   const handleExpandedChange = React.useMemo(() => {
@@ -544,6 +645,100 @@ export function ScopedForecastsPortfolioTotalsTable({
       })
     }
   }, [hasExpandableRows, rowIdToRootId, singleRootExpansion])
+
+  const getPortfolioTotalsSubRows = React.useCallback(
+    (row: ScopedForecastTableRow) => {
+      if (!hasExpandableRows || !expandedRecord[row.id]) return undefined
+
+      const metricId = portfolioTotalsMetricIdFromRowId(row.id)
+      if (metricId == null) return undefined
+
+      const statementRow = statementRowsById.get(metricId)
+      if (statementRow == null) return undefined
+
+      if (row.rowType === "statement") {
+        if (hasOutlookBreakdown) {
+          return buildPortfolioOutlookRowsForMetric({
+            statementRow,
+            outlookModels: resolvedOutlookModels,
+            periodGranularity,
+          })
+        }
+
+        return buildPortfolioAssetRowsForMetric({
+          statementRow,
+          assetModels,
+          periodGranularity,
+        })
+      }
+
+      if (row.rowType === "outlook") {
+        const outlookId = row.id.slice(`${metricId}-`.length)
+        const outlookModel = outlookModelsById.get(
+          outlookId as ScopedForecastPortfolioOutlookModel["scenarioId"]
+        )
+        const detailAssetModels =
+          outlookModel == null
+            ? []
+            : (resolveOutlookAssetModels?.(outlookModel.scenarioId) ??
+              outlookModel.assetModels)
+        if (detailAssetModels.length === 0) {
+          return undefined
+        }
+
+        return buildPortfolioAssetRowsForOutlookMetric({
+          statementRow,
+          assetModels: detailAssetModels,
+          outlookId:
+            outlookModel?.scenarioId ??
+            (outlookId as ScopedForecastPortfolioOutlookModel["scenarioId"]),
+          periodGranularity,
+        })
+      }
+
+      return undefined
+    },
+    [
+      assetModels,
+      expandedRecord,
+      hasExpandableRows,
+      hasOutlookBreakdown,
+      outlookModelsById,
+      periodGranularity,
+      resolvedOutlookModels,
+      statementRowsById,
+    ]
+  )
+
+  const getPortfolioTotalsRowCanExpand = React.useCallback(
+    (row: Row<ScopedForecastTableRow>) => {
+      const item = row.original
+      if (item.rowType === "asset") return false
+
+      if (item.rowType === "outlook") {
+        const metricId = statementMetricIdFromTableRowId(item.id)
+        if (metricId == null) return false
+        if (hasDeferredOutlookDetails) return true
+        const outlookId = item.id.slice(`${metricId}-`.length)
+        return (
+          outlookModelsById.get(
+            outlookId as ScopedForecastPortfolioOutlookModel["scenarioId"]
+          )?.assetModels.length ?? 0
+        ) > 0
+      }
+
+      return hasOutlookBreakdown
+        ? resolvedOutlookModels.length > 0
+        : assetModels.length > 0
+    },
+    [
+      assetModels.length,
+      hasDeferredOutlookDetails,
+      hasOutlookBreakdown,
+      outlookModelsById,
+      resolvedOutlookModels.length,
+    ]
+  )
 
   const columns = React.useMemo<ColumnDef<ScopedForecastTableRow>[]>(
     () => [
@@ -586,9 +781,8 @@ export function ScopedForecastsPortfolioTotalsTable({
     onExpandedChange: handleExpandedChange,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: hasExpandableRows
-      ? (row: ScopedForecastTableRow) => row.subRows ?? undefined
-      : undefined,
+    getSubRows: hasExpandableRows ? getPortfolioTotalsSubRows : undefined,
+    getRowCanExpand: hasExpandableRows ? getPortfolioTotalsRowCanExpand : undefined,
     getRowId: (row) => row.id,
     autoResetExpanded: false,
   })
@@ -824,7 +1018,12 @@ function statementMetricIdFromTableRowId(
   tableRowId: string
 ): (typeof FORECAST_TABLE_METRIC_IDS)[number] | undefined {
   for (const id of FORECAST_TABLE_METRIC_IDS) {
-    if (tableRowId === id || tableRowId.startsWith(`${id}-`)) {
+    if (
+      tableRowId === id ||
+      tableRowId.startsWith(`${id}-`) ||
+      tableRowId === `portfolio-total-${id}` ||
+      tableRowId.startsWith(`portfolio-total-${id}-`)
+    ) {
       return id
     }
   }

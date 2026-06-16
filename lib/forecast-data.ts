@@ -46,7 +46,7 @@ export type ForecastEconomicOutlookScenario = {
   macroPeriods: ForecastScenarioMacroPeriod[]
 }
 
-export type ForecastRowKind = "currency" | "expense" | "percent"
+export type ForecastRowKind = "currency" | "expense" | "percent" | "rentPsf"
 
 export type ForecastStatementUncertaintyBand = {
   lowerValues: number[]
@@ -605,12 +605,14 @@ export function buildAssetForecastModel({
   assumptions,
   modValues = INITIAL_MOD_VALUES,
   stackingPlanData,
+  includeRevenueBreakdown = true,
 }: {
   assetId: string
   scenario: ForecastEconomicOutlookScenario
   assumptions: ForecastAssumptions
   modValues?: ModValues
   stackingPlanData?: StackingPlanDataset
+  includeRevenueBreakdown?: boolean
 }): AssetForecastModel {
   const asset = getAssetById(assetId)
   const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
@@ -632,46 +634,63 @@ export function buildAssetForecastModel({
     exitCapRatePct: clamp(Number(assumptions.exitCapRatePct.toFixed(2)), 4, 8),
   }
   const modificationUplift = upliftFromModValues(modValues)
+  const grossRevenue = periods.map(() => 0)
+  const revenueBreakdown: ForecastRevenueFloorRow[] = []
 
-  const baseRevenueBreakdown: ForecastRevenueFloorRow[] = dataset.floors.map(
-    (floor) => {
-      const spaces = floor.tenants.map((tenant) => ({
-        id: tenant.id,
-        suite: tenant.space,
-        tenantName: tenant.name,
-        floor: floor.floor,
-        sqft: tenant.sqft,
-        isVacant: tenant.isVacant,
-        leaseExpiration: tenant.expiration,
-        values: buildQuarterlySpaceRevenue({
-          tenant,
-          assumptions: normalizedAssumptions,
-          scenario,
-          currentOccupancyPct: dataset.summary.overallOccupancyPercent,
-          periods,
-          modificationUplift,
-        }),
-      }))
+  for (const floor of dataset.floors) {
+    const floorValues: number[] | null = includeRevenueBreakdown
+      ? periods.map(() => 0)
+      : null
+    const spaces: ForecastRevenueSpaceRow[] | null = includeRevenueBreakdown
+      ? []
+      : null
 
-      return {
+    for (const tenant of floor.tenants) {
+      const values = buildQuarterlySpaceRevenue({
+        tenant,
+        assumptions: normalizedAssumptions,
+        scenario,
+        currentOccupancyPct: dataset.summary.overallOccupancyPercent,
+        periods,
+        modificationUplift,
+      })
+
+      for (let index = 0; index < values.length; index += 1) {
+        const value = values[index] ?? 0
+        grossRevenue[index] = (grossRevenue[index] ?? 0) + value
+        if (floorValues != null) {
+          floorValues[index] = (floorValues[index] ?? 0) + value
+        }
+      }
+
+      if (spaces != null) {
+        spaces.push({
+          id: tenant.id,
+          suite: tenant.space,
+          tenantName: tenant.name,
+          floor: floor.floor,
+          sqft: tenant.sqft,
+          isVacant: tenant.isVacant,
+          leaseExpiration: tenant.expiration,
+          values,
+        })
+      }
+    }
+
+    if (floorValues != null && spaces != null) {
+      revenueBreakdown.push({
         id: `floor-${floor.floor}`,
         floor: floor.floor,
         label: `Floor ${floor.floor}`,
         sqft: floor.tenants.reduce((sum, tenant) => sum + tenant.sqft, 0),
-        values: sumSeries(spaces.map((space) => space.values)),
+        values: floorValues,
         spaces,
-      }
+      })
     }
-  )
+  }
 
-  const baseGrossRevenue = sumSeries(
-    baseRevenueBreakdown.map((floor) => floor.values)
-  )
-  const baseCurrentAnnualRevenue = (baseGrossRevenue[0] ?? 0) * 4
-  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, baseCurrentAnnualRevenue)
-  const grossRevenue = baseGrossRevenue
-  const revenueBreakdown = baseRevenueBreakdown
-  const currentAnnualRevenue = baseCurrentAnnualRevenue
+  const currentAnnualRevenue = (grossRevenue[0] ?? 0) * 4
+  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, currentAnnualRevenue)
   const opex = buildQuarterlyOpex({
     periods,
     grossRevenue,

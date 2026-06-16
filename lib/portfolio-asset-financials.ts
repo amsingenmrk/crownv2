@@ -1,5 +1,8 @@
 import { type Asset } from "@/lib/assets"
-import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import {
+  getSampleStackingPlanData,
+  syntheticAssetDataCacheKey,
+} from "@/lib/stacking-plan-data"
 import {
   resolveSyntheticAssetContext,
   resolveSyntheticAssetRecord,
@@ -46,6 +49,8 @@ export type AssetFinancialMetrics = {
   status: "Stabilized" | "Lease-up" | "Redevelopment"
 }
 
+const financialMetricsCache = new Map<string, AssetFinancialMetrics | null>()
+
 function buildDatasetRevenueRollups(assetId: string, asset?: Asset) {
   const dataset = getSampleStackingPlanData(assetId, asset)
   const rollups = dataset.floors.flatMap((floor) => floor.tenants).reduce(
@@ -70,9 +75,15 @@ function buildDatasetRevenueRollups(assetId: string, asset?: Asset) {
 }
 
 function buildFinancialMetrics(assetId: string, asset?: Asset): AssetFinancialMetrics | null {
+  const cacheKey = syntheticAssetDataCacheKey(assetId, asset)
+  if (financialMetricsCache.has(cacheKey)) {
+    return financialMetricsCache.get(cacheKey) ?? null
+  }
+
   const resolvedAsset = resolveSyntheticAssetRecord(assetId, asset)
   const assetContext = resolveSyntheticAssetContext(assetId, resolvedAsset)
   if (assetContext == null) {
+    financialMetricsCache.set(cacheKey, null)
     return null
   }
 
@@ -110,7 +121,7 @@ function buildFinancialMetrics(assetId: string, asset?: Asset): AssetFinancialMe
   })
   const valueUsd = capRatePct > 0 ? noiUsd / (capRatePct / 100) : 0
 
-  return {
+  const metrics = {
     assetId,
     assetName: assetContext.assetName,
     groupId: assetContext.groupId,
@@ -141,6 +152,9 @@ function buildFinancialMetrics(assetId: string, asset?: Asset): AssetFinancialMe
     classLabel: syntheticAssetClassLabel(assetContext),
     status: syntheticAssetStatus({ occupancyPct, waleYears }),
   }
+
+  financialMetricsCache.set(cacheKey, metrics)
+  return metrics
 }
 
 /** Canonical synthetic financial snapshot used across portfolio, search, compare, and detail surfaces. */
