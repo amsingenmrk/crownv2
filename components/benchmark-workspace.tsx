@@ -42,19 +42,38 @@ function BenchmarkMapSkeleton() {
   )
 }
 
-export function BenchmarkWorkspace() {
+export function BenchmarkWorkspace({
+  initialArea,
+}: {
+  initialArea?: BenchmarkArea
+} = {}) {
   const { mapboxEnabled, coordinates } = usePortfolioAssetCoordinates()
   const searchInputId = React.useId()
   const suggestionsListId = React.useId()
 
   const [selectedArea, setSelectedArea] = React.useState<BenchmarkArea | null>(
-    US_NATIONAL_BENCHMARK_AREA
+    initialArea ?? US_NATIONAL_BENCHMARK_AREA
   )
-  const [searchQuery, setSearchQuery] = React.useState("")
+  const [searchQuery, setSearchQuery] = React.useState(
+    initialArea?.label ?? ""
+  )
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!initialArea) return
+    let cancelled = false
+    void resolveBenchmarkAreaSelection(initialArea).then((resolved) => {
+      if (cancelled) return
+      setSelectedArea(resolved)
+      setSearchQuery(resolved.label)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [initialArea])
 
   const suggestions = React.useMemo(
     () => filterBenchmarkAreaPresets(searchQuery.trim()),

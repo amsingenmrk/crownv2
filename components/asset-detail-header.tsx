@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname, useParams } from "next/navigation"
-import { Layers, Wrench, LineChart } from "lucide-react"
+import { BarChart3, Layers, Wrench, LineChart } from "lucide-react"
 import { AssetLeasingAssumptionsStat } from "@/components/asset-leasing-assumptions-stat"
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,7 @@ export const ASSET_TAB_PATHS = [
   { pathSegment: "stacking-plan", label: "Stacking Plan", icon: Layers },
   { pathSegment: "modifications", label: "Modifications", icon: Wrench },
   { pathSegment: "forecasts", label: "Forecasts", icon: LineChart },
+  { pathSegment: "benchmarks", label: "Benchmarks", icon: BarChart3 },
 ] as const
 
 function parseOccPct(text: string | null | undefined): number {

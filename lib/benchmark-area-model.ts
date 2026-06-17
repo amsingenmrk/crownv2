@@ -1,10 +1,12 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
+import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-asset"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
-import { ASSETS } from "@/lib/assets"
+import { ASSETS, getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
   isMarketListingPinId,
   MARKET_SEARCH_LISTING_COUNT,
+  getMarketListingPinById,
   marketSearchDemoHash32,
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
@@ -415,4 +417,117 @@ export function benchmarkAreaSnapshot(
   }
 
   return benchmarkSnapshotFromRaw(area.label, raw)
+}
+
+export type BenchmarkBuildingTableRow = {
+  id: string
+  buildingName: string
+  regionLabel: string
+  kpis: Record<BenchmarkKpiKey, string>
+  isFullParticipant: boolean
+}
+
+function benchmarkBuildingDisplayName(id: string): string {
+  const asset = getAssetById(id)
+  if (asset) return asset.name
+  const pin = getMarketListingPinById(id)
+  if (pin) return pin.building
+  return id
+}
+
+function benchmarkKpisForBuilding(
+  sample: BenchmarkBuildingSample
+): Record<BenchmarkKpiKey, string> {
+  const occupancyPct =
+    sample.rsfSqft > 0
+      ? (sample.occupiedSqft / sample.rsfSqft) * 100
+      : null
+
+  return {
+    askingRent: formatRentPsf(sample.askingRentPsf),
+    inPlaceRent: formatRentPsf(sample.inPlaceRentPsf),
+    occupancy: formatPercent(occupancyPct),
+    intrinsicRent: sample.isFullParticipant
+      ? formatRentPsf(sample.intrinsicRentPsf)
+      : "—",
+    sunScore: formatScore(sample.sunScore),
+    viewScore: formatScore(sample.viewScore),
+    amenityQuality: sample.isFullParticipant
+      ? formatScore(sample.amenityQuality)
+      : "—",
+    accessibilityScore: formatScore(sample.accessibilityScore),
+  }
+}
+
+/** Per-building KPI row for a single asset (ignores benchmark area bounds). */
+export function benchmarkBuildingTableRowForAsset(
+  assetId: string,
+  coordinates: Record<string, readonly [number, number]> = {}
+): BenchmarkBuildingTableRow | null {
+  const asset = getAssetById(assetId)
+  let sample: BenchmarkBuildingSample | null = null
+
+  if (asset) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      asset.id,
+      asset.groupId,
+      coordinates
+    )
+    sample = buildBenchmarkBuildingSample(asset.id, longitude, latitude)
+  } else {
+    const pin = getMarketListingPinById(assetId)
+    if (pin) {
+      sample = buildBenchmarkBuildingSample(
+        pin.id,
+        pin.longitude,
+        pin.latitude
+      )
+    }
+  }
+
+  if (sample == null) return null
+
+  return {
+    id: sample.id,
+    buildingName: benchmarkBuildingDisplayName(sample.id),
+    regionLabel: resolveBenchmarkAreaForCoordinates(
+      sample.longitude,
+      sample.latitude
+    ).label,
+    kpis: benchmarkKpisForBuilding(sample),
+    isFullParticipant: sample.isFullParticipant,
+  }
+}
+
+/** Buildings in a benchmark area with per-building KPI values for table display. */
+export function benchmarkBuildingTableRows(
+  area: BenchmarkArea,
+  coordinates: Record<string, readonly [number, number]> = {},
+  options?: { highlightAssetId?: string }
+): BenchmarkBuildingTableRow[] {
+  const buildings = benchmarkBuildingCatalog(coordinates).filter((b) =>
+    isInBounds(b.longitude, b.latitude, area.bounds)
+  )
+
+  const rows = buildings.map((building) => ({
+    id: building.id,
+    buildingName: benchmarkBuildingDisplayName(building.id),
+    regionLabel: resolveBenchmarkAreaForCoordinates(
+      building.longitude,
+      building.latitude
+    ).label,
+    kpis: benchmarkKpisForBuilding(building),
+    isFullParticipant: building.isFullParticipant,
+  }))
+
+  const highlightId = options?.highlightAssetId
+  return rows.sort((left, right) => {
+    if (highlightId) {
+      if (left.id === highlightId && right.id !== highlightId) return -1
+      if (right.id === highlightId && left.id !== highlightId) return 1
+    }
+    return left.buildingName.localeCompare(right.buildingName, undefined, {
+      sensitivity: "base",
+    })
+  })
 }

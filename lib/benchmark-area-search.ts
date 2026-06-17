@@ -246,6 +246,11 @@ const BENCHMARK_SEARCH_PRESETS: BenchmarkArea[] = BENCHMARK_MARKET_PRESETS.map(
   (preset) => applyStoredBoundary(preset)
 )
 
+/** Curated market areas (excludes the US national default). */
+export function curatedBenchmarkMarketAreas(): BenchmarkArea[] {
+  return BENCHMARK_SEARCH_PRESETS
+}
+
 export function isBenchmarkMarketPreset(area: BenchmarkArea): boolean {
   return area.id.startsWith("market-")
 }
