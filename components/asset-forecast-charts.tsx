@@ -7,6 +7,7 @@ import {
   Highcharts,
   buildForecastStatementHighchartsConfig,
   getForecastStatementChartMeta,
+  resolveCssColorToRgb,
   type ForecastChartPalette,
   type ForecastChartTab,
 } from "@/lib/forecast-chart-config"
@@ -30,6 +31,7 @@ const DEFAULT_PALETTE: ForecastChartPalette = {
   secondary: "#6e86e6",
   tertiary: "#8fa3ef",
   quaternary: "#afbef5",
+  range: "#93c5fd",
   accent: "#1f2937",
   neutral: "rgba(148, 163, 184, 0.7)",
   tooltipBackground: "#ffffff",
@@ -37,29 +39,39 @@ const DEFAULT_PALETTE: ForecastChartPalette = {
 
 function readCssVariable(styles: CSSStyleDeclaration, variableName: string, fallback: string) {
   const value = styles.getPropertyValue(variableName).trim()
-  return value === "" ? fallback : value
+  const resolved = value === "" ? fallback : value
+  return resolveCssColorToRgb(resolved)
+}
+
+function readForecastChartPaletteFromDocument(): ForecastChartPalette {
+  if (typeof document === "undefined") return DEFAULT_PALETTE
+
+  const styles = getComputedStyle(document.documentElement)
+
+  return {
+    text: readCssVariable(styles, "--foreground", DEFAULT_PALETTE.text),
+    mutedText: readCssVariable(styles, "--muted-foreground", DEFAULT_PALETTE.mutedText),
+    grid: readCssVariable(styles, "--border", DEFAULT_PALETTE.grid),
+    border: readCssVariable(styles, "--border", DEFAULT_PALETTE.border),
+    primary: readCssVariable(styles, "--primary", DEFAULT_PALETTE.primary),
+    secondary: readCssVariable(styles, "--chart-1", DEFAULT_PALETTE.secondary),
+    tertiary: readCssVariable(styles, "--chart-2", DEFAULT_PALETTE.tertiary),
+    quaternary: readCssVariable(styles, "--chart-3", DEFAULT_PALETTE.quaternary),
+    range: readCssVariable(styles, "--chart-1", DEFAULT_PALETTE.range),
+    accent: readCssVariable(styles, "--foreground", DEFAULT_PALETTE.accent),
+    neutral: readCssVariable(styles, "--muted-foreground", DEFAULT_PALETTE.neutral),
+    tooltipBackground: readCssVariable(styles, "--card", DEFAULT_PALETTE.tooltipBackground),
+  }
 }
 
 function useForecastChartPalette() {
-  const [palette, setPalette] = React.useState<ForecastChartPalette>(DEFAULT_PALETTE)
+  const [palette, setPalette] = React.useState<ForecastChartPalette>(() =>
+    readForecastChartPaletteFromDocument()
+  )
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const updatePalette = () => {
-      const styles = getComputedStyle(document.documentElement)
-
-      setPalette({
-        text: readCssVariable(styles, "--foreground", DEFAULT_PALETTE.text),
-        mutedText: readCssVariable(styles, "--muted-foreground", DEFAULT_PALETTE.mutedText),
-        grid: readCssVariable(styles, "--border", DEFAULT_PALETTE.grid),
-        border: readCssVariable(styles, "--border", DEFAULT_PALETTE.border),
-        primary: readCssVariable(styles, "--primary", DEFAULT_PALETTE.primary),
-        secondary: readCssVariable(styles, "--chart-1", DEFAULT_PALETTE.secondary),
-        tertiary: readCssVariable(styles, "--chart-2", DEFAULT_PALETTE.tertiary),
-        quaternary: readCssVariable(styles, "--chart-3", DEFAULT_PALETTE.quaternary),
-        accent: readCssVariable(styles, "--foreground", DEFAULT_PALETTE.accent),
-        neutral: readCssVariable(styles, "--muted-foreground", DEFAULT_PALETTE.neutral),
-        tooltipBackground: readCssVariable(styles, "--card", DEFAULT_PALETTE.tooltipBackground),
-      })
+      setPalette(readForecastChartPaletteFromDocument())
     }
 
     updatePalette()
@@ -125,6 +137,7 @@ function ForecastHighchart({
             ...(options.accessibility ?? {}),
           },
         }}
+        updateArgs={[true, true, false]}
         containerProps={{ style: CHART_CONTAINER_STYLE }}
       />
     </div>
@@ -217,32 +230,33 @@ export function AssetForecastChartMetricToolbar({
   const activeChartMeta = getForecastStatementChartMeta(metricTab)
 
   return (
-    <div className="flex flex-col gap-3 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-6">
-      <div className="min-w-0 flex-1 space-y-1">
+    <div className="flex flex-col gap-3 @md:flex-row @md:items-start @md:justify-between @md:gap-6">
+      <div className="min-w-0 space-y-1 @md:max-w-2xl @md:flex-1">
         {showMetricTitle ? (
           <h2 className="text-base font-semibold tracking-tight text-foreground">
             {activeChartMeta.title}
           </h2>
         ) : null}
-        <p className="max-w-2xl text-xs leading-snug text-muted-foreground">
+        <p className="text-xs leading-snug text-muted-foreground">
           {activeChartMeta.description}
         </p>
         {variant === "compare" ? (
-          <p className="max-w-2xl text-xs leading-snug text-muted-foreground">
+          <p className="text-xs leading-snug text-muted-foreground">
             One line per compare column — Baseline outlook, quarterly values summed across that
             column&apos;s assets.
           </p>
         ) : null}
       </div>
 
-      <AssetForecastChartMetricToggleGroup
-        models={models}
-        metricTab={metricTab}
-        onMetricTabChange={onMetricTabChange}
-        allowedMetricTabs={allowedMetricTabs}
-        ariaLabel={ariaLabel}
-        className="shrink-0"
-      />
+      <div className="flex shrink-0 justify-end @md:justify-start">
+        <AssetForecastChartMetricToggleGroup
+          models={models}
+          metricTab={metricTab}
+          onMetricTabChange={onMetricTabChange}
+          allowedMetricTabs={allowedMetricTabs}
+          ariaLabel={ariaLabel}
+        />
+      </div>
     </div>
   )
 }
@@ -324,18 +338,14 @@ export function AssetForecastCharts({
           />
         </div>
       ) : null}
-      <div
-        className={
-          embedded ? "border-b border-border/60 px-4 py-4" : "px-4 py-4"
-        }
-      >
+      <div className="px-4 py-4">
         <ForecastHighchart options={chartOptions} debugLabel={debugLabel} />
       </div>
     </>
   )
 
   if (embedded) {
-    return chartInner
+    return <div className="@container min-w-0">{chartInner}</div>
   }
 
   return (

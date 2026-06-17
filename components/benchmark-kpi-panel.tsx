@@ -2,8 +2,6 @@
 
 import * as React from "react"
 import {
-  ChevronDown,
-  Info,
   MoreVertical,
   Pencil,
   Plus,
@@ -30,17 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SidebarGroupAction } from "@/components/ui/sidebar"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  BENCHMARK_KPI_DEFINITIONS,
-  type BenchmarkAreaSnapshot,
-  type BenchmarkStatsRaw,
-  type BenchmarkKpiDefinition,
-} from "@/lib/benchmark-area-model"
+import type { BenchmarkStatsRaw } from "@/lib/benchmark-area-model"
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import {
   benchmarkAreaForecastInputs,
@@ -62,69 +50,7 @@ import {
   type ForecastOutlookSet,
 } from "@/lib/forecast-scenario-storage"
 import { outlookSetStoredNameDisplay } from "@/lib/scoped-forecast-select-labels"
-import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
-
-function scoreValueClass(
-  definition: BenchmarkKpiDefinition,
-  value: string
-): string | undefined {
-  if (definition.format !== "score" || value === "—") return undefined
-  const n = Number(value)
-  if (!Number.isFinite(n)) return undefined
-  return qualityScoreValueClass(n)
-}
-
-function BenchmarkKpiCard({
-  definition,
-  value,
-  participantNote,
-}: {
-  definition: BenchmarkKpiDefinition
-  value: string
-  participantNote?: string
-}) {
-  const valueClassName = scoreValueClass(definition, value)
-
-  return (
-    <article className="flex h-full min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-1.5">
-        <h3 className="text-xs font-medium leading-snug text-muted-foreground">
-          {definition.label}
-        </h3>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                aria-label={`Info: ${definition.label}`}
-              />
-            }
-          >
-            <Info className="size-3 stroke-[1.5]" aria-hidden />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-[280px] text-pretty text-xs">
-            {definition.methodology}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <p
-        className={cn(
-          "mt-1 text-lg font-semibold leading-tight tracking-tight tabular-nums",
-          valueClassName ?? "text-foreground"
-        )}
-      >
-        {value}
-      </p>
-      {participantNote ? (
-        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
-          {participantNote}
-        </p>
-      ) : null}
-    </article>
-  )
-}
 
 const NO_ACTIVE_OUTLOOK_SET = "__benchmark_no_outlook_set__"
 
@@ -270,14 +196,12 @@ function buildOutlookSetStateKey({
   })
 }
 
-export function BenchmarkKpiPanel({
+export function BenchmarkForecastSection({
   area,
-  snapshot,
   statsRaw,
   className,
 }: {
   area: BenchmarkArea
-  snapshot: BenchmarkAreaSnapshot
   statsRaw?: BenchmarkStatsRaw | null
   className?: string
 }) {
@@ -324,7 +248,6 @@ export function BenchmarkKpiPanel({
   const [activeOutlookSetId, setActiveOutlookSetId] =
     React.useState<string>("")
   const [outlookSaveName, setOutlookSaveName] = React.useState("")
-  const [outlooksDropdownOpen, setOutlooksDropdownOpen] = React.useState(false)
   const outlookSaveFieldId = React.useId()
 
   React.useLayoutEffect(() => {
@@ -349,7 +272,6 @@ export function BenchmarkKpiPanel({
     setOutlookSets(nextOutlookSets)
     setActiveOutlookSetId("")
     setOutlookSaveName("")
-    setOutlooksDropdownOpen(false)
   }, [defaultOutlooks, scenarioStorageKey, setStorageKey])
 
   const persistOutlooks = React.useCallback(
@@ -427,10 +349,6 @@ export function BenchmarkKpiPanel({
       ),
     [area, assumptions, includedOutlooks, marketInputs]
   )
-  const selectedOutlookSummary = React.useMemo(() => {
-    if (includedOutlooks.length === 1) return "1 selected outlook"
-    return `${includedOutlooks.length} selected outlooks`
-  }, [includedOutlooks.length])
 
   const sortedOutlookSets = React.useMemo(
     () => [...outlookSets].sort((a, b) => a.name.localeCompare(b.name)),
@@ -438,7 +356,9 @@ export function BenchmarkKpiPanel({
   )
 
   const outlookSetItemLabels = React.useMemo(() => {
-    const labels: Record<string, React.ReactNode> = {}
+    const labels: Record<string, React.ReactNode> = {
+      [NO_ACTIVE_OUTLOOK_SET]: "Select a saved set…",
+    }
     for (const set of sortedOutlookSets) {
       labels[set.id] = outlookSetStoredNameDisplay(set.name)
     }
@@ -480,19 +400,6 @@ export function BenchmarkKpiPanel({
     setActiveOutlookSetId("")
     setOutlookSaveName("")
   }, [activeOutlookSetId, activeOutlookSetMatchesCurrentState])
-
-  React.useEffect(() => {
-    if (editingOutlookId == null) return
-    setOutlooksDropdownOpen(true)
-  }, [editingOutlookId])
-
-  const handleOutlooksDropdownOpenChange = React.useCallback(
-    (open: boolean) => {
-      if (!open && editingOutlookId != null) return
-      setOutlooksDropdownOpen(open)
-    },
-    [editingOutlookId]
-  )
 
   const updateOutlook = React.useCallback(
     (
@@ -760,90 +667,38 @@ export function BenchmarkKpiPanel({
     return null
   }
 
-  const kpiByKey = Object.fromEntries(
-    snapshot.kpis.map((kpi) => [kpi.key, kpi])
-  ) as Record<
-    (typeof BENCHMARK_KPI_DEFINITIONS)[number]["key"],
-    (typeof snapshot.kpis)[number]
-  >
-
   return (
-    <aside
+    <section
       className={cn(
-        "@container flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden",
+        "flex min-w-0 flex-col lg:flex-row lg:items-start",
         className
       )}
-      aria-label="Benchmark metrics for map area"
+      aria-label="Benchmark forecasts"
     >
-      <div className="shrink-0 border-b border-border pb-2.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">
-              {snapshot.areaLabel}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {snapshot.buildingCount === 1
-                ? "1 building in view"
-                : `${snapshot.buildingCount} buildings in view`}
-              {snapshot.fullParticipantCount > 0 &&
-              snapshot.fullParticipantCount < snapshot.buildingCount
-                ? ` · ${snapshot.fullParticipantCount} full participants`
-                : null}
-            </p>
-          </div>
-
-          <DropdownMenu
-            open={outlooksDropdownOpen}
-            onOpenChange={handleOutlooksDropdownOpenChange}
-            modal={false}
+      <aside
+        className="flex w-full shrink-0 flex-col border-b border-border/60 p-4 lg:w-72 lg:border-b-0 lg:border-r xl:w-80"
+        aria-label="Economic outlooks"
+      >
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
+            Economic Outlooks
+          </h2>
+          <SidebarGroupAction
+            type="button"
+            title="Add outlook scenario"
+            aria-label="Add outlook scenario"
+            disabled={editingOutlookId != null}
+            onClick={createOutlook}
+            className="static shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground"
           >
-            <DropdownMenuTrigger
-              nativeButton
-              render={
-                <button
-                  type="button"
-                  className="flex min-h-0 shrink-0 cursor-pointer flex-col justify-center self-stretch rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-left transition-[color,background-color,border-color,box-shadow,transform] duration-150 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-expanded:border-primary/40 aria-expanded:bg-primary/[0.08] aria-expanded:shadow-sm aria-expanded:ring-2 aria-expanded:ring-primary/20 dark:aria-expanded:border-primary/30 dark:aria-expanded:bg-primary/[0.14] aria-expanded:[&_svg]:rotate-180 sm:px-2 sm:py-1"
-                  aria-label="Set economic outlooks"
-                />
-              }
-            >
-              <span className="flex items-center gap-1 whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
-                Set economic outlooks
-                <ChevronDown
-                  className="size-3 opacity-70 transition-transform duration-150"
-                  aria-hidden
-                />
-              </span>
-              <span className="mt-px text-xs font-semibold leading-tight text-foreground sm:text-[13px]">
-                {selectedOutlookSummary}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              side="bottom"
-              sideOffset={6}
-              className="w-[min(100vw-2rem,24rem)] max-h-[min(80vh,36rem)] overflow-y-auto p-4"
-            >
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
-                  Economic Outlooks
-                </h3>
-                <SidebarGroupAction
-                  type="button"
-                  title="Add outlook scenario"
-                  aria-label="Add outlook scenario"
-                  disabled={editingOutlookId != null}
-                  onClick={createOutlook}
-                  className="static shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Plus />
-                </SidebarGroupAction>
-              </div>
+            <Plus />
+          </SidebarGroupAction>
+        </div>
 
-              <div
-                id={`${outlookSaveFieldId}-outlooks-panel`}
-                className="mt-3 min-w-0 space-y-3"
-              >
+        <div
+          id={`${outlookSaveFieldId}-outlooks-panel`}
+          className="mt-4 min-w-0 space-y-3"
+        >
               <div className="min-w-0">
                 <Select
                   items={outlookSetItemLabels}
@@ -1173,39 +1028,19 @@ export function BenchmarkKpiPanel({
                   Reset
                 </Button>
               </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <AssetForecastCharts
+          models={includedModels}
+          metricTab={metricTab}
+          onMetricTabChange={setMetricTab}
+          allowedMetricTabs={["intrinsicRent", "capRate"]}
+          metricToolbarInCard
+          embedded
+        />
       </div>
-
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
-        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
-          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
-            const kpi = kpiByKey[definition.key]
-            return (
-              <div key={definition.key} role="listitem" className="min-w-0">
-                <BenchmarkKpiCard
-                  definition={definition}
-                  value={kpi?.value ?? "—"}
-                  participantNote={kpi?.participantNote}
-                />
-              </div>
-            )
-          })}
-        </div>
-
-
-        <section className="space-y-3" aria-label={`${snapshot.areaLabel} forecast scenarios`}>
-          <AssetForecastCharts
-            models={includedModels}
-            metricTab={metricTab}
-            onMetricTabChange={setMetricTab}
-            allowedMetricTabs={["intrinsicRent", "capRate"]}
-            metricToolbarInCard
-          />
-        </section>
-      </div>
-    </aside>
+    </section>
   )
 }

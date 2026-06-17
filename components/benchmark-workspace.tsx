@@ -1,11 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 
 import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
-import { BenchmarkKpiPanel } from "@/components/benchmark-kpi-panel"
-import { Button } from "@/components/ui/button"
+import { BenchmarkAreaStatsPanel } from "@/components/benchmark-area-stats-panel"
+import { BenchmarkForecastSection } from "@/components/benchmark-kpi-panel"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
@@ -21,6 +21,9 @@ import {
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
 import { cn } from "@/lib/utils"
+
+const BENCHMARK_SECTION_CARD =
+  "overflow-hidden rounded-xl border border-border bg-card shadow-sm"
 
 function BenchmarkMapSkeleton() {
   return (
@@ -51,7 +54,6 @@ export function BenchmarkWorkspace() {
   const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
-  const [mapExpanded, setMapExpanded] = React.useState(true)
   const searchContainerRef = React.useRef<HTMLDivElement>(null)
 
   const suggestions = React.useMemo(
@@ -142,22 +144,17 @@ export function BenchmarkWorkspace() {
   return (
     <div
       role="main"
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div
-          className={cn(
-            "flex min-h-[min(50vh,420px)] min-w-0 flex-col lg:h-full lg:min-h-0",
-            mapExpanded ? "lg:flex-[2]" : "lg:flex-1"
-          )}
-        >
-          <div className="relative min-h-0 min-w-0 w-full flex-1 min-h-[min(50vh,420px)] border-b border-border bg-muted/20 lg:min-h-0 lg:border-b-0 lg:border-r">
+      <section
+        className={cn(BENCHMARK_SECTION_CARD, "shrink-0")}
+        aria-label="Benchmark map and area statistics"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-stretch">
+          <div className="relative min-h-[11rem] w-full shrink-0 bg-muted/20 sm:min-h-[12rem] lg:min-h-0 lg:flex-1">
             <div className="absolute inset-0 overflow-hidden">
               {showMapbox && selectedArea ? (
-                <BenchmarkMapbox
-                  area={selectedArea}
-                  compactMode={!mapExpanded}
-                />
+                <BenchmarkMapbox area={selectedArea} compactMode />
               ) : (
                 <BenchmarkMapSkeleton />
               )}
@@ -246,18 +243,16 @@ export function BenchmarkWorkspace() {
                       )}
                     />
                     {showSearchClear ? (
-                      <Button
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute inset-y-0 right-0 flex w-8 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                         aria-label="Clear search and show national view"
                         onClick={() => {
                           void runSearch("")
                         }}
                       >
-                        <X className="size-4" aria-hidden />
-                      </Button>
+                        <X className="size-4 shrink-0" aria-hidden />
+                      </button>
                     ) : null}
                   </div>
                   {suggestionsOpen && suggestions.length > 0 ? (
@@ -304,62 +299,45 @@ export function BenchmarkWorkspace() {
               </div>
             </div>
           </div>
-        </div>
 
-        <div
-          className={cn(
-            "relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-full lg:max-h-full lg:border-l lg:border-t-0",
-            mapExpanded ? "lg:flex-1" : "lg:flex-[2]"
-          )}
-        >
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Area benchmarks
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs font-medium"
-              aria-pressed={mapExpanded}
-              onClick={() => setMapExpanded((expanded) => !expanded)}
-            >
-              {mapExpanded ? (
-                <PanelLeftClose className="size-3.5 shrink-0" aria-hidden />
+          <div className="flex min-w-0 flex-col border-t border-border lg:flex-[2] lg:border-t-0 lg:border-l">
+            <div className="p-4">
+              {showMapbox ? (
+                <BenchmarkAreaStatsPanel snapshot={snapshot} />
               ) : (
-                <PanelLeftOpen className="size-3.5 shrink-0" aria-hidden />
-              )}
-              {mapExpanded ? "Less Map" : "More Map"}
-            </Button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden p-4 pt-3">
-          {showMapbox ? (
-            <BenchmarkKpiPanel
-              area={activeArea}
-              snapshot={snapshot}
-              statsRaw={statsRaw}
-              className="h-full"
-            />
-          ) : (
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-2/3" />
-              <Skeleton className="h-3 w-full" />
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="space-y-2 rounded-lg border border-border p-3"
-                  >
-                    <Skeleton className="h-3 w-2/3" />
-                    <Skeleton className="h-6 w-16" />
+                <div className="space-y-3">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-3 w-full" />
+                  <div className="grid grid-cols-2 gap-2">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="space-y-2 rounded-lg border border-border p-3"
+                      >
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-6 w-16" />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
-          )}
           </div>
         </div>
-      </div>
+      </section>
+
+      {showMapbox ? (
+        <section
+          className={cn(BENCHMARK_SECTION_CARD, "shrink-0")}
+          aria-label="Benchmark forecasts"
+        >
+          <BenchmarkForecastSection
+            key={activeArea.id}
+            area={activeArea}
+            statsRaw={statsRaw}
+          />
+        </section>
+      ) : null}
     </div>
   )
 }

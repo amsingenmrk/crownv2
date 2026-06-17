@@ -8,6 +8,9 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import union from "@turf/union"
+import flatten from "@turf/flatten"
+import { featureCollection } from "@turf/helpers"
 
 const ROOT = process.cwd()
 const OUTPUT = path.join(ROOT, "lib/benchmark-market-boundaries.generated.json")
@@ -170,28 +173,22 @@ function featureFromState(stateCollection, stusps) {
 
 const LOWER_48_EXCLUDED = new Set(["AK", "HI", "PR"])
 
-function lower48Geometry(stateCollection) {
-  /** @type {number[][][][]} */
-  const coordinates = []
-
-  for (const feature of stateCollection.features) {
+function usNationalOutlineGeometry(stateCollection) {
+  const lower48States = stateCollection.features.filter((feature) => {
     const stusps = feature.properties?.STUSPS
-    if (!stusps || LOWER_48_EXCLUDED.has(stusps)) continue
+    return stusps && !LOWER_48_EXCLUDED.has(stusps)
+  })
 
-    const geometry = feature.geometry
-    if (!geometry) continue
-    if (geometry.type === "Polygon") {
-      coordinates.push(geometry.coordinates)
-    } else if (geometry.type === "MultiPolygon") {
-      coordinates.push(...geometry.coordinates)
-    }
-  }
-
-  if (coordinates.length === 0) {
+  if (lower48States.length === 0) {
     throw new Error("No lower-48 state geometries found")
   }
 
-  return { type: "MultiPolygon", coordinates }
+  const merged = union(flatten(featureCollection(lower48States)))
+  if (!merged?.geometry) {
+    throw new Error("Failed to merge lower-48 state geometries")
+  }
+
+  return merged.geometry
 }
 
 async function main() {
@@ -201,17 +198,17 @@ async function main() {
   const failures = []
 
   try {
-    const lower48 = lower48Geometry(stateCollection)
+    const outline = usNationalOutlineGeometry(stateCollection)
     output["us-national"] = {
       id: "us-national",
-      bounds: boundsFromGeometry(lower48),
+      bounds: boundsFromGeometry(outline),
       geometry: {
         type: "Feature",
         properties: {
-          source: "state-lower48",
+          source: "state-lower48-union",
           censusName: "United States (lower 48)",
         },
-        geometry: lower48,
+        geometry: outline,
       },
     }
     console.log("✓ us-national")

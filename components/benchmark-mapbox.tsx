@@ -9,6 +9,7 @@ import Map, { Layer, NavigationControl, Source, type MapRef } from "react-map-gl
 import { useTheme } from "@/components/theme-provider"
 
 import {
+  benchmarkAreaFitBounds,
   benchmarkAreaPolygon,
   maxZoomForBenchmarkArea,
   type BenchmarkArea,
@@ -26,9 +27,9 @@ function firstSymbolLayerId(map: MapboxMap): string | undefined {
 
 function fitPaddingForBenchmarkMap(compactMode: boolean) {
   if (compactMode) {
-    return { top: 72, bottom: 24, left: 20, right: 20 }
+    return { top: 56, bottom: 20, left: 16, right: 16 }
   }
-  return { top: 72, bottom: 40, left: 48, right: 48 }
+  return { top: 56, bottom: 32, left: 40, right: 40 }
 }
 
 export function BenchmarkMapbox({
@@ -44,7 +45,7 @@ export function BenchmarkMapbox({
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
-  const resizeFrameRef = React.useRef<number | null>(null)
+  const fitTimeoutsRef = React.useRef<number[]>([])
   const [labelLayerId, setLabelLayerId] = React.useState<string | undefined>()
 
   const mapStyle = resolveMapboxMapStyle(resolvedTheme)
@@ -52,36 +53,44 @@ export function BenchmarkMapbox({
     () => area.boundaryGeometry ?? benchmarkAreaPolygon(area.bounds),
     [area.boundaryGeometry, area.bounds]
   )
+  const fitBounds = React.useMemo(
+    () => benchmarkAreaFitBounds(area),
+    [area.id, area.bounds, area.boundaryGeometry]
+  )
 
-  const highlightFill = resolvedTheme === "dark" ? "#a78bfa" : "#7c3aed"
-  const highlightLine = resolvedTheme === "dark" ? "#ddd6fe" : "#5b21b6"
+  const highlightFill = resolvedTheme === "dark" ? "#60a5fa" : "#2563eb"
+  const highlightLine = resolvedTheme === "dark" ? "#93c5fd" : "#1d4ed8"
   const layerInsert = labelLayerId ? { beforeId: labelLayerId } : {}
 
   const fitToArea = React.useCallback(
     (animate: boolean) => {
       const map = mapRef.current?.getMap()
       if (!map?.loaded()) return
-      map.fitBounds(area.bounds, {
+      map.resize()
+      map.fitBounds(fitBounds, {
         padding: fitPaddingForBenchmarkMap(compactMode),
         maxZoom: maxZoomForBenchmarkArea(area),
         duration: animate ? 700 : 0,
       })
     },
-    [area.bounds, area, compactMode]
+    [area, compactMode, fitBounds]
   )
 
-  const scheduleResizeAndFit = React.useCallback(
+  const scheduleFitToArea = React.useCallback(
     (animate: boolean) => {
-      if (resizeFrameRef.current != null) {
-        window.cancelAnimationFrame(resizeFrameRef.current)
+      for (const id of fitTimeoutsRef.current) {
+        window.clearTimeout(id)
       }
-      resizeFrameRef.current = window.requestAnimationFrame(() => {
-        resizeFrameRef.current = null
-        const map = mapRef.current?.getMap()
-        if (!map) return
-        map.resize()
-        fitToArea(animate)
+      fitTimeoutsRef.current = []
+
+      const run = () => fitToArea(animate)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(run)
       })
+
+      fitTimeoutsRef.current = [32, 100, 250, 500].map((ms) =>
+        window.setTimeout(() => fitToArea(false), ms)
+      )
     },
     [fitToArea]
   )
@@ -94,51 +103,39 @@ export function BenchmarkMapbox({
 
   const handleMapLoad = React.useCallback(() => {
     syncLabelLayer()
-    scheduleResizeAndFit(false)
-  }, [scheduleResizeAndFit, syncLabelLayer])
+    scheduleFitToArea(false)
+  }, [scheduleFitToArea, syncLabelLayer])
 
   React.useLayoutEffect(() => {
     const el = mapContainerRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
     const handleResize = () => {
-      scheduleResizeAndFit(false)
+      requestAnimationFrame(() => {
+        mapRef.current?.getMap()?.resize()
+      })
     }
 
     const ro = new ResizeObserver(handleResize)
     ro.observe(el)
     window.addEventListener("resize", handleResize)
+    handleResize()
     return () => {
       ro.disconnect()
       window.removeEventListener("resize", handleResize)
     }
-  }, [scheduleResizeAndFit])
+  }, [])
 
   React.useEffect(() => {
-    const map = mapRef.current?.getMap()
-    if (!map) return
-    const onLoad = () => {
-      syncLabelLayer()
-      fitToArea(true)
-    }
-
-    if (map.loaded()) {
-      syncLabelLayer()
-      fitToArea(true)
-      return
-    }
-
-    map.once("load", onLoad)
-    return () => {
-      map.off("load", onLoad)
-    }
-  }, [fitToArea, syncLabelLayer])
+    scheduleFitToArea(true)
+  }, [area.id, compactMode, scheduleFitToArea])
 
   React.useEffect(
     () => () => {
-      if (resizeFrameRef.current != null) {
-        window.cancelAnimationFrame(resizeFrameRef.current)
+      for (const id of fitTimeoutsRef.current) {
+        window.clearTimeout(id)
       }
+      fitTimeoutsRef.current = []
     },
     []
   )

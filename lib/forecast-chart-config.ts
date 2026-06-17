@@ -10,6 +10,36 @@ export const Highcharts = HighchartsCore as unknown as typeof HighchartsNS
 
 const TOOLTIP_FONT = "var(--font-sans), system-ui, sans-serif"
 
+/** Highcharts cannot parse oklch/lab from CSS variables — normalize via canvas. */
+export function resolveCssColorToRgb(color: string): string {
+  const trimmed = color.trim()
+  if (trimmed === "") return color
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(trimmed)) return trimmed
+  if (/^rgba?\(/i.test(trimmed)) return trimmed
+
+  if (typeof document === "undefined") return color
+
+  const ctx = document.createElement("canvas").getContext("2d")
+  if (!ctx) return color
+
+  try {
+    ctx.fillStyle = "#000000"
+    ctx.fillStyle = trimmed
+    return ctx.fillStyle
+  } catch {
+    return color
+  }
+}
+
+function colorWithOpacity(color: string, opacity: number): string {
+  const resolved = resolveCssColorToRgb(color)
+  const parsed = Highcharts.color(resolved)
+  if (!parsed) return resolved
+
+  const rgba = parsed.setOpacity(opacity).get("rgba")
+  return typeof rgba === "string" && rgba.startsWith("rgba(") ? rgba : resolved
+}
+
 type LeaseRow = {
   tenantName: string
   sqft: number
@@ -25,6 +55,8 @@ export type ForecastChartPalette = {
   secondary: string
   tertiary: string
   quaternary: string
+  /** Lighter blue for pessimistic–optimistic / multi-outlook fan shading. */
+  range: string
   accent: string
   neutral: string
   tooltipBackground: string
@@ -214,25 +246,105 @@ function formatChartAxisValue(
 }
 
 function gradientFillForColor(color: string): Highcharts.GradientColorObject {
+  const resolved = resolveCssColorToRgb(color)
   return {
     linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
     stops: [
-      [0, Highcharts.color(color).setOpacity(0.18).get() as string],
-      [1, Highcharts.color(color).setOpacity(0.03).get() as string],
+      [0, colorWithOpacity(resolved, 0.18)],
+      [1, colorWithOpacity(resolved, 0.03)],
     ],
   }
 }
 
-/** Left→right: a bit stronger near the first quarters, then fades (fanning into the horizon). */
-function fanOutlookRangeFillByTime(color: string): Highcharts.GradientColorObject {
-  return {
-    linearGradient: { x1: 0, y1: 0, x2: 1, y2: 0 },
-    stops: [
-      [0, Highcharts.color(color).setOpacity(0.14).get() as string],
-      [0.45, Highcharts.color(color).setOpacity(0.08).get() as string],
-      [1, Highcharts.color(color).setOpacity(0.024).get() as string],
-    ],
+/** Overlapping σ-style bands — same pattern as the Highcharts fan chart demo. */
+const FAN_RANGE_BAND_COUNT = 3
+const FAN_RANGE_BAND_FILL_OPACITY = 1 / 3
+
+function interpolateFanBandData(
+  baselineValues: number[],
+  lowValues: number[],
+  highValues: number[],
+  fraction: number
+): [number, number][] {
+  return baselineValues.map((baseline, index) => {
+    const low = lowValues[index] ?? baseline
+    const high = highValues[index] ?? baseline
+    const bandLow = baseline - (baseline - low) * fraction
+    const bandHigh = baseline + (high - baseline) * fraction
+    const min = Math.min(bandLow, bandHigh)
+    const max = Math.max(bandLow, bandHigh)
+    // Fan opens from the baseline at the first quarter (Highcharts fan-chart demo).
+    if (index === 0) return [baseline, baseline]
+    return [min, max]
+  })
+}
+
+function buildBaselineCenteredFanArearangeSeries(options: {
+  name: string
+  baselineValues: number[]
+  lowValues: number[]
+  highValues: number[]
+  color: string
+  bandCount?: number
+}): Highcharts.SeriesOptionsType[] {
+  const bandCount = options.bandCount ?? FAN_RANGE_BAND_COUNT
+  const resolvedColor = resolveCssColorToRgb(options.color)
+  const series: Highcharts.SeriesOptionsType[] = []
+
+  // Outermost band first; uniform semi-transparent fills stack darker near baseline.
+  for (let bandIndex = bandCount - 1; bandIndex >= 0; bandIndex--) {
+    const isOuterBand = bandIndex === bandCount - 1
+    const fraction = (bandIndex + 1) / bandCount
+
+    series.push({
+      type: "arearange",
+      name: isOuterBand ? options.name : `${options.name} band ${bandIndex + 1}`,
+      showInLegend: isOuterBand,
+      enableMouseTracking: isOuterBand,
+      data: interpolateFanBandData(
+        options.baselineValues,
+        options.lowValues,
+        options.highValues,
+        fraction
+      ),
+      color: resolvedColor,
+      fillOpacity: FAN_RANGE_BAND_FILL_OPACITY,
+      lineWidth: 0,
+      marker: { enabled: false },
+      zIndex: 0,
+      states: {
+        inactive: { enabled: false },
+      },
+    })
   }
+
+  return series
+}
+
+function resolveFanBaselineValues(
+  valuesByModel: number[][],
+  rowsByModel: Array<{ model: AssetForecastModel }>
+): number[] {
+  const baselineIndex = rowsByModel.findIndex(({ model }) => {
+    const scenarioId = model.scenario.id.toLowerCase()
+    const scenarioName = model.scenario.name.toLowerCase()
+    return (
+      scenarioId === "baseline" ||
+      scenarioId === "scoped-baseline" ||
+      scenarioId.endsWith("-baseline") ||
+      scenarioName === "baseline"
+    )
+  })
+
+  if (baselineIndex >= 0) {
+    return valuesByModel[baselineIndex] ?? []
+  }
+
+  const pointCount = valuesByModel[0]?.length ?? 0
+  return Array.from({ length: pointCount }, (_, index) => {
+    const values = valuesByModel.map((series) => series[index] ?? 0)
+    return values.reduce((sum, value) => sum + value, 0) / values.length
+  })
 }
 
 const SCOPED_PORTFOLIO_EXPECTED_SCENARIO_ID = "scoped-portfolio-expected"
@@ -288,24 +400,22 @@ function buildScopedPortfolioFanForecastStatementConfig(
     return [Math.min(low, high), Math.max(low, high)]
   })
 
-  const rangeColor = palette.primary
+  const rangeColor = palette.range
   const baselineColor = palette.accent
   const weightedColor = palette.secondary
+  const lowValues = rangeData.map(([low]) => low)
+  const highValues = rangeData.map(([, high]) => high)
 
   const formatY = (value: number) => formatChartTooltipValue(value, rowKind)
 
   const series: Highcharts.SeriesOptionsType[] = [
-    {
-      type: "arearange",
+    ...buildBaselineCenteredFanArearangeSeries({
       name: "Pessimistic–optimistic",
-      data: rangeData,
+      baselineValues,
+      lowValues,
+      highValues,
       color: rangeColor,
-      fillColor: fanOutlookRangeFillByTime(rangeColor),
-      fillOpacity: 1,
-      lineWidth: 0,
-      marker: { enabled: false },
-      zIndex: 0,
-    },
+    }),
     {
       type: "line",
       name: "Baseline",
@@ -330,6 +440,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
   return {
     chart: {
       type: "line",
+      animation: false,
       backgroundColor: "transparent",
       plotBackgroundColor: "transparent",
       style: { fontFamily: TOOLTIP_FONT },
@@ -393,8 +504,14 @@ function buildScopedPortfolioFanForecastStatementConfig(
     },
     plotOptions: {
       arearange: {
+        animation: false,
         lineWidth: 0,
         marker: { enabled: false },
+        enableMouseTracking: false,
+        fillOpacity: FAN_RANGE_BAND_FILL_OPACITY,
+        states: {
+          inactive: { enabled: false },
+        },
       },
       series: {
         animation: false,
@@ -501,20 +618,19 @@ function buildMultiModelFanForecastStatementConfig(
     palette.primary,
   ]
   let comparisonColorIndex = 0
-  const rangeColor = palette.primary
+  const rangeColor = palette.range
+  const lowValues = rangeData.map(([low]) => low)
+  const highValues = rangeData.map(([, high]) => high)
+  const baselineValues = resolveFanBaselineValues(valuesByModel, rowsByModel)
 
   const series: Highcharts.SeriesOptionsType[] = [
-    {
-      type: "arearange",
+    ...buildBaselineCenteredFanArearangeSeries({
       name: "Range",
-      data: rangeData,
+      baselineValues,
+      lowValues,
+      highValues,
       color: rangeColor,
-      fillColor: fanOutlookRangeFillByTime(rangeColor),
-      fillOpacity: 1,
-      lineWidth: 0,
-      marker: { enabled: false },
-      zIndex: 0,
-    },
+    }),
     ...rowsByModel.map(({ model }, index) => {
       const isBaselineModel =
         model.scenario.id === "baseline" ||
@@ -539,6 +655,7 @@ function buildMultiModelFanForecastStatementConfig(
   return {
     chart: {
       type: "line",
+      animation: false,
       backgroundColor: "transparent",
       plotBackgroundColor: "transparent",
       style: { fontFamily: TOOLTIP_FONT },
@@ -602,8 +719,14 @@ function buildMultiModelFanForecastStatementConfig(
     },
     plotOptions: {
       arearange: {
+        animation: false,
         lineWidth: 0,
         marker: { enabled: false },
+        enableMouseTracking: false,
+        fillOpacity: FAN_RANGE_BAND_FILL_OPACITY,
+        states: {
+          inactive: { enabled: false },
+        },
       },
       series: {
         animation: false,
@@ -773,6 +896,7 @@ export function buildForecastStatementHighchartsConfig(
   return {
     chart: {
       type: "line",
+      animation: false,
       backgroundColor: "transparent",
       plotBackgroundColor: "transparent",
       style: { fontFamily: TOOLTIP_FONT },
@@ -1089,6 +1213,7 @@ export function buildForecastWaltHighchartsConfig(
   return {
     chart: {
       type: "line",
+      animation: false,
       backgroundColor: "transparent",
       plotBackgroundColor: "transparent",
       style: { fontFamily: TOOLTIP_FONT },

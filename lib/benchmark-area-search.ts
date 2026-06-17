@@ -352,8 +352,8 @@ export function maxZoomForBenchmarkArea(area: BenchmarkArea): number {
   if (placeType && placeType in PLACE_TYPE_ZOOM) {
     return PLACE_TYPE_ZOOM[placeType]
   }
-  if (area.id.startsWith("market-")) return 10
-  return 11
+  if (area.id.startsWith("market-")) return 11
+  return 12
 }
 
 function areaFromBounds(
@@ -565,6 +565,52 @@ export function benchmarkAreaPolygon(
       ],
     },
   }
+}
+
+function boundsFromGeoJsonGeometry(
+  geometry: GeoJSON.Geometry
+): BenchmarkAreaBounds | null {
+  let minLng = Infinity
+  let minLat = Infinity
+  let maxLng = -Infinity
+  let maxLat = -Infinity
+
+  const visit = (coords: unknown): void => {
+    if (!Array.isArray(coords)) return
+    if (
+      coords.length >= 2 &&
+      typeof coords[0] === "number" &&
+      typeof coords[1] === "number"
+    ) {
+      const [lng, lat] = coords as [number, number]
+      minLng = Math.min(minLng, lng)
+      maxLng = Math.max(maxLng, lng)
+      minLat = Math.min(minLat, lat)
+      maxLat = Math.max(maxLat, lat)
+      return
+    }
+    for (const part of coords) visit(part)
+  }
+
+  if ("coordinates" in geometry) {
+    visit(geometry.coordinates)
+  }
+
+  if (!Number.isFinite(minLng)) return null
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ]
+}
+
+/** Tight bbox for map fit — prefers stored outline geometry over preset rectangles. */
+export function benchmarkAreaFitBounds(area: BenchmarkArea): BenchmarkAreaBounds {
+  const geometry = area.boundaryGeometry?.geometry
+  if (geometry) {
+    const fromGeometry = boundsFromGeoJsonGeometry(geometry)
+    if (fromGeometry) return fromGeometry
+  }
+  return area.bounds
 }
 
 export function filterBenchmarkAreaPresets(query: string): BenchmarkArea[] {
