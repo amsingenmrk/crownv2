@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
   ChevronDown,
-  ChevronRight,
   Info,
   MoreVertical,
   Pencil,
@@ -15,7 +14,6 @@ import {
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
 import { Button } from "@/components/ui/button"
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -326,7 +324,7 @@ export function BenchmarkKpiPanel({
   const [activeOutlookSetId, setActiveOutlookSetId] =
     React.useState<string>("")
   const [outlookSaveName, setOutlookSaveName] = React.useState("")
-  const [outlooksOpen, setOutlooksOpen] = React.useState(false)
+  const [outlooksDropdownOpen, setOutlooksDropdownOpen] = React.useState(false)
   const outlookSaveFieldId = React.useId()
 
   React.useLayoutEffect(() => {
@@ -351,7 +349,7 @@ export function BenchmarkKpiPanel({
     setOutlookSets(nextOutlookSets)
     setActiveOutlookSetId("")
     setOutlookSaveName("")
-    setOutlooksOpen(false)
+    setOutlooksDropdownOpen(false)
   }, [defaultOutlooks, scenarioStorageKey, setStorageKey])
 
   const persistOutlooks = React.useCallback(
@@ -485,8 +483,16 @@ export function BenchmarkKpiPanel({
 
   React.useEffect(() => {
     if (editingOutlookId == null) return
-    setOutlooksOpen(true)
+    setOutlooksDropdownOpen(true)
   }, [editingOutlookId])
+
+  const handleOutlooksDropdownOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open && editingOutlookId != null) return
+      setOutlooksDropdownOpen(open)
+    },
+    [editingOutlookId]
+  )
 
   const updateOutlook = React.useCallback(
     (
@@ -769,74 +775,59 @@ export function BenchmarkKpiPanel({
       )}
       aria-label="Benchmark metrics for map area"
     >
-      <div className="shrink-0 space-y-0.5 border-b border-border pb-2.5">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
-          {snapshot.areaLabel}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {snapshot.buildingCount === 1
-            ? "1 building in view"
-            : `${snapshot.buildingCount} buildings in view`}
-          {snapshot.fullParticipantCount > 0 &&
-          snapshot.fullParticipantCount < snapshot.buildingCount
-            ? ` · ${snapshot.fullParticipantCount} full participants`
-            : null}
-        </p>
-      </div>
+      <div className="shrink-0 border-b border-border pb-2.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              {snapshot.areaLabel}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {snapshot.buildingCount === 1
+                ? "1 building in view"
+                : `${snapshot.buildingCount} buildings in view`}
+              {snapshot.fullParticipantCount > 0 &&
+              snapshot.fullParticipantCount < snapshot.buildingCount
+                ? ` · ${snapshot.fullParticipantCount} full participants`
+                : null}
+            </p>
+          </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
-        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
-          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
-            const kpi = kpiByKey[definition.key]
-            return (
-              <div key={definition.key} role="listitem" className="min-w-0">
-                <BenchmarkKpiCard
-                  definition={definition}
-                  value={kpi?.value ?? "—"}
-                  participantNote={kpi?.participantNote}
-                />
-              </div>
-            )
-          })}
-        </div>
-
-        <Collapsible open={outlooksOpen} onOpenChange={setOutlooksOpen}>
-          <section
-            className="rounded-xl border border-border bg-card p-4 shadow-sm"
-            aria-label="Benchmark economic outlooks"
+          <DropdownMenu
+            open={outlooksDropdownOpen}
+            onOpenChange={handleOutlooksDropdownOpenChange}
+            modal={false}
           >
-            <div className="flex min-w-0 items-start justify-between gap-2">
-              <button
-                type="button"
-                aria-expanded={outlooksOpen}
-                aria-controls={`${outlookSaveFieldId}-outlooks-panel`}
-                disabled={editingOutlookId != null}
-                onClick={() => setOutlooksOpen((open) => !open)}
-                className="flex min-w-0 flex-1 items-start justify-between gap-3 rounded-sm text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed"
-              >
-                <div className="min-w-0">
-                  <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
-                    Economic Outlooks
-                  </h3>
-                  {!outlooksOpen ? (
-                    <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                      {selectedOutlookSummary}
-                    </p>
-                  ) : null}
-                </div>
-                {outlooksOpen ? (
-                  <ChevronDown
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                ) : (
-                  <ChevronRight
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                )}
-              </button>
-              {outlooksOpen ? (
+            <DropdownMenuTrigger
+              nativeButton
+              render={
+                <button
+                  type="button"
+                  className="flex min-h-0 shrink-0 cursor-pointer flex-col justify-center self-stretch rounded-lg border border-border bg-muted/30 px-2 py-0.5 text-left transition-[color,background-color,border-color,box-shadow,transform] duration-150 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-expanded:border-primary/40 aria-expanded:bg-primary/[0.08] aria-expanded:shadow-sm aria-expanded:ring-2 aria-expanded:ring-primary/20 dark:aria-expanded:border-primary/30 dark:aria-expanded:bg-primary/[0.14] aria-expanded:[&_svg]:rotate-180 sm:px-2 sm:py-1"
+                  aria-label="Set economic outlooks"
+                />
+              }
+            >
+              <span className="flex items-center gap-1 whitespace-nowrap text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
+                Set economic outlooks
+                <ChevronDown
+                  className="size-3 opacity-70 transition-transform duration-150"
+                  aria-hidden
+                />
+              </span>
+              <span className="mt-px text-xs font-semibold leading-tight text-foreground sm:text-[13px]">
+                {selectedOutlookSummary}
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              side="bottom"
+              sideOffset={6}
+              className="w-[min(100vw-2rem,24rem)] max-h-[min(80vh,36rem)] overflow-y-auto p-4"
+            >
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
+                  Economic Outlooks
+                </h3>
                 <SidebarGroupAction
                   type="button"
                   title="Add outlook scenario"
@@ -847,13 +838,12 @@ export function BenchmarkKpiPanel({
                 >
                   <Plus />
                 </SidebarGroupAction>
-              ) : null}
-            </div>
+              </div>
 
-            <CollapsibleContent
-              id={`${outlookSaveFieldId}-outlooks-panel`}
-              className="mt-3 min-w-0 space-y-3"
-            >
+              <div
+                id={`${outlookSaveFieldId}-outlooks-panel`}
+                className="mt-3 min-w-0 space-y-3"
+              >
               <div className="min-w-0">
                 <Select
                   items={outlookSetItemLabels}
@@ -1039,7 +1029,7 @@ export function BenchmarkKpiPanel({
                               )}
                             </Button>
                             {!outlook.isPreset ? (
-                              <DropdownMenu>
+                              <DropdownMenu modal={false}>
                                 <DropdownMenuTrigger
                                   render={
                                     <Button
@@ -1183,9 +1173,28 @@ export function BenchmarkKpiPanel({
                   Reset
                 </Button>
               </div>
-            </CollapsibleContent>
-          </section>
-        </Collapsible>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
+          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
+            const kpi = kpiByKey[definition.key]
+            return (
+              <div key={definition.key} role="listitem" className="min-w-0">
+                <BenchmarkKpiCard
+                  definition={definition}
+                  value={kpi?.value ?? "—"}
+                  participantNote={kpi?.participantNote}
+                />
+              </div>
+            )
+          })}
+        </div>
+
 
         <section className="space-y-3" aria-label={`${snapshot.areaLabel} forecast scenarios`}>
           <AssetForecastCharts
