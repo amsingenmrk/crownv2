@@ -251,6 +251,16 @@ export function curatedBenchmarkMarketAreas(): BenchmarkArea[] {
   return BENCHMARK_SEARCH_PRESETS
 }
 
+/** Resolve a benchmark area id from URL or deep links (`us-national`, `market-*`). */
+export function resolveBenchmarkAreaById(
+  areaId: string | null | undefined
+): BenchmarkArea | null {
+  const id = areaId?.trim()
+  if (!id) return null
+  if (id === US_NATIONAL_BENCHMARK_AREA.id) return US_NATIONAL_BENCHMARK_AREA
+  return curatedBenchmarkMarketAreas().find((area) => area.id === id) ?? null
+}
+
 export function isBenchmarkMarketPreset(area: BenchmarkArea): boolean {
   return area.id.startsWith("market-")
 }

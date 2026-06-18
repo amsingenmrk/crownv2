@@ -13,6 +13,7 @@ import {
   type BenchmarkKpiKey,
 } from "@/lib/benchmark-area-model"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 
 function assetNameForAsset(assetId: string): string {
   const asset = getAssetById(assetId)
@@ -20,6 +21,28 @@ function assetNameForAsset(assetId: string): string {
   const pin = getMarketListingPinById(assetId)
   if (pin?.building) return pin.building
   return "—"
+}
+
+function assetPinForAsset(
+  assetId: string,
+  coordinates: Record<string, readonly [number, number]>
+): { longitude: number; latitude: number } | null {
+  const asset = getAssetById(assetId)
+  if (asset) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      asset.id,
+      asset.groupId,
+      coordinates
+    )
+    return { longitude, latitude }
+  }
+
+  const pin = getMarketListingPinById(assetId)
+  if (pin) {
+    return { longitude: pin.longitude, latitude: pin.latitude }
+  }
+
+  return null
 }
 
 function kpisRecordFromSnapshot(
@@ -39,6 +62,11 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
   )
 
   const assetName = React.useMemo(() => assetNameForAsset(assetId), [assetId])
+
+  const assetPin = React.useMemo(
+    () => assetPinForAsset(assetId, coordinates),
+    [assetId, coordinates]
+  )
 
   const homeArea = React.useMemo(
     () => resolveBenchmarkAreaForAsset(assetId),
@@ -65,8 +93,11 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     <AssetBenchmarksTable
       assetRow={assetRow}
       assetName={assetName}
+      assetPin={assetPin}
+      homeArea={homeArea}
       regionLabel={regionLabel}
       regionKpis={regionKpis}
+      nationalArea={US_NATIONAL_BENCHMARK_AREA}
       nationalLabel={nationalLabel}
       nationalKpis={nationalKpis}
     />

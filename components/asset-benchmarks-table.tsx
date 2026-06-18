@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { BenchmarkHeaderMapLink } from "@/components/benchmark-header-map-link"
 import { TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import {
   BENCHMARK_KPI_DEFINITIONS,
@@ -9,6 +10,8 @@ import {
   type BenchmarkKpiDefinition,
   type BenchmarkKpiKey,
 } from "@/lib/benchmark-area-model"
+import type { BenchmarkArea } from "@/lib/benchmark-area-search"
+import { benchmarksPageHref } from "@/lib/benchmark-area-url"
 import { COMPARE_ROW_LABEL_COL_PX } from "@/lib/portfolio-compare-model"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
@@ -34,16 +37,22 @@ function scoreCellClass(
 export function AssetBenchmarksTable({
   assetRow,
   assetName,
+  assetPin,
+  homeArea,
   regionLabel,
   regionKpis,
+  nationalArea,
   nationalLabel,
   nationalKpis,
   className,
 }: {
   assetRow: BenchmarkBuildingTableRow | null
   assetName: string
+  assetPin: { longitude: number; latitude: number } | null
+  homeArea: BenchmarkArea
   regionLabel: string
   regionKpis: Record<BenchmarkKpiKey, string>
+  nationalArea: BenchmarkArea
   nationalLabel: string
   nationalKpis: Record<BenchmarkKpiKey, string>
   className?: string
@@ -63,20 +72,38 @@ export function AssetBenchmarksTable({
         >
           <TableBody className="contents [&_tr:last-child]:border-b-0">
             <TableRow
-              className="grid items-center border-b border-border bg-muted/50 hover:bg-muted/50"
+              className="grid items-start border-b border-border bg-muted/50 hover:bg-muted/50"
               style={gridRowStyle}
             >
               <TableHead className="h-auto border-0 px-2 py-2 text-left font-medium text-foreground">
                 {/* KPI label column — empty header like compare */}
               </TableHead>
-              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-medium text-foreground">
-                <span className="line-clamp-2">{assetName}</span>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                {assetPin ? (
+                  <BenchmarkHeaderMapLink
+                    href={benchmarksPageHref(homeArea.id)}
+                    label={assetName}
+                    pin={assetPin}
+                  />
+                ) : (
+                  <span className="line-clamp-2 font-medium text-foreground">
+                    {assetName}
+                  </span>
+                )}
               </TableHead>
-              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-medium text-foreground">
-                <span className="line-clamp-2">{regionLabel}</span>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                <BenchmarkHeaderMapLink
+                  href={benchmarksPageHref(homeArea.id)}
+                  label={regionLabel}
+                  area={homeArea}
+                />
               </TableHead>
-              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-medium text-foreground">
-                <span className="line-clamp-2">{nationalLabel}</span>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                <BenchmarkHeaderMapLink
+                  href={benchmarksPageHref(nationalArea.id)}
+                  label={nationalLabel}
+                  area={nationalArea}
+                />
               </TableHead>
             </TableRow>
 
