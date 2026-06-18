@@ -654,6 +654,48 @@ export function addAssetToGroup(
   })
 }
 
+export type AssetGroupMembershipTarget = {
+  assetId: string
+  baseGroupId: string
+}
+
+/**
+ * Adds all provided assets to a portfolio group without toggling off existing membership.
+ * Returns the number of assets whose membership changed.
+ */
+export function addAssetsToGroup(
+  targets: readonly AssetGroupMembershipTarget[],
+  groupId: string
+): number {
+  if (typeof window === "undefined" || targets.length === 0) return 0
+  restoreRemovedPortfolioGroup(groupId)
+  const overrides = readAssetGroupOverrides()
+  const nextOverrides = { ...overrides }
+  const seenAssetIds = new Set<string>()
+  let changed = false
+  let addedCount = 0
+
+  for (const target of targets) {
+    if (seenAssetIds.has(target.assetId)) continue
+    seenAssetIds.add(target.assetId)
+    clearStandalonePropertyNav(target.assetId)
+    const current = resolveAssetGroupIds(
+      target.assetId,
+      target.baseGroupId,
+      nextOverrides
+    )
+    if (current.includes(groupId)) continue
+    nextOverrides[target.assetId] = [...current, groupId]
+    changed = true
+    addedCount += 1
+  }
+
+  if (changed) {
+    writeAssetGroupOverrides(nextOverrides)
+  }
+  return addedCount
+}
+
 export function removeAssetFromGroup(
   assetId: string,
   groupId: string,

@@ -95,7 +95,7 @@ export function AssetDetailHeader() {
         { label: "Sector", value: tableRow.typeLabel },
         { label: "Class", value: tableRow.classLabel },
         { label: "RSF", value: tableRow.rsf },
-        { label: "WALE", value: tableRow.wale },
+        { label: "WALT", value: tableRow.wale },
       ] as const)
 
   return (
@@ -141,7 +141,7 @@ export function AssetDetailHeader() {
               <OccupancySummaryBar
                 occupiedPercent={parseOccPct(tableRow.occPct)}
                 className="h-full min-h-0 w-full sm:max-w-[min(100%,22rem)]"
-                secondaryMetricLabel="WALE"
+                secondaryMetricLabel="WALT"
                 secondaryMetricValue={waleDisplay}
               />
               {asset ? <AssetLeasingAssumptionsStat /> : null}

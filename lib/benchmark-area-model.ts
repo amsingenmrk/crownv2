@@ -1,5 +1,6 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-asset"
+import { getBenchmarkAreaParent } from "@/lib/benchmark-area-hierarchy"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -18,6 +19,8 @@ export type BenchmarkKpiKey =
   | "inPlaceRent"
   | "occupancy"
   | "intrinsicRent"
+  | "intrinsicCapRate"
+  | "valuePerSf"
   | "sunScore"
   | "viewScore"
   | "amenityQuality"
@@ -27,23 +30,26 @@ export type BenchmarkKpiDefinition = {
   key: BenchmarkKpiKey
   label: string
   methodology: string
-  format: "rentPsf" | "percent" | "score"
+  format: "rentPsf" | "valuePsf" | "percent" | "score"
+  section: "fundamentals" | "rents" | "scores"
 }
 
 export const BENCHMARK_KPI_DEFINITIONS: readonly BenchmarkKpiDefinition[] = [
   {
     key: "askingRent",
-    label: "Asking rent",
+    label: "Asking",
     methodology:
       "Near-current market signal, refreshed on a 90-day cycle.",
     format: "rentPsf",
+    section: "rents",
   },
   {
     key: "inPlaceRent",
-    label: "In-place rent",
+    label: "In-Place",
     methodology:
       "Active leases only, with a secondary commencement-date guardrail of 2018–present.",
     format: "rentPsf",
+    section: "rents",
   },
   {
     key: "occupancy",
@@ -51,41 +57,63 @@ export const BENCHMARK_KPI_DEFINITIONS: readonly BenchmarkKpiDefinition[] = [
     methodology:
       "Leased sqft divided by total building sqft, aggregated at the building level.",
     format: "percent",
+    section: "fundamentals",
   },
   {
     key: "intrinsicRent",
-    label: "Intrinsic rent",
+    label: "Intrinsic",
     methodology:
       "Model-derived rent for full participants only; recency tied to the last training run.",
     format: "rentPsf",
+    section: "rents",
+  },
+  {
+    key: "intrinsicCapRate",
+    label: "Intrinsic cap rate",
+    methodology:
+      "Model-derived cap rate for full participants only; aggregated value-weighted across the buildings in view.",
+    format: "percent",
+    section: "fundamentals",
+  },
+  {
+    key: "valuePerSf",
+    label: "Value / SF",
+    methodology:
+      "Model-derived value per square foot for full participants; aggregated as total modeled value divided by total building area in view.",
+    format: "valuePsf",
+    section: "fundamentals",
   },
   {
     key: "sunScore",
-    label: "Sun score",
+    label: "Sun",
     methodology:
       "Time-stable geospatial score, available for all buildings; no recency filter.",
     format: "score",
+    section: "scores",
   },
   {
     key: "viewScore",
-    label: "View score",
+    label: "View",
     methodology:
       "Time-stable geospatial score, available for all buildings; no recency filter.",
     format: "score",
+    section: "scores",
   },
   {
     key: "amenityQuality",
-    label: "Amenity quality",
+    label: "Amenity",
     methodology:
       "Composite neighborhood-quality score for full participants; revalidate when underlying amenity data is refreshed.",
     format: "score",
+    section: "scores",
   },
   {
     key: "accessibilityScore",
-    label: "Accessibility score",
+    label: "Accessibility",
     methodology:
       "Time-stable geospatial score, available for all buildings; no recency filter.",
     format: "score",
+    section: "scores",
   },
 ] as const
 
@@ -111,6 +139,8 @@ type BenchmarkBuildingSample = {
   askingRentPsf: number
   inPlaceRentPsf: number
   intrinsicRentPsf: number
+  intrinsicCapRatePct: number
+  valuePerSfUsd: number
   sunScore: number
   viewScore: number
   amenityQuality: number
@@ -126,18 +156,6 @@ function syntheticScore(seed: string, base: number, spread: number): number {
   return Math.round(base + (u01(seed) - 0.5) * spread * 2)
 }
 
-function weightedAverage(
-  items: { weight: number; value: number }[]
-): number | null {
-  const valid = items.filter((i) => i.weight > 0 && Number.isFinite(i.value))
-  if (valid.length === 0) return null
-  const totalWeight = valid.reduce((sum, i) => sum + i.weight, 0)
-  if (totalWeight <= 0) return null
-  return (
-    valid.reduce((sum, i) => sum + i.value * i.weight, 0) / totalWeight
-  )
-}
-
 function getWeightedTenantScore(
   assetId: string,
   field: "sunScore" | "viewScore"
@@ -145,16 +163,20 @@ function getWeightedTenantScore(
   const dataset = getSampleStackingPlanData(assetId)
   const tenants = dataset.floors.flatMap((floor) => floor.tenants)
   const withScore = tenants.filter(
-    (t) => t[field] != null && t.sqft > 0
+    (tenant) => tenant[field] != null && tenant.sqft > 0
   )
   if (withScore.length === 0) {
     return syntheticScore(`${assetId}:${field}`, 58, 18)
   }
-  const totalSqft = withScore.reduce((sum, t) => sum + t.sqft, 0)
-  if (totalSqft <= 0) return syntheticScore(`${assetId}:${field}`, 58, 18)
+  const totalSqft = withScore.reduce((sum, tenant) => sum + tenant.sqft, 0)
+  if (totalSqft <= 0) {
+    return syntheticScore(`${assetId}:${field}`, 58, 18)
+  }
   const weighted =
-    withScore.reduce((sum, t) => sum + t.sqft * (t[field] ?? 0), 0) /
-    totalSqft
+    withScore.reduce(
+      (sum, tenant) => sum + tenant.sqft * (tenant[field] ?? 0),
+      0
+    ) / totalSqft
   return Math.round(weighted)
 }
 
@@ -167,11 +189,6 @@ function buildBenchmarkBuildingSample(
   if (fin == null) return null
 
   const isFullParticipant = !isMarketListingPinId(id)
-  const sunScore = getWeightedTenantScore(id, "sunScore")
-  const viewScore = getWeightedTenantScore(id, "viewScore")
-  const amenityQuality = syntheticScore(`amenity:${id}`, 62, 22)
-  const accessibilityScore = syntheticScore(`access:${id}`, 64, 20)
-
   return {
     id,
     longitude,
@@ -181,10 +198,12 @@ function buildBenchmarkBuildingSample(
     askingRentPsf: fin.marketRentPsf,
     inPlaceRentPsf: fin.inPlaceRentPsf,
     intrinsicRentPsf: fin.predictedRentPsf,
-    sunScore,
-    viewScore,
-    amenityQuality,
-    accessibilityScore,
+    intrinsicCapRatePct: fin.capRatePct,
+    valuePerSfUsd: fin.pricePerSfN,
+    sunScore: getWeightedTenantScore(id, "sunScore"),
+    viewScore: getWeightedTenantScore(id, "viewScore"),
+    amenityQuality: syntheticScore(`amenity:${id}`, 62, 22),
+    accessibilityScore: syntheticScore(`access:${id}`, 64, 20),
     isFullParticipant,
   }
 }
@@ -199,13 +218,11 @@ function benchmarkBuildingCatalog(
       coordinates
     )
     return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
-  }).filter((b): b is BenchmarkBuildingSample => b != null)
+  }).filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
   const market = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-    .map((pin) =>
-      buildBenchmarkBuildingSample(pin.id, pin.longitude, pin.latitude)
-    )
-    .filter((b): b is BenchmarkBuildingSample => b != null)
+    .map((pin) => buildBenchmarkBuildingSample(pin.id, pin.longitude, pin.latitude))
+    .filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
   return [...portfolio, ...market]
 }
@@ -227,6 +244,11 @@ function isInBounds(
 function formatRentPsf(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "—"
   return `$${value.toFixed(2)} / SF`
+}
+
+function formatValuePsf(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—"
+  return `$${Math.round(value).toLocaleString("en-US")} / SF`
 }
 
 function formatPercent(value: number | null): string {
@@ -256,12 +278,16 @@ export type BenchmarkStatsRaw = {
   inPlaceRentPsf: number
   occupancyPct: number
   intrinsicRentPsf: number
+  intrinsicCapRatePct: number
+  valuePerSfUsd: number
   sunScore: number
   viewScore: number
   amenityQuality: number
   accessibilityScore: number
   buildingCount: number
   fullParticipantCount: number
+  coverageAreaId?: string
+  coverageAreaLabel?: string
 }
 
 export function benchmarkSnapshotFromRaw(
@@ -287,6 +313,16 @@ export function benchmarkSnapshotFromRaw(
     intrinsicRent: {
       key: "intrinsicRent",
       value: formatRentPsf(raw.intrinsicRentPsf),
+      participantNote: participantNote(fullCount, total, "full participants"),
+    },
+    intrinsicCapRate: {
+      key: "intrinsicCapRate",
+      value: formatPercent(raw.intrinsicCapRatePct),
+      participantNote: participantNote(fullCount, total, "full participants"),
+    },
+    valuePerSf: {
+      key: "valuePerSf",
+      value: formatValuePsf(raw.valuePerSfUsd),
       participantNote: participantNote(fullCount, total, "full participants"),
     },
     sunScore: {
@@ -318,7 +354,7 @@ export function benchmarkSnapshotFromRaw(
 
 export function benchmarkAreaStats(
   area: BenchmarkArea,
-  coordinates: Record<string, readonly [number, number]> = {}
+  _coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkStatsRaw | null {
   const tracked = getTrackedMarketStats(area.id)
   if (tracked) {
@@ -327,83 +363,39 @@ export function benchmarkAreaStats(
       inPlaceRentPsf: tracked.inPlaceRentPsf,
       occupancyPct: tracked.occupancyPct,
       intrinsicRentPsf: tracked.intrinsicRentPsf,
+      intrinsicCapRatePct: tracked.intrinsicCapRatePct,
+      valuePerSfUsd: tracked.valuePerSfUsd,
       sunScore: tracked.sunScore,
       viewScore: tracked.viewScore,
       amenityQuality: tracked.amenityQuality,
       accessibilityScore: tracked.accessibilityScore,
       buildingCount: tracked.buildingCount,
       fullParticipantCount: tracked.fullParticipantCount,
+      coverageAreaId: area.id,
+      coverageAreaLabel: area.label,
     }
   }
 
-  const buildings = benchmarkBuildingCatalog(coordinates).filter((b) =>
-    isInBounds(b.longitude, b.latitude, area.bounds)
-  )
-  const fullParticipants = buildings.filter((b) => b.isFullParticipant)
-  const total = buildings.length
-  const fullCount = fullParticipants.length
-
-  const askingRent = weightedAverage(
-    buildings.map((b) => ({ weight: b.rsfSqft, value: b.askingRentPsf }))
-  )
-  const inPlaceRent = weightedAverage(
-    buildings.map((b) => ({
-      weight: b.occupiedSqft,
-      value: b.inPlaceRentPsf,
-    }))
-  )
-  const totalRsf = buildings.reduce((sum, b) => sum + b.rsfSqft, 0)
-  const totalOccupied = buildings.reduce((sum, b) => sum + b.occupiedSqft, 0)
-  const occupancy =
-    totalRsf > 0 ? (totalOccupied / totalRsf) * 100 : null
-  const intrinsicRent = weightedAverage(
-    fullParticipants.map((b) => ({
-      weight: b.rsfSqft,
-      value: b.intrinsicRentPsf,
-    }))
-  )
-  const sunScore = weightedAverage(
-    buildings.map((b) => ({ weight: b.rsfSqft, value: b.sunScore }))
-  )
-  const viewScore = weightedAverage(
-    buildings.map((b) => ({ weight: b.rsfSqft, value: b.viewScore }))
-  )
-  const amenityQuality = weightedAverage(
-    fullParticipants.map((b) => ({
-      weight: b.rsfSqft,
-      value: b.amenityQuality,
-    }))
-  )
-  const accessibilityScore = weightedAverage(
-    buildings.map((b) => ({
-      weight: b.rsfSqft,
-      value: b.accessibilityScore,
-    }))
-  )
-
-  if (total === 0) {
-    return null
+  const parentArea = getBenchmarkAreaParent(area)
+  if (parentArea) {
+    const fallback = benchmarkAreaStats(parentArea)
+    if (fallback) {
+      return {
+        ...fallback,
+        coverageAreaId: fallback.coverageAreaId ?? parentArea.id,
+        coverageAreaLabel: fallback.coverageAreaLabel ?? parentArea.label,
+      }
+    }
   }
 
-  return {
-    askingRentPsf: askingRent ?? 0,
-    inPlaceRentPsf: inPlaceRent ?? askingRent ?? 0,
-    occupancyPct: occupancy ?? 0,
-    intrinsicRentPsf: intrinsicRent ?? askingRent ?? inPlaceRent ?? 0,
-    sunScore: sunScore ?? 0,
-    viewScore: viewScore ?? 0,
-    amenityQuality: amenityQuality ?? 0,
-    accessibilityScore: accessibilityScore ?? 0,
-    buildingCount: total,
-    fullParticipantCount: fullCount,
-  }
+  return null
 }
 
 export function benchmarkAreaSnapshot(
   area: BenchmarkArea,
-  coordinates: Record<string, readonly [number, number]> = {}
+  _coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkAreaSnapshot {
-  const raw = benchmarkAreaStats(area, coordinates)
+  const raw = benchmarkAreaStats(area)
   if (raw == null) {
     return {
       areaLabel: area.label,
@@ -449,6 +441,12 @@ function benchmarkKpisForBuilding(
     occupancy: formatPercent(occupancyPct),
     intrinsicRent: sample.isFullParticipant
       ? formatRentPsf(sample.intrinsicRentPsf)
+      : "—",
+    intrinsicCapRate: sample.isFullParticipant
+      ? formatPercent(sample.intrinsicCapRatePct)
+      : "—",
+    valuePerSf: sample.isFullParticipant
+      ? formatValuePsf(sample.valuePerSfUsd)
       : "—",
     sunScore: formatScore(sample.sunScore),
     viewScore: formatScore(sample.viewScore),

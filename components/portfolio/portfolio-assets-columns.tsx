@@ -49,8 +49,8 @@ const VALUE_SOURCE_LABEL =
 const OCCUPANCY_SOURCE_LABEL =
   "Lease-derived occupancy from the synthetic rent roll (occupied SF divided by total RSF)."
 
-const WALE_SOURCE_LABEL =
-  "WALE is the weighted average remaining lease term by occupied square feet."
+const WALT_SOURCE_LABEL =
+  "WALT is the weighted average remaining lease term by occupied square feet."
 
 const REVENUE_SOURCE_LABEL =
   "In-place annual revenue from occupied suites in the synthetic lease roll."
@@ -62,7 +62,7 @@ const NOI_SOURCE_LABEL =
   "Modeled annual NOI calculated as in-place revenue less modeled OpEx."
 
 const CAP_RATE_SOURCE_LABEL =
-  "Modeled cap rate calibrated by sector, market tier, occupancy, and WALE."
+  "Modeled cap rate calibrated by sector, market tier, occupancy, and WALT."
 
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
@@ -256,10 +256,10 @@ export function createPortfolioAssetColumns(
     {
       accessorKey: "wale",
       enableHiding: true,
-      meta: { columnLabel: "WALE" },
+      meta: { columnLabel: "WALT" },
       header: ({ column }) => (
-        <SortableHeader column={column} sourceLabel={WALE_SOURCE_LABEL}>
-          WALE
+        <SortableHeader column={column} sourceLabel={WALT_SOURCE_LABEL}>
+          WALT
         </SortableHeader>
       ),
       sortingFn: (rowA, rowB, id) =>

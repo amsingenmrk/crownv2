@@ -2,6 +2,11 @@ import {
   benchmarkSnapshotFromRaw,
   type BenchmarkAreaSnapshot,
 } from "@/lib/benchmark-area-model"
+import {
+  CURATED_BENCHMARK_COUNTY_ASSIGNMENTS,
+  CURATED_BENCHMARK_ZIP_ASSIGNMENTS,
+} from "@/lib/benchmark-submarket-assignments"
+import { CURATED_BENCHMARK_SUBMARKET_SEEDS } from "@/lib/benchmark-submarket-catalog"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
 
 type TrackedMarketStatsSeed = {
@@ -9,12 +14,21 @@ type TrackedMarketStatsSeed = {
   inPlaceRentPsf: number
   occupancyPct: number
   intrinsicRentPsf: number
+  intrinsicCapRatePct: number
+  valuePerSfUsd: number
   sunScore: number
   viewScore: number
   amenityQuality: number
   accessibilityScore: number
   buildingCount: number
   fullParticipantCount: number
+}
+
+type TrackedStatsBase = Omit<
+  TrackedMarketStatsSeed,
+  "intrinsicCapRatePct" | "valuePerSfUsd" | "fullParticipantCount"
+> & {
+  fullParticipantShare: number
 }
 
 function u01(seed: string): number {
@@ -37,12 +51,31 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
 
+function seededExpenseRatio(areaId: string): number {
+  return clamp(0.58 + jitter(areaId, "expense-ratio", 0.035), 0.52, 0.66)
+}
+
+function modeledValuePerSfUsd({
+  areaId,
+  occupancyPct,
+  intrinsicRentPsf,
+  intrinsicCapRatePct,
+}: {
+  areaId: string
+  occupancyPct: number
+  intrinsicRentPsf: number
+  intrinsicCapRatePct: number
+}): number {
+  if (intrinsicCapRatePct <= 0) return 0
+  const revenuePerSf = intrinsicRentPsf * (occupancyPct / 100)
+  const noiMargin = Math.max(0.2, 1 - seededExpenseRatio(areaId))
+  const noiPerSf = revenuePerSf * noiMargin
+  return noiPerSf / (intrinsicCapRatePct / 100)
+}
+
 function seedStats(
   areaId: string,
-  base: Omit<TrackedMarketStatsSeed, "buildingCount" | "fullParticipantCount"> & {
-    buildingCount: number
-    fullParticipantShare: number
-  }
+  base: TrackedStatsBase
 ): TrackedMarketStatsSeed {
   const buildingCount = Math.round(
     base.buildingCount + (u01(`${areaId}:bldg`) - 0.5) * base.buildingCount * 0.08
@@ -51,16 +84,35 @@ function seedStats(
     1,
     Math.round(buildingCount * base.fullParticipantShare)
   )
+  const occupancyPct = round1(
+    clamp(base.occupancyPct + jitter(areaId, "occ", 1.2), 72, 97)
+  )
+  const intrinsicRentPsf = round2(
+    base.intrinsicRentPsf + jitter(areaId, "intrinsic", 1.6)
+  )
+  const intrinsicCapRatePct = round2(
+    clamp(
+      7.1 - base.intrinsicRentPsf * 0.014 + jitter(areaId, "intrinsic-cap", 0.18),
+      5.5,
+      8.25
+    )
+  )
+  const valuePerSfUsd = round2(
+    modeledValuePerSfUsd({
+      areaId,
+      occupancyPct,
+      intrinsicRentPsf,
+      intrinsicCapRatePct,
+    })
+  )
 
   return {
     askingRentPsf: round2(base.askingRentPsf + jitter(areaId, "ask", 1.8)),
     inPlaceRentPsf: round2(base.inPlaceRentPsf + jitter(areaId, "inplace", 1.5)),
-    occupancyPct: round1(
-      clamp(base.occupancyPct + jitter(areaId, "occ", 1.2), 72, 97)
-    ),
-    intrinsicRentPsf: round2(
-      base.intrinsicRentPsf + jitter(areaId, "intrinsic", 1.6)
-    ),
+    occupancyPct,
+    intrinsicRentPsf,
+    intrinsicCapRatePct,
+    valuePerSfUsd,
     sunScore: Math.round(base.sunScore + jitter(areaId, "sun", 4)),
     viewScore: Math.round(base.viewScore + jitter(areaId, "view", 4)),
     amenityQuality: Math.round(
@@ -74,13 +126,97 @@ function seedStats(
   }
 }
 
+function fullParticipantShareForStats(stats: TrackedMarketStatsSeed): number {
+  if (stats.buildingCount <= 0) return 0.2
+  return clamp(stats.fullParticipantCount / stats.buildingCount, 0.12, 0.65)
+}
+
+function seedBaseFromTrackedStats(stats: TrackedMarketStatsSeed): TrackedStatsBase {
+  return {
+    askingRentPsf: stats.askingRentPsf,
+    inPlaceRentPsf: stats.inPlaceRentPsf,
+    occupancyPct: stats.occupancyPct,
+    intrinsicRentPsf: stats.intrinsicRentPsf,
+    sunScore: stats.sunScore,
+    viewScore: stats.viewScore,
+    amenityQuality: stats.amenityQuality,
+    accessibilityScore: stats.accessibilityScore,
+    buildingCount: stats.buildingCount,
+    fullParticipantShare: fullParticipantShareForStats(stats),
+  }
+}
+
+function derivedBuildingShare(areaId: string, scope: "submarket" | "county" | "zip") {
+  switch (scope) {
+    case "submarket":
+      return clamp(0.12 + u01(`${areaId}:share`) * 0.24, 0.12, 0.36)
+    case "county":
+      return clamp(0.72 + jitter(areaId, "share", 0.14), 0.48, 1.08)
+    case "zip":
+      return clamp(0.08 + u01(`${areaId}:share`) * 0.12, 0.05, 0.22)
+  }
+}
+
+function deriveScopedBase(
+  areaId: string,
+  parentStats: TrackedMarketStatsSeed,
+  scope: "submarket" | "county" | "zip"
+): TrackedStatsBase {
+  const parent = seedBaseFromTrackedStats(parentStats)
+  const buildingShare = derivedBuildingShare(areaId, scope)
+  const buildingCount = Math.max(
+    scope === "submarket" ? 45 : scope === "county" ? 30 : 12,
+    Math.round(parent.buildingCount * buildingShare)
+  )
+  const rentMagnitude = scope === "submarket" ? 0.08 : scope === "county" ? 0.05 : 0.03
+  const scoreMagnitude = scope === "submarket" ? 5 : scope === "county" ? 3 : 2
+  const occupancyMagnitude = scope === "submarket" ? 1.8 : scope === "county" ? 1.2 : 0.8
+
+  return {
+    askingRentPsf: round2(
+      parent.askingRentPsf * (1 + jitter(areaId, "ask-ratio", rentMagnitude))
+    ),
+    inPlaceRentPsf: round2(
+      parent.inPlaceRentPsf * (1 + jitter(areaId, "inplace-ratio", rentMagnitude * 0.9))
+    ),
+    occupancyPct: round1(
+      clamp(parent.occupancyPct + jitter(areaId, "occ", occupancyMagnitude), 72, 97)
+    ),
+    intrinsicRentPsf: round2(
+      parent.intrinsicRentPsf * (1 + jitter(areaId, "intrinsic-ratio", rentMagnitude))
+    ),
+    sunScore: Math.round(clamp(parent.sunScore + jitter(areaId, "sun", scoreMagnitude), 35, 95)),
+    viewScore: Math.round(
+      clamp(parent.viewScore + jitter(areaId, "view", scoreMagnitude), 35, 95)
+    ),
+    amenityQuality: Math.round(
+      clamp(parent.amenityQuality + jitter(areaId, "amenity", scoreMagnitude), 35, 95)
+    ),
+    accessibilityScore: Math.round(
+      clamp(parent.accessibilityScore + jitter(areaId, "access", scoreMagnitude), 35, 95)
+    ),
+    buildingCount,
+    fullParticipantShare: clamp(
+      parent.fullParticipantShare + jitter(areaId, "participant-share", 0.04),
+      0.12,
+      0.65
+    ),
+  }
+}
+
 /**
  * Illustrative market-level benchmarks for curated areas.
  * Replace with live aggregation when market feeds are available.
  */
 const TRACKED_MARKET_BASES: Record<
   string,
-  Omit<TrackedMarketStatsSeed, "buildingCount" | "fullParticipantCount"> & {
+  Omit<
+    TrackedMarketStatsSeed,
+    | "buildingCount"
+    | "fullParticipantCount"
+    | "intrinsicCapRatePct"
+    | "valuePerSfUsd"
+  > & {
     buildingCount: number
     fullParticipantShare: number
   }
@@ -382,21 +518,72 @@ const TRACKED_MARKET_STATS = Object.fromEntries(
   ])
 ) as Record<string, TrackedMarketStatsSeed>
 
+function trackedMarketStatsOrNational(marketId: string): TrackedMarketStatsSeed {
+  return TRACKED_MARKET_STATS[marketId] ?? TRACKED_MARKET_STATS["us-national"]!
+}
+
+const TRACKED_SUBMARKET_STATS = Object.fromEntries(
+  CURATED_BENCHMARK_SUBMARKET_SEEDS.map((seed) => [
+    seed.id,
+    seedStats(
+      seed.id,
+      deriveScopedBase(seed.id, trackedMarketStatsOrNational(seed.marketId), "submarket")
+    ),
+  ])
+) as Record<string, TrackedMarketStatsSeed>
+
+const TRACKED_COUNTY_STATS = Object.fromEntries(
+  CURATED_BENCHMARK_COUNTY_ASSIGNMENTS.map((seed) => [
+    seed.id,
+    seedStats(
+      seed.id,
+      deriveScopedBase(
+        seed.id,
+        TRACKED_SUBMARKET_STATS[seed.submarketId] ??
+          trackedMarketStatsOrNational(seed.marketId),
+        "county"
+      )
+    ),
+  ])
+) as Record<string, TrackedMarketStatsSeed>
+
+const TRACKED_ZIP_STATS = Object.fromEntries(
+  CURATED_BENCHMARK_ZIP_ASSIGNMENTS.map((seed) => [
+    seed.id,
+    seedStats(
+      seed.id,
+      deriveScopedBase(
+        seed.id,
+        TRACKED_SUBMARKET_STATS[seed.submarketId] ??
+          trackedMarketStatsOrNational(seed.marketId),
+        "zip"
+      )
+    ),
+  ])
+) as Record<string, TrackedMarketStatsSeed>
+
+const TRACKED_BENCHMARK_STATS = {
+  ...TRACKED_MARKET_STATS,
+  ...TRACKED_SUBMARKET_STATS,
+  ...TRACKED_COUNTY_STATS,
+  ...TRACKED_ZIP_STATS,
+} satisfies Record<string, TrackedMarketStatsSeed>
+
 export function getTrackedMarketStats(
   areaId: string
 ): TrackedMarketStatsSeed | null {
-  return TRACKED_MARKET_STATS[areaId] ?? null
+  return TRACKED_BENCHMARK_STATS[areaId] ?? null
 }
 
 export function isTrackedBenchmarkArea(areaId: string): boolean {
-  return areaId in TRACKED_MARKET_STATS
+  return areaId in TRACKED_BENCHMARK_STATS
 }
 
 export function trackedBenchmarkSnapshot(
   areaLabel: string,
   areaId: string
 ): BenchmarkAreaSnapshot | null {
-  const stats = TRACKED_MARKET_STATS[areaId]
+  const stats = TRACKED_BENCHMARK_STATS[areaId]
   if (!stats) return null
 
   return benchmarkSnapshotFromRaw(areaLabel, stats)

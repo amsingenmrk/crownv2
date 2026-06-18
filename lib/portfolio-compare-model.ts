@@ -167,7 +167,7 @@ export const KPI_TABLE_ROWS: {
   { label: "NOI", metricKey: "noi", get: (m) => m.noi },
   { label: "NOI / SF", metricKey: "noiPerSf", get: (m) => m.noiPerSf },
   { label: "Cap Rate", metricKey: "capRate", get: (m) => m.capRate },
-  { label: "WALE", metricKey: "wale", get: (m) => m.wale },
+  { label: "WALT", metricKey: "wale", get: (m) => m.wale },
 ]
 
 function fallbackColumn(name: string, address: string, index: number): CompareColumn {

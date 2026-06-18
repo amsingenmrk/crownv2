@@ -12,7 +12,9 @@ export type BenchmarkBoundarySpec = {
 export type BenchmarkAreaGeocodeHint = {
   placeTypes?: string[]
   center?: [number, number]
+  regionName?: string
   regionShortCode?: string
+  districtName?: string
   districtShortCode?: string
   countryShortCode?: string
 }
@@ -20,12 +22,26 @@ export type BenchmarkAreaGeocodeHint = {
 export type BenchmarkBoundaryGeometry =
   GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
 
+export type BenchmarkAreaLevel =
+  | "country"
+  | "market"
+  | "submarket"
+  | "msaState"
+  | "county"
+  | "zip"
+
 export type BenchmarkArea = {
   id: string
   label: string
   bounds: BenchmarkAreaBounds
+  level: BenchmarkAreaLevel
+  geocodeQuery?: string
   boundary?: BenchmarkBoundarySpec
   /** Stored polygon for preset markets (Census CBSA / state outlines). */
   boundaryGeometry?: BenchmarkBoundaryGeometry
   geocodeHint?: BenchmarkAreaGeocodeHint
+  parentId?: string
+  childLevel?: BenchmarkAreaLevel
+  isCurated?: boolean
+  aliases?: string[]
 }

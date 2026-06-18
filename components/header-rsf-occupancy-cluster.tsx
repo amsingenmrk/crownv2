@@ -69,7 +69,7 @@ export function HeaderRsfOccupancyCluster({
       <OccupancySummaryBar
         occupiedPercent={occupiedPercent}
         className="h-full min-h-0"
-        secondaryMetricLabel="WALE"
+        secondaryMetricLabel="WALT"
         secondaryMetricValue={waleDisplay}
       />
     </div>

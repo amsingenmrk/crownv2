@@ -30,13 +30,24 @@ import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-st
 import { type PortfolioAssetsTableVariant } from "@/components/portfolio/portfolio-assets-columns"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
+  addAssetsToGroup,
+  getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
+import {
+  resolveAssetGroupLabel,
+  SEEDED_PORTFOLIO_GROUP_IDS,
+} from "@/lib/assets"
+import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
 import { cn } from "@/lib/utils"
 import { useAppToast } from "@/components/app-toast"
-import { addAssetsToScenarioIncludedBySlug } from "@/lib/scenario-included-assets-storage"
+import { addPortfolioAssetsToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
+import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import {
@@ -75,6 +86,9 @@ const VALUE_SOURCE_LABEL =
 
 const POTENTIAL_LIFT_SOURCE_LABEL =
   "Derived from the highest-lift single recommended modification for this asset."
+
+type ScenarioMenuOption = { name: string; slug: string }
+type PortfolioMenuOption = { name: string; groupId: string }
 
 function mobileModeledFieldsProvenanceLabel(
   variant: PortfolioAssetsTableVariant
@@ -130,8 +144,21 @@ export function PortfolioAssetsDataTable({
   } = useScenarioModificationSelections()
 
   const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
+  const [newPortfolioGroupOpen, setNewPortfolioGroupOpen] = React.useState(false)
   const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
+  const createPortfolioGroupTargetsRef = React.useRef<
+    readonly { assetId: string; baseGroupId: string }[]
+  >([])
   const createScenarioAssetIdsRef = React.useRef<readonly string[]>([])
+  const assetGroupOverrideSnap = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
+    [assetGroupOverrideSnap]
+  )
 
   React.useEffect(() => {
     const sync = () => setUserScenarios(readUserScenarios())
@@ -155,7 +182,7 @@ export function PortfolioAssetsDataTable({
     }
   }, [])
 
-  const scenariosForMenu = React.useMemo(() => {
+  const scenariosForMenu = React.useMemo((): ScenarioMenuOption[] => {
     const userSorted = [...userScenarios].sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
     )
@@ -167,6 +194,20 @@ export function PortfolioAssetsDataTable({
       ...userSorted,
     ]
   }, [userScenarios])
+  const portfoliosForMenu = React.useMemo((): PortfolioMenuOption[] => {
+    const custom = Object.entries(assetGroupData.customGroups)
+      .map(([groupId, name]) => ({ name, groupId }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    const seededGroups = SEEDED_PORTFOLIO_GROUP_IDS.filter(
+      (groupId) => !assetGroupData.removedPortfolioGroupIds.has(groupId)
+    ).map((groupId) => ({
+      name: resolveAssetGroupLabel(groupId, assetGroupData.customGroups),
+      groupId,
+    }))
+    return [...seededGroups, ...custom]
+  }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
 
   const liftStrength = React.useCallback(
     (liftPercent: number) =>
@@ -178,9 +219,17 @@ export function PortfolioAssetsDataTable({
     table.getState().rowSelection
   ).filter(Boolean).length
 
-  const selectedRowIds = table
-    .getFilteredSelectedRowModel()
-    .rows.map((r) => r.original.id)
+  const selectedRows = table.getFilteredSelectedRowModel().rows.map(
+    (row) => row.original
+  )
+  const selectedRowIds = selectedRows.map((row) => row.id)
+  const selectedPortfolioRows = selectedRows.filter(
+    (row) => !isMarketListingRowId(row.id)
+  )
+  const selectedPortfolioTargets = selectedPortfolioRows.map((row) => ({
+    assetId: row.id,
+    baseGroupId: row.groupId,
+  }))
 
   const allSelectedExcluded =
     variant === "scenarios" &&
@@ -204,6 +253,51 @@ export function PortfolioAssetsDataTable({
     }
     table.resetRowSelection()
   }
+  const addSelectedAssetsToScenario = React.useCallback(
+    (scenario: ScenarioMenuOption) => {
+      if (selectedRowIds.length === 0) return
+      addPortfolioAssetsToScenarioBySlug(scenario.slug, selectedRowIds)
+      const n = selectedRowIds.length
+      queueMicrotask(() => {
+        showToast(
+          n === 1
+            ? `Added 1 asset to “${scenario.name}”.`
+            : `Added ${n} assets to “${scenario.name}”.`
+        )
+      })
+      table.resetRowSelection()
+    },
+    [selectedRowIds, showToast, table]
+  )
+  const addSelectedAssetsToPortfolioGroup = React.useCallback(
+    (portfolio: PortfolioMenuOption) => {
+      if (selectedPortfolioTargets.length === 0) return
+      const addedCount = addAssetsToGroup(selectedPortfolioTargets, portfolio.groupId)
+      queueMicrotask(() => {
+        if (addedCount === 0) {
+          showToast(
+            selectedPortfolioTargets.length === 1
+              ? `Asset is already in “${portfolio.name}”.`
+              : `Selected assets are already in “${portfolio.name}”.`
+          )
+          return
+        }
+        if (addedCount === selectedPortfolioTargets.length) {
+          showToast(
+            addedCount === 1
+              ? `Added 1 asset to “${portfolio.name}”.`
+              : `Added ${addedCount} assets to “${portfolio.name}”.`
+          )
+          return
+        }
+        showToast(
+          `Added ${addedCount} of ${selectedPortfolioTargets.length} assets to “${portfolio.name}”.`
+        )
+      })
+      table.resetRowSelection()
+    },
+    [selectedPortfolioTargets, showToast, table]
+  )
 
   const sortedRows = table.getRowModel().rows
 
@@ -255,9 +349,9 @@ export function PortfolioAssetsDataTable({
                     <DropdownMenuTrigger
                       disabled={selectedCount === 0}
                       className={cn(buttonVariants({ variant: "outline" }))}
-                      aria-label="Add selected assets to a scenario"
+                      aria-label="Add selected assets to a portfolio group or scenario"
                     >
-                      Add to Scenario
+                      Add to...
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -269,7 +363,8 @@ export function PortfolioAssetsDataTable({
                     side="top"
                     className="max-w-[240px] text-pretty"
                   >
-                    Select assets with checkboxes to add them to a scenario.
+                    Select assets with checkboxes to add them to a portfolio
+                    group or scenario.
                   </TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent
@@ -278,41 +373,74 @@ export function PortfolioAssetsDataTable({
                 >
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="font-normal text-muted-foreground">
-                      Add to scenario
+                      Portfolio groups
+                    </DropdownMenuLabel>
+                    {portfoliosForMenu.map((portfolio) => {
+                      const alreadyAdded =
+                        selectedPortfolioRows.length > 0 &&
+                        selectedPortfolioRows.every((row) =>
+                          row.groupIds.includes(portfolio.groupId)
+                        )
+                      return (
+                        <DropdownMenuItem
+                          key={portfolio.groupId}
+                          onClick={() => {
+                            addSelectedAssetsToPortfolioGroup(portfolio)
+                          }}
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {portfolio.name}
+                          </span>
+                          {alreadyAdded ? (
+                            <span
+                              className="ml-2 text-xs text-muted-foreground"
+                              aria-hidden
+                            >
+                              Added
+                            </span>
+                          ) : null}
+                        </DropdownMenuItem>
+                      )
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={selectedPortfolioTargets.length === 0}
+                      onClick={() => {
+                        createPortfolioGroupTargetsRef.current =
+                          selectedPortfolioTargets
+                        setNewPortfolioGroupOpen(true)
+                      }}
+                    >
+                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Create new group
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Scenarios
                     </DropdownMenuLabel>
                     {scenariosForMenu.map((s) => (
                       <DropdownMenuItem
                         key={s.slug}
                         onClick={() => {
-                          addAssetsToScenarioIncludedBySlug(
-                            s.slug,
-                            selectedRowIds
-                          )
-                          const n = selectedRowIds.length
-                          queueMicrotask(() => {
-                            showToast(
-                              n === 1
-                                ? `Added 1 asset to “${s.name}”.`
-                                : `Added ${n} assets to “${s.name}”.`
-                            )
-                          })
-                          table.resetRowSelection()
+                          addSelectedAssetsToScenario(s)
                         }}
                       >
                         <span className="truncate">{s.name}</span>
                       </DropdownMenuItem>
                     ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        createScenarioAssetIdsRef.current = selectedRowIds
+                        setNewScenarioOpen(true)
+                      }}
+                    >
+                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Create new scenario
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      createScenarioAssetIdsRef.current = selectedRowIds
-                      setNewScenarioOpen(true)
-                    }}
-                  >
-                    <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-                    Create new scenario
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <NewScenarioDialog
@@ -320,7 +448,7 @@ export function PortfolioAssetsDataTable({
                 onOpenChange={setNewScenarioOpen}
                 afterCreate={(scenario) => {
                   const ids = createScenarioAssetIdsRef.current
-                  addAssetsToScenarioIncludedBySlug(scenario.slug, ids)
+                  addPortfolioAssetsToScenarioBySlug(scenario.slug, ids)
                   table.resetRowSelection()
                   router.push(`/scenarios/${scenario.slug}`)
                   const n = ids.length
@@ -330,6 +458,22 @@ export function PortfolioAssetsDataTable({
                       : n === 1
                         ? `Created “${scenario.name}” and added 1 asset.`
                         : `Created “${scenario.name}” and added ${n} assets.`
+                  )
+                }}
+              />
+              <NewPortfolioScopeDialog
+                open={newPortfolioGroupOpen}
+                onOpenChange={setNewPortfolioGroupOpen}
+                afterCreate={(created) => {
+                  const targets = createPortfolioGroupTargetsRef.current
+                  const addedCount = addAssetsToGroup(targets, created.id)
+                  table.resetRowSelection()
+                  showToast(
+                    addedCount === 0
+                      ? `Created “${created.label}”.`
+                      : addedCount === 1
+                        ? `Created “${created.label}” and added 1 asset.`
+                        : `Created “${created.label}” and added ${addedCount} assets.`
                   )
                 }}
               />

@@ -1,6 +1,9 @@
 "use client"
 
 import {
+  PortfolioProvenanceIndicator,
+} from "@/components/portfolio/portfolio-provenance-indicator"
+import {
   BENCHMARK_KPI_DEFINITIONS,
   type BenchmarkAreaSnapshot,
   type BenchmarkKpiDefinition,
@@ -21,19 +24,23 @@ function scoreValueClass(
 function BenchmarkKpiCard({
   definition,
   value,
-  participantNote,
 }: {
   definition: BenchmarkKpiDefinition
   value: string
-  participantNote?: string
 }) {
   const valueClassName = scoreValueClass(definition, value)
 
   return (
     <article className="flex h-full min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
-      <h3 className="text-xs font-medium leading-snug text-muted-foreground">
-        {definition.label}
-      </h3>
+      <div className="flex items-start justify-between gap-1.5">
+        <h3 className="text-xs font-medium leading-snug text-muted-foreground">
+          {definition.label}
+        </h3>
+        <PortfolioProvenanceIndicator
+          label={definition.methodology}
+          className="text-muted-foreground/80"
+        />
+      </div>
       <p
         className={cn(
           "mt-1 text-lg font-semibold leading-tight tracking-tight tabular-nums",
@@ -42,14 +49,6 @@ function BenchmarkKpiCard({
       >
         {value}
       </p>
-      <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-        {definition.methodology}
-      </p>
-      {participantNote ? (
-        <p className="mt-1 text-[10px] leading-snug text-muted-foreground/90">
-          {participantNote}
-        </p>
-      ) : null}
     </article>
   )
 }
@@ -67,6 +66,47 @@ export function BenchmarkAreaStatsPanel({
     (typeof BENCHMARK_KPI_DEFINITIONS)[number]["key"],
     (typeof snapshot.kpis)[number]
   >
+  const fundamentalsDefinitions = BENCHMARK_KPI_DEFINITIONS.filter(
+    (definition) => definition.section === "fundamentals"
+  )
+  const rentDefinitions = BENCHMARK_KPI_DEFINITIONS.filter(
+    (definition) => definition.section === "rents"
+  )
+  const scoreDefinitions = BENCHMARK_KPI_DEFINITIONS.filter(
+    (definition) => definition.section === "scores"
+  )
+  const renderSection = ({
+    title,
+    ariaLabel,
+    definitions,
+    bordered,
+  }: {
+    title: string
+    ariaLabel: string
+    definitions: readonly BenchmarkKpiDefinition[]
+    bordered: boolean
+  }) => (
+    <section className="space-y-2.5" aria-label={ariaLabel}>
+      <div className={cn(bordered && "border-t border-border/60 pt-3")}>
+        <h3 className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {title}
+        </h3>
+      </div>
+      <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
+        {definitions.map((definition) => {
+          const kpi = kpiByKey[definition.key]
+          return (
+            <div key={definition.key} role="listitem" className="min-w-0">
+              <BenchmarkKpiCard
+                definition={definition}
+                value={kpi?.value ?? "—"}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
 
   return (
     <aside
@@ -88,21 +128,25 @@ export function BenchmarkAreaStatsPanel({
         </p>
       </div>
 
-      <div className="pt-3">
-        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4" role="list">
-          {BENCHMARK_KPI_DEFINITIONS.map((definition) => {
-            const kpi = kpiByKey[definition.key]
-            return (
-              <div key={definition.key} role="listitem" className="min-w-0">
-                <BenchmarkKpiCard
-                  definition={definition}
-                  value={kpi?.value ?? "—"}
-                  participantNote={kpi?.participantNote}
-                />
-              </div>
-            )
-          })}
-        </div>
+      <div className="space-y-4 pt-3">
+        {renderSection({
+          title: "Fundamentals",
+          ariaLabel: "Benchmark fundamentals",
+          definitions: fundamentalsDefinitions,
+          bordered: false,
+        })}
+        {renderSection({
+          title: "Rents",
+          ariaLabel: "Benchmark rents",
+          definitions: rentDefinitions,
+          bordered: true,
+        })}
+        {renderSection({
+          title: "Scores",
+          ariaLabel: "Benchmark scores",
+          definitions: scoreDefinitions,
+          bordered: true,
+        })}
       </div>
     </aside>
   )

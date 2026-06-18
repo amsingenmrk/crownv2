@@ -1,11 +1,23 @@
+import { applyStoredBoundary } from "@/lib/benchmark-market-boundaries"
+import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 import {
-  applyStoredBoundary,
-  US_NATIONAL_BENCHMARK_AREA,
-} from "@/lib/benchmark-market-boundaries"
+  benchmarkAreaCenter,
+  benchmarkAreaContainsPoint,
+  bestBenchmarkMarketForPoint,
+  BENCHMARK_ROOT_AREA,
+  getBenchmarkAreaById,
+  getBenchmarkAreaLevelLabel,
+  getBenchmarkAreaPath,
+  isCuratedBenchmarkMarket,
+  listBenchmarkAreaChildren,
+  searchBenchmarkHierarchyAreas,
+} from "@/lib/benchmark-area-hierarchy"
+import { enrichBenchmarkAreaWithBoundary } from "@/lib/mapbox-benchmark-boundaries"
 import type {
   BenchmarkArea,
   BenchmarkAreaBounds,
   BenchmarkAreaGeocodeHint,
+  BenchmarkAreaLevel,
   BenchmarkBoundarySpec,
 } from "@/lib/benchmark-area-types"
 
@@ -13,307 +25,25 @@ export type {
   BenchmarkArea,
   BenchmarkAreaBounds,
   BenchmarkAreaGeocodeHint,
+  BenchmarkAreaLevel,
   BenchmarkBoundarySpec,
 } from "@/lib/benchmark-area-types"
 
-export { US_NATIONAL_BENCHMARK_AREA }
+export { BENCHMARK_ROOT_AREA as US_NATIONAL_BENCHMARK_AREA }
 
-type BenchmarkMarketPreset = BenchmarkArea & {
-  aliases?: string[]
-  geocodeQuery: string
-}
-
-/** Curated benchmark markets shown in the typeahead starter list. */
-const BENCHMARK_MARKET_PRESETS: BenchmarkMarketPreset[] = [
-  {
-    id: "market-los-angeles",
-    label: "Los Angeles",
-    geocodeQuery: "Los Angeles, CA",
-    bounds: [
-      [-118.95, 33.65],
-      [-117.65, 34.35],
-    ],
-    aliases: ["la"],
-  },
-  {
-    id: "market-dc",
-    label: "D.C.",
-    geocodeQuery: "Washington, DC",
-    bounds: [
-      [-77.5, 38.75],
-      [-76.8, 39.15],
-    ],
-    aliases: ["dc", "washington dc", "washington d.c."],
-  },
-  {
-    id: "market-phoenix",
-    label: "Phoenix",
-    geocodeQuery: "Phoenix, AZ",
-    bounds: [
-      [-112.45, 33.2],
-      [-111.55, 33.85],
-    ],
-  },
-  {
-    id: "market-seattle",
-    label: "Seattle",
-    geocodeQuery: "Seattle, WA",
-    bounds: [
-      [-122.55, 47.35],
-      [-122.05, 47.85],
-    ],
-  },
-  {
-    id: "market-philadelphia",
-    label: "Philadelphia",
-    geocodeQuery: "Philadelphia, PA",
-    bounds: [
-      [-75.45, 39.8],
-      [-74.9, 40.2],
-    ],
-    aliases: ["philly"],
-  },
-  {
-    id: "market-new-jersey",
-    label: "New Jersey",
-    geocodeQuery: "New Jersey",
-    bounds: [
-      [-75.6, 38.9],
-      [-73.9, 41.4],
-    ],
-    aliases: ["nj"],
-  },
-  {
-    id: "market-minneapolis-st-paul",
-    label: "Minneapolis/St. Paul",
-    geocodeQuery: "Minneapolis, MN",
-    bounds: [
-      [-93.55, 44.7],
-      [-92.9, 45.25],
-    ],
-    aliases: ["minneapolis", "st paul", "twin cities"],
-  },
-  {
-    id: "market-chicago",
-    label: "Chicago",
-    geocodeQuery: "Chicago, IL",
-    bounds: [
-      [-88.15, 41.55],
-      [-87.35, 42.15],
-    ],
-  },
-  {
-    id: "market-houston",
-    label: "Houston",
-    geocodeQuery: "Houston, TX",
-    bounds: [
-      [-95.85, 29.45],
-      [-95.0, 30.15],
-    ],
-  },
-  {
-    id: "market-san-diego",
-    label: "San Diego",
-    geocodeQuery: "San Diego, CA",
-    bounds: [
-      [-117.35, 32.5],
-      [-116.9, 33.15],
-    ],
-  },
-  {
-    id: "market-utah",
-    label: "Utah",
-    geocodeQuery: "Utah",
-    bounds: [
-      [-114.2, 36.9],
-      [-109.0, 42.1],
-    ],
-  },
-  {
-    id: "market-portland",
-    label: "Portland",
-    geocodeQuery: "Portland, OR",
-    bounds: [
-      [-123.0, 45.3],
-      [-122.4, 45.65],
-    ],
-  },
-  {
-    id: "market-fort-lauderdale",
-    label: "Fort Lauderdale",
-    geocodeQuery: "Fort Lauderdale, FL",
-    bounds: [
-      [-80.4, 26.0],
-      [-80.0, 26.35],
-    ],
-    aliases: ["ft lauderdale"],
-  },
-  {
-    id: "market-cincinnati",
-    label: "Cincinnati",
-    geocodeQuery: "Cincinnati, OH",
-    bounds: [
-      [-84.75, 39.0],
-      [-84.35, 39.35],
-    ],
-  },
-  {
-    id: "market-tampa-bay",
-    label: "Tampa Bay",
-    geocodeQuery: "Tampa, FL",
-    bounds: [
-      [-82.85, 27.7],
-      [-82.2, 28.25],
-    ],
-    aliases: ["tampa"],
-  },
-  {
-    id: "market-miami",
-    label: "Miami",
-    geocodeQuery: "Miami, FL",
-    bounds: [
-      [-80.45, 25.55],
-      [-80.05, 26.05],
-    ],
-  },
-  {
-    id: "market-sacramento",
-    label: "Sacramento",
-    geocodeQuery: "Sacramento, CA",
-    bounds: [
-      [-121.65, 38.4],
-      [-121.2, 38.75],
-    ],
-  },
-  {
-    id: "market-charlotte",
-    label: "Charlotte",
-    geocodeQuery: "Charlotte, NC",
-    bounds: [
-      [-81.05, 35.05],
-      [-80.6, 35.45],
-    ],
-  },
-  {
-    id: "market-san-jose",
-    label: "San Jose",
-    geocodeQuery: "San Jose, CA",
-    bounds: [
-      [-122.15, 37.2],
-      [-121.7, 37.55],
-    ],
-  },
-  {
-    id: "market-pittsburgh",
-    label: "Pittsburgh",
-    geocodeQuery: "Pittsburgh, PA",
-    bounds: [
-      [-80.25, 40.3],
-      [-79.75, 40.65],
-    ],
-  },
-  {
-    id: "market-cleveland",
-    label: "Cleveland",
-    geocodeQuery: "Cleveland, OH",
-    bounds: [
-      [-81.95, 41.3],
-      [-81.45, 41.65],
-    ],
-  },
-  {
-    id: "market-columbus",
-    label: "Columbus",
-    geocodeQuery: "Columbus, OH",
-    bounds: [
-      [-83.2, 39.85],
-      [-82.8, 40.2],
-    ],
-  },
-  {
-    id: "market-new-york",
-    label: "New York",
-    geocodeQuery: "New York, NY",
-    bounds: [
-      [-74.45, 40.35],
-      [-73.45, 41.05],
-    ],
-    aliases: ["nyc", "new york city"],
-  },
-]
-
-const BENCHMARK_SEARCH_PRESETS: BenchmarkArea[] = BENCHMARK_MARKET_PRESETS.map(
-  (preset) => applyStoredBoundary(preset)
-)
-
-/** Curated market areas (excludes the US national default). */
+/** Curated top-level benchmark markets under the U.S. root. */
 export function curatedBenchmarkMarketAreas(): BenchmarkArea[] {
-  return BENCHMARK_SEARCH_PRESETS
+  return [...listBenchmarkAreaChildren(BENCHMARK_ROOT_AREA)]
 }
 
-/** Resolve a benchmark area id from URL or deep links (`us-national`, `market-*`). */
+/** Resolve any supported benchmark area id from URL or deep links. */
 export function resolveBenchmarkAreaById(
   areaId: string | null | undefined
 ): BenchmarkArea | null {
   const id = areaId?.trim()
   if (!id) return null
-  if (id === US_NATIONAL_BENCHMARK_AREA.id) return US_NATIONAL_BENCHMARK_AREA
-  return curatedBenchmarkMarketAreas().find((area) => area.id === id) ?? null
-}
-
-export function isBenchmarkMarketPreset(area: BenchmarkArea): boolean {
-  return area.id.startsWith("market-")
-}
-
-function findMarketPreset(query: string): BenchmarkMarketPreset | null {
-  const q = normalizeQuery(query)
-  if (!q) return null
-
-  return (
-    BENCHMARK_MARKET_PRESETS.find((preset) => {
-      if (normalizeQuery(preset.label) === q) return true
-      if (preset.id === q.replace(/\s+/g, "-")) return true
-      return (preset.aliases ?? []).some((alias) => normalizeQuery(alias) === q)
-    }) ?? null
-  )
-}
-
-function marketPresetMatchesQuery(
-  preset: BenchmarkMarketPreset,
-  query: string
-): boolean {
-  const q = normalizeQuery(query)
-  if (!q) return true
-
-  const label = normalizeQuery(preset.label)
-  if (label.includes(q)) return true
-
-  return (preset.aliases ?? []).some((alias) =>
-    normalizeQuery(alias).includes(q)
-  )
-}
-
-async function resolveMarketPreset(
-  preset: BenchmarkMarketPreset
-): Promise<BenchmarkArea> {
-  return applyStoredBoundary(preset)
-}
-
-export async function resolveBenchmarkAreaSelection(
-  area: BenchmarkArea,
-  _accessToken?: string
-): Promise<BenchmarkArea> {
-  if (area.id === "us-national") {
-    return US_NATIONAL_BENCHMARK_AREA
-  }
-
-  const preset = BENCHMARK_MARKET_PRESETS.find((item) => item.id === area.id)
-  if (preset) return resolveMarketPreset(preset)
-
-  return applyStoredBoundary({
-    ...area,
-    boundary: undefined,
-  })
+  if (id === BENCHMARK_ROOT_AREA.id) return BENCHMARK_ROOT_AREA
+  return getBenchmarkAreaById(id) ?? null
 }
 
 type GeocodeFeature = {
@@ -322,7 +52,7 @@ type GeocodeFeature = {
   center?: [number, number]
   bbox?: [number, number, number, number]
   place_type?: string[]
-  context?: Array<{ id: string; short_code?: string }>
+  context?: Array<{ id: string; short_code?: string; text?: string }>
 }
 
 type GeocodeResponse = {
@@ -342,8 +72,29 @@ const PLACE_TYPE_ZOOM: Record<string, number> = {
   country: 4.5,
 }
 
+const LEVEL_ZOOM: Record<BenchmarkAreaLevel, number> = {
+  country: 4.5,
+  market: 8.5,
+  submarket: 10.5,
+  msaState: 11.5,
+  county: 12.5,
+  zip: 14,
+}
+
+const resolvedSelectionCache = new Map<string, Promise<BenchmarkArea>>()
+
 function normalizeQuery(query: string): string {
   return query.trim().toLowerCase()
+}
+
+function normalizeAliases(values: Array<string | undefined>): string[] {
+  return values
+    .flatMap((value) => (value ? [value.trim()] : []))
+    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index)
+}
+
+export function isBenchmarkMarketPreset(area: BenchmarkArea): boolean {
+  return isCuratedBenchmarkMarket(area)
 }
 
 export function isUsPostcodeQuery(query: string): boolean {
@@ -362,19 +113,18 @@ function isNationalAreaQuery(query: string): boolean {
 }
 
 export function maxZoomForBenchmarkArea(area: BenchmarkArea): number {
-  if (area.id === "us-national") return PLACE_TYPE_ZOOM.country
   const placeType = area.geocodeHint?.placeTypes?.[0]
   if (placeType && placeType in PLACE_TYPE_ZOOM) {
-    return PLACE_TYPE_ZOOM[placeType]
+    return Math.max(LEVEL_ZOOM[area.level], PLACE_TYPE_ZOOM[placeType])
   }
-  if (area.id.startsWith("market-")) return 11
-  return 12
+  return LEVEL_ZOOM[area.level]
 }
 
 function areaFromBounds(
   id: string,
   label: string,
-  bbox: [number, number, number, number]
+  bbox: [number, number, number, number],
+  level: BenchmarkAreaLevel
 ): BenchmarkArea {
   const [west, south, east, north] = bbox
   return {
@@ -384,6 +134,10 @@ function areaFromBounds(
       [west, south],
       [east, north],
     ],
+    level,
+    childLevel: nextChildLevel(level),
+    isCurated: false,
+    aliases: [label],
   }
 }
 
@@ -406,11 +160,26 @@ function centerSpanForPlaceTypes(placeTypes?: string[]): {
   return { spanLng: 0.45, spanLat: 0.35 }
 }
 
+function nextChildLevel(level: BenchmarkAreaLevel): BenchmarkAreaLevel | undefined {
+  switch (level) {
+    case "country":
+      return "market"
+    case "market":
+      return "submarket"
+    case "submarket":
+    case "msaState":
+    case "county":
+    case "zip":
+      return undefined
+  }
+}
+
 function areaFromCenter(
   id: string,
   label: string,
   center: [number, number],
-  placeTypes?: string[]
+  placeTypes: string[] | undefined,
+  level: BenchmarkAreaLevel
 ): BenchmarkArea {
   const [lng, lat] = center
   const { spanLng, spanLat } = centerSpanForPlaceTypes(placeTypes)
@@ -421,21 +190,11 @@ function areaFromCenter(
       [lng - spanLng, lat - spanLat],
       [lng + spanLng, lat + spanLat],
     ],
+    level,
+    childLevel: nextChildLevel(level),
+    isCurated: false,
+    aliases: [label],
   }
-}
-
-function presetMatchesExact(query: string): BenchmarkMarketPreset | null {
-  const q = normalizeQuery(query)
-  if (!q) return null
-
-  const exact = findMarketPreset(query)
-  if (exact) return exact
-
-  if (isNationalAreaQuery(query)) {
-    return null
-  }
-
-  return null
 }
 
 async function fetchGeocodeFeatures(
@@ -463,7 +222,7 @@ async function fetchGeocodeFeatures(
 function geocodeHintFromFeature(feature: {
   place_type?: string[]
   center?: [number, number]
-  context?: Array<{ id: string; short_code?: string }>
+  context?: Array<{ id: string; short_code?: string; text?: string }>
 }): BenchmarkAreaGeocodeHint {
   const context = feature.context ?? []
   const region = context.find((item) => item.id.startsWith("region."))
@@ -473,7 +232,9 @@ function geocodeHintFromFeature(feature: {
   return {
     placeTypes: feature.place_type,
     center: feature.center,
+    regionName: region?.text,
     regionShortCode: region?.short_code,
+    districtName: district?.text,
     districtShortCode: district?.short_code,
     countryShortCode: country?.short_code,
   }
@@ -507,7 +268,7 @@ function pickBestGeocodeFeature(
     q.includes("state") ||
     q.endsWith(" county") ||
     q.includes(" metro") ||
-    q.includes(" cbsa")
+    q.includes("cbsa")
 
   const ranked = [...features].sort((a, b) => {
     const aType = a.place_type?.[0] ?? "unknown"
@@ -530,24 +291,38 @@ function pickBestGeocodeFeature(
   return ranked[0] ?? features[0]
 }
 
-function areaFromGeocodeFeature(feature: GeocodeFeature): BenchmarkArea | null {
-  const label = shortLabel(feature.place_name)
-  const geocodeHint = geocodeHintFromFeature(feature)
+function inferredLevelForFeature(feature: GeocodeFeature): BenchmarkAreaLevel {
+  if (feature.place_type?.includes("country")) return "country"
+  if (feature.place_type?.includes("postcode")) return "zip"
+  if (feature.place_type?.includes("district")) return "county"
+  if (feature.place_type?.includes("region")) return "msaState"
+  return "submarket"
+}
 
-  if (feature.place_type?.includes("country")) {
-    return US_NATIONAL_BENCHMARK_AREA
+function shortLabel(placeName: string): string {
+  const first = placeName.split(",")[0]?.trim()
+  return first && first.length > 0 ? first : placeName
+}
+
+function areaFromGeocodeFeature(feature: GeocodeFeature): BenchmarkArea | null {
+  const geocodeHint = geocodeHintFromFeature(feature)
+  const level = inferredLevelForFeature(feature)
+  const label = shortLabel(feature.place_name)
+
+  if (level === "country") {
+    return BENCHMARK_ROOT_AREA
   }
 
   if (feature.bbox && feature.bbox.length === 4) {
     return {
-      ...areaFromBounds(feature.id, label, feature.bbox),
+      ...areaFromBounds(feature.id, label, feature.bbox, level),
       geocodeHint,
     }
   }
 
   if (feature.center && feature.center.length === 2) {
     return {
-      ...areaFromCenter(feature.id, label, feature.center, feature.place_type),
+      ...areaFromCenter(feature.id, label, feature.center, feature.place_type, level),
       geocodeHint,
     }
   }
@@ -555,9 +330,19 @@ function areaFromGeocodeFeature(feature: GeocodeFeature): BenchmarkArea | null {
   return null
 }
 
-function shortLabel(placeName: string): string {
-  const first = placeName.split(",")[0]?.trim()
-  return first && first.length > 0 ? first : placeName
+function mergedArea(baseArea: BenchmarkArea, resolvedArea: BenchmarkArea): BenchmarkArea {
+  return {
+    ...baseArea,
+    bounds: resolvedArea.bounds,
+    boundary: resolvedArea.boundary,
+    boundaryGeometry: resolvedArea.boundaryGeometry,
+    geocodeHint: resolvedArea.geocodeHint ?? baseArea.geocodeHint,
+    aliases: normalizeAliases([
+      ...(baseArea.aliases ?? []),
+      ...(resolvedArea.aliases ?? []),
+      resolvedArea.label,
+    ]),
+  }
 }
 
 export function benchmarkAreaPolygon(
@@ -628,58 +413,327 @@ export function benchmarkAreaFitBounds(area: BenchmarkArea): BenchmarkAreaBounds
   return area.bounds
 }
 
-export function filterBenchmarkAreaPresets(query: string): BenchmarkArea[] {
-  const q = normalizeQuery(query)
-  if (!q) return BENCHMARK_SEARCH_PRESETS
-
-  return BENCHMARK_MARKET_PRESETS.filter((preset) =>
-    marketPresetMatchesQuery(preset, q)
-  ).map((preset) => applyStoredBoundary(preset))
+export function filterBenchmarkAreaPresets(
+  query: string,
+  currentArea?: BenchmarkArea
+): BenchmarkArea[] {
+  return searchBenchmarkHierarchyAreas(query, currentArea)
 }
 
-/** Best matching curated market for a query, or null if none match. */
+/** Best matching curated or hierarchical benchmark area for a query, or null if none match. */
 export function matchBenchmarkPresetFromQuery(
-  query: string
+  query: string,
+  currentArea?: BenchmarkArea
 ): BenchmarkArea | null {
-  const exact = findMarketPreset(query)
-  if (exact) {
-    return (
-      BENCHMARK_SEARCH_PRESETS.find((preset) => preset.id === exact.id) ??
-      applyStoredBoundary(exact)
-    )
+  const trimmed = query.trim()
+  if (!trimmed) return null
+
+  return (
+    searchBenchmarkHierarchyAreas(trimmed, currentArea).find((area) => {
+      const normalized = normalizeQuery(trimmed)
+      if (normalizeQuery(area.label) === normalized) return true
+      return (area.aliases ?? []).some(
+        (alias) => normalizeQuery(alias) === normalized
+      )
+    }) ?? null
+  )
+}
+
+async function resolveAreaBoundary(
+  area: BenchmarkArea,
+  accessToken?: string
+): Promise<BenchmarkArea> {
+  const withStoredBoundary = applyStoredBoundary({
+    ...area,
+    boundary: undefined,
+  })
+
+  if (
+    withStoredBoundary.id === BENCHMARK_ROOT_AREA.id ||
+    withStoredBoundary.boundaryGeometry ||
+    !accessToken ||
+    withStoredBoundary.geocodeHint == null
+  ) {
+    return withStoredBoundary
   }
-  return filterBenchmarkAreaPresets(query)[0] ?? null
+
+  return enrichBenchmarkAreaWithBoundary(
+    withStoredBoundary,
+    accessToken,
+    withStoredBoundary.geocodeHint
+  )
+}
+
+async function resolveAreaFromGeocodeQuery(
+  area: BenchmarkArea,
+  accessToken: string
+): Promise<BenchmarkArea> {
+  const cacheKey = `${area.id}:${area.geocodeQuery ?? ""}`
+  const cached = resolvedSelectionCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const promise = (async () => {
+    if (!area.geocodeQuery) {
+      return resolveAreaBoundary(area, accessToken)
+    }
+
+    const features = await fetchGeocodeFeatures(area.geocodeQuery, accessToken)
+    const bestFeature = pickBestGeocodeFeature(features, area.geocodeQuery)
+    if (bestFeature == null) {
+      return resolveAreaBoundary(area, accessToken)
+    }
+
+    const geocodedArea = areaFromGeocodeFeature(bestFeature)
+    if (geocodedArea == null) {
+      return resolveAreaBoundary(area, accessToken)
+    }
+
+    return resolveAreaBoundary(mergedArea(area, geocodedArea), accessToken)
+  })()
+
+  resolvedSelectionCache.set(cacheKey, promise)
+  return promise
+}
+
+function sameBounds(
+  left: BenchmarkAreaBounds,
+  right: BenchmarkAreaBounds
+): boolean {
+  return (
+    left[0][0] === right[0][0] &&
+    left[0][1] === right[0][1] &&
+    left[1][0] === right[1][0] &&
+    left[1][1] === right[1][1]
+  )
+}
+
+async function resolveHierarchyChildren(
+  area: BenchmarkArea,
+  accessToken?: string
+): Promise<BenchmarkArea[]> {
+  const children = [...listBenchmarkAreaChildren(area)]
+  if (children.length === 0) return []
+  return Promise.all(
+    children.map((child) => resolveBenchmarkAreaSelection(child, accessToken))
+  )
+}
+
+function normalizedCountyKey(
+  label: string | undefined,
+  stateCode: string | undefined
+): string | null {
+  if (!label || !stateCode) return null
+  const normalizedLabel = normalizeQuery(label).replace(/\bcounty\b/g, "").trim()
+  if (!normalizedLabel) return null
+  const normalizedStateCode = stateCode.toUpperCase().replace(/^US-/, "")
+  return `${normalizedStateCode}:${normalizedLabel}`
+}
+
+function countyNodeKey(area: BenchmarkArea): string | null {
+  return normalizedCountyKey(area.label, area.geocodeHint?.regionShortCode)
+}
+
+function countyKeyFromDerivedArea(area: BenchmarkArea): string | null {
+  const countyName = area.geocodeHint?.districtName ?? area.label
+  return normalizedCountyKey(countyName, area.geocodeHint?.regionShortCode)
+}
+
+function zipCodeFromValue(value: string | undefined): string | null {
+  if (!value) return null
+  const match = value.match(/\b\d{5}\b/)
+  return match?.[0] ?? null
+}
+
+function marketContextForArea(area: BenchmarkArea): BenchmarkArea | null {
+  if (area.level === "market") return area
+  return getBenchmarkAreaPath(area).find((entry) => entry.level === "market") ?? null
+}
+
+async function classifyDerivedAreaIntoHierarchy(
+  area: BenchmarkArea,
+  currentArea: BenchmarkArea,
+  accessToken?: string
+): Promise<BenchmarkArea | null> {
+  const center = area.geocodeHint?.center ?? benchmarkAreaCenter(area)
+  const currentMarket = marketContextForArea(currentArea)
+  const targetMarket =
+    currentMarket && benchmarkAreaContainsPoint(currentMarket, center)
+      ? currentMarket
+      : bestBenchmarkMarketForPoint(center)
+
+  if (targetMarket == null) {
+    return null
+  }
+
+  const resolvedMarket = await resolveBenchmarkAreaSelection(targetMarket, accessToken)
+  const resolvedSubmarkets = await resolveHierarchyChildren(resolvedMarket, accessToken)
+
+  if (area.level === "submarket") {
+    const exactSubmarket =
+      [...listBenchmarkAreaChildren(resolvedMarket)].find((candidate) => {
+        const normalized = normalizeQuery(area.label)
+        if (normalizeQuery(candidate.label) === normalized) return true
+        return (candidate.aliases ?? []).some(
+          (alias) => normalizeQuery(alias) === normalized
+        )
+      }) ?? null
+
+    if (exactSubmarket) {
+      return resolveBenchmarkAreaSelection(exactSubmarket, accessToken)
+    }
+    return null
+  }
+
+  const countyCandidates = (
+    await Promise.all(
+      resolvedSubmarkets.map((submarket) =>
+        resolveHierarchyChildren(submarket, accessToken)
+      )
+    )
+  ).flat()
+  const derivedCountyKey = countyKeyFromDerivedArea(area)
+  const matchedCounty =
+    derivedCountyKey == null
+      ? null
+      : countyCandidates.find(
+          (candidate) => countyNodeKey(candidate) === derivedCountyKey
+        ) ?? null
+
+  if (area.level === "county" && matchedCounty) {
+    return resolveBenchmarkAreaSelection(matchedCounty, accessToken)
+  }
+  if (area.level === "county") {
+    return null
+  }
+
+  if (area.level !== "zip") {
+    return null
+  }
+
+  const zipCode =
+    zipCodeFromValue(area.label) ??
+    zipCodeFromValue(area.geocodeHint?.districtName) ??
+    zipCodeFromValue(area.geocodeQuery)
+  if (zipCode == null) return null
+
+  const matchingZipAssignments = curatedZipAssignmentsForZipCode(zipCode)
+  const matchingZipNode =
+    matchingZipAssignments
+      .filter((assignment) => assignment.marketId === resolvedMarket.id)
+      .map((assignment) => getBenchmarkAreaById(assignment.id))
+      .find((candidate): candidate is BenchmarkArea => candidate != null) ??
+    matchingZipAssignments
+      .map((assignment) => getBenchmarkAreaById(assignment.id))
+      .find((candidate): candidate is BenchmarkArea => candidate != null) ??
+    null
+
+  if (matchingZipNode == null) {
+    return null
+  }
+
+  return resolveBenchmarkAreaSelection(matchingZipNode, accessToken)
+}
+
+export async function resolveBenchmarkAreaSelection(
+  area: BenchmarkArea,
+  accessToken?: string
+): Promise<BenchmarkArea> {
+  const registered = getBenchmarkAreaById(area.id) ?? area
+  if (
+    accessToken &&
+    registered.geocodeQuery &&
+    registered.boundaryGeometry == null &&
+    (registered.geocodeHint == null || registered.geocodeHint.center == null)
+  ) {
+    return resolveAreaFromGeocodeQuery(registered, accessToken)
+  }
+
+  return resolveAreaBoundary(registered, accessToken)
+}
+
+function dedupeAreas(areas: BenchmarkArea[]): BenchmarkArea[] {
+  const seen = new Set<string>()
+  const next: BenchmarkArea[] = []
+  for (const area of areas) {
+    if (seen.has(area.id)) continue
+    seen.add(area.id)
+    next.push(area)
+  }
+  return next
 }
 
 export async function searchBenchmarkAreas(
   query: string,
-  _accessToken?: string
+  currentArea: BenchmarkArea = BENCHMARK_ROOT_AREA,
+  accessToken?: string
 ): Promise<BenchmarkArea[]> {
   const trimmed = query.trim()
-  if (!trimmed) return BENCHMARK_SEARCH_PRESETS
-  return filterBenchmarkAreaPresets(trimmed).slice(0, 8)
+  const hierarchyMatches = searchBenchmarkHierarchyAreas(trimmed, currentArea)
+
+  if (!trimmed) return hierarchyMatches
+  if (!accessToken || trimmed.length < 3 || hierarchyMatches.length >= 8) {
+    return hierarchyMatches.slice(0, 8)
+  }
+
+  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
+  const geocodedAreas = await Promise.all(
+    geocodeFeatures
+      .map(areaFromGeocodeFeature)
+      .filter((area): area is BenchmarkArea => area != null)
+      .map((area) =>
+        classifyDerivedAreaIntoHierarchy(area, currentArea, accessToken)
+      )
+  )
+
+  return dedupeAreas([
+    ...hierarchyMatches,
+    ...geocodedAreas.filter((area): area is BenchmarkArea => area != null),
+  ]).slice(0, 8)
 }
 
 export async function resolveBenchmarkAreaFromSearch(
   query: string,
-  _accessToken?: string
+  currentArea: BenchmarkArea = BENCHMARK_ROOT_AREA,
+  accessToken?: string
 ): Promise<BenchmarkArea> {
   const trimmed = query.trim()
   if (!trimmed || isNationalAreaQuery(trimmed)) {
-    return US_NATIONAL_BENCHMARK_AREA
+    return BENCHMARK_ROOT_AREA
   }
 
-  const exactPreset = presetMatchesExact(trimmed)
-  if (exactPreset) {
-    return resolveMarketPreset(exactPreset)
+  const hierarchyMatch = matchBenchmarkPresetFromQuery(trimmed, currentArea)
+  if (hierarchyMatch) {
+    return resolveBenchmarkAreaSelection(hierarchyMatch, accessToken)
   }
 
-  const presetFallback = BENCHMARK_MARKET_PRESETS.find((preset) =>
-    marketPresetMatchesQuery(preset, trimmed)
+  if (!accessToken) {
+    return BENCHMARK_ROOT_AREA
+  }
+
+  const geocodeFeatures = await fetchGeocodeFeatures(trimmed, accessToken)
+  const bestFeature = pickBestGeocodeFeature(geocodeFeatures, trimmed)
+  if (bestFeature == null) {
+    return BENCHMARK_ROOT_AREA
+  }
+
+  const geocodedArea = areaFromGeocodeFeature(bestFeature)
+  if (geocodedArea == null) {
+    return BENCHMARK_ROOT_AREA
+  }
+
+  const classified = await classifyDerivedAreaIntoHierarchy(
+    geocodedArea,
+    currentArea,
+    accessToken
   )
-  if (presetFallback) {
-    return resolveMarketPreset(presetFallback)
+  if (classified == null) {
+    return BENCHMARK_ROOT_AREA
   }
+  return resolveBenchmarkAreaSelection(classified, accessToken)
+}
 
-  return US_NATIONAL_BENCHMARK_AREA
+export function benchmarkAreaLevelLabel(area: BenchmarkArea): string {
+  return getBenchmarkAreaLevelLabel(area.level)
 }
