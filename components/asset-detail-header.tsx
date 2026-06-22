@@ -78,8 +78,31 @@ export function AssetDetailHeader() {
   if (!id || tableRow == null) return null
 
   const basePath = `/properties/${id}`
+  const tabPaths = React.useMemo(
+    () =>
+      ASSET_TAB_PATHS.map((tab) => ({
+        pathSegment: tab.pathSegment,
+        path: `${basePath}/${tab.pathSegment}`,
+      })),
+    [basePath]
+  )
   const buildingLabel = asset?.name ?? marketPin?.building ?? id
   const addressLabel = asset?.address ?? marketPin?.location ?? "—"
+
+  const prefetchTabPath = React.useCallback(
+    (href: string) => {
+      void router.prefetch(href)
+    },
+    [router]
+  )
+
+  React.useEffect(() => {
+    for (const tab of tabPaths) {
+      if (pathname !== tab.path && !pathname?.startsWith(`${tab.path}/`)) {
+        prefetchTabPath(tab.path)
+      }
+    }
+  }, [pathname, prefetchTabPath, tabPaths])
 
   const keyMetrics = asset
     ? ([
@@ -167,7 +190,13 @@ export function AssetDetailHeader() {
                     ? "border-b-2 border-primary text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
-                onClick={() => router.push(tabPath)}
+                onMouseEnter={() => prefetchTabPath(tabPath)}
+                onFocus={() => prefetchTabPath(tabPath)}
+                onClick={() => {
+                  if (!isActive) {
+                    router.push(tabPath)
+                  }
+                }}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 {tab.label}

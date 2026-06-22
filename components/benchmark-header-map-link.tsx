@@ -217,8 +217,10 @@ export function BenchmarkHeaderMapLink({
       )}
       aria-label={`View ${label} benchmarks`}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border border-border/80 bg-muted/25 transition-colors group-hover:border-primary/45 group-hover:bg-muted/35">
-        <BenchmarkHeaderMap area={area} pin={pin} />
+      <div className="relative aspect-[4/3] w-full rounded-md border border-border/80 bg-muted/25 transition-colors group-hover:border-primary/45 group-hover:bg-muted/35">
+        <div className="absolute inset-px overflow-hidden rounded-[calc(theme(borderRadius.md)-1px)]">
+          <BenchmarkHeaderMap area={area} pin={pin} />
+        </div>
       </div>
       <span className="line-clamp-2 font-medium text-foreground transition-colors group-hover:text-primary">
         {label}
