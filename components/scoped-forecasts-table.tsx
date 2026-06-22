@@ -270,6 +270,7 @@ function buildPortfolioOutlookBreakdownRootRows(
   return rows.map((row) => ({
     id: row.id,
     rowType: "statement",
+    metricId: row.id,
     label: row.label,
     kind: row.kind,
     values: row.values,
@@ -297,6 +298,8 @@ function buildPortfolioOutlookRowsForMetric({
     return {
       id: `${statementRow.id}-${outlookModel.scenarioId}`,
       rowType: "outlook" as const,
+      metricId: statementRow.id,
+      scenarioId: outlookModel.scenarioId,
       label: `${outlookModel.portfolioModel.scenario.name} (${outlookModel.probabilityPct}%)`,
       kind: outlookRow.kind,
       values: outlookRow.values,
@@ -575,7 +578,6 @@ export function ScopedForecastsPortfolioTotalsTable({
       }),
     [assetModels, hasOutlookBreakdown, resolvedOutlookModels, tableRows]
   )
-  const expandedRecord = React.useMemo(() => expandedStateToRecord(expanded), [expanded])
 
   React.useEffect(() => {
     if (metricFocus == null) return
@@ -648,12 +650,12 @@ export function ScopedForecastsPortfolioTotalsTable({
 
   const getPortfolioTotalsSubRows = React.useCallback(
     (row: ScopedForecastTableRow) => {
-      if (!hasExpandableRows || !expandedRecord[row.id]) return undefined
+      if (!hasExpandableRows) return undefined
 
-      const metricId = portfolioTotalsMetricIdFromRowId(row.id)
-      if (metricId == null) return undefined
-
-      const statementRow = statementRowsById.get(metricId)
+      const metricId = row.metricId ?? portfolioTotalsMetricIdFromRowId(row.id)
+      const statementRow =
+        (metricId != null ? statementRowsById.get(metricId) : undefined) ??
+        (row.rowType === "statement" ? statementRowsById.get(row.id) : undefined)
       if (statementRow == null) return undefined
 
       if (row.rowType === "statement") {
@@ -673,9 +675,16 @@ export function ScopedForecastsPortfolioTotalsTable({
       }
 
       if (row.rowType === "outlook") {
-        const outlookId = row.id.slice(`${metricId}-`.length)
+        const outlookId =
+          row.scenarioId ??
+          (metricId != null
+            ? (row.id.slice(
+                `${metricId}-`.length
+              ) as ScopedForecastPortfolioOutlookModel["scenarioId"])
+            : undefined)
+        if (outlookId == null) return undefined
         const outlookModel = outlookModelsById.get(
-          outlookId as ScopedForecastPortfolioOutlookModel["scenarioId"]
+          outlookId
         )
         const detailAssetModels =
           outlookModel == null
@@ -700,7 +709,6 @@ export function ScopedForecastsPortfolioTotalsTable({
     },
     [
       assetModels,
-      expandedRecord,
       hasExpandableRows,
       hasOutlookBreakdown,
       outlookModelsById,
@@ -716,13 +724,20 @@ export function ScopedForecastsPortfolioTotalsTable({
       if (item.rowType === "asset") return false
 
       if (item.rowType === "outlook") {
-        const metricId = statementMetricIdFromTableRowId(item.id)
-        if (metricId == null) return false
+        const outlookId =
+          item.scenarioId ??
+          (() => {
+            const metricId = item.metricId ?? statementMetricIdFromTableRowId(item.id)
+            if (metricId == null) return undefined
+            return item.id.slice(
+              `${metricId}-`.length
+            ) as ScopedForecastPortfolioOutlookModel["scenarioId"]
+          })()
+        if (outlookId == null) return false
         if (hasDeferredOutlookDetails) return true
-        const outlookId = item.id.slice(`${metricId}-`.length)
         return (
           outlookModelsById.get(
-            outlookId as ScopedForecastPortfolioOutlookModel["scenarioId"]
+            outlookId
           )?.assetModels.length ?? 0
         ) > 0
       }
@@ -869,6 +884,10 @@ export function ScopedForecastsPortfolioTotalsTable({
 type ScopedForecastTableRow = {
   id: string
   rowType: "statement" | "outlook" | "asset"
+  /** Canonical statement metric id for this row (avoids parsing id patterns during expansion). */
+  metricId?: ForecastStatementRow["id"]
+  /** Outlook id for `outlook` rows (avoids parsing id patterns during nested expansion). */
+  scenarioId?: ScopedForecastPortfolioOutlookModel["scenarioId"]
   /** Set for asset rows — drives Modifications / Outlook column dropdowns. */
   assetId?: string
   label: string
