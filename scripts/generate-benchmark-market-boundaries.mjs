@@ -14,11 +14,15 @@ import { featureCollection } from "@turf/helpers"
 
 const ROOT = process.cwd()
 const OUTPUT = path.join(ROOT, "lib/benchmark-market-boundaries.generated.json")
+const ASSETS_SOURCE = path.join(ROOT, "lib/assets.ts")
 
 const MSA_URL =
   "https://raw.githubusercontent.com/loganpowell/census-geojson/master/GeoJSON/20m/2018/metropolitan-statistical-area!micropolitan-statistical-area.json"
 const STATE_URL =
   "https://raw.githubusercontent.com/loganpowell/census-geojson/master/GeoJSON/20m/2018/state.json"
+const ZCTA_URL =
+  "https://raw.githubusercontent.com/loganpowell/census-geojson/master/GeoJSON/500k/2018/zip-code-tabulation-area.json"
+const USER_AGENT = "glassbox-benchmark-boundary-generator/1.0"
 
 /**
  * @type {Array<
@@ -27,6 +31,17 @@ const STATE_URL =
  * >}
  */
 const PRESET_SOURCES = [
+  { id: "state-ca", source: "state", stusps: "CA" },
+  { id: "state-co", source: "state", stusps: "CO" },
+  { id: "state-fl", source: "state", stusps: "FL" },
+  { id: "state-ga", source: "state", stusps: "GA" },
+  { id: "state-il", source: "state", stusps: "IL" },
+  { id: "state-ma", source: "state", stusps: "MA" },
+  { id: "state-nc", source: "state", stusps: "NC" },
+  { id: "state-ny", source: "state", stusps: "NY" },
+  { id: "state-tn", source: "state", stusps: "TN" },
+  { id: "state-tx", source: "state", stusps: "TX" },
+  { id: "state-wa", source: "state", stusps: "WA" },
   {
     id: "market-los-angeles",
     source: "msa",
@@ -138,9 +153,10 @@ function boundsFromGeometry(geometry) {
 }
 
 async function loadFeatureCollections() {
-  const [msaRes, stateRes] = await Promise.all([
+  const [msaRes, stateRes, zctaRes] = await Promise.all([
     fetch(MSA_URL),
     fetch(STATE_URL),
+    fetch(ZCTA_URL),
   ])
 
   if (!msaRes.ok) {
@@ -149,10 +165,14 @@ async function loadFeatureCollections() {
   if (!stateRes.ok) {
     throw new Error(`Failed to download state GeoJSON: HTTP ${stateRes.status}`)
   }
+  if (!zctaRes.ok) {
+    throw new Error(`Failed to download ZCTA GeoJSON: HTTP ${zctaRes.status}`)
+  }
 
   const msaCollection = await msaRes.json()
   const stateCollection = await stateRes.json()
-  return { msaCollection, stateCollection }
+  const zctaCollection = await zctaRes.json()
+  return { msaCollection, stateCollection, zctaCollection }
 }
 
 function featureFromMsa(msaCollection, name) {
@@ -169,6 +189,77 @@ function featureFromState(stateCollection, stusps) {
   )
   if (!feature) throw new Error(`State not found: ${stusps}`)
   return feature
+}
+
+function featureFromZip(zctaCollection, zipCode) {
+  const feature = zctaCollection.features.find(
+    (item) => item.properties?.ZCTA5CE10 === zipCode
+  )
+  if (!feature) throw new Error(`ZCTA not found: ${zipCode}`)
+  return feature
+}
+
+async function fetchZipPointFallback(zipCode) {
+  const url = new URL("https://nominatim.openstreetmap.org/search")
+  url.searchParams.set("format", "geojson")
+  url.searchParams.set("polygon_geojson", "1")
+  url.searchParams.set("limit", "1")
+  url.searchParams.set("countrycodes", "us")
+  url.searchParams.set("q", zipCode)
+
+  const res = await fetch(url.toString(), {
+    headers: { "User-Agent": USER_AGENT },
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.features?.[0] ?? null
+}
+
+function rectangleGeometryAroundPoint([lng, lat]) {
+  const spanLng = 0.018
+  const spanLat = 0.014
+  return {
+    type: "Polygon",
+    coordinates: [
+      [
+        [lng - spanLng, lat - spanLat],
+        [lng + spanLng, lat - spanLat],
+        [lng + spanLng, lat + spanLat],
+        [lng - spanLng, lat + spanLat],
+        [lng - spanLng, lat - spanLat],
+      ],
+    ],
+  }
+}
+
+async function geometryForZip(zctaCollection, zipCode) {
+  const zctaFeature = zctaCollection.features.find(
+    (item) => item.properties?.ZCTA5CE10 === zipCode
+  )
+  if (zctaFeature?.geometry) {
+    return {
+      geometry: zctaFeature.geometry,
+      source: "zcta",
+    }
+  }
+
+  const fallbackFeature = await fetchZipPointFallback(zipCode)
+  if (fallbackFeature?.geometry?.type === "Point") {
+    return {
+      geometry: rectangleGeometryAroundPoint(fallbackFeature.geometry.coordinates),
+      source: "postcode-point-fallback",
+    }
+  }
+
+  throw new Error(`ZCTA not found: ${zipCode}`)
+}
+
+function assetZipCodes() {
+  const source = fs.readFileSync(ASSETS_SOURCE, "utf8")
+  const zips = [...source.matchAll(/address:\s*"[^"]*,\s*[A-Z]{2}\s+(\d{5})(?:-\d{4})?"/g)]
+    .map((match) => match[1])
+    .filter(Boolean)
+  return [...new Set(zips)].sort()
 }
 
 const LOWER_48_EXCLUDED = new Set(["AK", "HI", "PR"])
@@ -192,7 +283,8 @@ function usNationalOutlineGeometry(stateCollection) {
 }
 
 async function main() {
-  const { msaCollection, stateCollection } = await loadFeatureCollections()
+  const { msaCollection, stateCollection, zctaCollection } =
+    await loadFeatureCollections()
   /** @type {Record<string, unknown>} */
   const output = {}
   const failures = []
@@ -216,6 +308,37 @@ async function main() {
     const message = error instanceof Error ? error.message : String(error)
     failures.push({ id: "us-national", error: message })
     console.error(`✗ us-national: ${message}`)
+  }
+
+  for (const zipCode of assetZipCodes()) {
+    const id = `zip-${zipCode}`
+    try {
+      const { geometry, source } = await geometryForZip(zctaCollection, zipCode)
+      if (
+        !geometry ||
+        (geometry.type !== "Polygon" && geometry.type !== "MultiPolygon")
+      ) {
+        throw new Error(`Unsupported geometry for ${id}`)
+      }
+
+      output[id] = {
+        id,
+        bounds: boundsFromGeometry(geometry),
+        geometry: {
+          type: "Feature",
+          properties: {
+            source,
+            zcta: zipCode,
+          },
+          geometry,
+        },
+      }
+      console.log(`✓ ${id}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failures.push({ id, error: message })
+      console.error(`✗ ${id}: ${message}`)
+    }
   }
 
   for (const preset of PRESET_SOURCES) {

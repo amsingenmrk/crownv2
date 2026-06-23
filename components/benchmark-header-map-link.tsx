@@ -18,6 +18,8 @@ import { resolveMapboxMapStyle } from "@/lib/mapbox-map-style"
 import { cn } from "@/lib/utils"
 
 const HEADER_MAP_PADDING = { top: 6, bottom: 6, left: 6, right: 6 }
+const HEADER_MAP_FRAME_CLASS =
+  "relative h-[12.75rem] w-full rounded-md border border-border/80 bg-muted/25"
 
 function firstSymbolLayerId(map: MapboxMap): string | undefined {
   return map.getStyle()?.layers?.find((layer) => layer.type === "symbol")?.id
@@ -65,7 +67,7 @@ function BenchmarkHeaderMap({
     if (!map?.loaded()) return
     map.resize()
 
-    if (pin) {
+    if (pin && !area) {
       map.jumpTo({
         center: [pin.longitude, pin.latitude],
         zoom: 11,
@@ -185,7 +187,7 @@ function BenchmarkHeaderMap({
             anchor="center"
           >
             <span
-              className="block size-2.5 rounded-full border border-background/80 bg-emerald-500 shadow-sm ring-2 ring-white dark:bg-emerald-400"
+              className="block size-2.5 rounded-full border border-background/80 bg-blue-600 shadow-sm ring-2 ring-white dark:bg-blue-400"
               aria-hidden
             />
           </Marker>
@@ -200,14 +202,18 @@ export function BenchmarkHeaderMapLink({
   label,
   area,
   pin,
+  showLabel = true,
   className,
 }: {
   href: string
   label: string
   area?: BenchmarkArea
   pin?: { longitude: number; latitude: number }
+  showLabel?: boolean
   className?: string
 }) {
+  const mapKey = `${area?.id ?? "pin-only"}:${pin ? `${pin.longitude},${pin.latitude}` : "no-pin"}`
+
   return (
     <Link
       href={href}
@@ -217,14 +223,45 @@ export function BenchmarkHeaderMapLink({
       )}
       aria-label={`View ${label} benchmarks`}
     >
-      <div className="relative aspect-[4/3] w-full rounded-md border border-border/80 bg-muted/25 transition-colors group-hover:border-primary/45 group-hover:bg-muted/35">
+      <div className={cn(HEADER_MAP_FRAME_CLASS, "transition-colors group-hover:border-primary/45 group-hover:bg-muted/35")}>
         <div className="absolute inset-px overflow-hidden rounded-[calc(theme(borderRadius.md)-1px)]">
-          <BenchmarkHeaderMap area={area} pin={pin} />
+          <BenchmarkHeaderMap key={mapKey} area={area} pin={pin} />
         </div>
       </div>
-      <span className="line-clamp-2 font-medium text-foreground transition-colors group-hover:text-primary">
-        {label}
-      </span>
+      {showLabel ? (
+        <span className="line-clamp-2 font-medium text-foreground transition-colors group-hover:text-primary">
+          {label}
+        </span>
+      ) : null}
     </Link>
+  )
+}
+
+export function BenchmarkHeaderMapPreview({
+  label,
+  area,
+  pin,
+  showLabel = true,
+  className,
+}: {
+  label: string
+  area?: BenchmarkArea
+  pin?: { longitude: number; latitude: number }
+  showLabel?: boolean
+  className?: string
+}) {
+  const mapKey = `${area?.id ?? "pin-only"}:${pin ? `${pin.longitude},${pin.latitude}` : "no-pin"}`
+
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1.5 rounded-sm", className)}>
+      <div className={HEADER_MAP_FRAME_CLASS}>
+        <div className="absolute inset-px overflow-hidden rounded-[calc(theme(borderRadius.md)-1px)]">
+          <BenchmarkHeaderMap key={mapKey} area={area} pin={pin} />
+        </div>
+      </div>
+      {showLabel ? (
+        <span className="line-clamp-2 font-medium text-foreground">{label}</span>
+      ) : null}
+    </div>
   )
 }

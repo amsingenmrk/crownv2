@@ -533,7 +533,10 @@ export function BenchmarkWorkspace({
                 </div>
               ) : null}
               {showMapbox ? (
-                <BenchmarkAreaStatsPanel snapshot={snapshot} />
+                <BenchmarkAreaStatsPanel
+                  snapshot={snapshot}
+                  benchmarkAreaId={committedArea.id}
+                />
               ) : (
                 <div className="space-y-3">
                   <Skeleton className="h-5 w-2/3" />

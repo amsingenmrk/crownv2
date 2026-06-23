@@ -1,13 +1,28 @@
 "use client"
 
+import * as React from "react"
+import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
+
 import {
   PortfolioProvenanceIndicator,
 } from "@/components/portfolio/portfolio-provenance-indicator"
+import { Button } from "@/components/ui/button"
+import { Field, FieldLabel } from "@/components/ui/field"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ASSETS } from "@/lib/assets"
 import {
   BENCHMARK_KPI_DEFINITIONS,
   type BenchmarkAreaSnapshot,
   type BenchmarkKpiDefinition,
 } from "@/lib/benchmark-area-model"
+import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -55,11 +70,18 @@ function BenchmarkKpiCard({
 
 export function BenchmarkAreaStatsPanel({
   snapshot,
+  benchmarkAreaId,
   className,
 }: {
   snapshot: BenchmarkAreaSnapshot
+  benchmarkAreaId: string
   className?: string
 }) {
+  const [selectedAssetId, setSelectedAssetId] = React.useState(
+    () => ASSETS[0]?.id ?? ""
+  )
+  const selectedAssetName =
+    ASSETS.find((asset) => asset.id === selectedAssetId)?.name ?? ""
   const kpiByKey = Object.fromEntries(
     snapshot.kpis.map((kpi) => [kpi.key, kpi])
   ) as Record<
@@ -113,19 +135,68 @@ export function BenchmarkAreaStatsPanel({
       className={cn("@container min-w-0", className)}
       aria-label="Area benchmark statistics"
     >
-      <div className="shrink-0 space-y-0.5 border-b border-border/60 pb-2.5">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
-          {snapshot.areaLabel}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {snapshot.buildingCount === 1
-            ? "1 building in view"
-            : `${snapshot.buildingCount} buildings in view`}
-          {snapshot.fullParticipantCount > 0 &&
-          snapshot.fullParticipantCount < snapshot.buildingCount
-            ? ` · ${snapshot.fullParticipantCount} full participants`
-            : null}
-        </p>
+      <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 pb-2.5 @lg:flex-row @lg:items-start @lg:justify-between">
+        <div className="min-w-0 space-y-0.5">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">
+            {snapshot.areaLabel}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {snapshot.buildingCount === 1
+              ? "1 building in view"
+              : `${snapshot.buildingCount} buildings in view`}
+            {snapshot.fullParticipantCount > 0 &&
+            snapshot.fullParticipantCount < snapshot.buildingCount
+              ? ` · ${snapshot.fullParticipantCount} full participants`
+              : null}
+          </p>
+        </div>
+
+        <div className="flex min-w-0 items-end gap-2 @lg:shrink-0">
+          <Field className="min-w-0 flex-1 gap-1 @lg:w-56">
+            <FieldLabel className="text-xs font-medium text-muted-foreground">
+              Compare to Asset
+            </FieldLabel>
+            <Select
+              value={selectedAssetId}
+              onValueChange={(value) => setSelectedAssetId(value ?? "")}
+            >
+              <SelectTrigger
+                size="sm"
+                className="min-w-0 w-full"
+                aria-label="Compare to Asset"
+              >
+                <SelectValue placeholder="Select asset…">
+                  {selectedAssetName || "Select asset…"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end">
+                {ASSETS.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            disabled={!selectedAssetId}
+            aria-label="Open selected asset benchmark page"
+            render={
+              selectedAssetId ? (
+                <Link
+                  href={assetBenchmarksPageHref(
+                    selectedAssetId,
+                    benchmarkAreaId
+                  )}
+                />
+              ) : undefined
+            }
+          >
+            <ArrowUpRight className="size-4" aria-hidden />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4 pt-3">

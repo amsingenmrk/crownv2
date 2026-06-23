@@ -12,6 +12,8 @@ import {
   listBenchmarkAreaChildren,
   searchBenchmarkHierarchyAreas,
 } from "@/lib/benchmark-area-hierarchy"
+import { stateBenchmarkAreaById } from "@/lib/benchmark-state-areas"
+import { zipBenchmarkAreaById } from "@/lib/benchmark-zip-areas"
 import { enrichBenchmarkAreaWithBoundary } from "@/lib/mapbox-benchmark-boundaries"
 import type {
   BenchmarkArea,
@@ -43,7 +45,12 @@ export function resolveBenchmarkAreaById(
   const id = areaId?.trim()
   if (!id) return null
   if (id === BENCHMARK_ROOT_AREA.id) return BENCHMARK_ROOT_AREA
-  return getBenchmarkAreaById(id) ?? null
+  return (
+    getBenchmarkAreaById(id) ??
+    stateBenchmarkAreaById(id) ??
+    zipBenchmarkAreaById(id) ??
+    null
+  )
 }
 
 type GeocodeFeature = {

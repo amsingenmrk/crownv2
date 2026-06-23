@@ -12,6 +12,8 @@ import {
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import { stateCodeFromAddressLike } from "@/lib/benchmark-state-areas"
+import { zipCodeFromAddressLike } from "@/lib/benchmark-zip-areas"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 
 export type BenchmarkKpiKey =
@@ -290,6 +292,114 @@ export type BenchmarkStatsRaw = {
   coverageAreaLabel?: string
 }
 
+function weightedAverage(
+  items: { weight: number; value: number }[]
+): number | null {
+  const valid = items.filter((item) => item.weight > 0 && Number.isFinite(item.value))
+  if (valid.length === 0) return null
+  const totalWeight = valid.reduce((sum, item) => sum + item.weight, 0)
+  if (totalWeight <= 0) return null
+  return valid.reduce((sum, item) => sum + item.weight * item.value, 0) / totalWeight
+}
+
+function statsRawFromBuildings(
+  buildings: BenchmarkBuildingSample[]
+): BenchmarkStatsRaw | null {
+  const fullParticipants = buildings.filter((building) => building.isFullParticipant)
+  const total = buildings.length
+  const fullCount = fullParticipants.length
+  if (total === 0) return null
+
+  const totalRsf = buildings.reduce((sum, building) => sum + building.rsfSqft, 0)
+  const totalOccupied = buildings.reduce(
+    (sum, building) => sum + building.occupiedSqft,
+    0
+  )
+  const occupancyPct = totalRsf > 0 ? (totalOccupied / totalRsf) * 100 : null
+
+  const askingRentPsf = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.askingRentPsf,
+    }))
+  )
+  const inPlaceRentPsf = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.occupiedSqft,
+      value: building.inPlaceRentPsf,
+    }))
+  )
+  const intrinsicRentPsf = weightedAverage(
+    fullParticipants.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.intrinsicRentPsf,
+    }))
+  )
+  const intrinsicCapRatePct = weightedAverage(
+    fullParticipants.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.intrinsicCapRatePct,
+    }))
+  )
+  const valuePerSfUsd = weightedAverage(
+    fullParticipants.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.valuePerSfUsd,
+    }))
+  )
+  const sunScore = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.sunScore,
+    }))
+  )
+  const viewScore = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.viewScore,
+    }))
+  )
+  const amenityQuality = weightedAverage(
+    fullParticipants.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.amenityQuality,
+    }))
+  )
+  const accessibilityScore = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.accessibilityScore,
+    }))
+  )
+
+  return {
+    askingRentPsf: askingRentPsf ?? 0,
+    inPlaceRentPsf: inPlaceRentPsf ?? askingRentPsf ?? 0,
+    occupancyPct: occupancyPct ?? 0,
+    intrinsicRentPsf: intrinsicRentPsf ?? askingRentPsf ?? inPlaceRentPsf ?? 0,
+    intrinsicCapRatePct: intrinsicCapRatePct ?? 0,
+    valuePerSfUsd: valuePerSfUsd ?? 0,
+    sunScore: sunScore ?? 0,
+    viewScore: viewScore ?? 0,
+    amenityQuality: amenityQuality ?? 0,
+    accessibilityScore: accessibilityScore ?? 0,
+    buildingCount: total,
+    fullParticipantCount: fullCount,
+  }
+}
+
+function emptyBenchmarkSnapshot(areaLabel: string): BenchmarkAreaSnapshot {
+  return {
+    areaLabel,
+    buildingCount: 0,
+    fullParticipantCount: 0,
+    kpis: BENCHMARK_KPI_DEFINITIONS.map((definition) => ({
+      key: definition.key,
+      value: "—",
+    })),
+  }
+}
+
 export function benchmarkSnapshotFromRaw(
   areaLabel: string,
   raw: BenchmarkStatsRaw
@@ -409,6 +519,64 @@ export function benchmarkAreaSnapshot(
   }
 
   return benchmarkSnapshotFromRaw(area.label, raw)
+}
+
+export function benchmarkZipCodeSnapshot(
+  zipCode: string | null,
+  coordinates: Record<string, readonly [number, number]> = {}
+): BenchmarkAreaSnapshot {
+  const normalizedZip = zipCode?.trim().slice(0, 5)
+  const areaLabel = normalizedZip ?? "ZIP code"
+  if (!normalizedZip) return emptyBenchmarkSnapshot(areaLabel)
+
+  const buildings = ASSETS.filter((asset) => {
+    return zipCodeFromAddressLike(asset.address) === normalizedZip
+  })
+    .map((asset) => {
+      const [longitude, latitude] = lngLatForPortfolioAsset(
+        asset.id,
+        asset.groupId,
+        coordinates
+      )
+      return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
+    })
+    .filter((sample): sample is BenchmarkBuildingSample => sample != null)
+
+  const raw = statsRawFromBuildings(buildings)
+  if (raw == null) return emptyBenchmarkSnapshot(areaLabel)
+  return benchmarkSnapshotFromRaw(areaLabel, raw)
+}
+
+export function benchmarkStateSnapshot(
+  stateCode: string | null,
+  stateLabel: string,
+  coordinates: Record<string, readonly [number, number]> = {}
+): BenchmarkAreaSnapshot {
+  const normalizedStateCode = stateCode?.trim().toUpperCase()
+  if (!normalizedStateCode) return emptyBenchmarkSnapshot(stateLabel)
+
+  const portfolioBuildings = ASSETS.filter((asset) => {
+    return stateCodeFromAddressLike(asset.address) === normalizedStateCode
+  }).map((asset) => {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      asset.id,
+      asset.groupId,
+      coordinates
+    )
+    return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
+  })
+
+  const marketBuildings = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
+    .filter((pin) => stateCodeFromAddressLike(pin.location) === normalizedStateCode)
+    .map((pin) => buildBenchmarkBuildingSample(pin.id, pin.longitude, pin.latitude))
+
+  const raw = statsRawFromBuildings(
+    [...portfolioBuildings, ...marketBuildings].filter(
+      (sample): sample is BenchmarkBuildingSample => sample != null
+    )
+  )
+  if (raw == null) return emptyBenchmarkSnapshot(stateLabel)
+  return benchmarkSnapshotFromRaw(stateLabel, raw)
 }
 
 export type BenchmarkBuildingTableRow = {
