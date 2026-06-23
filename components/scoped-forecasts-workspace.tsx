@@ -7,7 +7,6 @@ import {
   AssetForecastChartMetricToggleGroup,
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
-import { ValuationKpiMetricStrip } from "@/components/valuation-kpi-metric-strip"
 import {
   SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS,
   type ScopedForecastLeasingAssumptionFieldKey,
@@ -51,17 +50,12 @@ import {
   type ScopedForecastPortfolioOutlookModel,
   type ScopedForecastResolvedAssetModel,
 } from "@/lib/scoped-forecast-rollup"
-import { buildScopedForecastValuationKpiStripRows } from "@/lib/scoped-forecast-summary-kpis"
 import {
   getUserScenariosStoreSnapshot,
   scenarioDisplayTitleForSlug,
   subscribeUserScenarios,
   USER_SCENARIOS_SERVER_SNAPSHOT,
 } from "@/lib/user-scenarios"
-import {
-  VALUATION_CONDITION_OPTIONS,
-} from "@/lib/valuation-condition-config"
-import type { ValuationKpiStripRowModel } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
 
 const PORTFOLIO_MODIFICATION_MODE_LABELS: Record<
@@ -358,39 +352,6 @@ function PortfolioForecastControlCenter({
   )
 }
 
-/** Stable SSR / first client paint: KPI strip depends on localStorage (scenario scope, mod sets). */
-const FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS = Object.fromEntries(
-  VALUATION_CONDITION_OPTIONS.map((o) => [o.id, { value: "—" }])
-) as ValuationKpiStripRowModel["conditionValues"]
-
-const FORECAST_VALUATION_STRIP_PLACEHOLDERS: ValuationKpiStripRowModel[] = [
-  {
-    label: "Gross Revenue",
-    rowSuffix: "2-yr total",
-    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
-  },
-  {
-    label: "OpEx",
-    rowSuffix: "2-yr total",
-    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
-  },
-  {
-    label: "NOI",
-    rowSuffix: "2-yr total",
-    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
-  },
-  {
-    label: "Asset Value",
-    rowSuffix: "terminal",
-    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
-  },
-  {
-    label: "Cap Rate",
-    rowSuffix: "terminal",
-    conditionValues: { ...FORECAST_VALUATION_STRIP_PLACEHOLDER_CONDITIONS },
-  },
-]
-
 export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope }) {
   const {
     assetSelections,
@@ -485,53 +446,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     },
     [setAssumptions]
   )
-  const [forecastSummaryHydrated, setForecastSummaryHydrated] =
-    React.useState(false)
-
-  React.useEffect(() => {
-    setForecastSummaryHydrated(true)
-  }, [])
-
-  const forecastValuationStripRows = React.useMemo(
-    () => {
-      if (!forecastSummaryHydrated) return null
-
-      return measureScopedForecastStep(
-        `${scopeLabel} KPI strip`,
-        () =>
-          buildScopedForecastValuationKpiStripRows({
-            isPortfolioScope,
-            scopeKind: scope.kind,
-            portfolioOverview: rollup.portfolioOverview,
-            portfolioModificationMode,
-            portfolioScenarioProbabilities,
-            activeModelStatementRows: activeModel.statementRows,
-            baselineModelStatementRows: rollup.baselineModel.statementRows,
-            activeVariant,
-            assetSelections,
-            activeAssetModels,
-            baselineAssetModels: rollup.baselineAssetModels,
-          })
-      )
-    },
-    [
-      activeAssetModels,
-      activeModel.statementRows,
-      activeVariant,
-      assetSelections,
-      forecastSummaryHydrated,
-      isPortfolioScope,
-      portfolioModificationMode,
-      portfolioScenarioProbabilities,
-      rollup.baselineModel.statementRows,
-      rollup.baselineAssetModels,
-      rollup.portfolioOverview,
-      scope.kind,
-    ]
-  )
-
-  const forecastValuationStripRowsDisplay =
-    forecastValuationStripRows ?? FORECAST_VALUATION_STRIP_PLACEHOLDERS
 
   const [metricTab, setMetricTab] = React.useState<ForecastChartTab>("grossRevenue")
   const [projectionMetricTab, setProjectionMetricTab] =
@@ -617,12 +531,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
-              <ValuationKpiMetricStrip
-                ariaLabel="Scoped forecast KPI strip (valuation conditions)"
-                rows={forecastValuationStripRowsDisplay}
-                className="h-fit shrink-0"
-              />
-
               <section
                 className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                 aria-label={`${scopeLabel} portfolio totals`}
@@ -663,12 +571,6 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-6">
-      <ValuationKpiMetricStrip
-        ariaLabel="Scoped forecast KPI strip (valuation conditions)"
-        rows={forecastValuationStripRowsDisplay}
-        className="h-fit shrink-0"
-      />
-
       <section
         className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
         aria-label={`${scopeLabel} ${projectionChartMeta.title}`}

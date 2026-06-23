@@ -8,7 +8,6 @@ import {
   AssetForecastCharts,
 } from "@/components/asset-forecast-charts"
 import { AssetForecastsTable } from "@/components/asset-forecasts-table"
-import { ValuationKpiMetricStrip } from "@/components/valuation-kpi-metric-strip"
 import {
   parseStoredSets,
   storageKeyForAsset,
@@ -56,14 +55,6 @@ import {
   modificationSelectPlaceholder,
   outlookSetStoredNameDisplay,
 } from "@/lib/scoped-forecast-select-labels"
-import {
-  formatCapRatePts,
-  formatPctChange,
-  formatUsdDeltaCompact,
-  formatUsdPortfolioCompact,
-  scenarioDeltaDirection,
-  scenarioDeltaTone,
-} from "@/lib/scenario-kpi-format"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 import {
   applyStackingPlanTenantForecastOverrides,
@@ -71,16 +62,6 @@ import {
   parseStackingPlanTenantForecastOverrideSnapshot,
   subscribeStackingPlanTenantForecastOverrides,
 } from "@/lib/stacking-plan-tenant-forecast-overrides"
-import {
-  VALUATION_CONDITION_OPTIONS,
-  type ValuationConditionId,
-} from "@/lib/valuation-condition-config"
-import { shouldShowValuationConditionDelta } from "@/lib/valuation-condition-delta-visibility"
-import {
-  buildValuationConditionMetricMap,
-  scaleDisplayedMetricsForValuationCondition,
-} from "@/lib/valuation-condition-metrics"
-import type { ValuationKpiStripRowModel } from "@/lib/valuation-kpi-strip-model"
 import { cn } from "@/lib/utils"
 
 const macroAverageFormatter = new Intl.NumberFormat("en-US", {
@@ -199,44 +180,6 @@ function getScenarioMacroAverage(
 
 function formatScenarioMacroAverage(value: number, suffix: string) {
   return `${macroAverageFormatter.format(value)}${suffix}`
-}
-
-function sumSeries(values: number[]) {
-  return values.reduce((sum, value) => sum + value, 0)
-}
-
-function getStatementRowValues(rows: ForecastStatementRow[], rowId: string) {
-  return rows.find((row) => row.id === rowId)?.values ?? []
-}
-
-function getStatementRowCumulativeValue(rows: ForecastStatementRow[], rowId: string) {
-  return sumSeries(getStatementRowValues(rows, rowId))
-}
-
-function getStatementRowTerminalValue(rows: ForecastStatementRow[], rowId: string) {
-  const values = getStatementRowValues(rows, rowId)
-  return values[values.length - 1] ?? 0
-}
-
-type ForecastSummaryMetricValues = {
-  grossRevenue: number
-  opex: number
-  noi: number
-  assetValue: number
-  capRate: number
-}
-
-function getForecastSummaryMetricValues(
-  rows: ForecastStatementRow[]
-): ForecastSummaryMetricValues {
-  return {
-    grossRevenue: getStatementRowCumulativeValue(rows, "grossRevenue"),
-    // Compare OpEx on displayed magnitude, not raw signed expense rows.
-    opex: Math.abs(getStatementRowCumulativeValue(rows, "opex")),
-    noi: getStatementRowCumulativeValue(rows, "noi"),
-    assetValue: getStatementRowTerminalValue(rows, "salePrice"),
-    capRate: getStatementRowTerminalValue(rows, "capRate"),
-  }
 }
 
 function normalizeOutlooksForSetComparison(
@@ -483,14 +426,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     [activeModValues, assetId, assumptions, forecastDataset]
   )
 
-  const baselineOutlook = React.useMemo(
-    () =>
-      outlooks.find((outlook) => outlook.id === "baseline") ??
-      defaultOutlooks.find((outlook) => outlook.id === "baseline") ??
-      null,
-    [defaultOutlooks, outlooks]
-  )
-
   const model = React.useMemo(
     () => (activeOutlook != null ? buildModelForSelection(activeOutlook) : null),
     [activeOutlook, buildModelForSelection]
@@ -500,193 +435,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
     () => includedOutlooks.map((outlook) => buildModelForSelection(outlook)),
     [buildModelForSelection, includedOutlooks]
   )
-
-  const baselineScenarioModel = React.useMemo(
-    () => (baselineOutlook != null ? buildModelForSelection(baselineOutlook) : null),
-    [baselineOutlook, buildModelForSelection]
-  )
-
-  const baselineBuildingBaselineScenarioModel = React.useMemo(
-    () =>
-      baselineOutlook != null
-        ? buildModelForSelection(baselineOutlook, INITIAL_MOD_VALUES)
-        : null,
-    [baselineOutlook, buildModelForSelection]
-  )
-
-  const forecastValuationStripRows = React.useMemo((): ValuationKpiStripRowModel[] => {
-    if (model == null) return []
-
-    const isBaselineOutlookActive =
-      activeOutlook != null &&
-      baselineOutlook != null &&
-      activeOutlook.id === baselineOutlook.id
-    const hasSelectedBuildingModification =
-      activeBuildingVersionId !== BASELINE_BUILDING_VERSION_ID
-    const comparisonModel =
-      activeOutlook == null || baselineOutlook == null
-        ? null
-        : isBaselineOutlookActive
-          ? hasSelectedBuildingModification
-            ? baselineBuildingBaselineScenarioModel
-            : null
-          : baselineScenarioModel
-    const comparisonScenario =
-      activeOutlook == null || baselineOutlook == null
-        ? null
-        : isBaselineOutlookActive
-          ? hasSelectedBuildingModification
-            ? baselineOutlook
-            : null
-          : baselineOutlook
-    const comparisonModValues =
-      comparisonScenario == null
-        ? null
-        : isBaselineOutlookActive
-          ? INITIAL_MOD_VALUES
-          : activeModValues
-
-    const activeMetricMap = buildValuationConditionMetricMap({
-      assetId,
-      dataset: forecastDataset,
-      assumptions,
-      scenario: activeOutlook!,
-      baseCapRatePct: model.summary.exitCapRatePct,
-      modValues: activeModValues,
-    })
-
-    const comparisonMetricMap =
-      comparisonScenario != null && comparisonModValues != null
-        ? buildValuationConditionMetricMap({
-            assetId,
-            dataset: forecastDataset,
-            assumptions,
-            scenario: comparisonScenario,
-            baseCapRatePct:
-              comparisonModel?.summary.exitCapRatePct ??
-              model.summary.exitCapRatePct,
-            modValues: comparisonModValues,
-          })
-        : null
-
-    const showScenarioComparison =
-      comparisonModel != null && comparisonMetricMap != null
-
-    function scaledByCondition(
-      rows: ForecastStatementRow[],
-      metricMap: ReturnType<typeof buildValuationConditionMetricMap>
-    ): Record<ValuationConditionId, ForecastSummaryMetricValues> {
-      const displayedMetrics = getForecastSummaryMetricValues(rows)
-      const out = {} as Record<ValuationConditionId, ForecastSummaryMetricValues>
-      for (const { id } of VALUATION_CONDITION_OPTIONS) {
-        out[id] = scaleDisplayedMetricsForValuationCondition({
-          displayedMetrics,
-          baseAnnualMetrics: metricMap.inPlace,
-          selectedAnnualMetrics: metricMap[id],
-        })
-      }
-      return out
-    }
-
-    const activeScaled = scaledByCondition(model.statementRows, activeMetricMap)
-    const comparisonScaled =
-      showScenarioComparison && comparisonModel != null && comparisonMetricMap != null
-        ? scaledByCondition(comparisonModel.statementRows, comparisonMetricMap)
-        : null
-
-    const conditionValuesFor = (
-      field: keyof ForecastSummaryMetricValues
-    ): ValuationKpiStripRowModel["conditionValues"] =>
-      Object.fromEntries(
-        VALUATION_CONDITION_OPTIONS.map((option) => {
-          const currentValue = activeScaled[option.id][field]
-          const baselineValue =
-            showScenarioComparison && comparisonScaled != null
-              ? comparisonScaled[option.id][field]
-              : null
-          if (field === "capRate") {
-            const delta =
-              baselineValue != null ? currentValue - baselineValue : null
-            return [
-              option.id,
-              {
-                value: `${currentValue.toFixed(2)}%`,
-                compare:
-                  delta != null &&
-                  shouldShowValuationConditionDelta(option.id, field)
-                    ? {
-                        deltaLine: formatCapRatePts(delta),
-                        deltaDirection: scenarioDeltaDirection(delta),
-                        deltaTone: scenarioDeltaTone(delta),
-                      }
-                    : undefined,
-              },
-            ] as const
-          }
-          const delta =
-            baselineValue != null ? currentValue - baselineValue : null
-          return [
-            option.id,
-            {
-              value: formatUsdPortfolioCompact(currentValue),
-              compare:
-                delta != null &&
-                baselineValue != null &&
-                shouldShowValuationConditionDelta(option.id, field)
-                  ? {
-                      deltaLine: formatUsdDeltaCompact(delta),
-                      pctLine: formatPctChange(baselineValue, currentValue),
-                      deltaDirection: scenarioDeltaDirection(delta),
-                      deltaTone: scenarioDeltaTone(
-                        delta,
-                        field === "opex" ? "inverse" : "normal"
-                      ),
-                    }
-                  : undefined,
-            },
-          ] as const
-        })
-      ) as ValuationKpiStripRowModel["conditionValues"]
-
-    return [
-      {
-        label: "Gross Revenue",
-        rowSuffix: "2-yr total",
-        conditionValues: conditionValuesFor("grossRevenue"),
-      },
-      {
-        label: "OpEx",
-        rowSuffix: "2-yr total",
-        conditionValues: conditionValuesFor("opex"),
-      },
-      {
-        label: "NOI",
-        rowSuffix: "2-yr total",
-        conditionValues: conditionValuesFor("noi"),
-      },
-      {
-        label: "Asset Value",
-        rowSuffix: "terminal",
-        conditionValues: conditionValuesFor("assetValue"),
-      },
-      {
-        label: "Cap Rate",
-        rowSuffix: "terminal",
-        conditionValues: conditionValuesFor("capRate"),
-      },
-    ]
-  }, [
-    activeModValues,
-    activeBuildingVersionId,
-    activeOutlook,
-    assumptions,
-    assetId,
-    baselineBuildingBaselineScenarioModel,
-    baselineOutlook,
-    baselineScenarioModel,
-    forecastDataset,
-    model,
-  ])
 
   const sortedOutlookSets = React.useMemo(
     () => [...outlookSets].sort((a, b) => a.name.localeCompare(b.name)),
@@ -1379,13 +1127,6 @@ export function AssetForecastsWorkspace({ assetId }: { assetId: string }) {
             </div>
           </div>
 
-          {forecastValuationStripRows.length > 0 ? (
-            <ValuationKpiMetricStrip
-              ariaLabel="Forecast summary metrics (valuation conditions)"
-              rows={forecastValuationStripRows}
-              className="h-fit shrink-0"
-            />
-          ) : null}
         </div>
 
         <section
