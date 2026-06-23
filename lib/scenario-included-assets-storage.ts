@@ -1,3 +1,5 @@
+import { scenarioStoragePathname } from "@/lib/scenario-storage-pathname"
+
 /** localStorage key prefix; full key is `${INCLUDED_PREFIX}${pathname}` (e.g. `/scenarios/my-slug`). */
 export const INCLUDED_PREFIX = "glassbox:scenario-included-assets:" as const
 
@@ -10,8 +12,10 @@ export const INCLUDED_MIGRATED_PREFIX =
 
 export function markScenarioInclusionMigratedForPathname(pathname: string): void {
   if (typeof localStorage === "undefined") return
+  const storagePathname = scenarioStoragePathname(pathname)
+  if (storagePathname == null) return
   try {
-    localStorage.setItem(`${INCLUDED_MIGRATED_PREFIX}${pathname}`, "1")
+    localStorage.setItem(`${INCLUDED_MIGRATED_PREFIX}${storagePathname}`, "1")
   } catch {
     /* quota / private mode */
   }
@@ -19,7 +23,10 @@ export function markScenarioInclusionMigratedForPathname(pathname: string): void
 
 export function isScenarioInclusionMigratedForPathname(pathname: string): boolean {
   if (typeof localStorage === "undefined") return true
-  return localStorage.getItem(`${INCLUDED_MIGRATED_PREFIX}${pathname}`) === "1"
+  const storagePathname = scenarioStoragePathname(pathname)
+  if (storagePathname == null) return true
+  migrateLegacyIncludedSubrouteKeys(pathname, storagePathname)
+  return localStorage.getItem(`${INCLUDED_MIGRATED_PREFIX}${storagePathname}`) === "1"
 }
 
 export const SCENARIO_INCLUDED_CHANGED_EVENT =
@@ -30,8 +37,10 @@ export type ScenarioIncludedChangedDetail = { pathname: string }
 export function includedStorageKeyForScenarioPathname(
   pathname: string | null
 ): string | null {
-  if (pathname == null || !pathname.startsWith("/scenarios/")) return null
-  return `${INCLUDED_PREFIX}${pathname}`
+  const storagePathname = scenarioStoragePathname(pathname)
+  if (storagePathname == null) return null
+  migrateLegacyIncludedSubrouteKeys(pathname, storagePathname)
+  return `${INCLUDED_PREFIX}${storagePathname}`
 }
 
 export function parseScenarioIncludedAssetIds(raw: string | null): Set<string> {
@@ -63,6 +72,39 @@ export function persistScenarioIncludedAssetIds(
   } catch {
     /* quota / private mode */
   }
+}
+
+function migrateLegacyIncludedSubrouteKeys(
+  pathname: string | null,
+  storagePathname: string
+): void {
+  if (
+    pathname == null ||
+    pathname === storagePathname ||
+    typeof localStorage === "undefined"
+  ) {
+    return
+  }
+
+  const canonicalKey = `${INCLUDED_PREFIX}${storagePathname}`
+  const legacyKey = `${INCLUDED_PREFIX}${pathname}`
+  const legacyRaw = localStorage.getItem(legacyKey)
+  if (legacyRaw != null) {
+    const merged = parseScenarioIncludedAssetIds(localStorage.getItem(canonicalKey))
+    for (const id of parseScenarioIncludedAssetIds(legacyRaw)) merged.add(id)
+    persistScenarioIncludedAssetIds(canonicalKey, merged)
+    localStorage.removeItem(legacyKey)
+  }
+
+  const canonicalMigratedKey = `${INCLUDED_MIGRATED_PREFIX}${storagePathname}`
+  const legacyMigratedKey = `${INCLUDED_MIGRATED_PREFIX}${pathname}`
+  if (
+    localStorage.getItem(legacyMigratedKey) === "1" &&
+    localStorage.getItem(canonicalMigratedKey) == null
+  ) {
+    localStorage.setItem(canonicalMigratedKey, "1")
+  }
+  localStorage.removeItem(legacyMigratedKey)
 }
 
 /** Merges ids into this user scenario’s inclusion list (persisted). */

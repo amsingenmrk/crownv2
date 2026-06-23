@@ -1,4 +1,5 @@
 import { persistJsonToLocalStorage } from "@/lib/local-storage-json"
+import { scenarioStoragePathname } from "@/lib/scenario-storage-pathname"
 
 /** localStorage key prefix; full key is `${EXCLUDED_PREFIX}${pathname}` (e.g. `/scenarios/my-slug`). */
 export const EXCLUDED_PREFIX = "glassbox:scenario-excluded-assets:" as const
@@ -11,8 +12,10 @@ export type ScenarioExcludedChangedDetail = { pathname: string }
 export function excludedStorageKeyForScenarioPathname(
   pathname: string | null
 ): string | null {
-  if (pathname == null || !pathname.startsWith("/scenarios/")) return null
-  return `${EXCLUDED_PREFIX}${pathname}`
+  const storagePathname = scenarioStoragePathname(pathname)
+  if (storagePathname == null) return null
+  migrateLegacyExcludedSubrouteKey(pathname, storagePathname)
+  return `${EXCLUDED_PREFIX}${storagePathname}`
 }
 
 export function parseScenarioExcludedAssetIds(raw: string | null): Set<string> {
@@ -33,6 +36,29 @@ export function persistScenarioExcludedAssetIds(
   ids: Set<string>
 ): void {
   persistJsonToLocalStorage(key, ids.size === 0 ? null : [...ids])
+}
+
+function migrateLegacyExcludedSubrouteKey(
+  pathname: string | null,
+  storagePathname: string
+): void {
+  if (
+    pathname == null ||
+    pathname === storagePathname ||
+    typeof localStorage === "undefined"
+  ) {
+    return
+  }
+
+  const legacyKey = `${EXCLUDED_PREFIX}${pathname}`
+  const legacyRaw = localStorage.getItem(legacyKey)
+  if (legacyRaw == null) return
+
+  const canonicalKey = `${EXCLUDED_PREFIX}${storagePathname}`
+  const merged = parseScenarioExcludedAssetIds(localStorage.getItem(canonicalKey))
+  for (const id of parseScenarioExcludedAssetIds(legacyRaw)) merged.add(id)
+  persistScenarioExcludedAssetIds(canonicalKey, merged)
+  localStorage.removeItem(legacyKey)
 }
 
 /** Removes assets from this scenario’s exclusion list so they can appear in that scenario. */

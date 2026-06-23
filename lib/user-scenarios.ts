@@ -16,6 +16,8 @@ import {
   slugifyScenarioName,
   uniqueScenarioSlug,
 } from "@/lib/scenario-slug"
+import { scenarioTableOutlookSelectionsKey } from "@/lib/scenario-table-outlook-selections-storage"
+import { scenarioTableSelectionsKey } from "@/lib/scenario-table-selections-storage"
 
 export type UserScenario = { name: string; slug: string; description?: string }
 
@@ -141,7 +143,8 @@ function scenarioPathFromSlug(slug: string): string {
 function clearScenarioRouteLocalStorage(slug: string) {
   if (typeof window === "undefined") return
   const path = scenarioPathFromSlug(slug)
-  localStorage.removeItem(`glassbox:scenario-table-selections:${path}`)
+  localStorage.removeItem(scenarioTableSelectionsKey(path))
+  localStorage.removeItem(scenarioTableOutlookSelectionsKey(path))
   localStorage.removeItem(`${EXCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_PREFIX}${path}`)
   localStorage.removeItem(`${INCLUDED_MIGRATED_PREFIX}${path}`)
@@ -155,8 +158,12 @@ function copyScenarioRouteLocalStorage(
   if (typeof window === "undefined") return
   const pairs: [string, string][] = [
     [
-      `glassbox:scenario-table-selections:${sourcePath}`,
-      `glassbox:scenario-table-selections:${destPath}`,
+      scenarioTableSelectionsKey(sourcePath),
+      scenarioTableSelectionsKey(destPath),
+    ],
+    [
+      scenarioTableOutlookSelectionsKey(sourcePath),
+      scenarioTableOutlookSelectionsKey(destPath),
     ],
     [`${EXCLUDED_PREFIX}${sourcePath}`, `${EXCLUDED_PREFIX}${destPath}`],
     [`${INCLUDED_PREFIX}${sourcePath}`, `${INCLUDED_PREFIX}${destPath}`],

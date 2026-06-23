@@ -1,14 +1,12 @@
+import { scenarioStoragePathname } from "@/lib/scenario-storage-pathname"
+
 const SELECTIONS_PREFIX = "glassbox:scenario-table-selections:" as const
 
 /** `/scenarios/:slug` — same key for overview, forecasts, and other tabs under a scenario. */
 export function scenarioModificationsTableStoragePathname(
   pathname: string
 ): string | null {
-  if (!pathname.startsWith("/scenarios/")) return null
-  const afterPrefix = pathname.slice("/scenarios/".length)
-  const slash = afterPrefix.indexOf("/")
-  if (slash === -1) return pathname
-  return `/scenarios/${afterPrefix.slice(0, slash)}`
+  return scenarioStoragePathname(pathname)
 }
 
 export function scenarioTableSelectionsKey(pathname: string): string {
