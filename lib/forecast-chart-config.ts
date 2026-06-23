@@ -762,16 +762,18 @@ function buildMultiModelFanForecastStatementConfig(
       verticalAlign: "bottom",
       layout: "horizontal",
       margin: 12,
-      title: options.lineOnly
+      ...(options.lineOnly
         ? {
-            text: "Key",
-            style: {
-              color: palette.mutedText,
-              fontSize: "11px",
-              fontWeight: "600",
+            title: {
+              text: "Key",
+              style: {
+                color: palette.mutedText,
+                fontSize: "11px",
+                fontWeight: "600",
+              },
             },
           }
-        : undefined,
+        : {}),
       itemStyle: {
         color: palette.text,
         fontSize: "11px",
