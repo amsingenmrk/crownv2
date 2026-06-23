@@ -4,11 +4,11 @@ import {
   storageKeyForAsset,
 } from "@/lib/building-modification-sets-storage"
 import {
-  EXCLUDED_PREFIX,
+  excludedStorageKeyForScenarioPathname,
   parseScenarioExcludedAssetIds,
 } from "@/lib/scenario-excluded-assets-storage"
 import {
-  INCLUDED_PREFIX,
+  includedStorageKeyForScenarioPathname,
   isScenarioInclusionMigratedForPathname,
   parseScenarioIncludedAssetIds,
   persistScenarioIncludedAssetIds,
@@ -28,8 +28,9 @@ function assetIdsWithSavedModificationSets(): Set<string> {
 function legacyIncludedForUserScenarioPathname(pathname: string): Set<string> {
   if (typeof localStorage === "undefined") return new Set()
   const eligible = assetIdsWithSavedModificationSets()
+  const exKey = excludedStorageKeyForScenarioPathname(pathname)
   const excluded = parseScenarioExcludedAssetIds(
-    localStorage.getItem(`${EXCLUDED_PREFIX}${pathname}`)
+    exKey == null ? null : localStorage.getItem(exKey)
   )
   const next = new Set<string>()
   for (const id of eligible) {
@@ -43,7 +44,8 @@ function legacyIncludedForUserScenarioPathname(pathname: string): Set<string> {
  */
 export function readIncludedAssetIdsWithV1Migration(pathname: string): Set<string> {
   if (typeof localStorage === "undefined") return new Set()
-  const inKey = `${INCLUDED_PREFIX}${pathname}`
+  const inKey = includedStorageKeyForScenarioPathname(pathname)
+  if (inKey == null) return new Set()
 
   if (isScenarioInclusionMigratedForPathname(pathname)) {
     return parseScenarioIncludedAssetIds(localStorage.getItem(inKey))
