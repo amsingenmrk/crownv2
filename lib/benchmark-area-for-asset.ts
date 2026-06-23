@@ -7,6 +7,8 @@ import {
 } from "@/lib/benchmark-area-search"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { fallbackLngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
+import { getBenchmarkAreaById } from "@/lib/benchmark-area-hierarchy"
 
 function presetCenter(bounds: BenchmarkAreaBounds): [number, number] {
   const [[west, south], [east, north]] = bounds
@@ -31,6 +33,35 @@ function distanceSq(
   return dlng * dlng + dlat * dlat
 }
 
+function zipCodeFromText(value: string | undefined): string | null {
+  if (!value) return null
+  const match = value.match(/\b(\d{5})(?:-\d{4})?\b/)
+  return match?.[1] ?? null
+}
+
+function bestContainingMarketForPoint(
+  markets: readonly BenchmarkArea[],
+  lng: number,
+  lat: number
+): BenchmarkArea | null {
+  const containing = markets.filter((market) =>
+    pointInBounds(lng, lat, market.bounds)
+  )
+  if (containing.length === 0) return null
+
+  let best = containing[0]!
+  let bestDistance = distanceSq([lng, lat], presetCenter(best.bounds))
+  for (let index = 1; index < containing.length; index += 1) {
+    const candidate = containing[index]!
+    const distance = distanceSq([lng, lat], presetCenter(candidate.bounds))
+    if (distance < bestDistance) {
+      best = candidate
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
 /**
  * Pick the closest curated benchmark market for a map coordinate.
  */
@@ -40,9 +71,7 @@ export function resolveBenchmarkAreaForCoordinates(
 ): BenchmarkArea {
   const markets = curatedBenchmarkMarketAreas()
 
-  const containing = markets.find((market) =>
-    pointInBounds(lng, lat, market.bounds)
-  )
+  const containing = bestContainingMarketForPoint(markets, lng, lat)
   if (containing) return containing
 
   let nearest = markets[0]!
@@ -64,12 +93,28 @@ export function resolveBenchmarkAreaForCoordinates(
 export function resolveBenchmarkAreaForAsset(assetId: string): BenchmarkArea {
   const asset = getAssetById(assetId)
   if (asset) {
+    const zipCode = zipCodeFromText(asset.address)
+    if (zipCode) {
+      const assignment = curatedZipAssignmentsForZipCode(zipCode)[0]
+      if (assignment) {
+        const assignedMarket = getBenchmarkAreaById(assignment.marketId)
+        if (assignedMarket) return assignedMarket
+      }
+    }
     const [lng, lat] = fallbackLngLatForPortfolioAsset(assetId, asset.groupId)
     return resolveBenchmarkAreaForCoordinates(lng, lat)
   }
 
   const pin = getMarketListingPinById(assetId)
   if (pin) {
+    const zipCode = zipCodeFromText(pin.location)
+    if (zipCode) {
+      const assignment = curatedZipAssignmentsForZipCode(zipCode)[0]
+      if (assignment) {
+        const assignedMarket = getBenchmarkAreaById(assignment.marketId)
+        if (assignedMarket) return assignedMarket
+      }
+    }
     return resolveBenchmarkAreaForCoordinates(pin.longitude, pin.latitude)
   }
 

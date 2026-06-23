@@ -14,6 +14,7 @@ type TrackedMarketStatsSeed = {
   inPlaceRentPsf: number
   occupancyPct: number
   intrinsicRentPsf: number
+  observedCapRatePct: number
   intrinsicCapRatePct: number
   valuePerSfUsd: number
   sunScore: number
@@ -26,7 +27,7 @@ type TrackedMarketStatsSeed = {
 
 type TrackedStatsBase = Omit<
   TrackedMarketStatsSeed,
-  "intrinsicCapRatePct" | "valuePerSfUsd" | "fullParticipantCount"
+  "observedCapRatePct" | "intrinsicCapRatePct" | "valuePerSfUsd" | "fullParticipantCount"
 > & {
   fullParticipantShare: number
 }
@@ -97,6 +98,13 @@ function seedStats(
       8.25
     )
   )
+  const observedCapRatePct = round2(
+    clamp(
+      intrinsicCapRatePct + jitter(areaId, "observed-cap", 0.22) + 0.12,
+      5.4,
+      8.4
+    )
+  )
   const valuePerSfUsd = round2(
     modeledValuePerSfUsd({
       areaId,
@@ -111,6 +119,7 @@ function seedStats(
     inPlaceRentPsf: round2(base.inPlaceRentPsf + jitter(areaId, "inplace", 1.5)),
     occupancyPct,
     intrinsicRentPsf,
+    observedCapRatePct,
     intrinsicCapRatePct,
     valuePerSfUsd,
     sunScore: Math.round(base.sunScore + jitter(areaId, "sun", 4)),
@@ -214,6 +223,7 @@ const TRACKED_MARKET_BASES: Record<
     TrackedMarketStatsSeed,
     | "buildingCount"
     | "fullParticipantCount"
+    | "observedCapRatePct"
     | "intrinsicCapRatePct"
     | "valuePerSfUsd"
   > & {
@@ -473,6 +483,78 @@ const TRACKED_MARKET_BASES: Record<
     buildingCount: 430,
     fullParticipantShare: 0.22,
   },
+  "market-atlanta": {
+    askingRentPsf: 35.2,
+    inPlaceRentPsf: 32.1,
+    occupancyPct: 84.8,
+    intrinsicRentPsf: 34.0,
+    sunScore: 71,
+    viewScore: 50,
+    amenityQuality: 65,
+    accessibilityScore: 64,
+    buildingCount: 760,
+    fullParticipantShare: 0.23,
+  },
+  "market-dallas": {
+    askingRentPsf: 34.1,
+    inPlaceRentPsf: 31.0,
+    occupancyPct: 84.4,
+    intrinsicRentPsf: 33.0,
+    sunScore: 70,
+    viewScore: 51,
+    amenityQuality: 64,
+    accessibilityScore: 62,
+    buildingCount: 990,
+    fullParticipantShare: 0.22,
+  },
+  "market-austin": {
+    askingRentPsf: 41.0,
+    inPlaceRentPsf: 37.6,
+    occupancyPct: 86.3,
+    intrinsicRentPsf: 39.8,
+    sunScore: 74,
+    viewScore: 56,
+    amenityQuality: 67,
+    accessibilityScore: 66,
+    buildingCount: 520,
+    fullParticipantShare: 0.24,
+  },
+  "market-denver": {
+    askingRentPsf: 37.8,
+    inPlaceRentPsf: 34.5,
+    occupancyPct: 83.5,
+    intrinsicRentPsf: 36.2,
+    sunScore: 66,
+    viewScore: 61,
+    amenityQuality: 65,
+    accessibilityScore: 67,
+    buildingCount: 610,
+    fullParticipantShare: 0.23,
+  },
+  "market-nashville": {
+    askingRentPsf: 33.2,
+    inPlaceRentPsf: 30.4,
+    occupancyPct: 84.1,
+    intrinsicRentPsf: 32.2,
+    sunScore: 72,
+    viewScore: 52,
+    amenityQuality: 64,
+    accessibilityScore: 63,
+    buildingCount: 430,
+    fullParticipantShare: 0.21,
+  },
+  "market-san-francisco": {
+    askingRentPsf: 68.4,
+    inPlaceRentPsf: 62.3,
+    occupancyPct: 87.2,
+    intrinsicRentPsf: 66.1,
+    sunScore: 58,
+    viewScore: 66,
+    amenityQuality: 73,
+    accessibilityScore: 78,
+    buildingCount: 880,
+    fullParticipantShare: 0.29,
+  },
   "market-pittsburgh": {
     askingRentPsf: 26.2,
     inPlaceRentPsf: 24.0,
@@ -508,6 +590,18 @@ const TRACKED_MARKET_BASES: Record<
     accessibilityScore: 62,
     buildingCount: 350,
     fullParticipantShare: 0.19,
+  },
+  "market-boston": {
+    askingRentPsf: 56.2,
+    inPlaceRentPsf: 51.4,
+    occupancyPct: 88.7,
+    intrinsicRentPsf: 54.6,
+    sunScore: 53,
+    viewScore: 59,
+    amenityQuality: 72,
+    accessibilityScore: 80,
+    buildingCount: 980,
+    fullParticipantShare: 0.3,
   },
 }
 

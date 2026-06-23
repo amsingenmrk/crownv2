@@ -138,7 +138,7 @@ function withUncertaintyBand(
         : rowId === "grossRevenue"
           ? "Gross Revenue"
           : rowId === "intrinsicRent"
-            ? "Intrinsic Rent"
+            ? "Predicted Rent"
           : rowId === "opex"
             ? "OpEx"
             : rowId === "noi"
@@ -346,7 +346,7 @@ function buildProbabilityWeightedMarketModel({
     },
     {
       id: "intrinsicRent",
-      label: "Intrinsic Rent",
+      label: "Predicted Rent",
       kind: "rentPsf",
       values: intrinsicRent,
       uncertaintyBand: probabilityWeightedUncertaintyBand(

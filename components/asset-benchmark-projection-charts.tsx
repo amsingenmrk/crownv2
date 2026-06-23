@@ -3,7 +3,10 @@
 import * as React from "react"
 
 import { AssetForecastCharts } from "@/components/asset-forecast-charts"
-import type { BenchmarkKpiKey } from "@/lib/benchmark-area-model"
+import type {
+  BenchmarkKpiDisplayValue,
+  BenchmarkKpiKey,
+} from "@/lib/benchmark-area-model"
 import type { ForecastChartTab } from "@/lib/forecast-chart-config"
 import {
   buildDefaultForecastScenarios,
@@ -15,20 +18,20 @@ import {
 type ProjectionColumn = {
   id: string
   label: string
-  kpis: Record<BenchmarkKpiKey, string>
+  kpis: Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
 }
 
 const ALLOWED_PROJECTION_TABS = ["intrinsicRent", "capRate"] as const
 
-function parseCurrencyPsf(value: string | undefined): number | null {
-  if (!value || value === "—") return null
-  const parsed = Number(value.replace(/[$,/A-Z\s]+/g, ""))
+function parseCurrencyPsf(value: BenchmarkKpiDisplayValue | undefined): number | null {
+  if (!value || value.value === "—") return null
+  const parsed = Number(value.value.replace(/[$,/A-Z\s]+/g, ""))
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function parsePercent(value: string | undefined): number | null {
-  if (!value || value === "—") return null
-  const parsed = Number(value.replace("%", "").trim())
+function parsePercent(value: BenchmarkKpiDisplayValue | undefined): number | null {
+  if (!value || value.value === "—") return null
+  const parsed = Number(value.value.replace("%", "").trim())
   return Number.isFinite(parsed) ? parsed : null
 }
 

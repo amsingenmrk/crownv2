@@ -38,6 +38,8 @@ function BenchmarkHeaderMap({
   const { resolvedTheme } = useTheme()
   const mapRef = React.useRef<MapRef>(null)
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
+  const isMountedRef = React.useRef(true)
+  const resizeFrameRef = React.useRef<number | null>(null)
   const instanceId = React.useId().replace(/:/g, "")
   const [labelLayerId, setLabelLayerId] = React.useState<string | undefined>()
 
@@ -63,31 +65,49 @@ function BenchmarkHeaderMap({
   const layerInsert = labelLayerId ? { beforeId: labelLayerId } : {}
 
   const syncViewport = React.useCallback(() => {
+    if (!isMountedRef.current) return
     const map = mapRef.current?.getMap()
     if (!map?.loaded()) return
-    map.resize()
+    if ((map as { _removed?: boolean })._removed) return
 
-    if (pin && !area) {
-      map.jumpTo({
-        center: [pin.longitude, pin.latitude],
-        zoom: 11,
-      })
-      return
-    }
+    try {
+      map.resize()
 
-    if (fitBounds && area) {
-      map.fitBounds(fitBounds, {
-        padding: HEADER_MAP_PADDING,
-        maxZoom: maxZoomForBenchmarkArea(area),
-        duration: 0,
-      })
+      if (pin) {
+        map.jumpTo({
+          center: [pin.longitude, pin.latitude],
+          zoom: 11,
+        })
+        return
+      }
+
+      if (fitBounds && area) {
+        map.fitBounds(fitBounds, {
+          padding: HEADER_MAP_PADDING,
+          maxZoom: maxZoomForBenchmarkArea(area),
+          duration: 0,
+        })
+      }
+    } catch {
+      // Guard against mapbox lifecycle race during rapid mount/unmount in dev.
     }
   }, [area, fitBounds, pin])
+  const syncViewportRef = React.useRef(syncViewport)
+
+  React.useEffect(() => {
+    syncViewportRef.current = syncViewport
+  }, [syncViewport])
 
   const syncLabelLayer = React.useCallback(() => {
+    if (!isMountedRef.current) return
     const map = mapRef.current?.getMap()
     if (!map) return
-    setLabelLayerId(firstSymbolLayerId(map))
+    if ((map as { _removed?: boolean })._removed) return
+    try {
+      setLabelLayerId(firstSymbolLayerId(map))
+    } catch {
+      // Style can be transiently unavailable during teardown; ignore.
+    }
   }, [])
 
   const handleMapLoad = React.useCallback(() => {
@@ -96,19 +116,30 @@ function BenchmarkHeaderMap({
   }, [syncLabelLayer, syncViewport])
 
   React.useLayoutEffect(() => {
+    isMountedRef.current = true
     const el = mapContainerRef.current
     if (!el || typeof ResizeObserver === "undefined") return
 
     const handleResize = () => {
-      requestAnimationFrame(() => {
-        mapRef.current?.getMap()?.resize()
+      if (resizeFrameRef.current != null) {
+        cancelAnimationFrame(resizeFrameRef.current)
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        syncViewportRef.current()
       })
     }
 
     const ro = new ResizeObserver(handleResize)
     ro.observe(el)
     handleResize()
-    return () => ro.disconnect()
+    return () => {
+      isMountedRef.current = false
+      ro.disconnect()
+      if (resizeFrameRef.current != null) {
+        cancelAnimationFrame(resizeFrameRef.current)
+        resizeFrameRef.current = null
+      }
+    }
   }, [])
 
   React.useEffect(() => {
@@ -202,18 +233,18 @@ export function BenchmarkHeaderMapLink({
   label,
   area,
   pin,
-  showLabel = true,
+  hideLabel = false,
+  mapHeightClassName,
   className,
 }: {
   href: string
   label: string
   area?: BenchmarkArea
   pin?: { longitude: number; latitude: number }
-  showLabel?: boolean
+  hideLabel?: boolean
+  mapHeightClassName?: string
   className?: string
 }) {
-  const mapKey = `${area?.id ?? "pin-only"}:${pin ? `${pin.longitude},${pin.latitude}` : "no-pin"}`
-
   return (
     <Link
       href={href}
@@ -223,12 +254,17 @@ export function BenchmarkHeaderMapLink({
       )}
       aria-label={`View ${label} benchmarks`}
     >
-      <div className={cn(HEADER_MAP_FRAME_CLASS, "transition-colors group-hover:border-primary/45 group-hover:bg-muted/35")}>
+      <div
+        className={cn(
+          "relative w-full rounded-md border border-border/80 bg-muted/25 transition-colors group-hover:border-primary/45 group-hover:bg-muted/35",
+          mapHeightClassName ? mapHeightClassName : "aspect-[4/3]"
+        )}
+      >
         <div className="absolute inset-px overflow-hidden rounded-[calc(theme(borderRadius.md)-1px)]">
-          <BenchmarkHeaderMap key={mapKey} area={area} pin={pin} />
+          <BenchmarkHeaderMap area={area} pin={pin} />
         </div>
       </div>
-      {showLabel ? (
+      {!hideLabel ? (
         <span className="line-clamp-2 font-medium text-foreground transition-colors group-hover:text-primary">
           {label}
         </span>
@@ -242,21 +278,21 @@ export function BenchmarkHeaderMapPreview({
   area,
   pin,
   showLabel = true,
+  mapHeightClassName,
   className,
 }: {
   label: string
   area?: BenchmarkArea
   pin?: { longitude: number; latitude: number }
   showLabel?: boolean
+  mapHeightClassName?: string
   className?: string
 }) {
-  const mapKey = `${area?.id ?? "pin-only"}:${pin ? `${pin.longitude},${pin.latitude}` : "no-pin"}`
-
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5 rounded-sm", className)}>
-      <div className={HEADER_MAP_FRAME_CLASS}>
+      <div className={cn(HEADER_MAP_FRAME_CLASS, mapHeightClassName)}>
         <div className="absolute inset-px overflow-hidden rounded-[calc(theme(borderRadius.md)-1px)]">
-          <BenchmarkHeaderMap key={mapKey} area={area} pin={pin} />
+          <BenchmarkHeaderMap area={area} pin={pin} />
         </div>
       </div>
       {showLabel ? (
