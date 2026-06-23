@@ -271,6 +271,7 @@ export function AssetForecastCharts({
   metricToolbarAriaLabel = "Forecast chart metric",
   metricToolbarShowMetricTitle = true,
   embedded = false,
+  lineOnly = false,
   debugLabel,
 }: {
   models: AssetForecastModel[]
@@ -286,6 +287,8 @@ export function AssetForecastCharts({
   metricToolbarShowMetricTitle?: boolean
   /** When true, omit outer card wrapper — parent combines chart with adjacent content (e.g. table). */
   embedded?: boolean
+  /** When true, multi-model charts render only model lines, without range/fan bands. */
+  lineOnly?: boolean
   /** Dev-only perf label for chart mount logging. */
   debugLabel?: string
 }) {
@@ -319,8 +322,11 @@ export function AssetForecastCharts({
   }, [activeTab, chartRows, controlled, onMetricTabChange])
 
   const chartOptions = React.useMemo(
-    () => buildForecastStatementHighchartsConfig(models, activeTab, palette),
-    [activeTab, models, palette]
+    () =>
+      buildForecastStatementHighchartsConfig(models, activeTab, palette, {
+        lineOnly,
+      }),
+    [activeTab, lineOnly, models, palette]
   )
 
   const chartInner = (

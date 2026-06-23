@@ -3,6 +3,7 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 
+import { AssetBenchmarkProjectionCharts } from "@/components/asset-benchmark-projection-charts"
 import { AssetBenchmarksTable } from "@/components/asset-benchmarks-table"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { getAssetById } from "@/lib/assets"
@@ -217,24 +218,35 @@ export function AssetBenchmarksWorkspace({
     }, [coordinates, homeArea, zipArea])
 
   return (
-    <AssetBenchmarksTable
-      assetRow={assetRow}
-      assetName={assetName}
-      assetPin={assetPin}
-      homeArea={homeArea}
-      zipArea={zipArea}
-      zipLabel={zipLabel}
-      zipKpis={zipKpis}
-      regionLabel={regionLabel}
-      regionKpis={regionKpis}
-      benchmarkOptions={benchmarkOptions}
-      onZipBenchmarkChange={setSelectedZipBenchmarkAreaId}
-      onRegionBenchmarkChange={setSelectedRegionBenchmarkAreaId}
-      showReset={columnsAltered}
-      onReset={() => {
-        setSelectedZipBenchmarkAreaId(undefined)
-        setSelectedRegionBenchmarkAreaId(undefined)
-      }}
-    />
+    <div className="min-w-0 space-y-6">
+      <AssetBenchmarksTable
+        assetRow={assetRow}
+        assetName={assetName}
+        assetPin={assetPin}
+        homeArea={homeArea}
+        zipArea={zipArea}
+        zipLabel={zipLabel}
+        zipKpis={zipKpis}
+        regionLabel={regionLabel}
+        regionKpis={regionKpis}
+        benchmarkOptions={benchmarkOptions}
+        onZipBenchmarkChange={setSelectedZipBenchmarkAreaId}
+        onRegionBenchmarkChange={setSelectedRegionBenchmarkAreaId}
+        showReset={columnsAltered}
+        onReset={() => {
+          setSelectedZipBenchmarkAreaId(undefined)
+          setSelectedRegionBenchmarkAreaId(undefined)
+        }}
+      />
+      {assetRow == null ? null : (
+        <AssetBenchmarkProjectionCharts
+          columns={[
+            { id: assetId, label: assetName, kpis: assetRow.kpis },
+            { id: zipArea?.id ?? "asset-zip", label: zipLabel, kpis: zipKpis },
+            { id: homeArea.id, label: regionLabel, kpis: regionKpis },
+          ]}
+        />
+      )}
+    </div>
   )
 }

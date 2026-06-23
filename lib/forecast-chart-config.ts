@@ -219,6 +219,41 @@ function buildStatementUncertaintyBand(row: ForecastStatementRow) {
   }
 }
 
+function lineOnlyVisualOffset(kind: ForecastStatementRow["kind"]) {
+  if (isPercentStatementKind(kind)) return 0.035
+  if (isRentPsfStatementKind(kind)) return 0.12
+  return 0.03
+}
+
+function seriesValuesMatch(a: number[], b: number[]) {
+  return (
+    a.length === b.length &&
+    a.every((value, index) => Math.abs(value - (b[index] ?? Number.NaN)) < 0.005)
+  )
+}
+
+function buildLineOnlyDisplayValues(
+  valuesByModel: number[][],
+  kind: ForecastStatementRow["kind"]
+) {
+  const offset = lineOnlyVisualOffset(kind)
+  return valuesByModel.map((values, index) => {
+    const matchingIndexes = valuesByModel
+      .map((candidate, candidateIndex) =>
+        seriesValuesMatch(candidate, values) ? candidateIndex : -1
+      )
+      .filter((candidateIndex) => candidateIndex >= 0)
+
+    if (matchingIndexes.length <= 1) return values
+
+    const matchPosition = matchingIndexes.indexOf(index)
+    const centeredOffset =
+      (matchPosition - (matchingIndexes.length - 1) / 2) * offset
+
+    return values.map((value) => Number((value + centeredOffset).toFixed(2)))
+  })
+}
+
 function formatChartTooltipValue(
   value: number,
   kind: ForecastStatementRow["kind"]
@@ -495,6 +530,7 @@ function buildScopedPortfolioFanForecastStatementConfig(
       enabled: true,
       align: "center",
       verticalAlign: "bottom",
+      layout: "horizontal",
       margin: 12,
       itemStyle: {
         color: palette.text,
@@ -579,7 +615,8 @@ function buildScopedPortfolioFanForecastStatementConfig(
 function buildMultiModelFanForecastStatementConfig(
   models: AssetForecastModel[],
   rowId: ForecastChartTab,
-  palette: ForecastChartPalette
+  palette: ForecastChartPalette,
+  options: { lineOnly?: boolean } = {}
 ): Highcharts.Options {
   const baseModel = models[0]
   const categories = baseModel?.periods.map((period) => period.label) ?? []
@@ -602,6 +639,9 @@ function buildMultiModelFanForecastStatementConfig(
       },
   }))
   const valuesByModel = rowsByModel.map(({ row }) => buildStatementChartValues(row))
+  const lineOnlyDisplayValuesByModel = options.lineOnly
+    ? buildLineOnlyDisplayValues(valuesByModel, rowKind)
+    : valuesByModel
   const rangeData: [number, number][] = categories.map((_, index) => {
     const values = valuesByModel.map((series) => series[index] ?? 0)
     return [Math.min(...values), Math.max(...values)]
@@ -624,13 +664,15 @@ function buildMultiModelFanForecastStatementConfig(
   const baselineValues = resolveFanBaselineValues(valuesByModel, rowsByModel)
 
   const series: Highcharts.SeriesOptionsType[] = [
-    ...buildBaselineCenteredFanArearangeSeries({
-      name: "Range",
-      baselineValues,
-      lowValues,
-      highValues,
-      color: rangeColor,
-    }),
+    ...(options.lineOnly
+      ? []
+      : buildBaselineCenteredFanArearangeSeries({
+          name: "Range",
+          baselineValues,
+          lowValues,
+          highValues,
+          color: rangeColor,
+        })),
     ...rowsByModel.map(({ model }, index) => {
       const isBaselineModel =
         model.scenario.id === "baseline" ||
@@ -640,10 +682,18 @@ function buildMultiModelFanForecastStatementConfig(
         ? baselineLineColor
         : comparisonLineColors[comparisonColorIndex++ % comparisonLineColors.length]!
 
+      const values = valuesByModel[index] ?? []
+      const displayValues = lineOnlyDisplayValuesByModel[index] ?? values
+
       return {
         type: "line",
         name: model.scenario.name,
-        data: valuesByModel[index],
+        data: options.lineOnly
+          ? displayValues.map((value, valueIndex) => ({
+              y: value,
+              custom: { actualY: values[valueIndex] ?? value },
+            }))
+          : values,
         color,
         lineWidth: isBaselineModel ? 2.5 : 2,
         zIndex: isBaselineModel ? 3 : 2,
@@ -710,7 +760,18 @@ function buildMultiModelFanForecastStatementConfig(
       enabled: true,
       align: "center",
       verticalAlign: "bottom",
+      layout: "horizontal",
       margin: 12,
+      title: options.lineOnly
+        ? {
+            text: "Key",
+            style: {
+              color: palette.mutedText,
+              fontSize: "11px",
+              fontWeight: "600",
+            },
+          }
+        : undefined,
       itemStyle: {
         color: palette.text,
         fontSize: "11px",
@@ -767,6 +828,34 @@ function buildMultiModelFanForecastStatementConfig(
           String(rawX ?? "")
 
         const lines = [`<b>${xLabel}</b>`]
+        if (options.lineOnly) {
+          const fallbackPoint = points[0] as
+            | (Highcharts.Point & { index?: number })
+            | undefined
+          const pointIndex =
+            typeof fallbackPoint?.index === "number"
+              ? fallbackPoint.index
+              : index
+
+          if (Number.isFinite(pointIndex)) {
+            rowsByModel.forEach(({ model }, modelIndex) => {
+              const actualY = valuesByModel[modelIndex]?.[pointIndex]
+              if (actualY == null) return
+              const hoveredPoint = points.find(
+                (point) => point.series.name === model.scenario.name
+              )
+              const seriesOptions = series[modelIndex] as
+                | Highcharts.SeriesLineOptions
+                | undefined
+              const color = hoveredPoint?.color ?? seriesOptions?.color ?? palette.text
+              lines.push(
+                `<span style="color:${color}">\u25cf</span> <b>${model.scenario.name}:</b> ${formatY(actualY)}`
+              )
+            })
+          }
+          return lines.join("<br/>")
+        }
+
         for (const point of points) {
           if (point.series.type === "arearange") {
             const rangePoint = point as Highcharts.Point & { low?: number; high?: number }
@@ -777,14 +866,20 @@ function buildMultiModelFanForecastStatementConfig(
               `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(low)} – ${formatY(high)}`
             )
           } else if (point.y != null) {
+            const pointOptions = point.options as
+              | { custom?: { actualY?: number } }
+              | undefined
+            const actualY = pointOptions?.custom?.actualY ?? Number(point.y)
             lines.push(
-              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(Number(point.y))}`
+              `<span style="color:${point.color}">\u25cf</span> <b>${point.series.name}:</b> ${formatY(actualY)}`
             )
           }
         }
-        lines.push(
-          `<span style="color:${palette.mutedText};font-size:11px;">Shaded band spans the lowest and highest selected lines by quarter.</span>`
-        )
+        if (!options.lineOnly) {
+          lines.push(
+            `<span style="color:${palette.mutedText};font-size:11px;">Shaded band spans the lowest and highest selected lines by quarter.</span>`
+          )
+        }
         return lines.join("<br/>")
       },
     },
@@ -794,14 +889,15 @@ function buildMultiModelFanForecastStatementConfig(
 export function buildForecastStatementHighchartsConfig(
   models: AssetForecastModel[],
   rowId: ForecastChartTab,
-  palette: ForecastChartPalette
+  palette: ForecastChartPalette,
+  options: { lineOnly?: boolean } = {}
 ): Highcharts.Options {
   if (isScopedPortfolioFanChartModels(models)) {
     return buildScopedPortfolioFanForecastStatementConfig(models, rowId, palette)
   }
 
   if (models.length > 1) {
-    return buildMultiModelFanForecastStatementConfig(models, rowId, palette)
+    return buildMultiModelFanForecastStatementConfig(models, rowId, palette, options)
   }
 
   const baseModel = models[0]

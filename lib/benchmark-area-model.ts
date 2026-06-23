@@ -154,6 +154,10 @@ function u01(seed: string): number {
   return marketSearchDemoHash32(seed) / 0xffff_ffff
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
 function syntheticScore(seed: string, base: number, spread: number): number {
   return Math.round(base + (u01(seed) - 0.5) * spread * 2)
 }
@@ -227,6 +231,59 @@ function benchmarkBuildingCatalog(
     .filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
   return [...portfolio, ...market]
+}
+
+function zipComparableSamples(
+  zipCode: string,
+  buildings: BenchmarkBuildingSample[]
+): BenchmarkBuildingSample[] {
+  return buildings.flatMap((building) =>
+    Array.from({ length: 4 }, (_, index): BenchmarkBuildingSample => {
+      const seed = `${zipCode}:${building.id}:zip-comp:${index}`
+      const sizeFactor = 0.72 + u01(`${seed}:size`) * 0.62
+      const occupancyDelta = (u01(`${seed}:occ`) - 0.5) * 10
+      const askingRentFactor = 0.94 + u01(`${seed}:ask`) * 0.14
+      const inPlaceRentFactor = 0.95 + u01(`${seed}:in-place`) * 0.12
+      const intrinsicRentFactor = 0.93 + u01(`${seed}:intrinsic`) * 0.16
+      const capRateDelta = (u01(`${seed}:cap`) - 0.5) * 0.7
+      const valueFactor = 0.9 + u01(`${seed}:value`) * 0.22
+      const rsfSqft = Math.max(25_000, Math.round(building.rsfSqft * sizeFactor))
+      const occupancyPct = clamp(
+        (building.rsfSqft > 0 ? building.occupiedSqft / building.rsfSqft : 0) *
+          100 +
+          occupancyDelta,
+        55,
+        98
+      )
+
+      return {
+        ...building,
+        id: `${building.id}-zip-comp-${index}`,
+        longitude: building.longitude + (u01(`${seed}:lng`) - 0.5) * 0.018,
+        latitude: building.latitude + (u01(`${seed}:lat`) - 0.5) * 0.018,
+        rsfSqft,
+        occupiedSqft: Math.round((rsfSqft * occupancyPct) / 100),
+        askingRentPsf: building.askingRentPsf * askingRentFactor,
+        inPlaceRentPsf: building.inPlaceRentPsf * inPlaceRentFactor,
+        intrinsicRentPsf: building.intrinsicRentPsf * intrinsicRentFactor,
+        intrinsicCapRatePct: clamp(building.intrinsicCapRatePct + capRateDelta, 4.5, 9),
+        valuePerSfUsd: building.valuePerSfUsd * valueFactor,
+        sunScore: clamp(syntheticScore(`${seed}:sun`, building.sunScore, 7), 0, 100),
+        viewScore: clamp(syntheticScore(`${seed}:view`, building.viewScore, 7), 0, 100),
+        amenityQuality: clamp(
+          syntheticScore(`${seed}:amenity`, building.amenityQuality, 8),
+          0,
+          100
+        ),
+        accessibilityScore: clamp(
+          syntheticScore(`${seed}:access`, building.accessibilityScore, 8),
+          0,
+          100
+        ),
+        isFullParticipant: true,
+      }
+    })
+  )
 }
 
 function isInBounds(
@@ -542,7 +599,10 @@ export function benchmarkZipCodeSnapshot(
     })
     .filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
-  const raw = statsRawFromBuildings(buildings)
+  const raw = statsRawFromBuildings([
+    ...buildings,
+    ...zipComparableSamples(normalizedZip, buildings),
+  ])
   if (raw == null) return emptyBenchmarkSnapshot(areaLabel)
   return benchmarkSnapshotFromRaw(areaLabel, raw)
 }
