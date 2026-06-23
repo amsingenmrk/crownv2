@@ -1,13 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Check, Pencil, RotateCcw } from "lucide-react"
+import { Check, Pencil } from "lucide-react"
 
 import {
   BenchmarkHeaderMapLink,
   BenchmarkHeaderMapPreview,
 } from "@/components/benchmark-header-map-link"
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -22,10 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import {
   BENCHMARK_KPI_DEFINITIONS,
   type BenchmarkBuildingTableRow,
+  type BenchmarkKpiDisplayValue,
   type BenchmarkKpiDefinition,
   type BenchmarkKpiKey,
 } from "@/lib/benchmark-area-model"
@@ -36,19 +37,15 @@ import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
 
 const VALUE_COL_MIN_PX = 140
-const HEADER_MAP_PLACEHOLDER_CLASS =
-  "h-[12.75rem] w-full rounded-md border border-border/80 bg-muted/25"
-
-export type AssetBenchmarkOption = {
-  id: string
-  label: string
-}
+const HEADER_MAP_FIXED_HEIGHT_CLASS = "h-[12.75rem]"
 
 const gridRowStyle = {
   gridColumn: "1 / -1",
   gridTemplateColumns: "subgrid",
   columnGap: "0.75rem",
 } as const
+
+export type BenchmarkComparisonOption = { id: string; label: string }
 
 function scoreCellClass(
   definition: BenchmarkKpiDefinition,
@@ -60,24 +57,46 @@ function scoreCellClass(
   return qualityScoreValueClass(n)
 }
 
-function BenchmarkColumnSelect({
+function percentileBadge(
+  percentile: number | null | undefined
+): { label: string; toneClassName: string } | null {
+  if (percentile == null || !Number.isFinite(percentile)) return null
+  const rounded = Math.round(percentile)
+  const clamped = Math.max(0, Math.min(100, rounded))
+  const suffix =
+    rounded % 10 === 1 && rounded % 100 !== 11
+      ? "st"
+      : rounded % 10 === 2 && rounded % 100 !== 12
+        ? "nd"
+        : rounded % 10 === 3 && rounded % 100 !== 13
+          ? "rd"
+          : "th"
+
+  return {
+    label: `${rounded}${suffix} percentile`,
+    toneClassName: qualityScoreValueClass(clamped),
+  }
+}
+
+function BenchmarkColumnPencilPicker({
   value,
   options,
   onValueChange,
   ariaLabel,
 }: {
   value: string
-  options: AssetBenchmarkOption[]
+  options: BenchmarkComparisonOption[]
   onValueChange: (value: string) => void
   ariaLabel: string
 }) {
   const [open, setOpen] = React.useState(false)
   const selectedLabel =
     options.find((option) => option.id === value)?.label ?? "Select benchmark"
+  const disabled = options.length === 0
 
   return (
     <>
-      <div className="flex h-7 min-w-0 items-center gap-1.5">
+      <div className="flex h-7 min-w-0 w-full items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">
           {selectedLabel}
         </span>
@@ -89,6 +108,7 @@ function BenchmarkColumnSelect({
           aria-label={ariaLabel}
           aria-haspopup="dialog"
           aria-expanded={open}
+          disabled={disabled}
           onClick={() => setOpen(true)}
         >
           <Pencil className="size-3.5" aria-hidden />
@@ -103,7 +123,7 @@ function BenchmarkColumnSelect({
             <DialogTitle>Select benchmark</DialogTitle>
           </DialogHeader>
           <Command className="rounded-none border-0 shadow-none">
-            <CommandInput placeholder="Search benchmark…" />
+            <CommandInput placeholder="Search benchmark..." />
             <CommandList>
               <CommandEmpty>No benchmark found.</CommandEmpty>
               <CommandGroup heading="Benchmarks">
@@ -135,53 +155,83 @@ function BenchmarkColumnSelect({
   )
 }
 
-function HeaderTitleRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-7 min-w-0 items-center">{children}</div>
-}
-
-function HeaderColumnFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_1.75rem] gap-1.5">
-      {children}
-    </div>
-  )
-}
-
 export function AssetBenchmarksTable({
   assetRow,
   assetName,
   assetPin,
-  homeArea,
-  zipArea,
-  zipLabel,
-  zipKpis,
-  regionLabel,
-  regionKpis,
-  benchmarkOptions,
-  onZipBenchmarkChange,
-  onRegionBenchmarkChange,
-  showReset = false,
-  onReset,
+  lowArea,
+  lowLabel,
+  lowKpis,
+  lowPercentiles,
+  marketArea,
+  marketLabel,
+  marketKpis,
+  marketPercentiles,
+  comparisonOptions,
+  lowSelectionId,
+  onLowSelectionChange,
+  marketSelectionId,
+  onMarketSelectionChange,
   className,
 }: {
   assetRow: BenchmarkBuildingTableRow | null
   assetName: string
   assetPin: { longitude: number; latitude: number } | null
-  homeArea: BenchmarkArea
-  zipArea: BenchmarkArea | null
-  zipLabel: string
-  zipKpis: Record<BenchmarkKpiKey, string>
-  regionLabel: string
-  regionKpis: Record<BenchmarkKpiKey, string>
-  benchmarkOptions: AssetBenchmarkOption[]
-  onZipBenchmarkChange: (areaId: string) => void
-  onRegionBenchmarkChange: (areaId: string) => void
-  showReset?: boolean
-  onReset?: () => void
+  lowArea: BenchmarkArea
+  lowLabel: string
+  lowKpis: Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
+  lowPercentiles: Record<BenchmarkKpiKey, number | null>
+  marketArea: BenchmarkArea
+  marketLabel: string
+  marketKpis: Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
+  marketPercentiles: Record<BenchmarkKpiKey, number | null>
+  comparisonOptions: BenchmarkComparisonOption[]
+  lowSelectionId: string
+  onLowSelectionChange: (id: string) => void
+  marketSelectionId: string
+  onMarketSelectionChange: (id: string) => void
   className?: string
 }) {
   const gridTemplateColumns = `${COMPARE_ROW_LABEL_COL_PX}px minmax(${VALUE_COL_MIN_PX}px, 1fr) minmax(${VALUE_COL_MIN_PX}px, 1fr) minmax(${VALUE_COL_MIN_PX}px, 1fr)`
   const tableMinWidth = COMPARE_ROW_LABEL_COL_PX + VALUE_COL_MIN_PX * 3
+  const pickerOptions = React.useMemo(() => {
+    const items = [...comparisonOptions]
+    const seen = new Set(items.map((option) => option.id))
+    if (!seen.has(lowSelectionId)) {
+      items.push({ id: lowSelectionId, label: lowLabel })
+      seen.add(lowSelectionId)
+    }
+    if (!seen.has(marketSelectionId)) {
+      items.push({ id: marketSelectionId, label: marketLabel })
+    }
+    return items
+  }, [
+    comparisonOptions,
+    lowLabel,
+    lowSelectionId,
+    marketLabel,
+    marketSelectionId,
+  ])
+  const definitions = BENCHMARK_KPI_DEFINITIONS.filter(
+    (definition) => definition.key !== "observedCapRate"
+  )
+  const groupedDefinitions = [
+    {
+      id: "fundamentals" as const,
+      title: "Fundamentals",
+      definitions: definitions.filter((definition) => definition.section === "fundamentals"),
+    },
+    {
+      id: "rents" as const,
+      title: "Rents",
+      definitions: definitions.filter((definition) => definition.section === "rents"),
+    },
+    {
+      id: "scores" as const,
+      title: "Scores",
+      definitions: definitions.filter((definition) => definition.section === "scores"),
+    },
+  ].filter((group) => group.definitions.length > 0)
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -198,76 +248,68 @@ export function AssetBenchmarksTable({
               className="grid items-start border-b border-border bg-muted/50 hover:bg-muted/50"
               style={gridRowStyle}
             >
-              <TableHead className="h-auto self-stretch border-0 px-2 py-2 text-left font-medium text-foreground">
-                {showReset ? (
-                  <div className="flex h-full items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={onReset}
-                    >
-                      <RotateCcw className="size-3.5" aria-hidden />
-                      Reset
-                    </Button>
-                  </div>
-                ) : null}
+              <TableHead className="h-auto border-0 px-2 py-2 text-left font-medium text-foreground">
+                {/* KPI label column — empty header like compare */}
               </TableHead>
-              <TableHead className="flex h-auto min-w-0 flex-col border-0 px-2 py-2 text-left font-normal">
-                <HeaderColumnFrame>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                <div className="grid grid-rows-[auto_1.75rem] gap-1.5">
                   {assetPin ? (
                     <BenchmarkHeaderMapPreview
                       label={assetName}
                       pin={assetPin}
                       showLabel={false}
+                      mapHeightClassName={HEADER_MAP_FIXED_HEIGHT_CLASS}
                     />
                   ) : (
-                    <div className={HEADER_MAP_PLACEHOLDER_CLASS} />
-                  )}
-                  <HeaderTitleRow>
-                    <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                      {assetName}
-                    </span>
-                  </HeaderTitleRow>
-                </HeaderColumnFrame>
-              </TableHead>
-              <TableHead className="flex h-auto min-w-0 flex-col border-0 px-2 py-2 text-left font-normal">
-                <HeaderColumnFrame>
-                  {zipArea ? (
-                    <BenchmarkHeaderMapLink
-                      href={benchmarksPageHref(zipArea.id)}
-                      label={zipLabel}
-                      area={zipArea}
-                      pin={assetPin ?? undefined}
-                      showLabel={false}
+                    <div
+                      className={cn(
+                        "relative w-full rounded-md border border-border/80 bg-muted/25",
+                        HEADER_MAP_FIXED_HEIGHT_CLASS
+                      )}
                     />
-                  ) : (
-                    <div className={HEADER_MAP_PLACEHOLDER_CLASS} />
                   )}
-                  <BenchmarkColumnSelect
-                    value={zipArea?.id ?? ""}
-                    options={benchmarkOptions}
-                    onValueChange={onZipBenchmarkChange}
-                    ariaLabel="Select second benchmark column"
-                  />
-                </HeaderColumnFrame>
+                  <div className="flex h-7 items-center">
+                    <span className="truncate font-medium text-foreground">{assetName}</span>
+                  </div>
+                </div>
               </TableHead>
-              <TableHead className="flex h-auto min-w-0 flex-col border-0 px-2 py-2 text-left font-normal">
-                <HeaderColumnFrame>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                <div className="grid grid-rows-[auto_1.75rem] gap-1.5">
                   <BenchmarkHeaderMapLink
-                    href={benchmarksPageHref(homeArea.id)}
-                    label={regionLabel}
-                    area={homeArea}
-                    pin={assetPin ?? undefined}
-                    showLabel={false}
+                    href={benchmarksPageHref(lowArea.id)}
+                    label={lowLabel}
+                    area={lowArea}
+                    hideLabel
+                    mapHeightClassName={HEADER_MAP_FIXED_HEIGHT_CLASS}
                   />
-                  <BenchmarkColumnSelect
-                    value={homeArea.id}
-                    options={benchmarkOptions}
-                    onValueChange={onRegionBenchmarkChange}
-                    ariaLabel="Select third benchmark column"
+                  <div className="flex h-7 w-full items-center">
+                    <BenchmarkColumnPencilPicker
+                      value={lowSelectionId}
+                      options={pickerOptions}
+                      onValueChange={onLowSelectionChange}
+                      ariaLabel="Select left benchmark column"
+                    />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
+                <div className="grid grid-rows-[auto_1.75rem] gap-1.5">
+                  <BenchmarkHeaderMapLink
+                    href={benchmarksPageHref(marketArea.id)}
+                    label={marketLabel}
+                    area={marketArea}
+                    hideLabel
+                    mapHeightClassName={HEADER_MAP_FIXED_HEIGHT_CLASS}
                   />
-                </HeaderColumnFrame>
+                  <div className="flex h-7 w-full items-center">
+                    <BenchmarkColumnPencilPicker
+                      value={marketSelectionId}
+                      options={pickerOptions}
+                      onValueChange={onMarketSelectionChange}
+                      ariaLabel="Select right benchmark column"
+                    />
+                  </div>
+                </div>
               </TableHead>
             </TableRow>
 
@@ -284,49 +326,123 @@ export function AssetBenchmarksTable({
                 </TableCell>
               </TableRow>
             ) : (
-              BENCHMARK_KPI_DEFINITIONS.map((definition) => {
-                const assetValue = assetRow.kpis[definition.key]
-                const zipValue = zipKpis[definition.key] ?? "—"
-                const regionValue = regionKpis[definition.key] ?? "—"
-                const assetValueClass = scoreCellClass(definition, assetValue)
-                const zipValueClass = scoreCellClass(definition, zipValue)
-                const regionValueClass = scoreCellClass(definition, regionValue)
-
-                return (
+              groupedDefinitions.flatMap((group, groupIndex) => {
+                const sectionHeaderRow = (
                   <TableRow
-                    key={definition.key}
-                    className="grid items-center border-b border-border hover:bg-muted/50"
+                    key={`section-${group.id}`}
+                    className="grid items-center hover:bg-transparent"
                     style={gridRowStyle}
                   >
-                    <TableCell className="min-w-0 border-0 px-2 py-2 text-left align-middle font-medium">
-                      {definition.label}
-                    </TableCell>
                     <TableCell
+                      style={{ gridColumn: "1 / -1" }}
                       className={cn(
-                        "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
-                        assetValueClass ?? "text-foreground"
+                        "border-0 px-2 pb-1 pt-3 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground",
+                        groupIndex > 0 && "border-t border-border/60"
                       )}
                     >
-                      {assetValue}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
-                        zipValueClass ?? "text-foreground"
-                      )}
-                    >
-                      {zipValue}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
-                        regionValueClass ?? "text-foreground"
-                      )}
-                    >
-                      {regionValue}
+                      {group.title}
                     </TableCell>
                   </TableRow>
                 )
+
+                const kpiRows = group.definitions.map((definition) => {
+                  const emptyValue: BenchmarkKpiDisplayValue = { value: "—" }
+                  const assetValue = assetRow.kpis[definition.key] ?? emptyValue
+                  const lowValue = lowKpis[definition.key] ?? emptyValue
+                  const marketValue = marketKpis[definition.key] ?? emptyValue
+                  const lowPercentile = percentileBadge(lowPercentiles[definition.key])
+                  const marketPercentile = percentileBadge(
+                    marketPercentiles[definition.key]
+                  )
+                  const assetValueClass = scoreCellClass(definition, assetValue.value)
+                  const lowValueClass = scoreCellClass(definition, lowValue.value)
+                  const marketValueClass = scoreCellClass(definition, marketValue.value)
+                  const showAssetRange =
+                    definition.key !== "occupancy" && assetValue.supportingRange != null
+
+                  return (
+                    <TableRow
+                      key={definition.key}
+                      className="grid items-center border-b border-border hover:bg-muted/50"
+                      style={gridRowStyle}
+                    >
+                      <TableCell className="min-w-0 border-0 px-2 py-2 text-left align-middle font-medium">
+                        {definition.label}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
+                          assetValueClass ?? "text-foreground"
+                        )}
+                      >
+                        <div>
+                          <div>{assetValue.value}</div>
+                          {showAssetRange ? (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              ({assetValue.supportingRange})
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
+                          lowValueClass ?? "text-foreground"
+                        )}
+                      >
+                        <div>
+                          <div className="inline-flex items-center gap-1.5">
+                            <span>{lowValue.value}</span>
+                            {lowPercentile ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium",
+                                  lowPercentile.toneClassName
+                                )}
+                              >
+                                <span className="tabular-nums">{lowPercentile.label}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                          {lowValue.supportingRange ? (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              ({lowValue.supportingRange})
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "min-w-0 border-0 px-2 py-2 text-left align-middle text-sm tabular-nums",
+                          marketValueClass ?? "text-foreground"
+                        )}
+                      >
+                        <div>
+                          <div className="inline-flex items-center gap-1.5">
+                            <span>{marketValue.value}</span>
+                            {marketPercentile ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium",
+                                  marketPercentile.toneClassName
+                                )}
+                              >
+                                <span className="tabular-nums">{marketPercentile.label}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                          {marketValue.supportingRange ? (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              ({marketValue.supportingRange})
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+
+                return [sectionHeaderRow, ...kpiRows]
               })
             )}
           </TableBody>

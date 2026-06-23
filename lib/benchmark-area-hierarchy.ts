@@ -286,6 +286,79 @@ const CURATED_MARKET_PRESETS: readonly BenchmarkMarketPreset[] = [
     isCurated: true,
   },
   {
+    id: "market-atlanta",
+    label: "Atlanta",
+    geocodeQuery: "Atlanta, GA",
+    bounds: [
+      [-84.65, 33.55],
+      [-84.2, 33.95],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+  },
+  {
+    id: "market-dallas",
+    label: "Dallas",
+    geocodeQuery: "Dallas, TX",
+    bounds: [
+      [-97.05, 32.6],
+      [-96.55, 33.05],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+  },
+  {
+    id: "market-austin",
+    label: "Austin",
+    geocodeQuery: "Austin, TX",
+    bounds: [
+      [-97.95, 30.05],
+      [-97.55, 30.45],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+  },
+  {
+    id: "market-denver",
+    label: "Denver",
+    geocodeQuery: "Denver, CO",
+    bounds: [
+      [-105.2, 39.6],
+      [-104.75, 39.9],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+  },
+  {
+    id: "market-nashville",
+    label: "Nashville",
+    geocodeQuery: "Nashville, TN",
+    bounds: [
+      [-86.95, 36.0],
+      [-86.55, 36.3],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+  },
+  {
+    id: "market-san-francisco",
+    label: "San Francisco",
+    geocodeQuery: "San Francisco, CA",
+    bounds: [
+      [-122.55, 37.68],
+      [-122.33, 37.84],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+    aliases: ["sf"],
+  },
+  {
     id: "market-san-jose",
     label: "San Jose",
     geocodeQuery: "San Jose, CA",
@@ -332,6 +405,19 @@ const CURATED_MARKET_PRESETS: readonly BenchmarkMarketPreset[] = [
     level: "market",
     parentId: BENCHMARK_ROOT_AREA.id,
     isCurated: true,
+  },
+  {
+    id: "market-boston",
+    label: "Boston",
+    geocodeQuery: "Boston, MA",
+    bounds: [
+      [-71.2, 42.2],
+      [-70.95, 42.45],
+    ],
+    level: "market",
+    parentId: BENCHMARK_ROOT_AREA.id,
+    isCurated: true,
+    aliases: ["greater boston"],
   },
   {
     id: "market-new-york",
@@ -386,6 +472,26 @@ function distanceSquared(
   const dx = point[0] - target[0]
   const dy = point[1] - target[1]
   return dx * dx + dy * dy
+}
+
+function bestContainingAreaForPoint(
+  areas: readonly BenchmarkArea[],
+  point: readonly [number, number]
+): BenchmarkArea | null {
+  const containing = areas.filter((area) => pointInBounds(point, area.bounds))
+  if (containing.length === 0) return null
+
+  let best = containing[0]!
+  let bestDistance = distanceSquared(point, boundsCenter(best.bounds))
+  for (let index = 1; index < containing.length; index += 1) {
+    const candidate = containing[index]!
+    const distance = distanceSquared(point, boundsCenter(candidate.bounds))
+    if (distance < bestDistance) {
+      best = candidate
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 function marketById(marketId: string): BenchmarkArea | null {
@@ -644,7 +750,7 @@ function closestChildForPoint(
   const children = listBenchmarkAreaChildren(parent)
   if (children.length === 0) return null
 
-  const containing = children.find((child) => pointInBounds(point, child.bounds))
+  const containing = bestContainingAreaForPoint(children, point)
   if (containing) return containing
 
   let closest: BenchmarkArea | null = null
@@ -696,7 +802,7 @@ export function bestBenchmarkAreaForPoint(
   point: readonly [number, number]
 ): BenchmarkArea | null {
   if (areas.length === 0) return null
-  const containing = areas.find((area) => pointInBounds(point, area.bounds))
+  const containing = bestContainingAreaForPoint(areas, point)
   if (containing) return containing
 
   let best: BenchmarkArea | null = null

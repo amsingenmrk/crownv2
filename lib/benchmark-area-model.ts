@@ -1,6 +1,5 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-asset"
-import { getBenchmarkAreaParent } from "@/lib/benchmark-area-hierarchy"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -20,6 +19,7 @@ export type BenchmarkKpiKey =
   | "askingRent"
   | "inPlaceRent"
   | "occupancy"
+  | "observedCapRate"
   | "intrinsicRent"
   | "intrinsicCapRate"
   | "valuePerSf"
@@ -63,11 +63,19 @@ export const BENCHMARK_KPI_DEFINITIONS: readonly BenchmarkKpiDefinition[] = [
   },
   {
     key: "intrinsicRent",
-    label: "Intrinsic",
+    label: "Predicted",
     methodology:
       "Model-derived rent for full participants only; recency tied to the last training run.",
     format: "rentPsf",
     section: "rents",
+  },
+  {
+    key: "observedCapRate",
+    label: "Observed cap rate",
+    methodology:
+      "Observed cap rate benchmark from market participants in view, refreshed with benchmark data updates.",
+    format: "percent",
+    section: "fundamentals",
   },
   {
     key: "intrinsicCapRate",
@@ -122,7 +130,13 @@ export const BENCHMARK_KPI_DEFINITIONS: readonly BenchmarkKpiDefinition[] = [
 export type BenchmarkKpiValue = {
   key: BenchmarkKpiKey
   value: string
+  supportingRange?: string
   participantNote?: string
+}
+
+export type BenchmarkKpiDisplayValue = {
+  value: string
+  supportingRange?: string
 }
 
 export type BenchmarkAreaSnapshot = {
@@ -141,6 +155,7 @@ type BenchmarkBuildingSample = {
   askingRentPsf: number
   inPlaceRentPsf: number
   intrinsicRentPsf: number
+  observedCapRatePct: number
   intrinsicCapRatePct: number
   valuePerSfUsd: number
   sunScore: number
@@ -200,6 +215,7 @@ function buildBenchmarkBuildingSample(
     askingRentPsf: fin.marketRentPsf,
     inPlaceRentPsf: fin.inPlaceRentPsf,
     intrinsicRentPsf: fin.predictedRentPsf,
+    observedCapRatePct: fin.capRatePct,
     intrinsicCapRatePct: fin.capRatePct,
     valuePerSfUsd: fin.pricePerSfN,
     sunScore: getWeightedTenantScore(id, "sunScore"),
@@ -227,6 +243,17 @@ function benchmarkBuildingCatalog(
     .filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
   return [...portfolio, ...market]
+}
+
+function benchmarkAreaPeerCount(area: BenchmarkArea): number {
+  return benchmarkAreaStats(area)?.buildingCount ?? 0
+}
+
+export function benchmarkAreaHasSufficientCoverage(
+  area: BenchmarkArea,
+  minimumPeers = 2
+): boolean {
+  return benchmarkAreaPeerCount(area) >= minimumPeers
 }
 
 function isInBounds(
@@ -263,6 +290,82 @@ function formatScore(value: number | null): string {
   return String(Math.round(value))
 }
 
+function rangeBounds(
+  value: number,
+  spread: number,
+  {
+    min = 0,
+    max,
+  }: {
+    min?: number
+    max?: number
+  } = {}
+): [number, number] {
+  const lower = Math.max(min, value - spread)
+  const upperRaw = value + spread
+  const upper = max == null ? upperRaw : Math.min(max, upperRaw)
+  return [lower, upper]
+}
+
+function formatRentRange(value: number, spread: number): string {
+  const [lower, upper] = rangeBounds(value, spread)
+  return `${formatRentPsf(lower)} - ${formatRentPsf(upper)}`
+}
+
+function formatValuePsfRange(value: number, spread: number): string {
+  const [lower, upper] = rangeBounds(value, spread)
+  return `${formatValuePsf(lower)} - ${formatValuePsf(upper)}`
+}
+
+function formatPercentRange(
+  value: number,
+  spread: number,
+  options?: {
+    min?: number
+    max?: number
+  }
+): string {
+  const [lower, upper] = rangeBounds(value, spread, options)
+  return `${lower.toFixed(1)}% - ${upper.toFixed(1)}%`
+}
+
+function formatScoreRange(value: number, spread: number): string {
+  const [lower, upper] = rangeBounds(value, spread, { min: 0, max: 100 })
+  return `${Math.round(lower)} - ${Math.round(upper)}`
+}
+
+function supportingRangeForKpi(
+  key: BenchmarkKpiKey,
+  raw: BenchmarkStatsRaw
+): string | undefined {
+  switch (key) {
+    case "askingRent":
+      return formatRentRange(raw.askingRentPsf, 1.75)
+    case "inPlaceRent":
+      return formatRentRange(raw.inPlaceRentPsf, 1.5)
+    case "occupancy":
+      return formatPercentRange(raw.occupancyPct, 1.8, { min: 0, max: 100 })
+    case "intrinsicRent":
+      return formatRentRange(raw.intrinsicRentPsf, 2.25)
+    case "observedCapRate":
+      return formatPercentRange(raw.observedCapRatePct, 0.25, { min: 0 })
+    case "intrinsicCapRate":
+      return formatPercentRange(raw.intrinsicCapRatePct, 0.35, { min: 0 })
+    case "valuePerSf":
+      return formatValuePsfRange(raw.valuePerSfUsd, 60)
+    case "sunScore":
+      return formatScoreRange(raw.sunScore, 4)
+    case "viewScore":
+      return formatScoreRange(raw.viewScore, 4)
+    case "amenityQuality":
+      return formatScoreRange(raw.amenityQuality, 5)
+    case "accessibilityScore":
+      return formatScoreRange(raw.accessibilityScore, 4)
+    default:
+      return undefined
+  }
+}
+
 function participantNote(
   count: number,
   total: number,
@@ -280,6 +383,7 @@ export type BenchmarkStatsRaw = {
   inPlaceRentPsf: number
   occupancyPct: number
   intrinsicRentPsf: number
+  observedCapRatePct: number
   intrinsicCapRatePct: number
   valuePerSfUsd: number
   sunScore: number
@@ -341,6 +445,12 @@ function statsRawFromBuildings(
       value: building.intrinsicCapRatePct,
     }))
   )
+  const observedCapRatePct = weightedAverage(
+    buildings.map((building) => ({
+      weight: building.rsfSqft,
+      value: building.observedCapRatePct,
+    }))
+  )
   const valuePerSfUsd = weightedAverage(
     fullParticipants.map((building) => ({
       weight: building.rsfSqft,
@@ -377,6 +487,7 @@ function statsRawFromBuildings(
     inPlaceRentPsf: inPlaceRentPsf ?? askingRentPsf ?? 0,
     occupancyPct: occupancyPct ?? 0,
     intrinsicRentPsf: intrinsicRentPsf ?? askingRentPsf ?? inPlaceRentPsf ?? 0,
+    observedCapRatePct: observedCapRatePct ?? intrinsicCapRatePct ?? 0,
     intrinsicCapRatePct: intrinsicCapRatePct ?? 0,
     valuePerSfUsd: valuePerSfUsd ?? 0,
     sunScore: sunScore ?? 0,
@@ -411,46 +522,61 @@ export function benchmarkSnapshotFromRaw(
     askingRent: {
       key: "askingRent",
       value: formatRentPsf(raw.askingRentPsf),
+      supportingRange: supportingRangeForKpi("askingRent", raw),
     },
     inPlaceRent: {
       key: "inPlaceRent",
       value: formatRentPsf(raw.inPlaceRentPsf),
+      supportingRange: supportingRangeForKpi("inPlaceRent", raw),
     },
     occupancy: {
       key: "occupancy",
       value: formatPercent(raw.occupancyPct),
+      supportingRange: supportingRangeForKpi("occupancy", raw),
+    },
+    observedCapRate: {
+      key: "observedCapRate",
+      value: formatPercent(raw.observedCapRatePct),
+      supportingRange: supportingRangeForKpi("observedCapRate", raw),
     },
     intrinsicRent: {
       key: "intrinsicRent",
       value: formatRentPsf(raw.intrinsicRentPsf),
+      supportingRange: supportingRangeForKpi("intrinsicRent", raw),
       participantNote: participantNote(fullCount, total, "full participants"),
     },
     intrinsicCapRate: {
       key: "intrinsicCapRate",
       value: formatPercent(raw.intrinsicCapRatePct),
+      supportingRange: supportingRangeForKpi("intrinsicCapRate", raw),
       participantNote: participantNote(fullCount, total, "full participants"),
     },
     valuePerSf: {
       key: "valuePerSf",
       value: formatValuePsf(raw.valuePerSfUsd),
+      supportingRange: supportingRangeForKpi("valuePerSf", raw),
       participantNote: participantNote(fullCount, total, "full participants"),
     },
     sunScore: {
       key: "sunScore",
       value: formatScore(raw.sunScore),
+      supportingRange: supportingRangeForKpi("sunScore", raw),
     },
     viewScore: {
       key: "viewScore",
       value: formatScore(raw.viewScore),
+      supportingRange: supportingRangeForKpi("viewScore", raw),
     },
     amenityQuality: {
       key: "amenityQuality",
       value: formatScore(raw.amenityQuality),
+      supportingRange: supportingRangeForKpi("amenityQuality", raw),
       participantNote: participantNote(fullCount, total, "full participants"),
     },
     accessibilityScore: {
       key: "accessibilityScore",
       value: formatScore(raw.accessibilityScore),
+      supportingRange: supportingRangeForKpi("accessibilityScore", raw),
     },
   }
 
@@ -473,6 +599,7 @@ export function benchmarkAreaStats(
       inPlaceRentPsf: tracked.inPlaceRentPsf,
       occupancyPct: tracked.occupancyPct,
       intrinsicRentPsf: tracked.intrinsicRentPsf,
+      observedCapRatePct: tracked.observedCapRatePct,
       intrinsicCapRatePct: tracked.intrinsicCapRatePct,
       valuePerSfUsd: tracked.valuePerSfUsd,
       sunScore: tracked.sunScore,
@@ -485,19 +612,6 @@ export function benchmarkAreaStats(
       coverageAreaLabel: area.label,
     }
   }
-
-  const parentArea = getBenchmarkAreaParent(area)
-  if (parentArea) {
-    const fallback = benchmarkAreaStats(parentArea)
-    if (fallback) {
-      return {
-        ...fallback,
-        coverageAreaId: fallback.coverageAreaId ?? parentArea.id,
-        coverageAreaLabel: fallback.coverageAreaLabel ?? parentArea.label,
-      }
-    }
-  }
-
   return null
 }
 
@@ -583,9 +697,11 @@ export type BenchmarkBuildingTableRow = {
   id: string
   buildingName: string
   regionLabel: string
-  kpis: Record<BenchmarkKpiKey, string>
+  kpis: Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
   isFullParticipant: boolean
 }
+
+export type BenchmarkKpiPercentileByKey = Record<BenchmarkKpiKey, number | null>
 
 function benchmarkBuildingDisplayName(id: string): string {
   const asset = getAssetById(id)
@@ -597,32 +713,228 @@ function benchmarkBuildingDisplayName(id: string): string {
 
 function benchmarkKpisForBuilding(
   sample: BenchmarkBuildingSample
-): Record<BenchmarkKpiKey, string> {
+): Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue> {
   const occupancyPct =
     sample.rsfSqft > 0
       ? (sample.occupiedSqft / sample.rsfSqft) * 100
       : null
 
   return {
-    askingRent: formatRentPsf(sample.askingRentPsf),
-    inPlaceRent: formatRentPsf(sample.inPlaceRentPsf),
-    occupancy: formatPercent(occupancyPct),
+    askingRent: {
+      value: formatRentPsf(sample.askingRentPsf),
+      supportingRange: formatRentRange(sample.askingRentPsf, 1.75),
+    },
+    inPlaceRent: {
+      value: formatRentPsf(sample.inPlaceRentPsf),
+      supportingRange: formatRentRange(sample.inPlaceRentPsf, 1.5),
+    },
+    occupancy: {
+      value: formatPercent(occupancyPct),
+      supportingRange:
+        occupancyPct == null
+          ? undefined
+          : formatPercentRange(occupancyPct, 1.8, { min: 0, max: 100 }),
+    },
+    observedCapRate: {
+      value: formatPercent(sample.observedCapRatePct),
+      supportingRange: formatPercentRange(sample.observedCapRatePct, 0.25, {
+        min: 0,
+      }),
+    },
     intrinsicRent: sample.isFullParticipant
-      ? formatRentPsf(sample.intrinsicRentPsf)
-      : "—",
+      ? {
+          value: formatRentPsf(sample.intrinsicRentPsf),
+          supportingRange: formatRentRange(sample.intrinsicRentPsf, 2.25),
+        }
+      : { value: "—" },
     intrinsicCapRate: sample.isFullParticipant
-      ? formatPercent(sample.intrinsicCapRatePct)
-      : "—",
+      ? {
+          value: formatPercent(sample.intrinsicCapRatePct),
+          supportingRange: formatPercentRange(sample.intrinsicCapRatePct, 0.35, {
+            min: 0,
+          }),
+        }
+      : { value: "—" },
     valuePerSf: sample.isFullParticipant
-      ? formatValuePsf(sample.valuePerSfUsd)
-      : "—",
-    sunScore: formatScore(sample.sunScore),
-    viewScore: formatScore(sample.viewScore),
+      ? {
+          value: formatValuePsf(sample.valuePerSfUsd),
+          supportingRange: formatValuePsfRange(sample.valuePerSfUsd, 60),
+        }
+      : { value: "—" },
+    sunScore: {
+      value: formatScore(sample.sunScore),
+      supportingRange: formatScoreRange(sample.sunScore, 4),
+    },
+    viewScore: {
+      value: formatScore(sample.viewScore),
+      supportingRange: formatScoreRange(sample.viewScore, 4),
+    },
     amenityQuality: sample.isFullParticipant
-      ? formatScore(sample.amenityQuality)
-      : "—",
-    accessibilityScore: formatScore(sample.accessibilityScore),
+      ? {
+          value: formatScore(sample.amenityQuality),
+          supportingRange: formatScoreRange(sample.amenityQuality, 5),
+        }
+      : { value: "—" },
+    accessibilityScore: {
+      value: formatScore(sample.accessibilityScore),
+      supportingRange: formatScoreRange(sample.accessibilityScore, 4),
+    },
   }
+}
+
+function benchmarkSampleForAssetId(
+  assetId: string,
+  coordinates: Record<string, readonly [number, number]>
+): BenchmarkBuildingSample | null {
+  const asset = getAssetById(assetId)
+  if (asset) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      asset.id,
+      asset.groupId,
+      coordinates
+    )
+    return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
+  }
+
+  const pin = getMarketListingPinById(assetId)
+  if (pin) {
+    return buildBenchmarkBuildingSample(
+      pin.id,
+      pin.longitude,
+      pin.latitude
+    )
+  }
+
+  return null
+}
+
+function benchmarkKpiNumericValue(
+  sample: BenchmarkBuildingSample,
+  key: BenchmarkKpiKey
+): number | null {
+  switch (key) {
+    case "askingRent":
+      return sample.askingRentPsf
+    case "inPlaceRent":
+      return sample.inPlaceRentPsf
+    case "occupancy":
+      return sample.rsfSqft > 0 ? (sample.occupiedSqft / sample.rsfSqft) * 100 : null
+    case "observedCapRate":
+      return sample.observedCapRatePct
+    case "intrinsicRent":
+      return sample.isFullParticipant ? sample.intrinsicRentPsf : null
+    case "intrinsicCapRate":
+      return sample.isFullParticipant ? sample.intrinsicCapRatePct : null
+    case "valuePerSf":
+      return sample.isFullParticipant ? sample.valuePerSfUsd : null
+    case "sunScore":
+      return sample.sunScore
+    case "viewScore":
+      return sample.viewScore
+    case "amenityQuality":
+      return sample.isFullParticipant ? sample.amenityQuality : null
+    case "accessibilityScore":
+      return sample.accessibilityScore
+    default:
+      return null
+  }
+}
+
+function benchmarkAreaKpiMean(
+  area: BenchmarkArea,
+  key: BenchmarkKpiKey
+): number | null {
+  const raw = benchmarkAreaStats(area)
+  if (raw == null) return null
+  switch (key) {
+    case "askingRent":
+      return raw.askingRentPsf
+    case "inPlaceRent":
+      return raw.inPlaceRentPsf
+    case "occupancy":
+      return raw.occupancyPct
+    case "observedCapRate":
+      return raw.observedCapRatePct
+    case "intrinsicRent":
+      return raw.intrinsicRentPsf
+    case "intrinsicCapRate":
+      return raw.intrinsicCapRatePct
+    case "valuePerSf":
+      return raw.valuePerSfUsd
+    case "sunScore":
+      return raw.sunScore
+    case "viewScore":
+      return raw.viewScore
+    case "amenityQuality":
+      return raw.amenityQuality
+    case "accessibilityScore":
+      return raw.accessibilityScore
+    default:
+      return null
+  }
+}
+
+function benchmarkKpiSpread(
+  key: BenchmarkKpiKey,
+  areaMean: number
+): number {
+  switch (key) {
+    case "askingRent":
+    case "inPlaceRent":
+    case "intrinsicRent":
+      return Math.max(1.25, areaMean * 0.08)
+    case "occupancy":
+      return 3.5
+    case "observedCapRate":
+    case "intrinsicCapRate":
+      return 0.35
+    case "valuePerSf":
+      return Math.max(35, areaMean * 0.12)
+    case "sunScore":
+    case "viewScore":
+    case "amenityQuality":
+    case "accessibilityScore":
+      return 7
+    default:
+      return 5
+  }
+}
+
+function percentileFromAreaMean(
+  target: number,
+  areaMean: number,
+  spread: number
+): number {
+  const safeSpread = Math.max(0.001, spread)
+  const z = (target - areaMean) / safeSpread
+  const percentile = 50 + z * 18
+  return Math.round(Math.max(0, Math.min(100, percentile)))
+}
+
+export function benchmarkAssetKpiPercentilesForArea(
+  area: BenchmarkArea,
+  assetId: string,
+  coordinates: Record<string, readonly [number, number]> = {}
+): BenchmarkKpiPercentileByKey {
+  const empty = Object.fromEntries(
+    BENCHMARK_KPI_DEFINITIONS.map((definition) => [definition.key, null])
+  ) as BenchmarkKpiPercentileByKey
+
+  const sample = benchmarkSampleForAssetId(assetId, coordinates)
+  if (sample == null) return empty
+
+  const out = { ...empty }
+  for (const definition of BENCHMARK_KPI_DEFINITIONS) {
+    const target = benchmarkKpiNumericValue(sample, definition.key)
+    const areaMean = benchmarkAreaKpiMean(area, definition.key)
+    if (target == null || areaMean == null || !Number.isFinite(areaMean)) {
+      out[definition.key] = null
+      continue
+    }
+    const spread = benchmarkKpiSpread(definition.key, areaMean)
+    out[definition.key] = percentileFromAreaMean(target, areaMean, spread)
+  }
+  return out
 }
 
 /** Per-building KPI row for a single asset (ignores benchmark area bounds). */
@@ -630,27 +942,7 @@ export function benchmarkBuildingTableRowForAsset(
   assetId: string,
   coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkBuildingTableRow | null {
-  const asset = getAssetById(assetId)
-  let sample: BenchmarkBuildingSample | null = null
-
-  if (asset) {
-    const [longitude, latitude] = lngLatForPortfolioAsset(
-      asset.id,
-      asset.groupId,
-      coordinates
-    )
-    sample = buildBenchmarkBuildingSample(asset.id, longitude, latitude)
-  } else {
-    const pin = getMarketListingPinById(assetId)
-    if (pin) {
-      sample = buildBenchmarkBuildingSample(
-        pin.id,
-        pin.longitude,
-        pin.latitude
-      )
-    }
-  }
-
+  const sample = benchmarkSampleForAssetId(assetId, coordinates)
   if (sample == null) return null
 
   return {

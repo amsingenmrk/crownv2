@@ -1,35 +1,38 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 
-import { AssetBenchmarksTable } from "@/components/asset-benchmarks-table"
+import {
+  AssetBenchmarksTable,
+  type BenchmarkComparisonOption,
+} from "@/components/asset-benchmarks-table"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { getAssetById } from "@/lib/assets"
 import {
-  curatedBenchmarkMarketAreas,
+  getBenchmarkAreaById,
+  getBenchmarkAreaParent,
+  getBenchmarkAreaPath,
+  getBenchmarkAreaPathForPoint,
+} from "@/lib/benchmark-area-hierarchy"
+import { resolveBenchmarkAreaForAsset } from "@/lib/benchmark-area-for-asset"
+import {
+  resolveBenchmarkAreaSelection,
   resolveBenchmarkAreaById,
   type BenchmarkArea,
   US_NATIONAL_BENCHMARK_AREA,
 } from "@/lib/benchmark-area-search"
 import {
+  benchmarkAreaHasSufficientCoverage,
+  benchmarkAssetKpiPercentilesForArea,
   benchmarkAreaSnapshot,
-  type BenchmarkAreaSnapshot,
   benchmarkBuildingTableRowForAsset,
-  benchmarkStateSnapshot,
-  benchmarkZipCodeSnapshot,
+  type BenchmarkKpiDisplayValue,
   type BenchmarkKpiKey,
 } from "@/lib/benchmark-area-model"
+import { isTrackedBenchmarkArea } from "@/lib/benchmark-market-stats"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
-import {
-  stateBenchmarkAreaForCode,
-  stateCodeFromAddressLike,
-} from "@/lib/benchmark-state-areas"
-import {
-  zipBenchmarkAreaForCode,
-  zipCodeFromAddressLike,
-} from "@/lib/benchmark-zip-areas"
+import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 
 function assetNameForAsset(assetId: string): string {
   const asset = getAssetById(assetId)
@@ -61,68 +64,132 @@ function assetPinForAsset(
   return null
 }
 
-function stateAreaForAsset(assetId: string) {
+function kpisRecordFromSnapshot(
+  snapshot: ReturnType<typeof benchmarkAreaSnapshot>
+): Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue> {
+  return Object.fromEntries(
+    snapshot.kpis.map((kpi) => [
+      kpi.key,
+      { value: kpi.value, supportingRange: kpi.supportingRange },
+    ])
+  ) as Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
+}
+
+function zipCodeFromText(value: string | undefined): string | null {
+  if (!value) return null
+  const match = value.match(/\b(\d{5})(?:-\d{4})?\b/)
+  return match?.[1] ?? null
+}
+
+function stateCodeFromText(value: string | undefined): string | null {
+  if (!value) return null
+  const match = value.match(/,\s*([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/)
+  return match?.[1] ?? null
+}
+
+function assetZipForAssetId(assetId: string): string | null {
   const asset = getAssetById(assetId)
-  if (asset) {
-    return stateBenchmarkAreaForCode(stateCodeFromAddressLike(asset.address))
+  if (asset) return zipCodeFromText(asset.address)
+  const pin = getMarketListingPinById(assetId)
+  return zipCodeFromText(pin?.location)
+}
+
+function assetStateForAssetId(assetId: string): string | null {
+  const asset = getAssetById(assetId)
+  if (asset) return stateCodeFromText(asset.address)
+  const pin = getMarketListingPinById(assetId)
+  return stateCodeFromText(pin?.location)
+}
+
+function defaultBenchmarkAreasForAsset(
+  point: readonly [number, number] | null,
+  fallbackMarketArea: BenchmarkArea,
+  assetZipCode: string | null,
+  assetStateCode: string | null,
+  coordinates: Record<string, readonly [number, number]>
+): { lowArea: BenchmarkArea; marketArea: BenchmarkArea } {
+  if (!point) {
+    return { lowArea: fallbackMarketArea, marketArea: fallbackMarketArea }
   }
 
-  const pin = getMarketListingPinById(assetId)
-  return stateBenchmarkAreaForCode(stateCodeFromAddressLike(pin?.location))
+  const path = getBenchmarkAreaPathForPoint(point, "zip")
+  const marketAreaFromPoint =
+    path.find((area) => area.level === "market") ?? fallbackMarketArea
+  if (assetZipCode) {
+    const zipAssignments = curatedZipAssignmentsForZipCode(assetZipCode)
+    const stateScopedZipAssignments =
+      assetStateCode == null
+        ? zipAssignments
+        : zipAssignments.filter(
+            (assignment) => assignment.stateCode === assetStateCode
+          )
+    const candidateZipAssignments =
+      stateScopedZipAssignments.length > 0
+        ? stateScopedZipAssignments
+        : zipAssignments
+    if (candidateZipAssignments.length > 0) {
+      const preferredZipAssignment =
+        candidateZipAssignments.find(
+          (assignment) => assignment.marketId === marketAreaFromPoint.id
+        ) ??
+        candidateZipAssignments.find(
+          (assignment) => assignment.marketId === fallbackMarketArea.id
+        ) ??
+        candidateZipAssignments[0]
+      if (preferredZipAssignment) {
+        const preferredMarket =
+          getBenchmarkAreaById(preferredZipAssignment.marketId) ??
+          marketAreaFromPoint
+        const preferredZipArea = getBenchmarkAreaById(preferredZipAssignment.id)
+        if (preferredZipArea) {
+          let cursor: BenchmarkArea | null = preferredZipArea
+          while (cursor && cursor.level !== "country") {
+            if (
+              isTrackedBenchmarkArea(cursor.id) &&
+              benchmarkAreaHasSufficientCoverage(cursor)
+            ) {
+              return { lowArea: cursor, marketArea: preferredMarket }
+            }
+            cursor = getBenchmarkAreaParent(cursor)
+          }
+          return { lowArea: preferredMarket, marketArea: preferredMarket }
+        }
+      }
+    }
+  }
+
+  const marketArea = marketAreaFromPoint
+  const marketIndex = path.findIndex((area) => area.id === marketAreaFromPoint.id)
+  const marketBranch = marketIndex >= 0 ? path.slice(marketIndex) : [marketArea]
+
+  for (let index = marketBranch.length - 1; index >= 0; index -= 1) {
+    const candidate = marketBranch[index]
+    if (candidate.level === "country") continue
+    if (
+      isTrackedBenchmarkArea(candidate.id) &&
+      benchmarkAreaHasSufficientCoverage(candidate)
+    ) {
+      return { lowArea: candidate, marketArea }
+    }
+  }
+
+  return { lowArea: marketArea, marketArea }
 }
 
-function zipCodeForAsset(assetId: string): string | null {
-  const asset = getAssetById(assetId)
-  if (asset) return zipCodeFromAddressLike(asset.address)
-  const pin = getMarketListingPinById(assetId)
-  return zipCodeFromAddressLike(pin?.location)
+function dedupeAreas(areas: BenchmarkArea[]): BenchmarkArea[] {
+  const seen = new Set<string>()
+  const out: BenchmarkArea[] = []
+  for (const area of areas) {
+    if (seen.has(area.id)) continue
+    seen.add(area.id)
+    out.push(area)
+  }
+  return out
 }
 
-function stateCodeForAsset(assetId: string): string | null {
-  const asset = getAssetById(assetId)
-  if (asset) return stateCodeFromAddressLike(asset.address)
-  const pin = getMarketListingPinById(assetId)
-  return stateCodeFromAddressLike(pin?.location)
-}
-
-function kpisRecordFromSnapshot(
-  snapshot: BenchmarkAreaSnapshot
-): Record<BenchmarkKpiKey, string> {
-  return Object.fromEntries(
-    snapshot.kpis.map((kpi) => [kpi.key, kpi.value])
-  ) as Record<BenchmarkKpiKey, string>
-}
-
-export function AssetBenchmarksWorkspace({
-  assetId,
-  benchmarkAreaId,
-}: {
-  assetId: string
-  benchmarkAreaId?: string
-}) {
-  const pathname = usePathname()
+export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
   const { coordinates } = usePortfolioAssetCoordinates()
-  const [selectedZipBenchmarkAreaId, setSelectedZipBenchmarkAreaId] =
-    React.useState<string | undefined>(undefined)
-  const [selectedRegionBenchmarkAreaId, setSelectedRegionBenchmarkAreaId] =
-    React.useState(benchmarkAreaId)
-
-  React.useEffect(() => {
-    setSelectedZipBenchmarkAreaId(undefined)
-    setSelectedRegionBenchmarkAreaId(benchmarkAreaId)
-  }, [assetId, benchmarkAreaId])
-
-  React.useEffect(() => {
-    if (!benchmarkAreaId || !pathname || typeof window === "undefined") return
-    const url = new URL(window.location.href)
-    url.searchParams.delete("area")
-    const nextSearch = url.searchParams.toString()
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash}`
-    )
-  }, [benchmarkAreaId, pathname])
+  const mapboxAccessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
 
   const assetRow = React.useMemo(
     () => benchmarkBuildingTableRowForAsset(assetId, coordinates),
@@ -136,105 +203,176 @@ export function AssetBenchmarksWorkspace({
     [assetId, coordinates]
   )
 
-  const defaultRegionArea = React.useMemo(() => {
-    return stateAreaForAsset(assetId) ?? US_NATIONAL_BENCHMARK_AREA
-  }, [assetId])
-
-  const zipCode = React.useMemo(() => zipCodeForAsset(assetId), [assetId])
-  const defaultZipArea = React.useMemo(
-    () => zipBenchmarkAreaForCode(zipCode),
-    [zipCode]
+  const fallbackMarketArea = React.useMemo(
+    () => resolveBenchmarkAreaForAsset(assetId),
+    [assetId]
   )
-  const stateCode = React.useMemo(() => stateCodeForAsset(assetId), [assetId])
 
-  const selectedZipBenchmarkArea = React.useMemo(() => {
-    return resolveBenchmarkAreaById(selectedZipBenchmarkAreaId)
-  }, [selectedZipBenchmarkAreaId])
+  const assetZipCode = React.useMemo(() => assetZipForAssetId(assetId), [assetId])
+  const assetStateCode = React.useMemo(
+    () => assetStateForAssetId(assetId),
+    [assetId]
+  )
 
-  const selectedRegionBenchmarkArea = React.useMemo(() => {
-    return resolveBenchmarkAreaById(selectedRegionBenchmarkAreaId)
-  }, [selectedRegionBenchmarkAreaId])
+  const { lowArea, marketArea } = React.useMemo(
+    () =>
+      defaultBenchmarkAreasForAsset(
+        assetPin ? [assetPin.longitude, assetPin.latitude] : null,
+        fallbackMarketArea,
+        assetZipCode,
+        assetStateCode,
+        coordinates
+      ),
+    [assetPin, fallbackMarketArea, assetZipCode, assetStateCode, coordinates]
+  )
 
-  const zipArea = selectedZipBenchmarkArea ?? defaultZipArea
-  const homeArea = selectedRegionBenchmarkArea ?? defaultRegionArea
-  const columnsAltered =
-    (zipArea?.id ?? null) !== (defaultZipArea?.id ?? null) ||
-    homeArea.id !== defaultRegionArea.id
-
-  const benchmarkOptions = React.useMemo(() => {
-    const options = [
-      defaultZipArea,
-      defaultRegionArea,
+  const comparisonAreas = React.useMemo(() => {
+    const pathFromLow = getBenchmarkAreaPath(lowArea)
+    const pathFromMarket = getBenchmarkAreaPath(marketArea)
+    const merged = dedupeAreas([
+      ...pathFromLow,
+      ...pathFromMarket,
       US_NATIONAL_BENCHMARK_AREA,
-      selectedZipBenchmarkArea,
-      selectedRegionBenchmarkArea,
-      ...curatedBenchmarkMarketAreas(),
-    ].filter((area): area is BenchmarkArea => area != null)
+    ])
+    return merged.filter(
+      (area) =>
+        isTrackedBenchmarkArea(area.id) && benchmarkAreaHasSufficientCoverage(area)
+    )
+  }, [lowArea, marketArea])
 
-    const seen = new Set<string>()
-    return options
-      .filter((area) => {
-        if (seen.has(area.id)) return false
-        seen.add(area.id)
-        return true
-      })
-      .map((area) => ({ id: area.id, label: area.label }))
-  }, [
-    defaultRegionArea,
-    defaultZipArea,
-    selectedRegionBenchmarkArea,
-    selectedZipBenchmarkArea,
-  ])
+  const comparisonOptions = React.useMemo<BenchmarkComparisonOption[]>(
+    () =>
+      comparisonAreas.map((area) => ({
+        id: area.id,
+        label: area.label,
+      })),
+    [comparisonAreas]
+  )
 
-  function snapshotForArea(area: BenchmarkArea | null): BenchmarkAreaSnapshot {
-    if (!area) return benchmarkZipCodeSnapshot(null, coordinates)
-    const zipMatch = /^zip-(\d{5})$/.exec(area.id)
-    if (zipMatch) {
-      return benchmarkZipCodeSnapshot(zipMatch[1]!, coordinates)
+  const [lowSelectionId, setLowSelectionId] = React.useState<string>(lowArea.id)
+  const [marketSelectionId, setMarketSelectionId] = React.useState<string>(marketArea.id)
+
+  React.useEffect(() => {
+    const availableIds = new Set(comparisonAreas.map((area) => area.id))
+    if (!availableIds.has(lowSelectionId)) {
+      setLowSelectionId(lowArea.id)
     }
-    const stateMatch = /^state-([a-z]{2})$/.exec(area.id)
-    if (stateMatch) {
-      return benchmarkStateSnapshot(
-        stateMatch[1]!.toUpperCase(),
-        area.label,
+    if (!availableIds.has(marketSelectionId)) {
+      setMarketSelectionId(marketArea.id)
+    }
+  }, [comparisonAreas, lowArea.id, lowSelectionId, marketArea.id, marketSelectionId])
+
+  React.useEffect(() => {
+    setLowSelectionId((current) => (current === lowArea.id ? current : lowArea.id))
+    setMarketSelectionId((current) =>
+      current === marketArea.id ? current : marketArea.id
+    )
+  }, [assetId, lowArea.id, marketArea.id])
+
+  const selectedLowArea = React.useMemo(
+    () =>
+      resolveBenchmarkAreaById(lowSelectionId) ??
+      getBenchmarkAreaById(lowSelectionId) ??
+      lowArea,
+    [lowArea, lowSelectionId]
+  )
+
+  const selectedMarketArea = React.useMemo(
+    () =>
+      resolveBenchmarkAreaById(marketSelectionId) ??
+      getBenchmarkAreaById(marketSelectionId) ??
+      marketArea,
+    [marketArea, marketSelectionId]
+  )
+
+  const [resolvedAreas, setResolvedAreas] = React.useState<{
+    lowArea: BenchmarkArea
+    marketArea: BenchmarkArea
+  }>({
+    lowArea: selectedLowArea,
+    marketArea: selectedMarketArea,
+  })
+
+  React.useEffect(() => {
+    let cancelled = false
+    setResolvedAreas({ lowArea: selectedLowArea, marketArea: selectedMarketArea })
+
+    if (!mapboxAccessToken) return () => void (cancelled = true)
+
+    Promise.all([
+      resolveBenchmarkAreaSelection(selectedLowArea, mapboxAccessToken),
+      resolveBenchmarkAreaSelection(selectedMarketArea, mapboxAccessToken),
+    ])
+      .then(([resolvedLowArea, resolvedMarketArea]) => {
+        if (cancelled) return
+        setResolvedAreas({
+          lowArea: resolvedLowArea,
+          marketArea: resolvedMarketArea,
+        })
+      })
+      .catch(() => {
+        // Fallback to curated bounds when geocode/boundary enrichment fails.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedLowArea, selectedMarketArea, mapboxAccessToken])
+
+  const { lowLabel, lowKpis, marketLabel, marketKpis } =
+    React.useMemo(() => {
+      const lowSnapshot = benchmarkAreaSnapshot(resolvedAreas.lowArea, coordinates)
+      const marketSnapshot = benchmarkAreaSnapshot(
+        resolvedAreas.marketArea,
         coordinates
       )
-    }
-    return benchmarkAreaSnapshot(area, coordinates)
-  }
-
-  const { zipLabel, zipKpis, regionLabel, regionKpis } =
-    React.useMemo(() => {
-      const zipSnapshot = snapshotForArea(zipArea)
-      const regionSnapshot = snapshotForArea(homeArea)
 
       return {
-        zipLabel: zipSnapshot.areaLabel,
-        zipKpis: kpisRecordFromSnapshot(zipSnapshot),
-        regionLabel: homeArea.label,
-        regionKpis: kpisRecordFromSnapshot(regionSnapshot),
+        lowLabel: resolvedAreas.lowArea.label,
+        lowKpis: kpisRecordFromSnapshot(lowSnapshot),
+        marketLabel: resolvedAreas.marketArea.label,
+        marketKpis: kpisRecordFromSnapshot(marketSnapshot),
       }
-    }, [coordinates, homeArea, zipArea])
+    }, [coordinates, resolvedAreas])
+
+  const lowPercentiles = React.useMemo(
+    () =>
+      benchmarkAssetKpiPercentilesForArea(
+        resolvedAreas.lowArea,
+        assetId,
+        coordinates
+      ),
+    [assetId, coordinates, resolvedAreas]
+  )
+
+  const marketPercentiles = React.useMemo(
+    () =>
+      benchmarkAssetKpiPercentilesForArea(
+        resolvedAreas.marketArea,
+        assetId,
+        coordinates
+      ),
+    [assetId, coordinates, resolvedAreas]
+  )
 
   return (
     <AssetBenchmarksTable
       assetRow={assetRow}
       assetName={assetName}
       assetPin={assetPin}
-      homeArea={homeArea}
-      zipArea={zipArea}
-      zipLabel={zipLabel}
-      zipKpis={zipKpis}
-      regionLabel={regionLabel}
-      regionKpis={regionKpis}
-      benchmarkOptions={benchmarkOptions}
-      onZipBenchmarkChange={setSelectedZipBenchmarkAreaId}
-      onRegionBenchmarkChange={setSelectedRegionBenchmarkAreaId}
-      showReset={columnsAltered}
-      onReset={() => {
-        setSelectedZipBenchmarkAreaId(undefined)
-        setSelectedRegionBenchmarkAreaId(undefined)
-      }}
+      lowArea={resolvedAreas.lowArea}
+      lowLabel={lowLabel}
+      lowKpis={lowKpis}
+      lowPercentiles={lowPercentiles}
+      marketArea={resolvedAreas.marketArea}
+      marketLabel={marketLabel}
+      marketKpis={marketKpis}
+      marketPercentiles={marketPercentiles}
+      comparisonOptions={comparisonOptions}
+      lowSelectionId={lowSelectionId}
+      onLowSelectionChange={setLowSelectionId}
+      marketSelectionId={marketSelectionId}
+      onMarketSelectionChange={setMarketSelectionId}
     />
   )
 }
