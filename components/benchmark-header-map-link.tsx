@@ -63,6 +63,12 @@ function BenchmarkHeaderMap({
   const highlightFill = resolvedTheme === "dark" ? "#60a5fa" : "#2563eb"
   const highlightLine = resolvedTheme === "dark" ? "#93c5fd" : "#1d4ed8"
   const layerInsert = labelLayerId ? { beforeId: labelLayerId } : {}
+  const mapKey = [
+    area?.id ?? "no-area",
+    area?.boundaryGeometry ? "stored-geometry" : area?.boundary ? "vector-boundary" : "bounds",
+    pin ? `${pin.longitude.toFixed(5)},${pin.latitude.toFixed(5)}` : "no-pin",
+    resolvedTheme,
+  ].join(":")
 
   const syncViewport = React.useCallback(() => {
     if (!isMountedRef.current) return
@@ -73,19 +79,19 @@ function BenchmarkHeaderMap({
     try {
       map.resize()
 
-      if (pin) {
-        map.jumpTo({
-          center: [pin.longitude, pin.latitude],
-          zoom: 11,
-        })
-        return
-      }
-
       if (fitBounds && area) {
         map.fitBounds(fitBounds, {
           padding: HEADER_MAP_PADDING,
           maxZoom: maxZoomForBenchmarkArea(area),
           duration: 0,
+        })
+        return
+      }
+
+      if (pin) {
+        map.jumpTo({
+          center: [pin.longitude, pin.latitude],
+          zoom: 11,
         })
       }
     } catch {
@@ -165,6 +171,7 @@ function BenchmarkHeaderMap({
       aria-hidden
     >
       <Map
+        key={mapKey}
         ref={mapRef}
         mapboxAccessToken={token}
         mapStyle={mapStyle}
@@ -184,8 +191,48 @@ function BenchmarkHeaderMap({
         onLoad={handleMapLoad}
         onStyleData={syncLabelLayer}
       >
-        {areaFeature ? (
-          <Source id={boundarySourceId} type="geojson" data={areaFeature}>
+        {area?.boundary && area.boundaryGeometry == null ? (
+          <Source
+            key={`${boundarySourceId}-vector-${area.id}`}
+            id={boundarySourceId}
+            type="vector"
+            url={area.boundary.tilesetUrl}
+          >
+            <Layer
+              id={boundaryFillLayerId}
+              type="fill"
+              source-layer={area.boundary.sourceLayer}
+              filter={area.boundary.filter}
+              {...layerInsert}
+              paint={{
+                "fill-color": highlightFill,
+                "fill-opacity": 0.2,
+              }}
+            />
+            <Layer
+              id={boundaryLineLayerId}
+              type="line"
+              source-layer={area.boundary.sourceLayer}
+              filter={area.boundary.filter}
+              {...layerInsert}
+              layout={{
+                "line-cap": "round",
+                "line-join": "round",
+              }}
+              paint={{
+                "line-color": highlightLine,
+                "line-width": 2,
+                "line-opacity": 1,
+              }}
+            />
+          </Source>
+        ) : areaFeature ? (
+          <Source
+            key={`${boundarySourceId}-geojson-${area?.id ?? "area"}`}
+            id={boundarySourceId}
+            type="geojson"
+            data={areaFeature}
+          >
             <Layer
               id={boundaryFillLayerId}
               type="fill"

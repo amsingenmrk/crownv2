@@ -143,17 +143,7 @@ function defaultBenchmarkAreasForAsset(
           marketAreaFromPoint
         const preferredZipArea = getBenchmarkAreaById(preferredZipAssignment.id)
         if (preferredZipArea) {
-          let cursor: BenchmarkArea | null = preferredZipArea
-          while (cursor && cursor.level !== "country") {
-            if (
-              isTrackedBenchmarkArea(cursor.id) &&
-              benchmarkAreaHasSufficientCoverage(cursor)
-            ) {
-              return { lowArea: cursor, marketArea: preferredMarket }
-            }
-            cursor = getBenchmarkAreaParent(cursor)
-          }
-          return { lowArea: preferredMarket, marketArea: preferredMarket }
+          return { lowArea: preferredZipArea, marketArea: preferredMarket }
         }
       }
     }

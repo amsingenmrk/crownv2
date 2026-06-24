@@ -507,20 +507,22 @@ function registerSubmarketArea(seed: {
 }): BenchmarkArea {
   const market = marketById(seed.marketId)
   const hasCountyChildren = curatedCountyAssignmentsForSubmarketId(seed.id).length > 0
-  return registerArea({
-    id: seed.id,
-    label: seed.label,
-    bounds: market?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
-    level: "submarket",
-    geocodeQuery: seed.geocodeQuery,
-    parentId: seed.marketId,
-    childLevel: hasCountyChildren ? "county" : undefined,
-    isCurated: true,
-    geocodeHint: {
-      placeTypes: ["place"],
-    },
-    aliases: normalizeAliases(seed.label, ...(seed.aliases ?? [])),
-  })
+  return registerArea(
+    applyStoredBoundary({
+      id: seed.id,
+      label: seed.label,
+      bounds: market?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
+      level: "submarket",
+      geocodeQuery: seed.geocodeQuery,
+      parentId: seed.marketId,
+      childLevel: hasCountyChildren ? "county" : undefined,
+      isCurated: true,
+      geocodeHint: {
+        placeTypes: ["place"],
+      },
+      aliases: normalizeAliases(seed.label, ...(seed.aliases ?? [])),
+    })
+  )
 }
 
 function registerCountyArea(seed: {
@@ -534,22 +536,24 @@ function registerCountyArea(seed: {
 }): BenchmarkArea {
   const submarket = getBenchmarkAreaById(seed.submarketId)
   const hasZipChildren = curatedZipAssignmentsForCountyId(seed.id).length > 0
-  return registerArea({
-    id: seed.id,
-    label: seed.label,
-    bounds: submarket?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
-    level: "county",
-    geocodeQuery: seed.geocodeQuery,
-    parentId: seed.submarketId,
-    childLevel: hasZipChildren ? "zip" : undefined,
-    isCurated: true,
-    geocodeHint: {
-      placeTypes: ["district"],
-      regionShortCode: seed.stateCode,
-      districtName: seed.countyName,
-    },
-    aliases: normalizeAliases(seed.label, ...(seed.aliases ?? [])),
-  })
+  return registerArea(
+    applyStoredBoundary({
+      id: seed.id,
+      label: seed.label,
+      bounds: submarket?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
+      level: "county",
+      geocodeQuery: seed.geocodeQuery,
+      parentId: seed.submarketId,
+      childLevel: hasZipChildren ? "zip" : undefined,
+      isCurated: true,
+      geocodeHint: {
+        placeTypes: ["district"],
+        regionShortCode: seed.stateCode,
+        districtName: seed.countyName,
+      },
+      aliases: normalizeAliases(seed.label, ...(seed.aliases ?? [])),
+    })
+  )
 }
 
 function registerZipArea(seed: {
@@ -564,19 +568,21 @@ function registerZipArea(seed: {
   const parentArea =
     (seed.countyId ? getBenchmarkAreaById(seed.countyId) : null) ??
     getBenchmarkAreaById(seed.submarketId)
-  return registerArea({
-    id: seed.id,
-    label: seed.label,
-    bounds: parentArea?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
-    level: "zip",
-    geocodeQuery: seed.geocodeQuery,
-    parentId: seed.countyId ?? seed.submarketId,
-    isCurated: true,
-    geocodeHint: {
-      placeTypes: ["postcode"],
-    },
-    aliases: normalizeAliases(seed.label, seed.zipCode, ...(seed.aliases ?? [])),
-  })
+  return registerArea(
+    applyStoredBoundary({
+      id: seed.id,
+      label: seed.label,
+      bounds: parentArea?.bounds ?? BENCHMARK_ROOT_AREA.bounds,
+      level: "zip",
+      geocodeQuery: seed.geocodeQuery,
+      parentId: seed.countyId ?? seed.submarketId,
+      isCurated: true,
+      geocodeHint: {
+        placeTypes: ["postcode"],
+      },
+      aliases: normalizeAliases(seed.label, seed.zipCode, ...(seed.aliases ?? [])),
+    })
+  )
 }
 
 const CURATED_BENCHMARK_SUBMARKETS_BY_MARKET_ID = Object.freeze(

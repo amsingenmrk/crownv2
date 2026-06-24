@@ -1,27 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { Check, Pencil } from "lucide-react"
 
 import {
   BenchmarkHeaderMapLink,
   BenchmarkHeaderMapPreview,
 } from "@/components/benchmark-header-map-link"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import {
   BENCHMARK_KPI_DEFINITIONS,
@@ -78,7 +69,7 @@ function percentileBadge(
   }
 }
 
-function BenchmarkColumnPencilPicker({
+function BenchmarkColumnSelect({
   value,
   options,
   onValueChange,
@@ -89,69 +80,35 @@ function BenchmarkColumnPencilPicker({
   onValueChange: (value: string) => void
   ariaLabel: string
 }) {
-  const [open, setOpen] = React.useState(false)
+  const disabled = options.length === 0
   const selectedLabel =
     options.find((option) => option.id === value)?.label ?? "Select benchmark"
-  const disabled = options.length === 0
 
   return (
-    <>
-      <div className="flex h-7 min-w-0 w-full items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-          {selectedLabel}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          aria-label={ariaLabel}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-        >
-          <Pencil className="size-3.5" aria-hidden />
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className="gap-0 overflow-hidden p-0 sm:max-w-lg"
-          showCloseButton
-        >
-          <DialogHeader className="sr-only">
-            <DialogTitle>Select benchmark</DialogTitle>
-          </DialogHeader>
-          <Command className="rounded-none border-0 shadow-none">
-            <CommandInput placeholder="Search benchmark..." />
-            <CommandList>
-              <CommandEmpty>No benchmark found.</CommandEmpty>
-              <CommandGroup heading="Benchmarks">
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.id}
-                    value={`${option.label} ${option.id}`}
-                    onSelect={() => {
-                      onValueChange(option.id)
-                      setOpen(false)
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "size-4 shrink-0",
-                        value === option.id ? "opacity-100" : "opacity-0"
-                      )}
-                      aria-hidden
-                    />
-                    <span className="truncate">{option.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Select
+      value={value}
+      onValueChange={(next) => {
+        if (typeof next === "string" && next !== "") {
+          onValueChange(next)
+        }
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        size="sm"
+        className="h-7 w-full min-w-0 border-transparent bg-transparent px-0 text-left font-medium shadow-none hover:bg-accent/60 focus:ring-1"
+        aria-label={ariaLabel}
+      >
+        <SelectValue placeholder="Select benchmark">{selectedLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent align="start">
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -279,11 +236,12 @@ export function AssetBenchmarksTable({
                     href={benchmarksPageHref(lowArea.id)}
                     label={lowLabel}
                     area={lowArea}
+                    pin={assetPin ?? undefined}
                     hideLabel
                     mapHeightClassName={HEADER_MAP_FIXED_HEIGHT_CLASS}
                   />
                   <div className="flex h-7 w-full items-center">
-                    <BenchmarkColumnPencilPicker
+                    <BenchmarkColumnSelect
                       value={lowSelectionId}
                       options={pickerOptions}
                       onValueChange={onLowSelectionChange}
@@ -298,11 +256,12 @@ export function AssetBenchmarksTable({
                     href={benchmarksPageHref(marketArea.id)}
                     label={marketLabel}
                     area={marketArea}
+                    pin={assetPin ?? undefined}
                     hideLabel
                     mapHeightClassName={HEADER_MAP_FIXED_HEIGHT_CLASS}
                   />
                   <div className="flex h-7 w-full items-center">
-                    <BenchmarkColumnPencilPicker
+                    <BenchmarkColumnSelect
                       value={marketSelectionId}
                       options={pickerOptions}
                       onValueChange={onMarketSelectionChange}
