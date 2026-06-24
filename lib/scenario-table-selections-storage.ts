@@ -34,9 +34,46 @@ export function parseScenarioTableSelectionsRaw(
   }
 }
 
-export function readScenarioTableSelections(pathname: string): ScenarioTableSelections {
+export function readScenarioTableSelections(
+  pathname: string
+): ScenarioTableSelections {
   if (typeof localStorage === "undefined") return {}
-  const keyPath = scenarioModificationsTableStoragePathname(pathname) ?? pathname
+  const keyPath =
+    scenarioModificationsTableStoragePathname(pathname) ?? pathname
+  migrateLegacyScenarioTableSelectionsSubrouteKey(pathname, keyPath)
   const raw = localStorage.getItem(scenarioTableSelectionsKey(keyPath))
   return parseScenarioTableSelectionsRaw(raw)
+}
+
+function persistScenarioTableSelections(
+  key: string,
+  selections: ScenarioTableSelections
+): void {
+  try {
+    if (Object.keys(selections).length === 0) localStorage.removeItem(key)
+    else localStorage.setItem(key, JSON.stringify(selections))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function migrateLegacyScenarioTableSelectionsSubrouteKey(
+  pathname: string,
+  storagePathname: string
+): void {
+  if (pathname === storagePathname || typeof localStorage === "undefined") {
+    return
+  }
+
+  const legacyKey = scenarioTableSelectionsKey(pathname)
+  const legacyRaw = localStorage.getItem(legacyKey)
+  if (legacyRaw == null) return
+
+  const canonicalKey = scenarioTableSelectionsKey(storagePathname)
+  const merged = {
+    ...parseScenarioTableSelectionsRaw(localStorage.getItem(canonicalKey)),
+    ...parseScenarioTableSelectionsRaw(legacyRaw),
+  }
+  persistScenarioTableSelections(canonicalKey, merged)
+  localStorage.removeItem(legacyKey)
 }
