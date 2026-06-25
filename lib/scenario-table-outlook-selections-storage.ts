@@ -31,7 +31,44 @@ export function readScenarioTableOutlookSelections(
   pathname: string
 ): ScenarioTableOutlookSelections {
   if (typeof localStorage === "undefined") return {}
-  const keyPath = scenarioModificationsTableStoragePathname(pathname) ?? pathname
+  const keyPath =
+    scenarioModificationsTableStoragePathname(pathname) ?? pathname
+  migrateLegacyScenarioTableOutlookSelectionsSubrouteKey(pathname, keyPath)
   const raw = localStorage.getItem(scenarioTableOutlookSelectionsKey(keyPath))
   return parseScenarioTableOutlookSelectionsRaw(raw)
+}
+
+function persistScenarioTableOutlookSelections(
+  key: string,
+  selections: ScenarioTableOutlookSelections
+): void {
+  try {
+    if (Object.keys(selections).length === 0) localStorage.removeItem(key)
+    else localStorage.setItem(key, JSON.stringify(selections))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function migrateLegacyScenarioTableOutlookSelectionsSubrouteKey(
+  pathname: string,
+  storagePathname: string
+): void {
+  if (pathname === storagePathname || typeof localStorage === "undefined") {
+    return
+  }
+
+  const legacyKey = scenarioTableOutlookSelectionsKey(pathname)
+  const legacyRaw = localStorage.getItem(legacyKey)
+  if (legacyRaw == null) return
+
+  const canonicalKey = scenarioTableOutlookSelectionsKey(storagePathname)
+  const merged = {
+    ...parseScenarioTableOutlookSelectionsRaw(
+      localStorage.getItem(canonicalKey)
+    ),
+    ...parseScenarioTableOutlookSelectionsRaw(legacyRaw),
+  }
+  persistScenarioTableOutlookSelections(canonicalKey, merged)
+  localStorage.removeItem(legacyKey)
 }
