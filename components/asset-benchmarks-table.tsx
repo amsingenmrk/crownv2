@@ -1,11 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 
 import {
   BenchmarkHeaderMapLink,
   BenchmarkHeaderMapPreview,
 } from "@/components/benchmark-header-map-link"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -74,41 +77,54 @@ function BenchmarkColumnSelect({
   options,
   onValueChange,
   ariaLabel,
+  linkLabel,
 }: {
   value: string
   options: BenchmarkComparisonOption[]
   onValueChange: (value: string) => void
   ariaLabel: string
+  linkLabel: string
 }) {
   const disabled = options.length === 0
   const selectedLabel =
     options.find((option) => option.id === value)?.label ?? "Select benchmark"
 
   return (
-    <Select
-      value={value}
-      onValueChange={(next) => {
-        if (typeof next === "string" && next !== "") {
-          onValueChange(next)
-        }
-      }}
-      disabled={disabled}
-    >
-      <SelectTrigger
-        size="sm"
-        className="h-7 w-full min-w-0 border-transparent bg-transparent px-0 text-left font-medium shadow-none hover:bg-accent/60 focus:ring-1"
-        aria-label={ariaLabel}
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (typeof next === "string" && next !== "") {
+            onValueChange(next)
+          }
+        }}
+        disabled={disabled}
       >
-        <SelectValue placeholder="Select benchmark">{selectedLabel}</SelectValue>
-      </SelectTrigger>
-      <SelectContent align="start">
-        {options.map((option) => (
-          <SelectItem key={option.id} value={option.id}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          size="sm"
+          className="h-7 min-w-0 flex-1 justify-between bg-background px-2 text-left font-medium shadow-sm"
+          aria-label={ariaLabel}
+        >
+          <SelectValue placeholder="Select benchmark">{selectedLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent align="start">
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="icon-sm"
+        variant="outline"
+        aria-label={linkLabel}
+        title={linkLabel}
+        render={<Link href={benchmarksPageHref(value)} />}
+      >
+        <ArrowUpRight className="size-4" aria-hidden />
+      </Button>
+    </div>
   )
 }
 
@@ -246,6 +262,7 @@ export function AssetBenchmarksTable({
                       options={pickerOptions}
                       onValueChange={onLowSelectionChange}
                       ariaLabel="Select left benchmark column"
+                      linkLabel={`Open ${lowLabel} on benchmarks page`}
                     />
                   </div>
                 </div>
@@ -266,6 +283,7 @@ export function AssetBenchmarksTable({
                       options={pickerOptions}
                       onValueChange={onMarketSelectionChange}
                       ariaLabel="Select right benchmark column"
+                      linkLabel={`Open ${marketLabel} on benchmarks page`}
                     />
                   </div>
                 </div>
