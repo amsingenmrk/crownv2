@@ -39,3 +39,4 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 app.zip
+.claude/settings.local.json

@@ -80,12 +80,14 @@ function BenchmarkColumnSelect({
   onValueChange,
   ariaLabel,
   linkLabel,
+  compareAssetId,
 }: {
   value: string
   options: BenchmarkComparisonOption[]
   onValueChange: (value: string) => void
   ariaLabel: string
   linkLabel: string
+  compareAssetId?: string
 }) {
   const disabled = options.length === 0
   const selectedLabel =
@@ -122,7 +124,7 @@ function BenchmarkColumnSelect({
         variant="outline"
         aria-label={linkLabel}
         title={linkLabel}
-        render={<Link href={benchmarksPageHref(value)} />}
+        render={<Link href={benchmarksPageHref(value, compareAssetId)} />}
       >
         <ArrowUpRight className="size-4" aria-hidden />
       </Button>
@@ -251,7 +253,7 @@ export function AssetBenchmarksTable({
               <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
                 <div className="grid grid-rows-[auto_1.75rem] gap-1.5">
                   <BenchmarkHeaderMapLink
-                    href={benchmarksPageHref(lowArea.id)}
+                    href={benchmarksPageHref(lowArea.id, assetRow?.id)}
                     label={lowLabel}
                     area={lowArea}
                     pin={assetPin ?? undefined}
@@ -265,6 +267,7 @@ export function AssetBenchmarksTable({
                       onValueChange={onLowSelectionChange}
                       ariaLabel="Select left benchmark column"
                       linkLabel={`Open ${lowLabel} on benchmarks page`}
+                      compareAssetId={assetRow?.id}
                     />
                   </div>
                 </div>
@@ -272,7 +275,7 @@ export function AssetBenchmarksTable({
               <TableHead className="h-auto min-w-0 border-0 px-2 py-2 text-left font-normal">
                 <div className="grid grid-rows-[auto_1.75rem] gap-1.5">
                   <BenchmarkHeaderMapLink
-                    href={benchmarksPageHref(marketArea.id)}
+                    href={benchmarksPageHref(marketArea.id, assetRow?.id)}
                     label={marketLabel}
                     area={marketArea}
                     pin={assetPin ?? undefined}
@@ -286,6 +289,7 @@ export function AssetBenchmarksTable({
                       onValueChange={onMarketSelectionChange}
                       ariaLabel="Select right benchmark column"
                       linkLabel={`Open ${marketLabel} on benchmarks page`}
+                      compareAssetId={assetRow?.id}
                     />
                   </div>
                 </div>

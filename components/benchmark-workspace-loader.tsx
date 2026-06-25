@@ -41,8 +41,10 @@ const BenchmarkWorkspace = dynamic(
 
 export function BenchmarkWorkspaceLoader({
   initialAreaId,
+  initialCompareAssetId,
 }: {
   initialAreaId?: string
+  initialCompareAssetId?: string
 } = {}) {
   const initialArea = React.useMemo(
     () => resolveBenchmarkAreaById(initialAreaId) ?? undefined,
@@ -53,6 +55,7 @@ export function BenchmarkWorkspaceLoader({
     <BenchmarkWorkspace
       key={initialArea?.id ?? US_NATIONAL_BENCHMARK_AREA.id}
       initialArea={initialArea}
+      initialCompareAssetId={initialCompareAssetId}
     />
   )
 }

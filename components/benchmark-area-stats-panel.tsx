@@ -31,9 +31,13 @@ import {
 } from "@/lib/benchmark-area-hierarchy"
 import {
   BENCHMARK_KPI_DEFINITIONS,
+  benchmarkAssetKpiPercentilesForArea,
+  benchmarkBuildingTableRowForAsset,
   type BenchmarkAreaSnapshot,
   type BenchmarkKpiDefinition,
 } from "@/lib/benchmark-area-model"
+import { KpiRangeBar } from "@/components/benchmark-kpi-range-bar"
+import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { resolveBenchmarkAreaForAsset } from "@/lib/benchmark-area-for-asset"
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
@@ -53,14 +57,6 @@ function scoreValueClass(
   const n = Number(value)
   if (!Number.isFinite(n)) return undefined
   return qualityScoreValueClass(n)
-}
-
-function buildingCountBucketLabel(count: number): string {
-  if (count <= 0) return "0 buildings in view"
-  if (count <= 25) return "1-25 buildings in view"
-  if (count <= 100) return "26-100 buildings in view"
-  if (count <= 500) return "101-500 buildings in view"
-  return "500+ buildings in view"
 }
 
 function zipCodeFromAddress(value: string | undefined): string | null {
@@ -123,16 +119,108 @@ type CompareAssetOption = {
   label: string
 }
 
+function ordinalPercentile(n: number): string {
+  const rounded = Math.round(n)
+  const v = rounded % 100
+  const suffix =
+    v >= 11 && v <= 13
+      ? "th"
+      : rounded % 10 === 1
+        ? "st"
+        : rounded % 10 === 2
+          ? "nd"
+          : rounded % 10 === 3
+            ? "rd"
+            : "th"
+  return `${rounded}${suffix} pct`
+}
+
+function parseKpiNumber(text: string | null | undefined): number | null {
+  if (text == null) return null
+  const match = text.replace(/,/g, "").match(/-?\d+(\.\d+)?/)
+  if (match == null) return null
+  const n = Number(match[0])
+  return Number.isFinite(n) ? n : null
+}
+
+function formatKpiDeltaMagnitude(
+  format: BenchmarkKpiDefinition["format"],
+  magnitude: number
+): string {
+  switch (format) {
+    case "rentPsf":
+      return `$${magnitude.toFixed(2)}`
+    case "valuePsf":
+      return `$${Math.round(magnitude).toLocaleString("en-US")}`
+    case "percent":
+      // The headline value already carries "%", so the delta is in points.
+      return `${magnitude.toFixed(1)}`
+    case "score":
+      return `${Math.round(magnitude)}`
+    default:
+      return String(magnitude)
+  }
+}
+
 function BenchmarkKpiCard({
   definition,
   value,
   supportingRange,
+  comparing = false,
+  compareLabel,
+  areaLabel,
+  assetValue,
+  assetPercentile,
 }: {
   definition: BenchmarkKpiDefinition
   value: string
   supportingRange?: string
+  comparing?: boolean
+  compareLabel?: string
+  areaLabel?: string
+  assetValue?: string
+  assetPercentile?: number | null
 }) {
   const valueClassName = scoreValueClass(definition, value)
+
+  // Observed cap rate is a market aggregate, not an asset-specific metric — the
+  // asset benchmark page omits it, so there's nothing to compare here.
+  const assetApplicable = definition.key !== "observedCapRate"
+
+  // Position the asset by its percentile standing within the area (0..1), which
+  // is measured against the same area mean shown as the headline value. The
+  // area average is the 50th percentile by construction.
+  const showBar =
+    comparing &&
+    assetApplicable &&
+    assetPercentile != null &&
+    assetValue != null
+
+  // Explicit ▲/▼ delta of the asset vs. the area average (the headline value).
+  const areaNum = parseKpiNumber(value)
+  const assetNum = parseKpiNumber(assetValue)
+  const delta =
+    areaNum != null && assetNum != null ? assetNum - areaNum : null
+  const deltaLabel =
+    delta == null
+      ? null
+      : Math.abs(delta) < 0.05
+        ? "at market avg"
+        : `${delta > 0 ? "▲" : "▼"}${formatKpiDeltaMagnitude(definition.format, Math.abs(delta))}`
+
+  // Compact value for the tight caption line — the "/ SF" unit is already in
+  // the headline value, so drop it here to leave room for value + delta + pct.
+  const assetValueCompact = assetValue?.replace(/\s*\/\s*SF$/i, "")
+  const assetCaption =
+    assetValueCompact != null
+      ? deltaLabel != null
+        ? `${assetValueCompact} · ${deltaLabel}`
+        : assetValueCompact
+      : undefined
+  const assetTitle =
+    assetValue != null
+      ? `${compareLabel ?? "Asset"} · ${assetValue}${assetPercentile != null ? ` · ${ordinalPercentile(assetPercentile)}` : ""}${deltaLabel != null ? ` · ${deltaLabel} vs avg` : ""}`
+      : undefined
 
   return (
     <article className="flex h-full min-h-0 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
@@ -153,7 +241,30 @@ function BenchmarkKpiCard({
       >
         {value}
       </p>
-      {supportingRange ? (
+      {showBar ? (
+        <KpiRangeBar
+          className="mt-auto pt-2.5"
+          areaFraction={0.5}
+          areaLabel={`${areaLabel ?? "Area"} average · ${value}`}
+          assetFraction={(assetPercentile ?? 0) / 100}
+          assetCaption={assetCaption}
+          assetTrailing={
+            assetPercentile != null
+              ? ordinalPercentile(assetPercentile).replace(" pct", "")
+              : undefined
+          }
+          assetTrailingClassName={
+            assetPercentile != null
+              ? qualityScoreValueClass(assetPercentile)
+              : undefined
+          }
+          assetTitle={assetTitle}
+        />
+      ) : comparing ? (
+        <p className="mt-auto pt-2.5 text-[11px] italic text-muted-foreground">
+          asset comparison not available for this metric
+        </p>
+      ) : supportingRange ? (
         <p className="mt-1 text-[11px] font-medium text-muted-foreground tabular-nums">
           ({supportingRange})
         </p>
@@ -166,10 +277,14 @@ export function BenchmarkAreaStatsPanel({
   snapshot,
   benchmarkAreaId,
   className,
+  headerSlot,
+  initialCompareAssetId,
 }: {
   snapshot: BenchmarkAreaSnapshot
   benchmarkAreaId: string
   className?: string
+  headerSlot?: React.ReactNode
+  initialCompareAssetId?: string
 }) {
   React.useEffect(() => {
     ensureCompetitiveMembershipSeeded()
@@ -221,8 +336,39 @@ export function BenchmarkAreaStatsPanel({
         : (scopedAssets[0]?.id ?? "")
     )
   }, [scopedAssets])
+
+  // Honor a deep-linked compare asset once (e.g. arriving from that asset's
+  // benchmark page), without snapping back if the user later changes it.
+  const compareSeededRef = React.useRef(false)
+  React.useEffect(() => {
+    if (compareSeededRef.current || !initialCompareAssetId) return
+    if (scopedAssets.some((asset) => asset.id === initialCompareAssetId)) {
+      setSelectedAssetId(initialCompareAssetId)
+      compareSeededRef.current = true
+    }
+  }, [initialCompareAssetId, scopedAssets])
   const selectedAssetName =
     scopedAssets.find((asset) => asset.id === selectedAssetId)?.label ?? ""
+
+  // Selected compare asset's per-KPI values + percentile standing within this
+  // area. Values mirror the asset benchmark page (benchmarkBuildingTableRowForAsset).
+  const { coordinates } = usePortfolioAssetCoordinates()
+  const comparing = selectedAssetId !== ""
+  const assetCompare = React.useMemo(() => {
+    if (!comparing) return null
+    const area = getBenchmarkAreaById(benchmarkAreaId)
+    if (area == null) return null
+    const row = benchmarkBuildingTableRowForAsset(selectedAssetId, coordinates)
+    return {
+      kpis: row?.kpis ?? null,
+      percentiles: benchmarkAssetKpiPercentilesForArea(
+        area,
+        selectedAssetId,
+        coordinates
+      ),
+    }
+  }, [benchmarkAreaId, comparing, coordinates, selectedAssetId])
+
   const kpiByKey = Object.fromEntries(
     snapshot.kpis.map((kpi) => [kpi.key, kpi])
   ) as Record<
@@ -264,6 +410,11 @@ export function BenchmarkAreaStatsPanel({
                 definition={definition}
                 value={kpi?.value ?? "—"}
                 supportingRange={kpi?.supportingRange}
+                comparing={comparing}
+                compareLabel={selectedAssetName}
+                areaLabel={snapshot.areaLabel}
+                assetValue={assetCompare?.kpis?.[definition.key]?.value}
+                assetPercentile={assetCompare?.percentiles?.[definition.key] ?? null}
               />
             </div>
           )
@@ -278,13 +429,19 @@ export function BenchmarkAreaStatsPanel({
       aria-label="Area benchmark statistics"
     >
       <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 pb-2.5 @lg:flex-row @lg:items-start @lg:justify-between">
-        <div className="min-w-0 space-y-0.5">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">
-            {snapshot.areaLabel}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {buildingCountBucketLabel(snapshot.buildingCount)}
-          </p>
+        <div className="min-w-0">
+          {headerSlot ? (
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Benchmark area
+              </span>
+              {headerSlot}
+            </div>
+          ) : (
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              {snapshot.areaLabel}
+            </h2>
+          )}
         </div>
 
         <div className="flex min-w-0 items-end gap-2 @lg:shrink-0">
@@ -330,24 +487,20 @@ export function BenchmarkAreaStatsPanel({
               </SelectContent>
             </Select>
           </Field>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            disabled={!selectedAssetId}
-            aria-label="Open selected asset benchmark page"
-            render={
-              selectedAssetId ? (
+          {selectedAssetId ? (
+            <Button
+              size="icon-sm"
+              variant="outline"
+              aria-label="Open selected asset benchmark page"
+              render={
                 <Link
-                  href={assetBenchmarksPageHref(
-                    selectedAssetId,
-                    benchmarkAreaId
-                  )}
+                  href={assetBenchmarksPageHref(selectedAssetId, benchmarkAreaId)}
                 />
-              ) : undefined
-            }
-          >
-            <ArrowUpRight className="size-4" aria-hidden />
-          </Button>
+              }
+            >
+              <ArrowUpRight className="size-4" aria-hidden />
+            </Button>
+          ) : null}
         </div>
       </div>
 

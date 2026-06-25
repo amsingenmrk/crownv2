@@ -146,6 +146,14 @@ export type BenchmarkAreaSnapshot = {
   kpis: BenchmarkKpiValue[]
 }
 
+export function buildingCountBucketLabel(count: number): string {
+  if (count <= 0) return "0 buildings in view"
+  if (count <= 25) return "1-25 buildings in view"
+  if (count <= 100) return "26-100 buildings in view"
+  if (count <= 500) return "101-500 buildings in view"
+  return "500+ buildings in view"
+}
+
 type BenchmarkBuildingSample = {
   id: string
   longitude: number
@@ -996,6 +1004,7 @@ export function benchmarkAssetKpiPercentilesForArea(
   }
   return out
 }
+
 
 /** Per-building KPI row for a single asset (ignores benchmark area bounds). */
 export function benchmarkBuildingTableRowForAsset(
