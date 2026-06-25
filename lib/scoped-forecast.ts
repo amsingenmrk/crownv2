@@ -20,6 +20,10 @@ export type ScopedForecastScope =
       portfolioScopeId?: string | null
     }
   | {
+      kind: "competitive"
+      competitiveGroupId?: string | null
+    }
+  | {
       kind: "scenario"
       scenarioSlug: string
     }

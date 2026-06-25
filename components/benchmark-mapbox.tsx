@@ -78,10 +78,7 @@ export function BenchmarkMapbox({
   const [hoveredAreaId, setHoveredAreaId] = React.useState<string | undefined>()
 
   const mapStyle = resolveMapboxMapStyle(resolvedTheme)
-  const fitBounds = React.useMemo(
-    () => benchmarkAreaFitBounds(area),
-    [area.id, area.bounds, area.boundaryGeometry]
-  )
+  const fitBounds = React.useMemo(() => benchmarkAreaFitBounds(area), [area])
 
   const highlightFill = resolvedTheme === "dark" ? "#60a5fa" : "#2563eb"
   const highlightLine = resolvedTheme === "dark" ? "#93c5fd" : "#1d4ed8"
@@ -258,15 +255,15 @@ export function BenchmarkMapbox({
     targetArea: BenchmarkArea,
     ids: { sourceId: string; fillLayerId: string; lineLayerId: string },
     options: {
-      fillColor: string | unknown[]
-      fillOpacity: number | unknown[]
-      lineColor: string | unknown[]
-      lineWidth: number | unknown[]
+      fillColor: string
+      fillOpacity: number
+      lineColor: string
+      lineWidth: number
       interactive?: boolean
     }
   ) => {
     if (targetArea.boundary && targetArea.boundaryGeometry == null) {
-      const fillLayer: Record<string, unknown> = {
+      const fillLayer: React.ComponentProps<typeof Layer> = {
         id: ids.fillLayerId,
         type: "fill",
         paint: {
@@ -278,7 +275,7 @@ export function BenchmarkMapbox({
         ...layerInsert,
       }
 
-      const lineLayer: Record<string, unknown> = {
+      const lineLayer: React.ComponentProps<typeof Layer> = {
         id: ids.lineLayerId,
         type: "line",
         layout: {
@@ -302,8 +299,8 @@ export function BenchmarkMapbox({
           type="vector"
           url={targetArea.boundary.tilesetUrl}
         >
-          <Layer {...(fillLayer as any)} />
-          <Layer {...(lineLayer as any)} />
+          <Layer {...fillLayer} />
+          <Layer {...lineLayer} />
         </Source>
       )
     }
@@ -327,8 +324,8 @@ export function BenchmarkMapbox({
           type="fill"
           {...layerInsert}
           paint={{
-            "fill-color": options.fillColor as any,
-            "fill-opacity": options.fillOpacity as any,
+            "fill-color": options.fillColor,
+            "fill-opacity": options.fillOpacity,
           }}
         />
         <Layer
@@ -340,8 +337,8 @@ export function BenchmarkMapbox({
             "line-join": "round",
           }}
           paint={{
-            "line-color": options.lineColor as any,
-            "line-width": options.lineWidth as any,
+            "line-color": options.lineColor,
+            "line-width": options.lineWidth,
             "line-opacity": 0.95,
           }}
         />

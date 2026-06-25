@@ -209,14 +209,7 @@ export function BenchmarkForecastSection({
   const defaultOutlooks = React.useMemo(() => buildDefaultForecastScenarios(), [])
   const marketInputs = React.useMemo(
     () => benchmarkAreaForecastInputs(area, statsRaw),
-    [
-      area,
-      statsRaw?.askingRentPsf,
-      statsRaw?.buildingCount,
-      statsRaw?.inPlaceRentPsf,
-      statsRaw?.intrinsicRentPsf,
-      statsRaw?.occupancyPct,
-    ]
+    [area, statsRaw]
   )
   const scenarioStorageKey = React.useMemo(
     () => benchmarkForecastScenarioStorageKey(area.id),

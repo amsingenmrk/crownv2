@@ -12,13 +12,13 @@ import {
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
+  ASSET_GROUP_SIDEBAR_LABELS,
   ASSETS,
   SEEDED_PORTFOLIO_GROUP_IDS,
   PORTFOLIO_OVERVIEW_LABEL,
   assetIsInPortfolioGroup,
   getAssetById,
   portfolioScopeIdFromRouteParam,
-  resolveAssetGroupLabel,
   resolvePortfolioScopeDescription,
 } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -79,10 +79,6 @@ export function PortfolioPageHeader() {
     }
   }, [isKnownPortfolioScope, portfolioScopeId, router])
 
-  if (portfolioScopeId != null && !isKnownPortfolioScope) {
-    return null
-  }
-
   const effectiveAssets = React.useMemo(
     () =>
       ASSETS.filter(
@@ -96,12 +92,21 @@ export function PortfolioPageHeader() {
     return effectiveAssets.filter((asset) =>
       assetIsInPortfolioGroup(asset.id, portfolioScopeId, assetGroupData)
     )
-  }, [effectiveAssets, portfolioScopeId])
+  }, [assetGroupData, effectiveAssets, portfolioScopeId])
 
   const title = React.useMemo(() => {
     if (portfolioScopeId == null) return PORTFOLIO_OVERVIEW_LABEL
-    return resolveAssetGroupLabel(portfolioScopeId, assetGroupData.customGroups)
-  }, [assetGroupData.customGroups, portfolioScopeId])
+    if (
+      (SEEDED_PORTFOLIO_GROUP_IDS as readonly string[]).includes(portfolioScopeId)
+    ) {
+      const seededId = portfolioScopeId as keyof typeof ASSET_GROUP_SIDEBAR_LABELS
+      return (
+        assetGroupData.fundLabelOverrides[portfolioScopeId]?.trim() ||
+        ASSET_GROUP_SIDEBAR_LABELS[seededId]
+      )
+    }
+    return assetGroupData.customGroups[portfolioScopeId] ?? portfolioScopeId
+  }, [assetGroupData.customGroups, assetGroupData.fundLabelOverrides, portfolioScopeId])
 
   const scopeDescription = React.useMemo(
     () =>
@@ -187,6 +192,10 @@ export function PortfolioPageHeader() {
   React.useEffect(() => {
     void router.prefetch(forecastsHref)
   }, [forecastsHref, router])
+
+  if (portfolioScopeId != null && !isKnownPortfolioScope) {
+    return null
+  }
 
   return (
     <>

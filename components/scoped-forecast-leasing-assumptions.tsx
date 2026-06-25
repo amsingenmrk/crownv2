@@ -16,14 +16,6 @@ export const SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS = [
     step: 1,
   },
   {
-    key: "occupancyTargetPct",
-    label: "Occupancy target",
-    suffix: "%",
-    min: 65,
-    max: 99,
-    step: 1,
-  },
-  {
     key: "defaultRenewalProbabilityPct",
     label: "Renewal probability",
     suffix: "%",
@@ -139,7 +131,6 @@ export function ScopedForecastLeasingAssumptionsBar({
               onAssumptionsChange({
                 [field.key]:
                   field.key === "timeToLeaseMonths" ||
-                  field.key === "occupancyTargetPct" ||
                   field.key === "defaultRenewalProbabilityPct"
                     ? Math.round(next)
                     : next,

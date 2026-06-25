@@ -44,9 +44,14 @@ import {
   scenarioDisplayTitleForSlug,
 } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
+import {
+  MARKET_SEARCH_LISTING_COUNT,
+  marketSearchDemoPinsBase,
+} from "@/lib/market-search-demo-listings"
 
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
+  { title: "Other Assets", href: "/other-assets", icon: Briefcase },
   { title: "Property search", href: "/search", icon: Search },
   { title: "Compare", href: "/compare", icon: GitCompareArrows },
   { title: "New comparison", href: "/compare/new", icon: GitCompareArrows },
@@ -55,13 +60,10 @@ const ROUTES = [
 
 function useMacLikePlatform() {
   const initialMacLikePlatform = useInitialMacLikePlatform()
-  const [macLike, setMacLike] = useState(initialMacLikePlatform)
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return
-    const next = /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
-    if (next !== macLike) setMacLike(next)
-  }, [macLike])
+  const [macLike] = useState(() => {
+    if (typeof navigator === "undefined") return initialMacLikePlatform
+    return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+  })
 
   return macLike
 }
@@ -127,6 +129,16 @@ export function AppCommandPalette({
       (a) => getAssetById(a.id, assetGroupData) ?? a
     )
   }, [assetGroupData, recentIds])
+
+  const competitiveAssets = useMemo(() => {
+    if (!open) return []
+    return marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT).map((pin) => ({
+      id: pin.id,
+      name: pin.building,
+      address: pin.location,
+      groupLabel: "Competitive set",
+    }))
+  }, [open])
 
   const commandScenarios = useMemo(() => {
     if (!open) return []
@@ -269,7 +281,7 @@ export function AppCommandPalette({
 
           <CommandSeparator />
 
-          <CommandGroup heading="Assets">
+          <CommandGroup heading="Portfolio assets">
             {otherAssets.map((a) => (
               <CommandItem
                 key={a.id}
@@ -280,6 +292,24 @@ export function AppCommandPalette({
                 <span className="min-w-0 flex-1 truncate">{a.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   {a.groupLabel}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+
+          <CommandSeparator />
+
+          <CommandGroup heading="Competitive assets">
+            {competitiveAssets.map((asset) => (
+              <CommandItem
+                key={asset.id}
+                value={`competitive asset ${asset.name} ${asset.address}`}
+                onSelect={() => go(assetHref(asset.id), { assetId: asset.id })}
+              >
+                <Building2 className="text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{asset.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {asset.groupLabel}
                 </span>
               </CommandItem>
             ))}

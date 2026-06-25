@@ -18,6 +18,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -28,6 +35,15 @@ import {
   toggleAssetGroupMembership,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
+import {
+  COMPETITIVE_SEEDED_GROUPS,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  removeCompetitiveAssetFromOtherAssets,
+  resolveCompetitiveGroupIdsForAsset,
+  subscribeCompetitiveGroups,
+  toggleCompetitiveAssetGroupMembership,
+} from "@/lib/competitive-group-overrides"
 import {
   ASSETS,
   SEEDED_PORTFOLIO_GROUP_IDS,
@@ -99,105 +115,227 @@ type SearchListingFilters = {
 
 type ScenarioMenuOption = { name: string; slug: string }
 type PortfolioMenuOption = { name: string; groupId: string }
+type CompetitiveMenuOption = { name: string; groupId: string }
+type CompetitiveGroupSnapshotData = ReturnType<typeof parseCompetitiveGroupSnapshot>
 
 function SearchListingCardActions({
   assetId,
   membershipGroupIds,
+  competitiveMembershipGroupIds,
+  competitiveGroupsForMenu,
   portfoliosForMenu,
   scenariosForMenu,
 }: {
   assetId: string
   membershipGroupIds: readonly string[]
+  competitiveMembershipGroupIds: readonly string[]
+  competitiveGroupsForMenu: CompetitiveMenuOption[]
   portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
 }) {
   const showToast = useAppToast()
   const baseGroupId =
     ASSETS.find((asset) => asset.id === assetId)?.groupId ?? "office"
+  const [openAction, setOpenAction] = React.useState<
+    "upload-om" | "add-from-other-assets" | null
+  >(null)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Add to portfolio group or scenario"
-          />
-        }
-      >
-        <Plus className="size-4" aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        side="top"
-        sideOffset={6}
-        className="z-[120] min-w-[12.5rem] max-h-[min(50vh,22rem)] overflow-y-auto"
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            Portfolio groups
-          </DropdownMenuLabel>
-          {portfoliosForMenu.map((p) => {
-            const selected = membershipGroupIds.includes(p.groupId)
-            return (
-              <DropdownMenuItem
-                key={p.groupId}
-                onClick={() => {
-                  const wasSelected = selected
-                  toggleAssetGroupMembership(assetId, p.groupId, baseGroupId)
-                  queueMicrotask(() =>
-                    showToast(
-                      wasSelected
-                        ? `Property removed from “${p.name}”.`
-                        : `Property added to “${p.name}”.`
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Add listing to competitive group, portfolio group, or scenario"
+            />
+          }
+        >
+          <Plus className="size-4" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          side="top"
+          sideOffset={6}
+          className="z-[120] min-w-[12.5rem] max-h-[min(50vh,22rem)] overflow-y-auto"
+        >
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              Other Assets actions
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setOpenAction("upload-om")}>
+              Add OM
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setOpenAction("add-from-other-assets")}>
+              Add from Other Assets
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              Competitive groups
+            </DropdownMenuLabel>
+            {competitiveGroupsForMenu.map((group) => {
+              const selected = competitiveMembershipGroupIds.includes(group.groupId)
+              return (
+                <DropdownMenuItem
+                  key={group.groupId}
+                  onClick={() => {
+                    const changed = toggleCompetitiveAssetGroupMembership(
+                      assetId,
+                      group.groupId
                     )
-                  )
+                    if (!changed) return
+                    queueMicrotask(() =>
+                      showToast(
+                        selected
+                          ? `Listing removed from “${group.name}”.`
+                          : `Listing added to “${group.name}”.`
+                      )
+                    )
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                  {selected ? (
+                    <span
+                      className="ml-2 text-xs text-muted-foreground"
+                      aria-hidden
+                    >
+                      Added
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              )
+            })}
+            {competitiveMembershipGroupIds.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    const changed = removeCompetitiveAssetFromOtherAssets(assetId)
+                    if (!changed) return
+                    queueMicrotask(() => showToast("Removed from Other Assets."))
+                  }}
+                >
+                  Remove from Other Assets
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              Portfolio groups
+            </DropdownMenuLabel>
+            {portfoliosForMenu.map((p) => {
+              const selected = membershipGroupIds.includes(p.groupId)
+              return (
+                <DropdownMenuItem
+                  key={p.groupId}
+                  onClick={() => {
+                    const wasSelected = selected
+                    toggleAssetGroupMembership(assetId, p.groupId, baseGroupId)
+                    queueMicrotask(() =>
+                      showToast(
+                        wasSelected
+                          ? `Property removed from “${p.name}”.`
+                          : `Property added to “${p.name}”.`
+                      )
+                    )
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {selected ? (
+                    <span
+                      className="ml-2 text-xs text-muted-foreground"
+                      aria-hidden
+                    >
+                      Added
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              Scenarios
+            </DropdownMenuLabel>
+            {scenariosForMenu.map((s) => (
+              <DropdownMenuItem
+                key={s.slug}
+                onClick={() => {
+                  addPortfolioAssetToScenarioBySlug(s.slug, assetId)
+                  queueMicrotask(() => showToast(`Added to “${s.name}”.`))
                 }}
               >
-                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                {selected ? (
-                  <span
-                    className="ml-2 text-xs text-muted-foreground"
-                    aria-hidden
-                  >
-                    Added
-                  </span>
-                ) : null}
+                <span className="truncate">{s.name}</span>
               </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            Scenarios
-          </DropdownMenuLabel>
-          {scenariosForMenu.map((s) => (
-            <DropdownMenuItem
-              key={s.slug}
-              onClick={() => {
-                addPortfolioAssetToScenarioBySlug(s.slug, assetId)
-                queueMicrotask(() => showToast(`Added to “${s.name}”.`))
-              }}
-            >
-              <span className="truncate">{s.name}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            ))}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog
+        open={openAction === "upload-om"}
+        onOpenChange={(open) => {
+          if (!open) setOpenAction(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add OM</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            OM upload flow will be connected here for Other Assets overview.
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpenAction(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={openAction === "add-from-other-assets"}
+        onOpenChange={(open) => {
+          if (!open) setOpenAction(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add from Other Assets</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Asset transfer selection flow from Other Assets will be connected here.
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpenAction(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
 function SearchListingPreviewCard({
   pin,
+  competitiveGroupData,
+  competitiveGroupsForMenu,
   portfoliosForMenu,
   scenariosForMenu,
 }: {
   pin: PortfolioMapboxPin
+  competitiveGroupData: CompetitiveGroupSnapshotData
+  competitiveGroupsForMenu: CompetitiveMenuOption[]
   portfoliosForMenu: PortfolioMenuOption[]
   scenariosForMenu: ScenarioMenuOption[]
 }) {
@@ -226,6 +364,25 @@ function SearchListingPreviewCard({
   const membershipGroupIds = React.useMemo(
     () => resolveAssetGroupIdsForAsset(pin.id, assetGroupData),
     [assetGroupData, pin.id]
+  )
+  const competitiveMembershipGroupIds = React.useMemo(
+    () =>
+      resolveCompetitiveGroupIdsForAsset(
+        pin.id,
+        competitiveGroupData.membershipOverrides,
+        {
+          customGroups: competitiveGroupData.customGroups,
+          removedAssetIds: competitiveGroupData.removedAssetIds,
+          removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
+        }
+      ),
+    [
+      competitiveGroupData.customGroups,
+      competitiveGroupData.membershipOverrides,
+      competitiveGroupData.removedAssetIds,
+      competitiveGroupData.removedSeededGroupIds,
+      pin.id,
+    ]
   )
   const liftText =
     pin.lift.trim() !== ""
@@ -320,6 +477,8 @@ function SearchListingPreviewCard({
         <SearchListingCardActions
           assetId={pin.id}
           membershipGroupIds={membershipGroupIds}
+          competitiveMembershipGroupIds={competitiveMembershipGroupIds}
+          competitiveGroupsForMenu={competitiveGroupsForMenu}
           portfoliosForMenu={portfoliosForMenu}
           scenariosForMenu={scenariosForMenu}
         />
@@ -405,6 +564,15 @@ export function SearchComingSoon() {
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
   )
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
+  )
   const filterTitleId = React.useId()
   const portfolioCbId = React.useId()
   const marketCbId = React.useId()
@@ -418,7 +586,7 @@ export function SearchComingSoon() {
   )
   const [mapSearchQuery, setMapSearchQuery] = React.useState("")
 
-  const { listingPins, portfolioPins, marketPins } = React.useMemo(() => {
+  const { portfolioPins, marketPins } = React.useMemo(() => {
     const liftPcts = ASSETS.map(
       (a, i) => 3 + (seedForAsset(a, i) % 15)
     )
@@ -468,19 +636,17 @@ export function SearchComingSoon() {
       )
     }
     return {
-      listingPins: spread,
       portfolioPins: pf,
       marketPins: mk,
     }
   }, [assetGroupData, coordinates])
 
-  const displayedPortfolioPins = appliedFilters.showPortfolio
-    ? portfolioPins
-    : []
-  const displayedMarketPins = appliedFilters.showMarket ? marketPins : []
   const displayedListingPins = React.useMemo(
-    () => [...displayedPortfolioPins, ...displayedMarketPins],
-    [displayedPortfolioPins, displayedMarketPins]
+    () => [
+      ...(appliedFilters.showPortfolio ? portfolioPins : []),
+      ...(appliedFilters.showMarket ? marketPins : []),
+    ],
+    [appliedFilters.showMarket, appliedFilters.showPortfolio, marketPins, portfolioPins]
   )
 
   const mapSearchFilteredPins = React.useMemo(() => {
@@ -507,10 +673,6 @@ export function SearchComingSoon() {
     setDraftFilters(appliedFilters)
     setFilterPanelOpen(true)
   }, [appliedFilters])
-
-  const closeFilterPanel = React.useCallback(() => {
-    setFilterPanelOpen(false)
-  }, [])
 
   const handleFilterClear = React.useCallback(() => {
     setDraftFilters({ ...DEFAULT_SEARCH_LISTING_FILTERS })
@@ -585,6 +747,24 @@ export function SearchComingSoon() {
     }))
     return [...seededGroups, ...custom]
   }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
+  const competitiveGroupsForMenu = React.useMemo((): CompetitiveMenuOption[] => {
+    const seeded = COMPETITIVE_SEEDED_GROUPS.filter(
+      (group) => !competitiveGroupData.removedSeededGroupIds.has(group.id)
+    ).map((group) => ({
+      name: competitiveGroupData.groupLabels[group.id] ?? group.label,
+      groupId: group.id,
+    }))
+    const custom = Object.entries(competitiveGroupData.customGroups)
+      .map(([groupId, name]) => ({ name, groupId }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    return [...seeded, ...custom]
+  }, [
+    competitiveGroupData.customGroups,
+    competitiveGroupData.groupLabels,
+    competitiveGroupData.removedSeededGroupIds,
+  ])
 
   const showMapbox = mapboxEnabled
   const propertyCount = mapSearchFilteredPins.length
@@ -673,6 +853,8 @@ export function SearchComingSoon() {
                   <div key={pin.id} role="listitem">
                     <SearchListingPreviewCard
                       pin={pin}
+                      competitiveGroupData={competitiveGroupData}
+                      competitiveGroupsForMenu={competitiveGroupsForMenu}
                       portfoliosForMenu={portfoliosForMenu}
                       scenariosForMenu={scenariosForMenu}
                     />
@@ -682,6 +864,8 @@ export function SearchComingSoon() {
                   <div key={pin.id} role="listitem">
                     <SearchListingPreviewCard
                       pin={pin}
+                      competitiveGroupData={competitiveGroupData}
+                      competitiveGroupsForMenu={competitiveGroupsForMenu}
                       portfoliosForMenu={portfoliosForMenu}
                       scenariosForMenu={scenariosForMenu}
                     />

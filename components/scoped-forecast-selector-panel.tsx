@@ -155,7 +155,6 @@ export function ScopedForecastSelectorPanel({
                 onAssumptionsChange({
                   [field.key]:
                     field.key === "timeToLeaseMonths" ||
-                    field.key === "occupancyTargetPct" ||
                     field.key === "defaultRenewalProbabilityPct"
                       ? Math.round(next)
                       : next,

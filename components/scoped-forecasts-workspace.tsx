@@ -34,6 +34,11 @@ import {
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
+import {
   getForecastStatementChartMeta,
   type ForecastChartTab,
 } from "@/lib/forecast-chart-config"
@@ -248,7 +253,6 @@ function PortfolioForecastControlCenter({
       onAssumptionsChange({
         [key]:
           key === "timeToLeaseMonths" ||
-          key === "occupancyTargetPct" ||
           key === "defaultRenewalProbabilityPct"
             ? Math.round(next)
             : next,
@@ -365,23 +369,45 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     setSelectedBuildingVersionId,
     setSelectedOutlookSetId,
   } = useScopedForecastState(scope)
-  const isPortfolioScope = scope.kind === "portfolio"
+  const isPortfolioLikeScope = scope.kind !== "scenario"
 
   const userScenarios = React.useSyncExternalStore(
     subscribeUserScenarios,
     getUserScenariosStoreSnapshot,
     () => USER_SCENARIOS_SERVER_SNAPSHOT
   )
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
+  )
+  const competitiveGroupLabels = React.useMemo(
+    () => competitiveGroupData.groupLabels,
+    [competitiveGroupData.groupLabels]
+  )
 
   const scopeLabel = React.useMemo(() => {
     if (scope.kind === "scenario") {
       return scenarioDisplayTitleForSlug(scope.scenarioSlug, userScenarios)
     }
+    if (scope.kind === "competitive") {
+      if (scope.competitiveGroupId != null) {
+        return (
+          competitiveGroupLabels[scope.competitiveGroupId] ??
+          scope.competitiveGroupId
+        )
+      }
+      return "Other Assets"
+    }
     if (scope.portfolioScopeId != null) {
       return resolveAssetGroupLabel(scope.portfolioScopeId)
     }
     return PORTFOLIO_OVERVIEW_LABEL
-  }, [scope, userScenarios])
+  }, [competitiveGroupLabels, scope, userScenarios])
 
   const rollup = React.useMemo(
     () =>
@@ -392,7 +418,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
             scopeLabel,
             assetSelections,
             assumptions,
-            portfolioControls: isPortfolioScope
+            portfolioControls: isPortfolioLikeScope
               ? {
                   modificationMode: portfolioModificationMode,
                   scenarioProbabilities: portfolioScenarioProbabilities,
@@ -403,7 +429,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     [
       assetSelections,
       assumptions,
-      isPortfolioScope,
+      isPortfolioLikeScope,
       portfolioModificationMode,
       portfolioScenarioProbabilities,
       scopeLabel,
@@ -516,7 +542,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
     [assetSelections, assumptions, portfolioModificationMode, scopeLabel]
   )
 
-  if (isPortfolioScope && rollup.portfolioOverview != null) {
+  if (isPortfolioLikeScope && rollup.portfolioOverview != null) {
       return (
         <TooltipProvider delay={120}>
           <div className="flex min-h-0 w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">

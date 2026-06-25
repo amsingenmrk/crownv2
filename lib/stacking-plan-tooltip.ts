@@ -99,10 +99,6 @@ export function buildStackingPlanSuiteEditorTooltipText({
       "Time to lease",
       formatMonths(resolvedSpaceAssumptions.timeToLeaseMonths)
     ),
-    formatTooltipLine(
-      "Occupancy target",
-      formatPercent(resolvedSpaceAssumptions.occupancyTargetPct)
-    ),
     !tenant.isVacant
       ? formatTooltipLine(
           "Renewal probability",

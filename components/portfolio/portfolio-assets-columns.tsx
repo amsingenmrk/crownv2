@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ArrowDown, ArrowUp, Sun, Wrench } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
+  CompetitiveRemoveAssetButton,
   PortfolioAssetIdentity,
   PortfolioRemoveAssetButton,
   ScenarioRemoveAssetButton,
@@ -17,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
+import { CompetitiveScopeSelect } from "@/components/portfolio/competitive-scope-select"
 import {
   modificationSetMetricDelta,
   type ModificationSelectionMetricKey,
@@ -31,7 +33,10 @@ import {
 import { cn } from "@/lib/utils"
 import { useScenarioModificationSelections } from "@/components/scenario-modification-selections-context"
 
-export type PortfolioAssetsTableVariant = "portfolio" | "scenarios"
+export type PortfolioAssetsTableVariant =
+  | "portfolio"
+  | "other-assets"
+  | "scenarios"
 
 type PortfolioAssetColumnOptions = {
   showScopeColumn?: boolean
@@ -193,6 +198,10 @@ export function createPortfolioAssetColumns(
     showScopeColumn = false,
   }: PortfolioAssetColumnOptions = {}
 ): ColumnDef<PortfolioAssetRow>[] {
+  const isScenarioVariant = variant === "scenarios"
+  const isOwnedPortfolioVariant = variant === "portfolio"
+  const isOverviewVariant =
+    variant === "portfolio" || variant === "other-assets"
   const liftStrength = (liftPercent: number) =>
     normalizedLiftStrength(liftPercent, liftExtent.min, liftExtent.max)
 
@@ -285,7 +294,7 @@ export function createPortfolioAssetColumns(
         Number.parseInt(String(rowB.getValue(id)).replace(/\D/g, ""), 10),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.pricePerSf}
@@ -311,7 +320,7 @@ export function createPortfolioAssetColumns(
         parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.revenue}
@@ -337,7 +346,7 @@ export function createPortfolioAssetColumns(
         parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.opex}
@@ -363,7 +372,7 @@ export function createPortfolioAssetColumns(
         parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.noi}
@@ -389,7 +398,7 @@ export function createPortfolioAssetColumns(
         parseCompactUsdDisplay(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="min-w-0 truncate text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.value}
@@ -415,7 +424,7 @@ export function createPortfolioAssetColumns(
         Number.parseFloat(String(rowB.getValue(id))),
       cell: ({ row }) => (
         <div className="text-left text-sm tabular-nums">
-          {variant === "scenarios" ? (
+          {isScenarioVariant ? (
             <ScenarioAssetMetricCell
               assetId={row.original.id}
               baseDisplay={row.original.capRate}
@@ -429,7 +438,7 @@ export function createPortfolioAssetColumns(
     },
   ]
 
-  if (variant === "portfolio" && showScopeColumn) {
+  if (isOwnedPortfolioVariant && showScopeColumn) {
     columns.splice(2, 0, {
       id: "scope",
       accessorFn: (row) => row.groupId,
@@ -446,7 +455,24 @@ export function createPortfolioAssetColumns(
     })
   }
 
-  if (variant === "portfolio") {
+  if (variant === "other-assets" && showScopeColumn) {
+    columns.splice(2, 0, {
+      id: "competitiveScope",
+      accessorFn: (row) => row.groupId,
+      enableHiding: true,
+      meta: { columnLabel: "Competitive group" },
+      header: () => <div className="font-medium">Competitive group</div>,
+      cell: ({ row }) => (
+        <CompetitiveScopeSelect
+          assetId={row.original.id}
+          building={row.original.building}
+        />
+      ),
+      enableSorting: false,
+    })
+  }
+
+  if (isOverviewVariant) {
     columns.push({
       id: "lift",
       accessorFn: (row) => row.liftPercent,
@@ -496,6 +522,9 @@ export function createPortfolioAssetColumns(
         </div>
       ),
     })
+  }
+
+  if (isOwnedPortfolioVariant) {
     columns.push({
       id: "portfolioRemove",
       enableHiding: false,
@@ -511,7 +540,27 @@ export function createPortfolioAssetColumns(
         </div>
       ),
     })
-  } else {
+  }
+
+  if (variant === "other-assets") {
+    columns.push({
+      id: "competitiveRemove",
+      enableHiding: false,
+      enableSorting: false,
+      meta: { columnLabel: "Remove from Other Assets" },
+      header: () => <span className="sr-only">Remove from Other Assets</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          <CompetitiveRemoveAssetButton
+            assetId={row.original.id}
+            building={row.original.building}
+          />
+        </div>
+      ),
+    })
+  }
+
+  if (isScenarioVariant) {
     // Scenario overview: Asset column shows address in subtitle — keep Modifications next.
     columns.splice(2, 0, {
       id: "modifications",

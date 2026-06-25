@@ -52,8 +52,9 @@ function scoreCellClass(
 }
 
 function percentileBadge(
-  percentile: number | null | undefined
-): { label: string; toneClassName: string } | null {
+  percentile: number | null | undefined,
+  benchmarkLabel: string
+): { contextLabel: string; percentileLabel: string; toneClassName: string } | null {
   if (percentile == null || !Number.isFinite(percentile)) return null
   const rounded = Math.round(percentile)
   const clamped = Math.max(0, Math.min(100, rounded))
@@ -67,7 +68,8 @@ function percentileBadge(
           : "th"
 
   return {
-    label: `${rounded}${suffix} percentile`,
+    contextLabel: `vs ${benchmarkLabel}`,
+    percentileLabel: `${rounded}${suffix} percentile`,
     toneClassName: qualityScoreValueClass(clamped),
   }
 }
@@ -327,9 +329,16 @@ export function AssetBenchmarksTable({
                   const assetValue = assetRow.kpis[definition.key] ?? emptyValue
                   const lowValue = lowKpis[definition.key] ?? emptyValue
                   const marketValue = marketKpis[definition.key] ?? emptyValue
-                  const lowPercentile = percentileBadge(lowPercentiles[definition.key])
+                  const lowPercentile = percentileBadge(
+                    lowPercentiles[definition.key],
+                    lowLabel
+                  )
                   const marketPercentile = percentileBadge(
-                    marketPercentiles[definition.key]
+                    marketPercentiles[definition.key],
+                    marketLabel
+                  )
+                  const percentilePills = [lowPercentile, marketPercentile].filter(
+                    (pill): pill is NonNullable<typeof pill> => pill != null
                   )
                   const assetValueClass = scoreCellClass(definition, assetValue.value)
                   const lowValueClass = scoreCellClass(definition, lowValue.value)
@@ -359,6 +368,30 @@ export function AssetBenchmarksTable({
                               ({assetValue.supportingRange})
                             </div>
                           ) : null}
+                          {percentilePills.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              {percentilePills.map((pill) => (
+                                <span
+                                  key={`${pill.contextLabel}-${pill.percentileLabel}`}
+                                  className={cn(
+                                    "inline-flex max-w-full items-center gap-1 rounded-full border border-border/70 bg-muted/25 px-1.5 py-0.5 text-[10px] leading-tight"
+                                  )}
+                                >
+                                  <span className="truncate text-muted-foreground">
+                                    {pill.contextLabel}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "shrink-0 font-semibold tabular-nums",
+                                      pill.toneClassName
+                                    )}
+                                  >
+                                    {pill.percentileLabel}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell
@@ -368,19 +401,7 @@ export function AssetBenchmarksTable({
                         )}
                       >
                         <div>
-                          <div className="inline-flex items-center gap-1.5">
-                            <span>{lowValue.value}</span>
-                            {lowPercentile ? (
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium",
-                                  lowPercentile.toneClassName
-                                )}
-                              >
-                                <span className="tabular-nums">{lowPercentile.label}</span>
-                              </span>
-                            ) : null}
-                          </div>
+                          <div>{lowValue.value}</div>
                           {lowValue.supportingRange ? (
                             <div className="mt-0.5 text-[11px] text-muted-foreground">
                               ({lowValue.supportingRange})
@@ -395,19 +416,7 @@ export function AssetBenchmarksTable({
                         )}
                       >
                         <div>
-                          <div className="inline-flex items-center gap-1.5">
-                            <span>{marketValue.value}</span>
-                            {marketPercentile ? (
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-1.5 py-0.5 text-[10px] font-medium",
-                                  marketPercentile.toneClassName
-                                )}
-                              >
-                                <span className="tabular-nums">{marketPercentile.label}</span>
-                              </span>
-                            ) : null}
-                          </div>
+                          <div>{marketValue.value}</div>
                           {marketValue.supportingRange ? (
                             <div className="mt-0.5 text-[11px] text-muted-foreground">
                               ({marketValue.supportingRange})

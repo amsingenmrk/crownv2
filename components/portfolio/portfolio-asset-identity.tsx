@@ -23,6 +23,12 @@ import {
   removeAssetGroupOverride,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
+import {
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  removeCompetitiveAssetFromOtherAssets,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { cn } from "@/lib/utils"
 
@@ -258,6 +264,104 @@ export function PortfolioRemoveAssetFooter({
   return (
     <div className="flex justify-end border-t border-border pt-3">
       <PortfolioRemoveAssetButton assetId={assetId} building={building} />
+    </div>
+  )
+}
+
+export function canRemoveAssetFromOtherAssets(
+  assetId: string,
+  competitiveGroupData: ReturnType<typeof parseCompetitiveGroupSnapshot>
+): boolean {
+  return !competitiveGroupData.removedAssetIds.has(assetId)
+}
+
+function useCanRemoveAssetFromOtherAssets(assetId: string): boolean {
+  const competitiveSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveSnap),
+    [competitiveSnap]
+  )
+  return canRemoveAssetFromOtherAssets(assetId, competitiveData)
+}
+
+export function CompetitiveRemoveAssetButton({
+  assetId,
+  building,
+}: {
+  assetId: string
+  building: string
+}) {
+  const showToast = useAppToast()
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const canRemove = useCanRemoveAssetFromOtherAssets(assetId)
+
+  if (!canRemove) {
+    return null
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-6 shrink-0 rounded-sm text-muted-foreground/80 hover:text-destructive"
+        aria-label={`Remove ${building} from other assets`}
+        aria-haspopup="dialog"
+        aria-expanded={confirmOpen}
+        onClick={() => setConfirmOpen(true)}
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+      </Button>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove from Other Assets?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{building}</span> will be removed from
+              this section. You can add it back to any competitive group anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                removeCompetitiveAssetFromOtherAssets(assetId)
+                showToast("Removed from Other Assets.")
+                setConfirmOpen(false)
+              }}
+            >
+              Remove from Other Assets
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+export function CompetitiveRemoveAssetFooter({
+  assetId,
+  building,
+}: {
+  assetId: string
+  building: string
+}) {
+  const canRemove = useCanRemoveAssetFromOtherAssets(assetId)
+  if (!canRemove) {
+    return null
+  }
+  return (
+    <div className="flex justify-end border-t border-border pt-3">
+      <CompetitiveRemoveAssetButton assetId={assetId} building={building} />
     </div>
   )
 }

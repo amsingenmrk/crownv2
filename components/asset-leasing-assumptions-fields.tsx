@@ -100,11 +100,12 @@ export function AssetLeasingAssumptionsFields({
     return items
   }, [])
 
-  const leasingFields = showRenewalProbability
-    ? SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS
-    : SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.filter(
-        (field) => field.key !== "defaultRenewalProbabilityPct"
-      )
+  const leasingFields = SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.filter((field) => {
+    if (!showRenewalProbability && field.key === "defaultRenewalProbabilityPct") {
+      return false
+    }
+    return true
+  })
 
   if (fieldStyle === "stacked") {
     return (
@@ -123,7 +124,6 @@ export function AssetLeasingAssumptionsFields({
               onAssumptionsChange({
                 [field.key]:
                   field.key === "timeToLeaseMonths" ||
-                  field.key === "occupancyTargetPct" ||
                   field.key === "defaultRenewalProbabilityPct"
                     ? Math.round(next)
                     : next,
@@ -206,7 +206,6 @@ export function AssetLeasingAssumptionsFields({
             onAssumptionsChange({
               [field.key]:
                 field.key === "timeToLeaseMonths" ||
-                field.key === "occupancyTargetPct" ||
                 field.key === "defaultRenewalProbabilityPct"
                   ? Math.round(next)
                   : next,

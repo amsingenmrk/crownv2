@@ -89,6 +89,7 @@ export function buildValuationConditionMetricMap({
   baseCapRatePct: number
   modValues?: ModValues
 }): Record<ValuationConditionId, ValuationConditionMetrics> {
+  void assumptions
   const modUplift = upliftFromModValues(modValues)
   const currentMacroPeriod = scenario.macroPeriods[0]
   const effects =
@@ -103,7 +104,7 @@ export function buildValuationConditionMetricMap({
         }
   const currentOccupancyPct = dataset.summary.overallOccupancyPercent
   const effectiveTargetOccupancyPct = clamp(
-    assumptions.occupancyTargetPct +
+    currentOccupancyPct +
       effects.occupancyTargetAdjustmentPct +
       modUplift.occupancyLiftPct,
     65,

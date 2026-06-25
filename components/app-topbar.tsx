@@ -53,6 +53,15 @@ import {
   updateFundByGroupId,
 } from "@/lib/asset-group-overrides"
 import {
+  COMPETITIVE_SEEDED_GROUPS,
+  ensureCompetitiveMembershipSeeded,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  removeCompetitiveGroupById,
+  subscribeCompetitiveGroups,
+  updateCompetitiveGroupById,
+} from "@/lib/competitive-group-overrides"
+import {
   ASSETS,
   ASSET_GROUP_SIDEBAR_LABELS,
   SEEDED_PORTFOLIO_GROUP_IDS,
@@ -87,6 +96,7 @@ import {
 import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridge"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { PortfolioGroupBadgeDropdown } from "@/components/portfolio-group-badge-dropdown"
+import { CompetitiveGroupBadgeDropdown } from "@/components/competitive-group-badge-dropdown"
 import { cn } from "@/lib/utils"
 
 function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string {
@@ -101,6 +111,8 @@ const TITLES: Record<string, string> = {
   "/": "Portfolio",
   "/portfolio": "Portfolio",
   "/search": "Property search",
+  "/other-assets": "Other Assets",
+  "/other-assets/forecasts": "Other Assets",
   "/compare": "Compare",
   "/compare/new": "New comparison",
   "/benchmarks": "Benchmarks",
@@ -126,16 +138,31 @@ function portfolioScopeIdFromPathname(pathname: string | null): string | null {
   return scopeId ? portfolioScopeIdFromRouteParam(scopeId) : null
 }
 
+function competitiveGroupIdFromPathname(pathname: string | null): string | null {
+  if (pathname == null || !pathname.startsWith("/other-assets/groups/")) return null
+  const groupId = pathname.slice("/other-assets/groups/".length).split("/")[0]
+  return groupId ? decodeURIComponent(groupId) : null
+}
+
 function titleForPathname(
   pathname: string | null,
   userScenarios: readonly { name: string; slug: string }[],
   savedComparisons: readonly { id: string; name: string }[],
   portfolioScopeLabels: Record<string, string>,
+  competitiveGroupLabels: Record<string, string>,
   builtinScenarioDisplayName: string
 ): string {
   if (!pathname) return "Glassbox"
   const explicit = TITLES[pathname]
   if (explicit) return explicit
+  if (pathname.startsWith("/other-assets/groups/")) {
+    const groupId = pathname.slice("/other-assets/groups/".length).split("/")[0]
+    if (groupId) {
+      const decoded = decodeURIComponent(groupId)
+      return competitiveGroupLabels[decoded] ?? decoded
+    }
+    return "Other Assets"
+  }
   const scopeId = portfolioScopeIdFromPathname(pathname)
   if (scopeId != null) {
     return portfolioScopeLabels[scopeId] ?? scopeId
@@ -259,9 +286,18 @@ export function AppTopbar() {
     getAssetGroupOverridesSnapshot,
     () => initialAssetGroupOverrideSnapshot
   )
+  const competitiveGroupSnap = useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
   const assetGroupData = useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
+  )
+  const competitiveGroupData = useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
   )
   const [deleteScenarioOpen, setDeleteScenarioOpen] = useState(false)
   const [scenarioRenameOpen, setScenarioRenameOpen] = useState(false)
@@ -279,10 +315,20 @@ export function AppTopbar() {
     useState("")
   const [portfolioScopeRenameDescriptionDraft, setPortfolioScopeRenameDescriptionDraft] =
     useState("")
+  const [deleteCompetitiveGroupOpen, setDeleteCompetitiveGroupOpen] =
+    useState(false)
+  const [competitiveGroupRenameOpen, setCompetitiveGroupRenameOpen] =
+    useState(false)
+  const [competitiveGroupRenameDraft, setCompetitiveGroupRenameDraft] =
+    useState("")
+  const [competitiveGroupRenameDescriptionDraft, setCompetitiveGroupRenameDescriptionDraft] =
+    useState("")
   const scenarioRenameNameFieldId = useId()
   const scenarioRenameDescriptionFieldId = useId()
   const portfolioRenameNameFieldId = useId()
   const portfolioRenameDescriptionFieldId = useId()
+  const competitiveRenameNameFieldId = useId()
+  const competitiveRenameDescriptionFieldId = useId()
   const assetSearchInputRef = useRef<HTMLInputElement>(null)
 
   const assetId = typeof params?.id === "string" ? params.id : null
@@ -307,7 +353,10 @@ export function AppTopbar() {
   const compareSavedId = compareSavedIdFromPathname(pathname ?? null)
   const portfolioScopeBreadcrumbId =
     portfolioScopeIdFromPathname(pathname ?? null)
+  const competitiveGroupBreadcrumbId =
+    competitiveGroupIdFromPathname(pathname ?? null)
   const showPortfolioScopeBreadcrumb = portfolioScopeBreadcrumbId != null
+  const showCompetitiveGroupBreadcrumb = competitiveGroupBreadcrumbId != null
   const isSeededPortfolioScope = useMemo(
     () =>
       portfolioScopeBreadcrumbId != null &&
@@ -322,6 +371,18 @@ export function AppTopbar() {
       (isSeededPortfolioScope ||
         Object.hasOwn(assetGroupData.customGroups, portfolioScopeBreadcrumbId)),
     [assetGroupData.customGroups, isSeededPortfolioScope, portfolioScopeBreadcrumbId]
+  )
+  const isSeededCompetitiveGroup = useMemo(
+    () =>
+      competitiveGroupBreadcrumbId != null &&
+      COMPETITIVE_SEEDED_GROUPS.some((group) => group.id === competitiveGroupBreadcrumbId),
+    [competitiveGroupBreadcrumbId]
+  )
+  const canDeleteCompetitiveGroup = useMemo(
+    () =>
+      competitiveGroupBreadcrumbId != null &&
+      Object.hasOwn(competitiveGroupData.groupLabels, competitiveGroupBreadcrumbId),
+    [competitiveGroupBreadcrumbId, competitiveGroupData.groupLabels]
   )
   const showCompareSavedBreadcrumb = compareSavedId != null
   const showCompareMoreMenu = showCompareSavedBreadcrumb
@@ -366,6 +427,9 @@ export function AppTopbar() {
     }
     return labels
   }, [assetGroupData])
+  const competitiveGroupLabels = useMemo(() => {
+    return competitiveGroupData.groupLabels
+  }, [competitiveGroupData.groupLabels])
 
   const marketListingPortfolioGroupIds =
     marketListingPin != null && assetId != null
@@ -388,6 +452,7 @@ export function AppTopbar() {
     userScenarios,
     savedComparisons,
     portfolioScopeLabels,
+    competitiveGroupLabels,
     builtinScenarioDisplayName
   )
 
@@ -442,6 +507,22 @@ export function AppTopbar() {
     isSeededPortfolioScope,
     portfolioScopeBreadcrumbId,
     portfolioScopeLabels,
+  ])
+
+  const openCompetitiveGroupRename = useCallback(() => {
+    if (competitiveGroupBreadcrumbId == null) return
+    const groupId = competitiveGroupBreadcrumbId
+    setCompetitiveGroupRenameDraft(
+      competitiveGroupData.groupLabels[groupId] ?? groupId
+    )
+    setCompetitiveGroupRenameDescriptionDraft(
+      competitiveGroupData.groupDescriptions[groupId] ?? ""
+    )
+    setCompetitiveGroupRenameOpen(true)
+  }, [
+    competitiveGroupBreadcrumbId,
+    competitiveGroupData.groupDescriptions,
+    competitiveGroupData.groupLabels,
   ])
 
   const commitScenarioRename = useCallback(() => {
@@ -554,6 +635,37 @@ export function AppTopbar() {
     showToast,
   ])
 
+  const commitCompetitiveGroupRename = useCallback(() => {
+    const name = competitiveGroupRenameDraft.trim()
+    if (!name || competitiveGroupBreadcrumbId == null) return
+    const groupId = competitiveGroupBreadcrumbId
+    const previousName = competitiveGroupData.groupLabels[groupId] ?? groupId
+    const previousDescription = (
+      competitiveGroupData.groupDescriptions[groupId] ?? ""
+    ).trim()
+    const nextDescription = competitiveGroupRenameDescriptionDraft.trim()
+    if (name === previousName && nextDescription === previousDescription) {
+      setCompetitiveGroupRenameOpen(false)
+      return
+    }
+    if (
+      updateCompetitiveGroupById(groupId, {
+        name,
+        description: competitiveGroupRenameDescriptionDraft,
+      })
+    ) {
+      setCompetitiveGroupRenameOpen(false)
+      showToast("Saved.")
+    }
+  }, [
+    competitiveGroupBreadcrumbId,
+    competitiveGroupData.groupDescriptions,
+    competitiveGroupData.groupLabels,
+    competitiveGroupRenameDescriptionDraft,
+    competitiveGroupRenameDraft,
+    showToast,
+  ])
+
   const scenarioRenameSaveDisabled = useMemo(() => {
     if (!scenarioRenameDraft.trim() || scenarioSlug == null) return true
     if (scenarioSlug === BUILTIN_SCENARIO.slug) {
@@ -617,6 +729,31 @@ export function AppTopbar() {
     portfolioScopeRenameDraft,
   ])
 
+  const competitiveRenameSaveDisabled = useMemo(() => {
+    if (!competitiveGroupRenameDraft.trim() || competitiveGroupBreadcrumbId == null) {
+      return true
+    }
+    const groupId = competitiveGroupBreadcrumbId
+    const previousName = competitiveGroupData.groupLabels[groupId] ?? groupId
+    const previousDescription = (
+      competitiveGroupData.groupDescriptions[groupId] ?? ""
+    ).trim()
+    return (
+      competitiveGroupRenameDraft.trim() === previousName &&
+      competitiveGroupRenameDescriptionDraft.trim() === previousDescription
+    )
+  }, [
+    competitiveGroupBreadcrumbId,
+    competitiveGroupData.groupDescriptions,
+    competitiveGroupData.groupLabels,
+    competitiveGroupRenameDescriptionDraft,
+    competitiveGroupRenameDraft,
+  ])
+
+  useEffect(() => {
+    ensureCompetitiveMembershipSeeded()
+  }, [])
+
   useEffect(() => {
     if (!assetMenuOpen) return
     const id = requestAnimationFrame(() => {
@@ -656,12 +793,30 @@ export function AppTopbar() {
   }, [showPortfolioScopeBreadcrumb])
 
   useEffect(() => {
+    if (!showCompetitiveGroupBreadcrumb) {
+      queueMicrotask(() => {
+        setCompetitiveGroupRenameOpen(false)
+        setDeleteCompetitiveGroupOpen(false)
+        setCompetitiveGroupRenameDescriptionDraft("")
+      })
+    }
+  }, [showCompetitiveGroupBreadcrumb])
+
+  useEffect(() => {
     queueMicrotask(() => {
       setPortfolioScopeRenameOpen(false)
       setDeletePortfolioScopeOpen(false)
       setPortfolioScopeRenameDescriptionDraft("")
     })
   }, [portfolioScopeBreadcrumbId])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setCompetitiveGroupRenameOpen(false)
+      setDeleteCompetitiveGroupOpen(false)
+      setCompetitiveGroupRenameDescriptionDraft("")
+    })
+  }, [competitiveGroupBreadcrumbId])
 
   return (
     <header className="grid h-12 min-w-0 w-full max-w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-background transition-[width,height] ease-linear">
@@ -977,6 +1132,33 @@ export function AppTopbar() {
               />
             </BreadcrumbList>
           </Breadcrumb>
+        ) : showCompetitiveGroupBreadcrumb &&
+          competitiveGroupBreadcrumbId != null ? (
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink
+                  render={
+                    <Link
+                      href="/other-assets"
+                      className="font-medium text-muted-foreground"
+                    />
+                  }
+                >
+                  Other Assets
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+              <PortfolioScopeBreadcrumbCurrentPage
+                key={competitiveGroupBreadcrumbId}
+                pageTitle={
+                  competitiveGroupData.groupLabels[competitiveGroupBreadcrumbId] ??
+                  competitiveGroupBreadcrumbId
+                }
+                onOpenRename={openCompetitiveGroupRename}
+              />
+            </BreadcrumbList>
+          </Breadcrumb>
         ) : (
           <span className="text-sm font-medium text-muted-foreground">
             {pageTitle}
@@ -1006,11 +1188,17 @@ export function AppTopbar() {
         ) : showNonAssetPropertyBreadcrumb &&
           marketListingPin != null &&
           assetId != null ? (
-          <PortfolioGroupBadgeDropdown
-            assetId={assetId}
-            resolvedGroupIds={marketListingPortfolioGroupIds}
-            propertyDisplayName={marketListingPin.building}
-          />
+          <>
+            <PortfolioGroupBadgeDropdown
+              assetId={assetId}
+              resolvedGroupIds={marketListingPortfolioGroupIds}
+              propertyDisplayName={marketListingPin.building}
+            />
+            <CompetitiveGroupBadgeDropdown
+              assetId={assetId}
+              propertyDisplayName={marketListingPin.building}
+            />
+          </>
         ) : null}
         {showPortfolioScopeBreadcrumb && portfolioScopeBreadcrumbId != null ? (
           <>
@@ -1149,8 +1337,8 @@ export function AppTopbar() {
                       if (portfolioScopeBreadcrumbId == null) return
                       const groupId = portfolioScopeBreadcrumbId
                       let ok = false
-                      let standaloneAssetIds: string[] = []
-                      let revertedAssetIds: string[] = []
+                      const standaloneAssetIds: string[] = []
+                      const revertedAssetIds: string[] = []
 
                       if (isSeededPortfolioScope) {
                         const membersInGroup = ASSETS.filter((asset) => {
@@ -1218,6 +1406,164 @@ export function AppTopbar() {
                           revertedAssetIds,
                         })
                         showToast("Could not delete portfolio group.")
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : null}
+        {showCompetitiveGroupBreadcrumb && competitiveGroupBreadcrumbId != null ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label="Competitive group actions"
+                  />
+                }
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6}>
+                <DropdownMenuItem onClick={openCompetitiveGroupRename}>
+                  Rename
+                </DropdownMenuItem>
+                {canDeleteCompetitiveGroup ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleteCompetitiveGroupOpen(true)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog
+              open={competitiveGroupRenameOpen}
+              onOpenChange={(open) => {
+                setCompetitiveGroupRenameOpen(open)
+                if (!open) {
+                  setCompetitiveGroupRenameDraft("")
+                  setCompetitiveGroupRenameDescriptionDraft("")
+                }
+              }}
+            >
+              <DialogContent showCloseButton className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename competitive group</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={competitiveRenameNameFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id={competitiveRenameNameFieldId}
+                      value={competitiveGroupRenameDraft}
+                      onChange={(e) =>
+                        setCompetitiveGroupRenameDraft(e.target.value)
+                      }
+                      placeholder="e.g. Gateway core peers"
+                      autoComplete="off"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          commitCompetitiveGroupRename()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor={competitiveRenameDescriptionFieldId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Description{" "}
+                      <span className="font-normal text-muted-foreground">
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      id={competitiveRenameDescriptionFieldId}
+                      value={competitiveGroupRenameDescriptionDraft}
+                      onChange={(e) =>
+                        setCompetitiveGroupRenameDescriptionDraft(e.target.value)
+                      }
+                      placeholder="Optional: strategy or rationale for this peer group."
+                      rows={3}
+                      maxLength={600}
+                      className={cn(
+                        "min-h-[4.5rem] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                      )}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCompetitiveGroupRenameOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={competitiveRenameSaveDisabled}
+                    onClick={commitCompetitiveGroupRename}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog
+              open={deleteCompetitiveGroupOpen}
+              onOpenChange={setDeleteCompetitiveGroupOpen}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Delete competitive group</DialogTitle>
+                  <DialogDescription>
+                    This removes &ldquo;{pageTitle}&rdquo; and clears listing
+                    membership in this group. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDeleteCompetitiveGroupOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      const groupId = competitiveGroupBreadcrumbId
+                      if (!groupId) return
+                      const ok = removeCompetitiveGroupById(groupId)
+                      setDeleteCompetitiveGroupOpen(false)
+                      if (ok) {
+                        router.replace("/other-assets")
+                        showToast("Competitive group deleted.")
+                      } else {
+                        console.warn("Failed to delete competitive group.", {
+                          groupId,
+                          isSeededCompetitiveGroup,
+                        })
+                        showToast("Could not delete competitive group.")
                       }
                     }}
                   >

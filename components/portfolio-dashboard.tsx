@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   getCoreRowModel,
@@ -38,6 +37,13 @@ import {
   resolveAssetGroupLabel,
 } from "@/lib/assets"
 import {
+  ensureCompetitiveMembershipSeeded,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  resolveCompetitiveGroupIdsForAsset,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
+import {
   aggregatePortfolioValuationByCondition,
 } from "@/lib/portfolio-kpi-aggregate"
 import {
@@ -51,6 +57,8 @@ import {
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   getMarketListingPinById,
+  MARKET_SEARCH_LISTING_COUNT,
+  marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
 import {
   portfolioAssetRowForMarketPin,
@@ -71,12 +79,14 @@ import type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { OverviewAddAssetMenu } from "@/components/overview-add-asset-menu"
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
 const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
+const OTHER_ASSETS_OVERVIEW_LABEL = "Other Assets"
+const ALL_COMPETITIVE_GROUPS_VALUE = "all"
 
 function measurePortfolioDashboardStep<T>(label: string, compute: () => T): T {
   if (
@@ -165,6 +175,7 @@ function PortfolioDashboardInner({
   assetsTableVariant,
   scenarioRelaxedAssetFilter = true,
   portfolioScopeId,
+  competitiveGroupId,
   pathnameOverride,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
@@ -177,6 +188,7 @@ function PortfolioDashboardInner({
    */
   scenarioRelaxedAssetFilter?: boolean
   portfolioScopeId?: string
+  competitiveGroupId?: string
   pathnameOverride?: string
 }) {
   const livePathname = usePathname()
@@ -187,11 +199,15 @@ function PortfolioDashboardInner({
     "table"
   )
   const [assetTableSearch, setAssetTableSearch] = React.useState("")
-  /** Portfolio: driven by route (`/portfolio` vs `/portfolio/scopes/...`). Scenarios: always entire portfolio. */
+  /** Portfolio: driven by route (`/portfolio` vs `/portfolio/scopes/...`). */
   const effectivePortfolioGroupFilter =
     assetsTableVariant === "portfolio" && portfolioScopeId != null
       ? portfolioScopeId
       : ALL_PORTFOLIO_GROUPS_VALUE
+  const effectiveCompetitiveGroupFilter =
+    assetsTableVariant === "other-assets" && competitiveGroupId != null
+      ? competitiveGroupId
+      : ALL_COMPETITIVE_GROUPS_VALUE
 
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
@@ -202,6 +218,21 @@ function PortfolioDashboardInner({
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
   )
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
+  )
+
+  React.useEffect(() => {
+    if (assetsTableVariant === "other-assets") {
+      ensureCompetitiveMembershipSeeded()
+    }
+  }, [assetsTableVariant])
 
   const portfolioAssetRows = React.useMemo(() => {
     return ASSETS.filter(
@@ -220,8 +251,56 @@ function PortfolioDashboardInner({
       )
   }, [assetGroupData])
 
-  const effectivePortfolioGroupLabel =
-    effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+  const competitiveGroupLabels = React.useMemo(() => {
+    return competitiveGroupData.groupLabels
+  }, [competitiveGroupData.groupLabels])
+
+  const otherAssetRows = React.useMemo(() => {
+    if (assetsTableVariant !== "other-assets") return []
+    const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
+    return pins
+      .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
+      .map((pin) => {
+        const baseRow = portfolioAssetRowForMarketPin(pin)
+        const groupIds = resolveCompetitiveGroupIdsForAsset(
+          pin.id,
+          competitiveGroupData.membershipOverrides,
+          {
+            customGroups: competitiveGroupData.customGroups,
+            removedAssetIds: competitiveGroupData.removedAssetIds,
+            removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
+          }
+        )
+        return {
+          ...baseRow,
+          groupId: groupIds[0] ?? baseRow.groupId,
+          groupIds,
+        }
+      })
+      .sort(
+        (a, b) =>
+          b.liftPercent - a.liftPercent ||
+          a.building.localeCompare(b.building, undefined, { sensitivity: "base" })
+      )
+  }, [
+    assetsTableVariant,
+    competitiveGroupData.customGroups,
+    competitiveGroupData.membershipOverrides,
+    competitiveGroupData.removedAssetIds,
+    competitiveGroupData.removedSeededGroupIds,
+  ])
+
+  const effectiveGroupLabel = React.useMemo(() => {
+    if (assetsTableVariant === "other-assets") {
+      if (effectiveCompetitiveGroupFilter === ALL_COMPETITIVE_GROUPS_VALUE) {
+        return OTHER_ASSETS_OVERVIEW_LABEL
+      }
+      return (
+        competitiveGroupLabels[effectiveCompetitiveGroupFilter] ??
+        effectiveCompetitiveGroupFilter
+      )
+    }
+    return effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
       ? assetsTableVariant === "portfolio"
         ? PORTFOLIO_OVERVIEW_LABEL
         : ALL_PORTFOLIO_GROUPS_LABEL
@@ -229,13 +308,21 @@ function PortfolioDashboardInner({
           effectivePortfolioGroupFilter,
           assetGroupData.customGroups
         )
+  }, [
+    assetGroupData.customGroups,
+    assetsTableVariant,
+    competitiveGroupLabels,
+    effectiveCompetitiveGroupFilter,
+    effectivePortfolioGroupFilter,
+  ])
 
   const assetsTableHeading =
     assetsTableVariant === "portfolio" ||
+    assetsTableVariant === "other-assets" ||
     (assetsTableVariant === "scenarios" &&
       effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE)
       ? "Assets"
-      : effectivePortfolioGroupLabel
+      : effectiveGroupLabel
 
   /**
    * Built-in scenario only: `Set` of asset ids with ≥1 saved modification set.
@@ -304,11 +391,17 @@ function PortfolioDashboardInner({
 
   const visibleAssetRows = React.useMemo(() => {
     const baseRows =
-      effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
-        ? portfolioAssetRows
-        : portfolioAssetRows.filter(
-            (r) => r.groupIds.includes(effectivePortfolioGroupFilter)
-          )
+      assetsTableVariant === "other-assets"
+        ? effectiveCompetitiveGroupFilter === ALL_COMPETITIVE_GROUPS_VALUE
+          ? otherAssetRows
+          : otherAssetRows.filter((r) =>
+              r.groupIds.includes(effectiveCompetitiveGroupFilter)
+            )
+        : effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+          ? portfolioAssetRows
+          : portfolioAssetRows.filter(
+              (r) => r.groupIds.includes(effectivePortfolioGroupFilter)
+            )
 
     const q = assetTableSearch.trim().toLowerCase()
     let rows =
@@ -416,9 +509,11 @@ function PortfolioDashboardInner({
     return rows
   }, [
     assetTableSearch,
-    effectivePortfolioGroupFilter,
-    portfolioAssetRows,
     assetsTableVariant,
+    effectiveCompetitiveGroupFilter,
+    effectivePortfolioGroupFilter,
+    otherAssetRows,
+    portfolioAssetRows,
     scenarioEligibleAssetIds,
     scenarioExcludedAssetIds,
     scenarioIncludedAssetIds,
@@ -451,15 +546,20 @@ function PortfolioDashboardInner({
   )
 
   const portfolioKpiStripRows = React.useMemo(() => {
-    if (assetsTableVariant !== "portfolio") return null
+    if (
+      assetsTableVariant !== "portfolio" &&
+      assetsTableVariant !== "other-assets"
+    ) {
+      return null
+    }
     const byCondition = measurePortfolioDashboardStep(
-      `${effectivePortfolioGroupLabel} dashboard KPI strip`,
+      `${effectiveGroupLabel} dashboard KPI strip`,
       () =>
         aggregatePortfolioValuationByCondition(visibleAssetRows) ??
         emptyValuationConditionMetricMap()
     )
     return valuationKpiStripRowsFromSingleConditionMap(byCondition)
-  }, [assetsTableVariant, effectivePortfolioGroupLabel, visibleAssetRows])
+  }, [assetsTableVariant, effectiveGroupLabel, visibleAssetRows])
 
   const scenarioKpiStripRows = React.useMemo(() => {
     if (assetsTableVariant !== "scenarios") return null
@@ -545,7 +645,8 @@ function PortfolioDashboardInner({
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   const showScopeColumn =
-    assetsTableVariant === "portfolio" && portfolioScopeId == null
+    (assetsTableVariant === "portfolio" && portfolioScopeId == null) ||
+    (assetsTableVariant === "other-assets" && competitiveGroupId == null)
 
   const portfolioColumns = React.useMemo(
     () =>
@@ -603,7 +704,7 @@ function PortfolioDashboardInner({
 
   const visibleRowOrder = React.useMemo(
     () => portfolioTable.getRowModel().rows.map((row) => row.original.id),
-    [portfolioTable, sorting, visibleAssetRows]
+    [portfolioTable]
   )
 
   React.useEffect(() => {
@@ -628,7 +729,9 @@ function PortfolioDashboardInner({
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-[24px]">
-      {(assetsTableVariant === "portfolio" && portfolioKpiStripRows != null) ||
+      {((assetsTableVariant === "portfolio" ||
+        assetsTableVariant === "other-assets") &&
+        portfolioKpiStripRows != null) ||
       (assetsTableVariant === "scenarios" && scenarioKpiStripRows != null) ? (
         <ValuationKpiMetricStrip
           ariaLabel={
@@ -664,9 +767,13 @@ function PortfolioDashboardInner({
             <span
               className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium tabular-nums text-muted-foreground ring-1 ring-border/60"
               aria-label={
-                effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE
+                (assetsTableVariant === "other-assets" &&
+                  effectiveCompetitiveGroupFilter ===
+                    ALL_COMPETITIVE_GROUPS_VALUE) ||
+                (assetsTableVariant !== "other-assets" &&
+                  effectivePortfolioGroupFilter === ALL_PORTFOLIO_GROUPS_VALUE)
                   ? `${visibleAssetRows.length} assets in list`
-                  : `${visibleAssetRows.length} assets in ${effectivePortfolioGroupLabel}`
+                  : `${visibleAssetRows.length} assets in ${effectiveGroupLabel}`
               }
             >
               {visibleAssetRows.length}
@@ -699,9 +806,18 @@ function PortfolioDashboardInner({
               table={portfolioTable}
               className="hidden lg:flex"
             />
-            <Button className="shrink-0" render={<Link href="/search" />}>
-              Add asset
-            </Button>
+            <OverviewAddAssetMenu
+              context={
+                assetsTableVariant === "other-assets"
+                  ? competitiveGroupId == null
+                    ? "other-parent"
+                    : "other-group"
+                  : portfolioScopeId == null
+                    ? "your-parent"
+                    : "your-group"
+              }
+              triggerClassName="shrink-0"
+            />
           </div>
         </div>
         <div
@@ -779,11 +895,13 @@ export function PortfolioDashboard({
   assetsTableVariant,
   scenarioRelaxedAssetFilter,
   portfolioScopeId,
+  competitiveGroupId,
   pathnameOverride,
 }: {
   assetsTableVariant: PortfolioAssetsTableVariant
   scenarioRelaxedAssetFilter?: boolean
   portfolioScopeId?: string
+  competitiveGroupId?: string
   pathnameOverride?: string
 }) {
   return (
@@ -791,6 +909,7 @@ export function PortfolioDashboard({
       assetsTableVariant={assetsTableVariant}
       scenarioRelaxedAssetFilter={scenarioRelaxedAssetFilter}
       portfolioScopeId={portfolioScopeId}
+      competitiveGroupId={competitiveGroupId}
       pathnameOverride={pathnameOverride}
     />
   )

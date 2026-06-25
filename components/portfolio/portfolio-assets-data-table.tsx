@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation"
 import { ChevronDown, Plus } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
+  CompetitiveRemoveAssetFooter,
   PortfolioAssetIdentity,
   PortfolioRemoveAssetFooter,
-  PortfolioRemoveAssetButton,
   ScenarioRemoveAssetButton,
 } from "@/components/portfolio/portfolio-asset-identity"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
+import { CompetitiveScopeSelect } from "@/components/portfolio/competitive-scope-select"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
@@ -40,6 +41,14 @@ import {
   SEEDED_PORTFOLIO_GROUP_IDS,
 } from "@/lib/assets"
 import {
+  addCompetitiveAssetsToGroup,
+  COMPETITIVE_SEEDED_GROUPS,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  resolveCompetitiveGroupIdsForAsset,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
+import {
   liftPillClassFromStrength,
   normalizedLiftStrength,
 } from "@/lib/portfolio-lift"
@@ -48,6 +57,7 @@ import { useAppToast } from "@/components/app-toast"
 import { addPortfolioAssetsToScenarioBySlug } from "@/lib/add-portfolio-asset-to-scenario"
 import { PORTFOLIO_ASSETS_COLUMN_GRID_TRACK } from "@/lib/portfolio-assets-table-layout"
 import { NewPortfolioScopeDialog } from "@/components/new-portfolio-scope-dialog"
+import { NewCompetitiveGroupDialog } from "@/components/new-competitive-group-dialog"
 import { NewScenarioDialog } from "@/components/new-scenario-dialog"
 import { buildRecommendedModificationHref } from "@/lib/modification-recommendations"
 import {
@@ -89,6 +99,7 @@ const POTENTIAL_LIFT_SOURCE_LABEL =
 
 type ScenarioMenuOption = { name: string; slug: string }
 type PortfolioMenuOption = { name: string; groupId: string }
+type CompetitiveMenuOption = { name: string; groupId: string }
 
 function mobileModeledFieldsProvenanceLabel(
   variant: PortfolioAssetsTableVariant
@@ -98,7 +109,7 @@ function mobileModeledFieldsProvenanceLabel(
     `$/SF: ${PRICING_SOURCE_LABEL}`,
     `Value: ${VALUE_SOURCE_LABEL}`,
   ]
-  if (variant === "portfolio") {
+  if (variant !== "scenarios") {
     parts.push(`Potential lift: ${POTENTIAL_LIFT_SOURCE_LABEL}`)
   }
   return parts.join(" ")
@@ -119,7 +130,11 @@ function gridTemplateForVisibleColumns(
 }
 
 function isStickyTrashPortfolioColumn(columnId: string): boolean {
-  return columnId === "scenarioRemove" || columnId === "portfolioRemove"
+  return (
+    columnId === "scenarioRemove" ||
+    columnId === "portfolioRemove" ||
+    columnId === "competitiveRemove"
+  )
 }
 
 export function PortfolioAssetsDataTable({
@@ -145,10 +160,12 @@ export function PortfolioAssetsDataTable({
 
   const [userScenarios, setUserScenarios] = React.useState<UserScenario[]>([])
   const [newPortfolioGroupOpen, setNewPortfolioGroupOpen] = React.useState(false)
+  const [newCompetitiveGroupOpen, setNewCompetitiveGroupOpen] = React.useState(false)
   const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
   const createPortfolioGroupTargetsRef = React.useRef<
     readonly { assetId: string; baseGroupId: string }[]
   >([])
+  const createCompetitiveGroupAssetIdsRef = React.useRef<readonly string[]>([])
   const createScenarioAssetIdsRef = React.useRef<readonly string[]>([])
   const assetGroupOverrideSnap = React.useSyncExternalStore(
     subscribeAssetGroupOverrides,
@@ -158,6 +175,15 @@ export function PortfolioAssetsDataTable({
   const assetGroupData = React.useMemo(
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
+  )
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
   )
 
   React.useEffect(() => {
@@ -208,6 +234,24 @@ export function PortfolioAssetsDataTable({
     }))
     return [...seededGroups, ...custom]
   }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
+  const competitiveGroupsForMenu = React.useMemo((): CompetitiveMenuOption[] => {
+    const seeded = COMPETITIVE_SEEDED_GROUPS.filter(
+      (group) => !competitiveGroupData.removedSeededGroupIds.has(group.id)
+    ).map((group) => ({
+      name: competitiveGroupData.groupLabels[group.id] ?? group.label,
+      groupId: group.id,
+    }))
+    const custom = Object.entries(competitiveGroupData.customGroups)
+      .map(([groupId, name]) => ({ name, groupId }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    return [...seeded, ...custom]
+  }, [
+    competitiveGroupData.customGroups,
+    competitiveGroupData.groupLabels,
+    competitiveGroupData.removedSeededGroupIds,
+  ])
 
   const liftStrength = React.useCallback(
     (liftPercent: number) =>
@@ -253,51 +297,71 @@ export function PortfolioAssetsDataTable({
     }
     table.resetRowSelection()
   }
-  const addSelectedAssetsToScenario = React.useCallback(
-    (scenario: ScenarioMenuOption) => {
-      if (selectedRowIds.length === 0) return
-      addPortfolioAssetsToScenarioBySlug(scenario.slug, selectedRowIds)
-      const n = selectedRowIds.length
-      queueMicrotask(() => {
+  const addSelectedAssetsToScenario = (scenario: ScenarioMenuOption) => {
+    if (selectedRowIds.length === 0) return
+    addPortfolioAssetsToScenarioBySlug(scenario.slug, selectedRowIds)
+    const n = selectedRowIds.length
+    queueMicrotask(() => {
+      showToast(
+        n === 1
+          ? `Added 1 asset to “${scenario.name}”.`
+          : `Added ${n} assets to “${scenario.name}”.`
+      )
+    })
+    table.resetRowSelection()
+  }
+  const addSelectedAssetsToPortfolioGroup = (portfolio: PortfolioMenuOption) => {
+    if (selectedPortfolioTargets.length === 0) return
+    const addedCount = addAssetsToGroup(selectedPortfolioTargets, portfolio.groupId)
+    queueMicrotask(() => {
+      if (addedCount === 0) {
         showToast(
-          n === 1
-            ? `Added 1 asset to “${scenario.name}”.`
-            : `Added ${n} assets to “${scenario.name}”.`
+          selectedPortfolioTargets.length === 1
+            ? `Asset is already in “${portfolio.name}”.`
+            : `Selected assets are already in “${portfolio.name}”.`
         )
-      })
-      table.resetRowSelection()
-    },
-    [selectedRowIds, showToast, table]
-  )
-  const addSelectedAssetsToPortfolioGroup = React.useCallback(
-    (portfolio: PortfolioMenuOption) => {
-      if (selectedPortfolioTargets.length === 0) return
-      const addedCount = addAssetsToGroup(selectedPortfolioTargets, portfolio.groupId)
-      queueMicrotask(() => {
-        if (addedCount === 0) {
-          showToast(
-            selectedPortfolioTargets.length === 1
-              ? `Asset is already in “${portfolio.name}”.`
-              : `Selected assets are already in “${portfolio.name}”.`
-          )
-          return
-        }
-        if (addedCount === selectedPortfolioTargets.length) {
-          showToast(
-            addedCount === 1
-              ? `Added 1 asset to “${portfolio.name}”.`
-              : `Added ${addedCount} assets to “${portfolio.name}”.`
-          )
-          return
-        }
+        return
+      }
+      if (addedCount === selectedPortfolioTargets.length) {
         showToast(
-          `Added ${addedCount} of ${selectedPortfolioTargets.length} assets to “${portfolio.name}”.`
+          addedCount === 1
+            ? `Added 1 asset to “${portfolio.name}”.`
+            : `Added ${addedCount} assets to “${portfolio.name}”.`
         )
-      })
-      table.resetRowSelection()
-    },
-    [selectedPortfolioTargets, showToast, table]
-  )
+        return
+      }
+      showToast(
+        `Added ${addedCount} of ${selectedPortfolioTargets.length} assets to “${portfolio.name}”.`
+      )
+    })
+    table.resetRowSelection()
+  }
+  const addSelectedAssetsToCompetitiveGroup = (group: CompetitiveMenuOption) => {
+    if (selectedRowIds.length === 0) return
+    const addedCount = addCompetitiveAssetsToGroup(selectedRowIds, group.groupId)
+    queueMicrotask(() => {
+      if (addedCount === 0) {
+        showToast(
+          selectedRowIds.length === 1
+            ? `Asset is already in “${group.name}”.`
+            : `Selected assets are already in “${group.name}”.`
+        )
+        return
+      }
+      if (addedCount === selectedRowIds.length) {
+        showToast(
+          addedCount === 1
+            ? `Added 1 asset to “${group.name}”.`
+            : `Added ${addedCount} assets to “${group.name}”.`
+        )
+        return
+      }
+      showToast(
+        `Added ${addedCount} of ${selectedRowIds.length} assets to “${group.name}”.`
+      )
+    })
+    table.resetRowSelection()
+  }
 
   const sortedRows = table.getRowModel().rows
 
@@ -312,6 +376,10 @@ export function PortfolioAssetsDataTable({
       }) as const,
     []
   )
+
+  const isPortfolioVariant = variant === "portfolio"
+  const isOtherAssetsVariant = variant === "other-assets"
+  const isScenarioVariant = variant === "scenarios"
 
   return (
     <>
@@ -332,7 +400,7 @@ export function PortfolioAssetsDataTable({
           )}
         </p>
         <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 sm:ml-auto">
-          {variant === "portfolio" ? (
+          {isPortfolioVariant ? (
             <>
               <DropdownMenu>
                 <Tooltip disabled={selectedCount > 0}>
@@ -478,6 +546,160 @@ export function PortfolioAssetsDataTable({
                 }}
               />
             </>
+          ) : isOtherAssetsVariant ? (
+            <>
+              <DropdownMenu>
+                <Tooltip disabled={selectedCount > 0}>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={cn(
+                          "inline-flex",
+                          selectedCount === 0 && "cursor-not-allowed"
+                        )}
+                      />
+                    }
+                  >
+                    <DropdownMenuTrigger
+                      disabled={selectedCount === 0}
+                      className={cn(buttonVariants({ variant: "outline" }))}
+                      aria-label="Add selected assets to a competitive group or scenario"
+                    >
+                      Add to...
+                      <ChevronDown
+                        className="size-4 opacity-60"
+                        aria-hidden
+                        data-icon="inline-end"
+                      />
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-[240px] text-pretty"
+                  >
+                    Select assets with checkboxes to add them to a competitive
+                    group or scenario.
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent
+                  align="end"
+                  className="z-[100] min-w-[12rem]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Competitive groups
+                    </DropdownMenuLabel>
+                    {competitiveGroupsForMenu.map((group) => {
+                      const alreadyAdded =
+                        selectedRows.length > 0 &&
+                        selectedRows.every((row) =>
+                          resolveCompetitiveGroupIdsForAsset(
+                            row.id,
+                            competitiveGroupData.membershipOverrides,
+                            {
+                              customGroups: competitiveGroupData.customGroups,
+                              removedAssetIds: competitiveGroupData.removedAssetIds,
+                              removedSeededGroupIds:
+                                competitiveGroupData.removedSeededGroupIds,
+                            }
+                          ).includes(group.groupId)
+                        )
+                      return (
+                        <DropdownMenuItem
+                          key={group.groupId}
+                          onClick={() => {
+                            addSelectedAssetsToCompetitiveGroup(group)
+                          }}
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {group.name}
+                          </span>
+                          {alreadyAdded ? (
+                            <span
+                              className="ml-2 text-xs text-muted-foreground"
+                              aria-hidden
+                            >
+                              Added
+                            </span>
+                          ) : null}
+                        </DropdownMenuItem>
+                      )
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={selectedRowIds.length === 0}
+                      onClick={() => {
+                        createCompetitiveGroupAssetIdsRef.current = selectedRowIds
+                        setNewCompetitiveGroupOpen(true)
+                      }}
+                    >
+                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Create new group
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Scenarios
+                    </DropdownMenuLabel>
+                    {scenariosForMenu.map((s) => (
+                      <DropdownMenuItem
+                        key={s.slug}
+                        onClick={() => {
+                          addSelectedAssetsToScenario(s)
+                        }}
+                      >
+                        <span className="truncate">{s.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        createScenarioAssetIdsRef.current = selectedRowIds
+                        setNewScenarioOpen(true)
+                      }}
+                    >
+                      <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Create new scenario
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <NewScenarioDialog
+                open={newScenarioOpen}
+                onOpenChange={setNewScenarioOpen}
+                afterCreate={(scenario) => {
+                  const ids = createScenarioAssetIdsRef.current
+                  addPortfolioAssetsToScenarioBySlug(scenario.slug, ids)
+                  table.resetRowSelection()
+                  router.push(`/scenarios/${scenario.slug}`)
+                  const n = ids.length
+                  showToast(
+                    n === 0
+                      ? `Created “${scenario.name}”.`
+                      : n === 1
+                        ? `Created “${scenario.name}” and added 1 asset.`
+                        : `Created “${scenario.name}” and added ${n} assets.`
+                  )
+                }}
+              />
+              <NewCompetitiveGroupDialog
+                open={newCompetitiveGroupOpen}
+                onOpenChange={setNewCompetitiveGroupOpen}
+                afterCreate={(created) => {
+                  const ids = createCompetitiveGroupAssetIdsRef.current
+                  const addedCount = addCompetitiveAssetsToGroup(ids, created.id)
+                  table.resetRowSelection()
+                  showToast(
+                    addedCount === 0
+                      ? `Created “${created.label}”.`
+                      : addedCount === 1
+                        ? `Created “${created.label}” and added 1 asset.`
+                        : `Created “${created.label}” and added ${addedCount} assets.`
+                  )
+                }}
+              />
+            </>
           ) : (
             <Tooltip disabled={selectedCount > 0}>
               <TooltipTrigger
@@ -609,9 +831,9 @@ export function PortfolioAssetsDataTable({
             className="mt-0.5 shrink-0"
           />
           <p className="min-w-0 text-[11px] leading-snug text-muted-foreground">
-            {variant === "portfolio"
-              ? "Class, $/SF, value, and potential lift are modeled for this demo. Definitions match the provenance indicators on larger screens."
-              : "Class, $/SF, and value are modeled for this demo. Definitions match the provenance indicators on larger screens."}
+            {isScenarioVariant
+              ? "Class, $/SF, and value are modeled for this demo. Definitions match the provenance indicators on larger screens."
+              : "Class, $/SF, value, and potential lift are modeled for this demo. Definitions match the provenance indicators on larger screens."}
           </p>
         </div>
       ) : null}
@@ -650,7 +872,7 @@ export function PortfolioAssetsDataTable({
                       })}
                     />
                   </div>
-                  {variant === "scenarios" ? (
+                  {isScenarioVariant ? (
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Modifications</span>
                       <AssetModificationSetSelect
@@ -660,7 +882,7 @@ export function PortfolioAssetsDataTable({
                       />
                     </div>
                   ) : null}
-                  {variant === "scenarios" ? (
+                  {isScenarioVariant ? (
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Outlook</span>
                       <AssetOutlookSetSelect
@@ -669,13 +891,13 @@ export function PortfolioAssetsDataTable({
                       />
                     </div>
                   ) : null}
-                  {variant === "scenarios" ? (
+                  {isScenarioVariant ? (
                     <div className="flex flex-col gap-1.5 text-xs">
                       <span className="text-muted-foreground">Status</span>
                       <PortfolioRowStatusBadge rowId={row.id} />
                     </div>
                   ) : null}
-                  {variant === "scenarios" ? (
+                  {isScenarioVariant ? (
                     <div className="flex justify-end border-t border-border pt-3">
                       <ScenarioRemoveAssetButton
                         assetId={row.id}
@@ -683,11 +905,22 @@ export function PortfolioAssetsDataTable({
                       />
                     </div>
                   ) : null}
-                  {variant === "portfolio" && showScopeColumn ? (
+                  {isPortfolioVariant && showScopeColumn ? (
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>Portfolio group</span>
                       <span className="min-w-0">
                         <AssetScopeSelect
+                          assetId={row.id}
+                          building={row.building}
+                        />
+                      </span>
+                    </div>
+                  ) : null}
+                  {isOtherAssetsVariant && showScopeColumn ? (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Competitive group</span>
+                      <span className="min-w-0">
+                        <CompetitiveScopeSelect
                           assetId={row.id}
                           building={row.building}
                         />
@@ -708,7 +941,7 @@ export function PortfolioAssetsDataTable({
                       {row.value}
                     </span>
                   </div>
-                  {variant !== "scenarios" ? (
+                  {!isScenarioVariant ? (
                     <>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>Potential Lift</span>
@@ -750,8 +983,13 @@ export function PortfolioAssetsDataTable({
                       </div>
                     </>
                   ) : null}
-                  {variant === "portfolio" ? (
+                  {isPortfolioVariant ? (
                     <PortfolioRemoveAssetFooter
+                      assetId={row.id}
+                      building={row.building}
+                    />
+                  ) : isOtherAssetsVariant ? (
+                    <CompetitiveRemoveAssetFooter
                       assetId={row.id}
                       building={row.building}
                     />

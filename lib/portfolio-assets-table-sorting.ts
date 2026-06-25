@@ -3,7 +3,10 @@ import type { SortingState } from "@tanstack/react-table"
 import { isMarketListingRowId } from "@/lib/market-listing-portfolio-row"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 
-export type PortfolioAssetsTableSortVariant = "portfolio" | "scenarios"
+export type PortfolioAssetsTableSortVariant =
+  | "portfolio"
+  | "other-assets"
+  | "scenarios"
 
 const PORTFOLIO_ASSETS_TABLE_SORTING_STORAGE_PREFIX =
   "glassbox:portfolio-assets-table-sorting:"
@@ -15,6 +18,7 @@ const DEFAULT_PORTFOLIO_ASSETS_TABLE_SORTING: Record<
   SortingState
 > = {
   portfolio: [{ id: "lift", desc: true }],
+  "other-assets": [{ id: "lift", desc: true }],
   scenarios: [{ id: "building", desc: false }],
 }
 

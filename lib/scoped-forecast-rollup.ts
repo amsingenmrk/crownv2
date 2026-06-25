@@ -300,6 +300,19 @@ function weightedOccupancyPercent(models: AssetForecastModel[]) {
   return totalSqft > 0 ? weightedOccupied / totalSqft : 0
 }
 
+function weightedTargetOccupancyPercent(models: AssetForecastModel[]) {
+  let weightedTarget = 0
+  let totalSqft = 0
+
+  for (const model of models) {
+    const sqft = financialMetricsForAssetId(model.assetId)?.rsfSqft ?? 0
+    weightedTarget += model.summary.targetOccupancyPct * sqft
+    totalSqft += sqft
+  }
+
+  return totalSqft > 0 ? weightedTarget / totalSqft : 0
+}
+
 function aggregateAssetForecastModels({
   scopeLabel,
   scenarioName,
@@ -389,7 +402,7 @@ function aggregateAssetForecastModels({
       revenueBreakdown: [],
       summary: {
         currentOccupancyPct: 0,
-        targetOccupancyPct: assumptions.occupancyTargetPct,
+        targetOccupancyPct: 0,
         currentAnnualRevenue: 0,
         currentAnnualOpex: 0,
         currentAnnualNoi: 0,
@@ -456,7 +469,7 @@ function aggregateAssetForecastModels({
     revenueBreakdown: [],
     summary: {
       currentOccupancyPct: weightedOccupancyPercent(models),
-      targetOccupancyPct: assumptions.occupancyTargetPct,
+      targetOccupancyPct: weightedTargetOccupancyPercent(models),
       currentAnnualRevenue: (grossRevenue[0] ?? 0) * 4,
       currentAnnualOpex: models.reduce(
         (sum, model) => sum + model.summary.currentAnnualOpex,

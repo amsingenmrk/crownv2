@@ -12,11 +12,19 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import { ASSETS, getAssetById } from "@/lib/assets"
+import {
+  ensureCompetitiveMembershipSeeded,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
 import {
   getBenchmarkAreaById,
   getBenchmarkAreaParent,
@@ -29,6 +37,11 @@ import {
 import { resolveBenchmarkAreaForAsset } from "@/lib/benchmark-area-for-asset"
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
+import {
+  MARKET_SEARCH_LISTING_COUNT,
+  getMarketListingPinById,
+  marketSearchDemoPinsBase,
+} from "@/lib/market-search-demo-listings"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -76,8 +89,10 @@ function areaPathIdsFromAreaId(areaId: string | null): Set<string> {
 
 function benchmarkPathIdsForAsset(assetId: string): Set<string> {
   const asset = getAssetById(assetId)
-  const zipCode = zipCodeFromAddress(asset?.address)
-  const stateCode = stateCodeFromAddress(asset?.address)
+  const pin = getMarketListingPinById(assetId)
+  const locationText = asset?.address ?? pin?.location
+  const zipCode = zipCodeFromAddress(locationText)
+  const stateCode = stateCodeFromAddress(locationText)
 
   if (zipCode) {
     const assignments = curatedZipAssignmentsForZipCode(zipCode)
@@ -101,6 +116,11 @@ function benchmarkPathIdsForAsset(assetId: string): Set<string> {
 
   const marketArea = resolveBenchmarkAreaForAsset(assetId)
   return areaPathIdsFromAreaId(marketArea.id)
+}
+
+type CompareAssetOption = {
+  id: string
+  label: string
 }
 
 function BenchmarkKpiCard({
@@ -151,13 +171,44 @@ export function BenchmarkAreaStatsPanel({
   benchmarkAreaId: string
   className?: string
 }) {
-  const scopedAssets = React.useMemo(
+  React.useEffect(() => {
+    ensureCompetitiveMembershipSeeded()
+  }, [])
+
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
+  )
+
+  const scopedPortfolioAssets = React.useMemo(
     () =>
       ASSETS.filter((asset) =>
         benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId)
-      ),
+      ).map((asset) => ({ id: asset.id, label: asset.name })),
     [benchmarkAreaId]
   )
+  const scopedOtherAssets = React.useMemo(() => {
+    const activePins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT).filter(
+      (pin) => !competitiveGroupData.removedAssetIds.has(pin.id)
+    )
+    return activePins
+      .filter((pin) => benchmarkPathIdsForAsset(pin.id).has(benchmarkAreaId))
+      .map((pin) => ({ id: pin.id, label: pin.building }))
+      .sort((left, right) =>
+        left.label.localeCompare(right.label, undefined, { sensitivity: "base" })
+      )
+  }, [benchmarkAreaId, competitiveGroupData.removedAssetIds])
+
+  const scopedAssets = React.useMemo<CompareAssetOption[]>(
+    () => [...scopedPortfolioAssets, ...scopedOtherAssets],
+    [scopedOtherAssets, scopedPortfolioAssets]
+  )
+
   const [selectedAssetId, setSelectedAssetId] = React.useState("")
   React.useEffect(() => {
     if (scopedAssets.length === 0) {
@@ -171,7 +222,7 @@ export function BenchmarkAreaStatsPanel({
     )
   }, [scopedAssets])
   const selectedAssetName =
-    scopedAssets.find((asset) => asset.id === selectedAssetId)?.name ?? ""
+    scopedAssets.find((asset) => asset.id === selectedAssetId)?.label ?? ""
   const kpiByKey = Object.fromEntries(
     snapshot.kpis.map((kpi) => [kpi.key, kpi])
   ) as Record<
@@ -256,11 +307,26 @@ export function BenchmarkAreaStatsPanel({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent align="end">
-                {scopedAssets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.id}>
-                    {asset.name}
-                  </SelectItem>
-                ))}
+                {scopedPortfolioAssets.length > 0 ? (
+                  <SelectGroup>
+                    <SelectLabel>Your Assets</SelectLabel>
+                    {scopedPortfolioAssets.map((asset) => (
+                      <SelectItem key={asset.id} value={asset.id}>
+                        {asset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : null}
+                {scopedOtherAssets.length > 0 ? (
+                  <SelectGroup>
+                    <SelectLabel>Other Assets</SelectLabel>
+                    {scopedOtherAssets.map((asset) => (
+                      <SelectItem key={asset.id} value={asset.id}>
+                        {asset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : null}
               </SelectContent>
             </Select>
           </Field>

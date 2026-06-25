@@ -75,9 +75,7 @@ export function AssetDetailHeader() {
     return `${parseFloat(waleMatch[1]!).toFixed(1)} yrs`
   }, [tableRow])
 
-  if (!id || tableRow == null) return null
-
-  const basePath = `/properties/${id}`
+  const basePath = id ? `/properties/${id}` : "/properties"
   const tabPaths = React.useMemo(
     () =>
       ASSET_TAB_PATHS.map((tab) => ({
@@ -97,12 +95,15 @@ export function AssetDetailHeader() {
   )
 
   React.useEffect(() => {
+    if (!id) return
     for (const tab of tabPaths) {
       if (pathname !== tab.path && !pathname?.startsWith(`${tab.path}/`)) {
         prefetchTabPath(tab.path)
       }
     }
-  }, [pathname, prefetchTabPath, tabPaths])
+  }, [id, pathname, prefetchTabPath, tabPaths])
+
+  if (!id || tableRow == null) return null
 
   const keyMetrics = asset
     ? ([

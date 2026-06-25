@@ -13,11 +13,22 @@ import {
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
+  ensureCompetitiveMembershipSeeded,
+  getCompetitiveGroupSnapshot,
+  parseCompetitiveGroupSnapshot,
+  resolveCompetitiveGroupIdsForAsset,
+  subscribeCompetitiveGroups,
+} from "@/lib/competitive-group-overrides"
+import {
   ASSETS,
   assetIsInPortfolioGroup,
   getAssetById,
   portfolioScopeHref,
 } from "@/lib/assets"
+import {
+  MARKET_SEARCH_LISTING_COUNT,
+  marketSearchDemoPinsBase,
+} from "@/lib/market-search-demo-listings"
 import {
   buildDefaultForecastScenarios,
   type ForecastAssumptions,
@@ -53,6 +64,7 @@ import {
   type ScopedForecastScope,
 } from "@/lib/scoped-forecast"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
+import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 
 type SelectionOptionsByAssetId = Record<
   string,
@@ -111,6 +123,15 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     () => parseAssetGroupOverrideSnapshot(assetGroupOverrideSnap),
     [assetGroupOverrideSnap]
   )
+  const competitiveGroupSnap = React.useSyncExternalStore(
+    subscribeCompetitiveGroups,
+    getCompetitiveGroupSnapshot,
+    () => ""
+  )
+  const competitiveGroupData = React.useMemo(
+    () => parseCompetitiveGroupSnapshot(competitiveGroupSnap),
+    [competitiveGroupSnap]
+  )
   const [optionsReloadTick, setOptionsReloadTick] = React.useState(0)
   const [selectedBuildingVersionIds, setSelectedBuildingVersionIds] =
     React.useState<Record<string, string>>({})
@@ -119,12 +140,22 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   >({})
 
   const isScenarioScope = scope.kind === "scenario"
+  const isCompetitiveScope = scope.kind === "competitive"
   const useScenarioTableModificationSelections =
     isScenarioScope && scenarioModificationsCtx != null
   const scenarioSlug = isScenarioScope ? scope.scenarioSlug : undefined
   const portfolioScopeId =
     scope.kind === "portfolio" ? scope.portfolioScopeId : undefined
-  const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? "overview"}`
+  const competitiveGroupId =
+    scope.kind === "competitive" ? scope.competitiveGroupId : undefined
+  const scopeIdentity = `${scope.kind}:${scenarioSlug ?? portfolioScopeId ?? competitiveGroupId ?? "overview"}`
+
+  React.useEffect(() => {
+    if (isCompetitiveScope) {
+      ensureCompetitiveMembershipSeeded()
+    }
+  }, [isCompetitiveScope])
+
   const scopeAssets = React.useMemo(() => {
     if (portfolioScopeId == null || isScenarioScope) {
       return ASSETS
@@ -134,32 +165,92 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       assetIsInPortfolioGroup(asset.id, portfolioScopeId, assetGroupData)
     )
   }, [assetGroupData, isScenarioScope, portfolioScopeId])
-  const portfolioAssetRows = React.useMemo(
-    () =>
-      scopeAssets.map((asset, index) =>
-        portfolioAssetRowForAsset(
-          getAssetById(asset.id, assetGroupData) ?? asset,
-          index
+  const portfolioAssetRows = React.useMemo(() => {
+    if (isCompetitiveScope) {
+      const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
+      const rows = pins
+        .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
+        .map((pin) => {
+          const baseRow = portfolioAssetRowForMarketPin(pin)
+          const groupIds = resolveCompetitiveGroupIdsForAsset(
+            pin.id,
+            competitiveGroupData.membershipOverrides,
+            {
+              customGroups: competitiveGroupData.customGroups,
+              removedAssetIds: competitiveGroupData.removedAssetIds,
+              removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
+            }
+          )
+          return {
+            ...baseRow,
+            groupId: groupIds[0] ?? baseRow.groupId,
+            groupIds,
+          }
+        })
+        .filter(
+          (row) =>
+            competitiveGroupId == null ||
+            row.groupIds.includes(competitiveGroupId)
         )
-      ).sort(
+      return rows.sort(
         (left, right) =>
           right.liftPercent - left.liftPercent ||
           left.building.localeCompare(right.building, undefined, {
             sensitivity: "base",
           })
-      ),
-    [assetGroupData, scopeAssets]
-  )
-  const snapshotSortVariant = isScenarioScope ? "scenarios" : "portfolio"
+      )
+    }
+
+    return scopeAssets
+      .map((asset, index) =>
+        portfolioAssetRowForAsset(
+          getAssetById(asset.id, assetGroupData) ?? asset,
+          index
+        )
+      )
+      .sort(
+        (left, right) =>
+          right.liftPercent - left.liftPercent ||
+          left.building.localeCompare(right.building, undefined, {
+            sensitivity: "base",
+          })
+      )
+  }, [
+    assetGroupData,
+    competitiveGroupData.membershipOverrides,
+    competitiveGroupData.customGroups,
+    competitiveGroupData.removedAssetIds,
+    competitiveGroupData.removedSeededGroupIds,
+    competitiveGroupId,
+    isCompetitiveScope,
+    scopeAssets,
+  ])
+  const snapshotSortVariant = isScenarioScope
+    ? "scenarios"
+    : isCompetitiveScope
+      ? "other-assets"
+      : "portfolio"
   const snapshotPathname = React.useMemo(() => {
     if (isScenarioScope && scenarioSlug != null) {
       return scenarioPathFromSlug(scenarioSlug)
+    }
+    if (isCompetitiveScope) {
+      if (competitiveGroupId != null) {
+        return `/other-assets/groups/${encodeURIComponent(competitiveGroupId)}`
+      }
+      return "/other-assets"
     }
     if (portfolioScopeId != null) {
       return portfolioScopeHref(portfolioScopeId)
     }
     return "/portfolio"
-  }, [isScenarioScope, portfolioScopeId, scenarioSlug])
+  }, [
+    competitiveGroupId,
+    isCompetitiveScope,
+    isScenarioScope,
+    portfolioScopeId,
+    scenarioSlug,
+  ])
   const [snapshotSorting, setSnapshotSorting] = React.useState(() =>
     defaultPortfolioAssetsTableSorting(snapshotSortVariant)
   )
@@ -232,7 +323,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
 
   const optionsByAssetId = React.useMemo<SelectionOptionsByAssetId>(() => {
     void optionsReloadTick
-    if (scope.kind === "portfolio") {
+    if (scope.kind !== "scenario") {
       return {}
     }
     const next: SelectionOptionsByAssetId = {}
@@ -333,7 +424,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [scopeIdentity])
 
   const assetSelections = React.useMemo<ScopedForecastAssetSelection[]>(() => {
-    if (scope.kind === "portfolio") {
+    if (scope.kind !== "scenario") {
       return scopedRows.map((row) => ({
         row,
         buildingVersionOptions: [baselineBuildingVersionOption],

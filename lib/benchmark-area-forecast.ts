@@ -459,6 +459,10 @@ export function buildBenchmarkAreaForecastModelForScenario({
     0.95
   )
   const opexRatio = marketOpexRatio(area.id)
+  const openingOccupancyAdjustmentPct =
+    scenario.macroPeriods[0] != null
+      ? scenarioEffectsForPeriod(scenario.macroPeriods[0]).occupancyTargetAdjustmentPct
+      : 0
 
   const effectiveOccupancyPctSeries = periods.map((period) => {
     const macro =
@@ -471,7 +475,7 @@ export function buildBenchmarkAreaForecastModelForScenario({
       1
     )
     const effectiveTargetOccupancyPct = clamp(
-      assumptions.occupancyTargetPct + effects.occupancyTargetAdjustmentPct,
+      currentOccupancyPct + effects.occupancyTargetAdjustmentPct,
       65,
       99
     )
@@ -601,7 +605,11 @@ export function buildBenchmarkAreaForecastModelForScenario({
     revenueBreakdown: buildMarketRevenueBreakdown(grossRevenue, buildingCount),
     summary: {
       currentOccupancyPct: currentOccupancyPct,
-      targetOccupancyPct: assumptions.occupancyTargetPct,
+      targetOccupancyPct: clamp(
+        currentOccupancyPct + openingOccupancyAdjustmentPct,
+        65,
+        99
+      ),
       currentAnnualRevenue: (grossRevenue[0] ?? 0) * 4,
       currentAnnualOpex: (opex[0] ?? 0) * 4,
       currentAnnualNoi: (noi[0] ?? 0) * 4,
