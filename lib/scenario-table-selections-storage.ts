@@ -71,8 +71,8 @@ function migrateLegacyScenarioTableSelectionsSubrouteKey(
 
   const canonicalKey = scenarioTableSelectionsKey(storagePathname)
   const merged = {
-    ...parseScenarioTableSelectionsRaw(localStorage.getItem(canonicalKey)),
     ...parseScenarioTableSelectionsRaw(legacyRaw),
+    ...parseScenarioTableSelectionsRaw(localStorage.getItem(canonicalKey)),
   }
   persistScenarioTableSelections(canonicalKey, merged)
   localStorage.removeItem(legacyKey)

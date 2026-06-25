@@ -64,10 +64,10 @@ function migrateLegacyScenarioTableOutlookSelectionsSubrouteKey(
 
   const canonicalKey = scenarioTableOutlookSelectionsKey(storagePathname)
   const merged = {
+    ...parseScenarioTableOutlookSelectionsRaw(legacyRaw),
     ...parseScenarioTableOutlookSelectionsRaw(
       localStorage.getItem(canonicalKey)
     ),
-    ...parseScenarioTableOutlookSelectionsRaw(legacyRaw),
   }
   persistScenarioTableOutlookSelections(canonicalKey, merged)
   localStorage.removeItem(legacyKey)

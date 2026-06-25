@@ -44,12 +44,12 @@ describe("scenario table selection storage paths", () => {
 
     expect(readScenarioTableSelections("/scenarios/plan/forecasts")).toEqual({
       "asset-a": "base-set",
-      "asset-b": "legacy-set",
+      "asset-b": "canonical-set",
       "asset-c": "forecast-set",
     })
     expect(JSON.parse(store.get(canonicalKey) ?? "{}")).toEqual({
       "asset-a": "base-set",
-      "asset-b": "legacy-set",
+      "asset-b": "canonical-set",
       "asset-c": "forecast-set",
     })
     expect(store.has(legacyKey)).toBe(false)
@@ -63,9 +63,11 @@ describe("scenario table selection storage paths", () => {
     const store = installLocalStorage({
       [canonicalKey]: JSON.stringify({
         "asset-a": "baseline",
+        "asset-b": "downside",
       }),
       [legacyKey]: JSON.stringify({
         "asset-b": "upside",
+        "asset-c": "base",
       }),
     })
 
@@ -73,11 +75,13 @@ describe("scenario table selection storage paths", () => {
       readScenarioTableOutlookSelections("/scenarios/plan/forecasts")
     ).toEqual({
       "asset-a": "baseline",
-      "asset-b": "upside",
+      "asset-b": "downside",
+      "asset-c": "base",
     })
     expect(JSON.parse(store.get(canonicalKey) ?? "{}")).toEqual({
       "asset-a": "baseline",
-      "asset-b": "upside",
+      "asset-b": "downside",
+      "asset-c": "base",
     })
     expect(store.has(legacyKey)).toBe(false)
   })
