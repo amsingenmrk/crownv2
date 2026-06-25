@@ -1,8 +1,8 @@
 import {
   MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoHash32,
   marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+} from "@/lib/other-assets"
+import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
 
 const COMPETITIVE_CUSTOM_GROUPS_KEY = "glassbox:competitive-custom-groups"
 const COMPETITIVE_CUSTOM_GROUP_DESCRIPTIONS_KEY =
