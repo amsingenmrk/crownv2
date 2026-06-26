@@ -27,6 +27,7 @@ import {
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
+  resolveAssetGroupIds,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
@@ -81,7 +82,6 @@ import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { spreadPortfolioMapPinsForDisplay } from "@/lib/portfolio-map-pin-spread"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { OverviewAddAssetMenu } from "@/components/overview-add-asset-menu"
 
 const ALL_PORTFOLIO_GROUPS_VALUE = "all"
 const ALL_PORTFOLIO_GROUPS_LABEL = "All portfolio groups"
@@ -235,7 +235,7 @@ function PortfolioDashboardInner({
   }, [assetsTableVariant])
 
   const portfolioAssetRows = React.useMemo(() => {
-    return ASSETS.filter(
+    const ownedRows = ASSETS.filter(
       (asset) => !assetGroupData.standalonePropertyNavIds.has(asset.id)
     )
       .map((asset, index) =>
@@ -244,6 +244,20 @@ function PortfolioDashboardInner({
           index
         )
       )
+    const promotedRows = [...assetGroupData.promotedProspectiveAssetIds].flatMap(
+      (assetId) => {
+        const pin = getMarketListingPinById(assetId)
+        if (pin == null) return []
+        const baseRow = portfolioAssetRowForMarketPin(pin)
+        const groupIds = resolveAssetGroupIds(
+          assetId,
+          baseRow.groupId,
+          assetGroupData.overrides
+        )
+        return [{ ...baseRow, groupId: groupIds[0] ?? baseRow.groupId, groupIds }]
+      }
+    )
+    return [...ownedRows, ...promotedRows]
       .sort(
       (a, b) =>
         b.liftPercent - a.liftPercent ||
@@ -257,8 +271,30 @@ function PortfolioDashboardInner({
 
   const otherAssetRows = React.useMemo(() => {
     if (assetsTableVariant !== "other-assets") return []
+    const movedPortfolioRows = ASSETS.filter((asset) =>
+      assetGroupData.standalonePropertyNavIds.has(asset.id)
+    ).map((asset, index) => {
+      const baseRow = portfolioAssetRowForAsset(
+        getAssetById(asset.id, assetGroupData) ?? asset,
+        index
+      )
+      const groupIds = resolveCompetitiveGroupIdsForAsset(
+        asset.id,
+        competitiveGroupData.membershipOverrides,
+        {
+          customGroups: competitiveGroupData.customGroups,
+          removedAssetIds: competitiveGroupData.removedAssetIds,
+          removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
+        }
+      )
+      return {
+        ...baseRow,
+        groupId: groupIds[0] ?? baseRow.groupId,
+        groupIds,
+      }
+    })
     const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-    return pins
+    const marketRows = pins
       .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
       .map((pin) => {
         const baseRow = portfolioAssetRowForMarketPin(pin)
@@ -277,6 +313,7 @@ function PortfolioDashboardInner({
           groupIds,
         }
       })
+    return [...movedPortfolioRows, ...marketRows]
       .sort(
         (a, b) =>
           b.liftPercent - a.liftPercent ||
@@ -284,6 +321,7 @@ function PortfolioDashboardInner({
       )
   }, [
     assetsTableVariant,
+    assetGroupData,
     competitiveGroupData.customGroups,
     competitiveGroupData.membershipOverrides,
     competitiveGroupData.removedAssetIds,
@@ -806,18 +844,6 @@ function PortfolioDashboardInner({
               table={portfolioTable}
               className="hidden lg:flex"
             />
-            <OverviewAddAssetMenu
-              context={
-                assetsTableVariant === "other-assets"
-                  ? competitiveGroupId == null
-                    ? "other-parent"
-                    : "other-group"
-                  : portfolioScopeId == null
-                    ? "your-parent"
-                    : "your-group"
-              }
-              triggerClassName="shrink-0"
-            />
           </div>
         </div>
         <div
@@ -882,6 +908,8 @@ function PortfolioDashboardInner({
                 variant={assetsTableVariant}
                 liftExtent={liftPctExtent}
                 showScopeColumn={showScopeColumn}
+                portfolioScopeId={portfolioScopeId}
+                competitiveGroupId={competitiveGroupId}
               />
             </div>
           )}

@@ -68,10 +68,12 @@ export function OverviewAddAssetMenu({
   context,
   triggerClassName,
   triggerLabel = "Add asset",
+  triggerVariant = "default",
 }: {
   context: AddAssetContext
   triggerClassName?: string
   triggerLabel?: string
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const options = React.useMemo(
     () => getAddAssetOptionsForContext(context),
@@ -82,7 +84,9 @@ export function OverviewAddAssetMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button className={triggerClassName} />}>
+        <DropdownMenuTrigger
+          render={<Button className={triggerClassName} variant={triggerVariant} />}
+        >
           {triggerLabel}
           <ChevronDown className="size-4 opacity-70" aria-hidden />
         </DropdownMenuTrigger>

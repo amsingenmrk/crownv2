@@ -4,7 +4,7 @@ import * as React from "react"
 import { flexRender, type Table } from "@tanstack/react-table"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Plus } from "lucide-react"
+import { Check, ChevronDown, Plus } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
   CompetitiveRemoveAssetFooter,
@@ -14,6 +14,14 @@ import {
 } from "@/components/portfolio/portfolio-asset-identity"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   TableBody,
   TableCell,
@@ -32,8 +40,15 @@ import { type PortfolioAssetsTableVariant } from "@/components/portfolio/portfol
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import {
   addAssetsToGroup,
+  clearAssetGroupOverrides,
+  clearPropertiesStandaloneNav,
   getAssetGroupOverridesSnapshot,
+  markPropertiesStandaloneNav,
   parseAssetGroupOverrideSnapshot,
+  promoteProspectiveAssetsToPortfolio,
+  removePromotedProspectiveAssetsFromPortfolio,
+  removeAssetFromGroup,
+  setAssetGroupOverride,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
@@ -45,7 +60,10 @@ import {
   COMPETITIVE_SEEDED_GROUPS,
   getCompetitiveGroupSnapshot,
   parseCompetitiveGroupSnapshot,
+  removeCompetitiveAssetsFromOtherAssets,
+  removeCompetitiveAssetFromGroup,
   resolveCompetitiveGroupIdsForAsset,
+  setCompetitiveAssetGroupMembership,
   subscribeCompetitiveGroups,
 } from "@/lib/competitive-group-overrides"
 import {
@@ -142,11 +160,15 @@ export function PortfolioAssetsDataTable({
   variant,
   liftExtent,
   showScopeColumn = false,
+  portfolioScopeId = null,
+  competitiveGroupId = null,
 }: {
   table: Table<PortfolioAssetRow>
   variant: PortfolioAssetsTableVariant
   liftExtent: { min: number; max: number }
   showScopeColumn?: boolean
+  portfolioScopeId?: string | null
+  competitiveGroupId?: string | null
 }) {
   const data = table.options.data
   const router = useRouter()
@@ -162,6 +184,7 @@ export function PortfolioAssetsDataTable({
   const [newPortfolioGroupOpen, setNewPortfolioGroupOpen] = React.useState(false)
   const [newCompetitiveGroupOpen, setNewCompetitiveGroupOpen] = React.useState(false)
   const [newScenarioOpen, setNewScenarioOpen] = React.useState(false)
+  const [bulkConfirmOpen, setBulkConfirmOpen] = React.useState(false)
   const createPortfolioGroupTargetsRef = React.useRef<
     readonly { assetId: string; baseGroupId: string }[]
   >([])
@@ -274,18 +297,37 @@ export function PortfolioAssetsDataTable({
     assetId: row.id,
     baseGroupId: row.groupId,
   }))
+  const isPortfolioVariant = variant === "portfolio"
+  const isOtherAssetsVariant = variant === "other-assets"
+  const isScenarioVariant = variant === "scenarios"
 
   const allSelectedExcluded =
     variant === "scenarios" &&
     scenarioMembershipMode === "builtin" &&
     selectedRowIds.length > 0 &&
     selectedRowIds.every((id) => scenarioExcludedAssetIds.has(id))
+  const selectedScopeActionLabel =
+    isScenarioVariant ||
+    (isPortfolioVariant && portfolioScopeId != null) ||
+    (isOtherAssetsVariant && competitiveGroupId != null)
+      ? "Remove"
+      : "Delete"
+  const selectedScopeActionTitle =
+    selectedScopeActionLabel === "Delete" ? "Delete selected assets?" : "Remove selected assets?"
+  const selectedScopeActionDescription =
+    selectedScopeActionLabel === "Delete"
+      ? selectedCount === 1
+        ? "This permanently removes the asset from this collection."
+        : `This permanently removes ${selectedCount} assets from this collection.`
+      : selectedCount === 1
+        ? "This removes the asset from the current group, but it will still remain in assets."
+        : `This removes ${selectedCount} assets from the current group, but they will still remain in assets.`
 
   const scenarioToolbarLabel =
     variant === "scenarios"
       ? allSelectedExcluded
         ? "Add to Scenario"
-        : "Remove from Scenario"
+        : "Remove"
       : "Add to Scenario"
 
   const onScenarioToolbarClick = () => {
@@ -336,6 +378,28 @@ export function PortfolioAssetsDataTable({
     })
     table.resetRowSelection()
   }
+  const moveSelectedAssetsToPortfolioGroup = (portfolio: PortfolioMenuOption) => {
+    if (selectedRowIds.length === 0) return
+    const marketAssetIds = selectedRowIds.filter((id) => isMarketListingRowId(id))
+    const ownedAssetIds = selectedRowIds.filter((id) => !isMarketListingRowId(id))
+    promoteProspectiveAssetsToPortfolio(marketAssetIds)
+    clearPropertiesStandaloneNav(ownedAssetIds)
+    removeCompetitiveAssetsFromOtherAssets(selectedRowIds)
+    for (const target of selectedPortfolioTargets) {
+      setAssetGroupOverride(target.assetId, portfolio.groupId)
+    }
+    for (const assetId of marketAssetIds) {
+      setAssetGroupOverride(assetId, portfolio.groupId)
+    }
+    queueMicrotask(() => {
+      showToast(
+        selectedRowIds.length === 1
+          ? `Moved 1 asset to “${portfolio.name}”.`
+          : `Moved ${selectedRowIds.length} assets to “${portfolio.name}”.`
+      )
+    })
+    table.resetRowSelection()
+  }
   const addSelectedAssetsToCompetitiveGroup = (group: CompetitiveMenuOption) => {
     if (selectedRowIds.length === 0) return
     const addedCount = addCompetitiveAssetsToGroup(selectedRowIds, group.groupId)
@@ -362,6 +426,98 @@ export function PortfolioAssetsDataTable({
     })
     table.resetRowSelection()
   }
+  const moveSelectedAssetsToCompetitiveGroup = (group: CompetitiveMenuOption) => {
+    if (selectedRowIds.length === 0) return
+    const ownedAssetIds = selectedRowIds.filter((id) => !isMarketListingRowId(id))
+    const marketAssetIds = selectedRowIds.filter((id) => isMarketListingRowId(id))
+    markPropertiesStandaloneNav(ownedAssetIds)
+    removePromotedProspectiveAssetsFromPortfolio(marketAssetIds)
+    for (const assetId of selectedRowIds) {
+      setCompetitiveAssetGroupMembership(assetId, [group.groupId])
+    }
+    queueMicrotask(() => {
+      showToast(
+        selectedRowIds.length === 1
+          ? `Moved 1 asset to “${group.name}”.`
+          : `Moved ${selectedRowIds.length} assets to “${group.name}”.`
+      )
+    })
+    table.resetRowSelection()
+  }
+  const removeOrDeleteSelectedAssets = () => {
+    if (selectedRowIds.length === 0) return
+    setBulkConfirmOpen(false)
+
+    if (isScenarioVariant) {
+      excludeAssetsFromScenario(selectedRowIds)
+      queueMicrotask(() => {
+        showToast(
+          selectedRowIds.length === 1
+            ? "Removed 1 asset from scenario."
+            : `Removed ${selectedRowIds.length} assets from scenario.`
+        )
+      })
+      table.resetRowSelection()
+      return
+    }
+
+    if (isPortfolioVariant) {
+      if (portfolioScopeId != null) {
+        for (const row of selectedRows) {
+          removeAssetFromGroup(row.id, portfolioScopeId, row.groupId)
+        }
+        queueMicrotask(() => {
+          showToast(
+            selectedRowIds.length === 1
+              ? "Removed 1 asset from group."
+              : `Removed ${selectedRowIds.length} assets from group.`
+          )
+        })
+      } else {
+        const marketAssetIds = selectedRowIds.filter((id) => isMarketListingRowId(id))
+        const ownedAssetIds = selectedRowIds.filter(
+          (id) => !isMarketListingRowId(id)
+        )
+        markPropertiesStandaloneNav(ownedAssetIds)
+        removePromotedProspectiveAssetsFromPortfolio(marketAssetIds)
+        clearAssetGroupOverrides(selectedRowIds)
+        queueMicrotask(() => {
+          showToast(
+            selectedRowIds.length === 1
+              ? "Deleted 1 asset from portfolio."
+              : `Deleted ${selectedRowIds.length} assets from portfolio.`
+          )
+        })
+      }
+      table.resetRowSelection()
+      return
+    }
+
+    if (isOtherAssetsVariant) {
+      if (competitiveGroupId != null) {
+        for (const assetId of selectedRowIds) {
+          removeCompetitiveAssetFromGroup(assetId, competitiveGroupId)
+        }
+        queueMicrotask(() => {
+          showToast(
+            selectedRowIds.length === 1
+              ? "Removed 1 asset from group."
+              : `Removed ${selectedRowIds.length} assets from group.`
+          )
+        })
+      } else {
+        removeCompetitiveAssetsFromOtherAssets(selectedRowIds)
+        queueMicrotask(() => {
+          showToast(
+            selectedRowIds.length === 1
+              ? "Deleted 1 prospective asset."
+              : `Deleted ${selectedRowIds.length} prospective assets.`
+          )
+        })
+      }
+      table.resetRowSelection()
+    }
+  }
 
   const sortedRows = table.getRowModel().rows
 
@@ -376,10 +532,6 @@ export function PortfolioAssetsDataTable({
       }) as const,
     []
   )
-
-  const isPortfolioVariant = variant === "portfolio"
-  const isOtherAssetsVariant = variant === "other-assets"
-  const isScenarioVariant = variant === "scenarios"
 
   return (
     <>
@@ -417,9 +569,83 @@ export function PortfolioAssetsDataTable({
                     <DropdownMenuTrigger
                       disabled={selectedCount === 0}
                       className={cn(buttonVariants({ variant: "outline" }))}
+                      aria-label="Move selected assets to a portfolio group"
+                    >
+                      Move to
+                      <ChevronDown
+                        className="size-4 opacity-60"
+                        aria-hidden
+                        data-icon="inline-end"
+                      />
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-[240px] text-pretty"
+                  >
+                    Select assets with checkboxes to move them to a portfolio
+                    group.
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent
+                  align="end"
+                  className="z-[100] min-w-[12rem]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Your Assets
+                    </DropdownMenuLabel>
+                    {portfoliosForMenu.map((portfolio) => (
+                      <DropdownMenuItem
+                        key={portfolio.groupId}
+                        onClick={() => {
+                          moveSelectedAssetsToPortfolioGroup(portfolio)
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {portfolio.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Prospective Assets
+                    </DropdownMenuLabel>
+                    {competitiveGroupsForMenu.map((group) => (
+                      <DropdownMenuItem
+                        key={group.groupId}
+                        onClick={() => {
+                          moveSelectedAssetsToCompetitiveGroup(group)
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {group.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <Tooltip disabled={selectedCount > 0}>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={cn(
+                          "inline-flex",
+                          selectedCount === 0 && "cursor-not-allowed"
+                        )}
+                      />
+                    }
+                  >
+                    <DropdownMenuTrigger
+                      disabled={selectedCount === 0}
+                      className={cn(buttonVariants({ variant: "outline" }))}
                       aria-label="Add selected assets to a portfolio group or scenario"
                     >
-                      Add to...
+                      Add to
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -460,12 +686,10 @@ export function PortfolioAssetsDataTable({
                             {portfolio.name}
                           </span>
                           {alreadyAdded ? (
-                            <span
-                              className="ml-2 text-xs text-muted-foreground"
+                            <Check
+                              className="ml-2 size-4 shrink-0 text-blue-500"
                               aria-hidden
-                            >
-                              Added
-                            </span>
+                            />
                           ) : null}
                         </DropdownMenuItem>
                       )
@@ -563,9 +787,9 @@ export function PortfolioAssetsDataTable({
                     <DropdownMenuTrigger
                       disabled={selectedCount === 0}
                       className={cn(buttonVariants({ variant: "outline" }))}
-                      aria-label="Add selected assets to a competitive group or scenario"
+                      aria-label="Move selected assets to an Other Assets group"
                     >
-                      Add to...
+                      Move to
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -577,7 +801,81 @@ export function PortfolioAssetsDataTable({
                     side="top"
                     className="max-w-[240px] text-pretty"
                   >
-                    Select assets with checkboxes to add them to a competitive
+                    Select assets with checkboxes to move them to an Other Assets
+                    group.
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent
+                  align="end"
+                  className="z-[100] min-w-[12rem]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Prospective Assets
+                    </DropdownMenuLabel>
+                    {competitiveGroupsForMenu.map((group) => (
+                      <DropdownMenuItem
+                        key={group.groupId}
+                        onClick={() => {
+                          moveSelectedAssetsToCompetitiveGroup(group)
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {group.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">
+                      Your Assets
+                    </DropdownMenuLabel>
+                    {portfoliosForMenu.map((portfolio) => (
+                      <DropdownMenuItem
+                        key={portfolio.groupId}
+                        onClick={() => {
+                          moveSelectedAssetsToPortfolioGroup(portfolio)
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {portfolio.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <Tooltip disabled={selectedCount > 0}>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={cn(
+                          "inline-flex",
+                          selectedCount === 0 && "cursor-not-allowed"
+                        )}
+                      />
+                    }
+                  >
+                    <DropdownMenuTrigger
+                      disabled={selectedCount === 0}
+                      className={cn(buttonVariants({ variant: "outline" }))}
+                      aria-label="Add selected assets to an Other Assets group or scenario"
+                    >
+                      Add to
+                      <ChevronDown
+                        className="size-4 opacity-60"
+                        aria-hidden
+                        data-icon="inline-end"
+                      />
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-[240px] text-pretty"
+                  >
+                    Select assets with checkboxes to add them to an Other Assets
                     group or scenario.
                   </TooltipContent>
                 </Tooltip>
@@ -615,12 +913,10 @@ export function PortfolioAssetsDataTable({
                             {group.name}
                           </span>
                           {alreadyAdded ? (
-                            <span
-                              className="ml-2 text-xs text-muted-foreground"
+                            <Check
+                              className="ml-2 size-4 shrink-0 text-blue-500"
                               aria-hidden
-                            >
-                              Added
-                            </span>
+                            />
                           ) : null}
                         </DropdownMenuItem>
                       )
@@ -700,7 +996,7 @@ export function PortfolioAssetsDataTable({
                 }}
               />
             </>
-          ) : (
+          ) : selectedCount > 0 ? (
             <Tooltip disabled={selectedCount > 0}>
               <TooltipTrigger
                 render={
@@ -716,7 +1012,13 @@ export function PortfolioAssetsDataTable({
                   type="button"
                   variant="outline"
                   disabled={selectedCount === 0}
-                  onClick={onScenarioToolbarClick}
+                  onClick={() => {
+                    if (allSelectedExcluded) {
+                      onScenarioToolbarClick()
+                    } else {
+                      setBulkConfirmOpen(true)
+                    }
+                  }}
                 >
                   {scenarioToolbarLabel}
                 </Button>
@@ -727,9 +1029,65 @@ export function PortfolioAssetsDataTable({
                   : "Select assets with checkboxes to remove them from a scenario."}
               </TooltipContent>
             </Tooltip>
-          )}
+          ) : null}
+          {!isScenarioVariant && selectedCount > 0 ? (
+            <Tooltip disabled={selectedCount > 0}>
+              <TooltipTrigger
+                render={
+                  <span
+                    className={cn(
+                      "inline-flex",
+                      selectedCount === 0 && "cursor-not-allowed"
+                    )}
+                  />
+                }
+              >
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={selectedCount === 0}
+                  onClick={() => setBulkConfirmOpen(true)}
+                >
+                  {selectedScopeActionLabel}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[240px] text-pretty">
+                {selectedScopeActionLabel === "Remove"
+                  ? "Select assets with checkboxes to remove them from this group."
+                  : "Select assets with checkboxes to delete them from this collection."}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
+      <Dialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedScopeActionTitle}</DialogTitle>
+            <DialogDescription>
+              {selectedScopeActionDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBulkConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={removeOrDeleteSelectedAssets}
+            >
+              {selectedScopeActionLabel === "Delete"
+                ? "Delete permanently"
+                : selectedScopeActionLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="hidden min-w-0 w-full overflow-x-auto overscroll-x-contain lg:block">
         <div className="portfolio-assets-table-scroll-inner">
           <table

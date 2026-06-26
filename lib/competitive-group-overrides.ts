@@ -678,6 +678,36 @@ export function removeCompetitiveAssetFromOtherAssets(assetId: string): boolean 
   return changed
 }
 
+export function removeCompetitiveAssetsFromOtherAssets(
+  assetIds: readonly string[]
+): number {
+  if (typeof window === "undefined" || assetIds.length === 0) return 0
+  const membershipOverrides = readCompetitiveMembershipOverrides()
+  const removedAssetIds = readRemovedCompetitiveAssetIds()
+  let membershipChanged = false
+  let removedChanged = false
+  let changedCount = 0
+
+  for (const assetId of new Set(assetIds)) {
+    let changed = false
+    if (Object.hasOwn(membershipOverrides, assetId)) {
+      delete membershipOverrides[assetId]
+      membershipChanged = true
+      changed = true
+    }
+    if (!removedAssetIds.has(assetId)) {
+      removedAssetIds.add(assetId)
+      removedChanged = true
+      changed = true
+    }
+    if (changed) changedCount += 1
+  }
+
+  if (membershipChanged) writeCompetitiveMembershipOverrides(membershipOverrides)
+  if (removedChanged) writeRemovedCompetitiveAssetIds(removedAssetIds)
+  return changedCount
+}
+
 export function addCompetitiveAssetToGroup(assetId: string, groupId: string): boolean {
   if (typeof window === "undefined") return false
   restoreRemovedSeededCompetitiveGroup(groupId)

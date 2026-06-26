@@ -10,6 +10,7 @@ import { useScenarioModificationSelectionsOptional } from "@/components/scenario
 import {
   getAssetGroupOverridesSnapshot,
   parseAssetGroupOverrideSnapshot,
+  resolveAssetGroupIds,
   subscribeAssetGroupOverrides,
 } from "@/lib/asset-group-overrides"
 import {
@@ -26,6 +27,7 @@ import {
   portfolioScopeHref,
 } from "@/lib/assets"
 import {
+  getMarketListingPinById,
   MARKET_SEARCH_LISTING_COUNT,
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
@@ -167,8 +169,30 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
   }, [assetGroupData, isScenarioScope, portfolioScopeId])
   const portfolioAssetRows = React.useMemo(() => {
     if (isCompetitiveScope) {
+      const movedPortfolioRows = ASSETS.filter((asset) =>
+        assetGroupData.standalonePropertyNavIds.has(asset.id)
+      ).map((asset, index) => {
+        const baseRow = portfolioAssetRowForAsset(
+          getAssetById(asset.id, assetGroupData) ?? asset,
+          index
+        )
+        const groupIds = resolveCompetitiveGroupIdsForAsset(
+          asset.id,
+          competitiveGroupData.membershipOverrides,
+          {
+            customGroups: competitiveGroupData.customGroups,
+            removedAssetIds: competitiveGroupData.removedAssetIds,
+            removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
+          }
+        )
+        return {
+          ...baseRow,
+          groupId: groupIds[0] ?? baseRow.groupId,
+          groupIds,
+        }
+      })
       const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-      const rows = pins
+      const marketRows = pins
         .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
         .map((pin) => {
           const baseRow = portfolioAssetRowForMarketPin(pin)
@@ -187,6 +211,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
             groupIds,
           }
         })
+      const rows = [...movedPortfolioRows, ...marketRows]
         .filter(
           (row) =>
             competitiveGroupId == null ||
@@ -201,7 +226,7 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
       )
     }
 
-    return scopeAssets
+    const ownedRows = scopeAssets
       .map((asset, index) =>
         portfolioAssetRowForAsset(
           getAssetById(asset.id, assetGroupData) ?? asset,
@@ -215,6 +240,33 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
             sensitivity: "base",
           })
       )
+    const promotedRows = [...assetGroupData.promotedProspectiveAssetIds]
+      .flatMap((assetId) => {
+        const pin = getMarketListingPinById(assetId)
+        if (pin == null) return []
+        const baseRow = portfolioAssetRowForMarketPin(pin)
+        const groupIds = resolveAssetGroupIds(
+          assetId,
+          baseRow.groupId,
+          assetGroupData.overrides
+        )
+        if (
+          portfolioScopeId != null &&
+          !isScenarioScope &&
+          !groupIds.includes(portfolioScopeId)
+        ) {
+          return []
+        }
+        return [{ ...baseRow, groupId: groupIds[0] ?? baseRow.groupId, groupIds }]
+      })
+      .sort(
+        (left, right) =>
+          right.liftPercent - left.liftPercent ||
+          left.building.localeCompare(right.building, undefined, {
+            sensitivity: "base",
+          })
+      )
+    return [...ownedRows, ...promotedRows]
   }, [
     assetGroupData,
     competitiveGroupData.membershipOverrides,
@@ -223,6 +275,8 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
     competitiveGroupData.removedSeededGroupIds,
     competitiveGroupId,
     isCompetitiveScope,
+    isScenarioScope,
+    portfolioScopeId,
     scopeAssets,
   ])
   const snapshotSortVariant = isScenarioScope

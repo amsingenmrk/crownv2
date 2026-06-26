@@ -12,6 +12,9 @@ const CUSTOM_CHANGED = "glassbox:custom-asset-groups-changed"
 const STANDALONE_PROPERTY_NAV_KEY = "glassbox:standalone-property-nav"
 /** Seeded demo group ids that have been removed from the portfolio UI. */
 const REMOVED_PORTFOLIO_GROUP_IDS_KEY = "glassbox:removed-portfolio-group-ids"
+/** Prospective / market asset IDs promoted into Your Assets. */
+const PROMOTED_PROSPECTIVE_ASSET_IDS_KEY =
+  "glassbox:promoted-prospective-asset-ids"
 export const ASSET_GROUP_SNAPSHOT_COOKIE_NAME =
   "glassbox-asset-group-snapshot" as const
 const ASSET_GROUP_SNAPSHOT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -302,6 +305,21 @@ function parseRemovedPortfolioGroupIds(raw: string): ReadonlySet<string> {
   }
 }
 
+function parsePromotedProspectiveAssetIds(raw: string): ReadonlySet<string> {
+  if (raw === "") return new Set()
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set()
+    const out = new Set<string>()
+    for (const x of parsed) {
+      if (typeof x === "string" && x.length > 0 && x.length < 200) out.add(x)
+    }
+    return out
+  } catch {
+    return new Set()
+  }
+}
+
 export function decodeAssetGroupSnapshotCookie(value: string | undefined): string {
   if (!value) return ""
   try {
@@ -316,6 +334,15 @@ function readStandalonePropertyNavIds(): Set<string> {
   return new Set(parseStandalonePropertyNavIds(
     localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""
   ))
+}
+
+function readPromotedProspectiveAssetIds(): Set<string> {
+  if (typeof window === "undefined") return new Set()
+  return new Set(
+    parsePromotedProspectiveAssetIds(
+      localStorage.getItem(PROMOTED_PROSPECTIVE_ASSET_IDS_KEY) ?? ""
+    )
+  )
 }
 
 export function readRemovedPortfolioGroupIds(): Set<string> {
@@ -339,6 +366,45 @@ function writeStandalonePropertyNavIds(ids: Set<string>): void {
   )
   syncAssetGroupSnapshotCookieFromLocalStorage()
   window.dispatchEvent(new Event(CHANGED))
+}
+
+function writePromotedProspectiveAssetIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(
+    PROMOTED_PROSPECTIVE_ASSET_IDS_KEY,
+    JSON.stringify([...ids])
+  )
+  syncAssetGroupSnapshotCookieFromLocalStorage()
+  window.dispatchEvent(new Event(CHANGED))
+}
+
+export function promoteProspectiveAssetsToPortfolio(
+  assetIds: readonly string[]
+): number {
+  const next = readPromotedProspectiveAssetIds()
+  let changed = false
+  let added = 0
+  for (const assetId of assetIds) {
+    if (!assetId || next.has(assetId)) continue
+    next.add(assetId)
+    changed = true
+    added += 1
+  }
+  if (changed) writePromotedProspectiveAssetIds(next)
+  return added
+}
+
+export function removePromotedProspectiveAssetsFromPortfolio(
+  assetIds: readonly string[]
+): boolean {
+  const next = readPromotedProspectiveAssetIds()
+  let changed = false
+  for (const assetId of assetIds) {
+    if (!next.delete(assetId)) continue
+    changed = true
+  }
+  if (changed) writePromotedProspectiveAssetIds(next)
+  return changed
 }
 
 function writeRemovedPortfolioGroupIds(ids: Set<string>): void {
@@ -375,6 +441,17 @@ function clearStandalonePropertyNav(assetId: string): void {
   const next = readStandalonePropertyNavIds()
   if (!next.delete(assetId)) return
   writeStandalonePropertyNavIds(next)
+}
+
+export function clearPropertiesStandaloneNav(assetIds: readonly string[]): boolean {
+  const next = readStandalonePropertyNavIds()
+  let changed = false
+  for (const assetId of assetIds) {
+    if (!next.delete(assetId)) continue
+    changed = true
+  }
+  if (changed) writeStandalonePropertyNavIds(next)
+  return changed
 }
 
 function restoreRemovedPortfolioGroup(groupId: string): void {
@@ -439,6 +516,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   fundDescriptionOverrides: Record<string, string>
   standalonePropertyNavIds: ReadonlySet<string>
   removedPortfolioGroupIds: ReadonlySet<string>
+  promotedProspectiveAssetIds: ReadonlySet<string>
 } {
   const parts = snapshot.split("\0")
   const overridesRaw = parts[0] ?? ""
@@ -448,6 +526,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   const fundDescriptionsRaw = parts[4] ?? ""
   const standaloneRaw = parts[5] ?? ""
   const removedGroupsRaw = parts[6] ?? ""
+  const promotedProspectiveRaw = parts[7] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
@@ -464,6 +543,9 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
       : new Set(),
     removedPortfolioGroupIds: removedGroupsRaw
       ? parseRemovedPortfolioGroupIds(removedGroupsRaw)
+      : new Set(),
+    promotedProspectiveAssetIds: promotedProspectiveRaw
+      ? parsePromotedProspectiveAssetIds(promotedProspectiveRaw)
       : new Set(),
   }
 }
@@ -788,7 +870,8 @@ export function subscribeAssetGroupOverrides(
       e.key === FUND_DESCRIPTION_OVERRIDES_KEY ||
       e.key === CUSTOM_GROUP_DESCRIPTIONS_KEY ||
       e.key === STANDALONE_PROPERTY_NAV_KEY ||
-      e.key === REMOVED_PORTFOLIO_GROUP_IDS_KEY
+      e.key === REMOVED_PORTFOLIO_GROUP_IDS_KEY ||
+      e.key === PROMOTED_PROSPECTIVE_ASSET_IDS_KEY
     ) {
       run()
     }
@@ -803,5 +886,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}\0${localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}\0${localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""}\0${localStorage.getItem(PROMOTED_PROSPECTIVE_ASSET_IDS_KEY) ?? ""}`
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { BriefcaseBusiness, Plus, Radar } from "lucide-react"
+import { BriefcaseBusiness, MapPin, Plus } from "lucide-react"
 import {
   SidebarMenu,
   SidebarMenuAction,
@@ -59,8 +59,8 @@ export function SidebarTreeSection({
             )
           }
         >
-          {sectionLabel.toLowerCase().includes("competitive") ? (
-            <Radar aria-hidden />
+          {sectionHref.startsWith("/other-assets") ? (
+            <MapPin aria-hidden />
           ) : (
             <BriefcaseBusiness aria-hidden />
           )}
