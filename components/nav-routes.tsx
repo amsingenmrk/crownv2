@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, Columns4, FileUp } from "lucide-react"
+import { BarChart3, Columns4 } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -11,13 +11,9 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const DOCUMENT_ROUTES = [
-  { title: "Doc Upload", href: "/documents", icon: FileUp },
-] as const
-
 const ANALYZE_ROUTES = [
-  { title: "Compare", href: "/compare", icon: Columns4 },
   { title: "Benchmarks", href: "/benchmarks", icon: BarChart3 },
+  { title: "Compare", href: "/compare", icon: Columns4 },
 ] as const
 
 export function NavRoutes() {
@@ -26,7 +22,7 @@ export function NavRoutes() {
     routes: readonly {
       title: string
       href: string
-      icon: typeof FileUp
+      icon: typeof BarChart3
     }[]
   ) =>
     routes.map((item) => {
@@ -52,10 +48,6 @@ export function NavRoutes() {
       <SidebarGroup>
         <SidebarGroupLabel>Analyze</SidebarGroupLabel>
         <SidebarMenu>{renderRouteItems(ANALYZE_ROUTES)}</SidebarMenu>
-      </SidebarGroup>
-      <SidebarGroup>
-        <SidebarGroupLabel>Documents</SidebarGroupLabel>
-        <SidebarMenu>{renderRouteItems(DOCUMENT_ROUTES)}</SidebarMenu>
       </SidebarGroup>
     </>
   )

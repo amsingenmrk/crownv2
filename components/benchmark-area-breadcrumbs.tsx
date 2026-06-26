@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react"
+import { Check, ChevronDown, ChevronRight } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -115,7 +115,7 @@ export function BenchmarkAreaBreadcrumbs({
                 "inline-flex items-center overflow-hidden rounded-md border transition-colors",
                 isCurrent
                   ? "border-border bg-muted text-foreground"
-                  : "border-transparent text-muted-foreground hover:border-border/60"
+                  : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
               )}
             >
               <button
@@ -166,7 +166,6 @@ export function BenchmarkAreaBreadcrumbs({
                 className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 font-medium text-muted-foreground transition-colors hover:border-solid hover:bg-muted hover:text-foreground data-[popup-open]:border-solid data-[popup-open]:bg-muted data-[popup-open]:text-foreground"
                 aria-label={`Add ${nextLevelLabel}`}
               >
-                <Plus className="size-3.5" aria-hidden />
                 {nextLevelLabel}
                 <ChevronDown className="size-3.5" aria-hidden />
               </button>

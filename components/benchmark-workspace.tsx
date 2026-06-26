@@ -218,6 +218,7 @@ export function BenchmarkWorkspace({
       }}
     />
   )
+  const statsHeaderPortalId = React.useId().replace(/:/g, "")
 
   return (
     <div
@@ -228,8 +229,14 @@ export function BenchmarkWorkspace({
         className={cn(BENCHMARK_SECTION_CARD, "shrink-0")}
         aria-label="Benchmark map and area statistics"
       >
+        {showMapbox ? (
+          <div
+            id={statsHeaderPortalId}
+            className="border-b border-border/60 px-4 py-3"
+          />
+        ) : null}
         <div className="flex flex-col lg:flex-row lg:items-stretch">
-          <div className="relative min-h-[11rem] w-full shrink-0 bg-muted/20 sm:min-h-[12rem] lg:min-h-0 lg:flex-1">
+          <div className="relative min-h-[11rem] w-full shrink-0 bg-muted/20 sm:min-h-[12rem] lg:min-h-[34rem] lg:flex-1">
             <div className="absolute inset-0 overflow-hidden">
               {showMapbox ? (
                 <BenchmarkMapbox
@@ -286,6 +293,7 @@ export function BenchmarkWorkspace({
                   snapshot={snapshot}
                   benchmarkAreaId={committedArea.id}
                   headerSlot={breadcrumbs}
+                  headerPortalTargetId={statsHeaderPortalId}
                   initialCompareAssetId={initialCompareAssetId}
                 />
               ) : (

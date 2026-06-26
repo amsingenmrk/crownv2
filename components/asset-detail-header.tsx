@@ -7,6 +7,11 @@ import { AssetLeasingAssumptionsStat } from "@/components/asset-leasing-assumpti
 import { OccupancySummaryBar } from "@/components/occupancy-summary-bar"
 import { cn } from "@/lib/utils"
 import { ASSETS, getAssetById } from "@/lib/assets"
+import {
+  getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
@@ -29,23 +34,19 @@ export function AssetDetailHeader() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useParams()
-  const [applyPersistedGroupOverrides, setApplyPersistedGroupOverrides] =
-    React.useState(false)
-
-  React.useEffect(() => {
-    setApplyPersistedGroupOverrides(true)
-  }, [])
-
+  const assetGroupSnapshot = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const assetGroupData = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupSnapshot),
+    [assetGroupSnapshot]
+  )
   const id = typeof params?.id === "string" ? params.id : null
   const asset = React.useMemo(
-    () =>
-      id
-        ? getAssetById(
-            id,
-            applyPersistedGroupOverrides ? undefined : {}
-          )
-        : null,
-    [id, applyPersistedGroupOverrides]
+    () => (id ? getAssetById(id, assetGroupData) : null),
+    [assetGroupData, id]
   )
   const marketPin = React.useMemo(
     () => (id ? getMarketListingPinById(id) : null),
@@ -127,7 +128,7 @@ export function AssetDetailHeader() {
       <div className="border-b border-border bg-background px-6 py-4">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="flex min-w-0 items-start">
-            <div className="h-fit self-center min-w-0">
+            <div className="h-fit min-w-0 self-center">
               <h2 className="text-xl font-semibold truncate">{buildingLabel}</h2>
               <p className="text-sm text-muted-foreground truncate">{addressLabel}</p>
             </div>
@@ -206,6 +207,7 @@ export function AssetDetailHeader() {
           })}
         </div>
       </nav>
+
     </>
   )
 }

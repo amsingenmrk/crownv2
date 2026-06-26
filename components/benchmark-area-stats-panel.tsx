@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { createPortal } from "react-dom"
 import { ArrowUpRight } from "lucide-react"
 
 import {
@@ -278,12 +279,14 @@ export function BenchmarkAreaStatsPanel({
   benchmarkAreaId,
   className,
   headerSlot,
+  headerPortalTargetId,
   initialCompareAssetId,
 }: {
   snapshot: BenchmarkAreaSnapshot
   benchmarkAreaId: string
   className?: string
   headerSlot?: React.ReactNode
+  headerPortalTargetId?: string
   initialCompareAssetId?: string
 }) {
   React.useEffect(() => {
@@ -369,6 +372,17 @@ export function BenchmarkAreaStatsPanel({
     }
   }, [benchmarkAreaId, comparing, coordinates, selectedAssetId])
 
+  const [headerPortalTarget, setHeaderPortalTarget] =
+    React.useState<HTMLElement | null>(null)
+
+  React.useEffect(() => {
+    if (!headerPortalTargetId || typeof document === "undefined") {
+      setHeaderPortalTarget(null)
+      return
+    }
+    setHeaderPortalTarget(document.getElementById(headerPortalTargetId))
+  }, [headerPortalTargetId])
+
   const kpiByKey = Object.fromEntries(
     snapshot.kpis.map((kpi) => [kpi.key, kpi])
   ) as Record<
@@ -423,13 +437,14 @@ export function BenchmarkAreaStatsPanel({
     </section>
   )
 
-  return (
-    <aside
-      className={cn("@container min-w-0", className)}
-      aria-label="Area benchmark statistics"
-    >
-      <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 pb-2.5 @lg:flex-row @lg:items-start @lg:justify-between">
-        <div className="min-w-0">
+  const header = (
+      <div
+        className={cn(
+          "flex shrink-0 flex-col gap-3 md:flex-row md:items-start md:justify-between",
+          !headerPortalTargetId && "border-b border-border/60 pb-2.5"
+        )}
+      >
+        <div className="min-w-0 md:flex-1">
           {headerSlot ? (
             <div className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">
@@ -444,8 +459,8 @@ export function BenchmarkAreaStatsPanel({
           )}
         </div>
 
-        <div className="flex min-w-0 items-end gap-2 @lg:shrink-0">
-          <Field className="min-w-0 flex-1 gap-1 @lg:w-56">
+        <div className="flex min-w-0 items-end gap-2 md:ml-auto md:shrink-0">
+          <Field className="min-w-0 flex-1 gap-1 md:w-56">
             <FieldLabel className="text-xs font-medium text-muted-foreground">
               Compare to Asset
             </FieldLabel>
@@ -503,8 +518,20 @@ export function BenchmarkAreaStatsPanel({
           ) : null}
         </div>
       </div>
+  )
 
-      <div className="space-y-4 pt-3">
+  return (
+    <aside
+      className={cn("@container min-w-0", className)}
+      aria-label="Area benchmark statistics"
+    >
+      {headerPortalTarget
+        ? createPortal(header, headerPortalTarget)
+        : headerPortalTargetId
+          ? null
+          : header}
+
+      <div className={cn("space-y-4", !headerPortalTargetId && "pt-3")}>
         {renderSection({
           title: "Fundamentals",
           ariaLabel: "Benchmark fundamentals",

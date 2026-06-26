@@ -15,6 +15,8 @@ const REMOVED_PORTFOLIO_GROUP_IDS_KEY = "glassbox:removed-portfolio-group-ids"
 /** Prospective / market asset IDs promoted into Your Assets. */
 const PROMOTED_PROSPECTIVE_ASSET_IDS_KEY =
   "glassbox:promoted-prospective-asset-ids"
+/** Optional display names for individual assets. */
+const ASSET_DISPLAY_LABELS_KEY = "glassbox:asset-display-labels"
 export const ASSET_GROUP_SNAPSHOT_COOKIE_NAME =
   "glassbox-asset-group-snapshot" as const
 const ASSET_GROUP_SNAPSHOT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -130,6 +132,69 @@ function parseCustomGroupDescriptions(raw: string): Record<string, string> {
   } catch {
     return {}
   }
+}
+
+function parseAssetDisplayLabels(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {}
+    }
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (
+        typeof k === "string" &&
+        k.length > 0 &&
+        k.length < 200 &&
+        typeof v === "string" &&
+        v.trim().length > 0 &&
+        v.length < 200
+      ) {
+        out[k] = v.trim()
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function readAssetDisplayLabels(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const raw = localStorage.getItem(ASSET_DISPLAY_LABELS_KEY)
+  if (raw == null || raw === "") return {}
+  return parseAssetDisplayLabels(raw)
+}
+
+function writeAssetDisplayLabels(labels: Record<string, string>): void {
+  if (typeof window === "undefined") return
+  if (Object.keys(labels).length === 0) {
+    localStorage.removeItem(ASSET_DISPLAY_LABELS_KEY)
+  } else {
+    localStorage.setItem(ASSET_DISPLAY_LABELS_KEY, JSON.stringify(labels))
+  }
+  syncAssetGroupSnapshotCookieFromLocalStorage()
+  window.dispatchEvent(new Event(CHANGED))
+}
+
+export function updateAssetDisplayNameById(
+  assetId: string,
+  name: string
+): boolean {
+  if (typeof window === "undefined") return false
+  const trimmed = name.trim()
+  if (!assetId || !trimmed) return false
+  writeAssetDisplayLabels({ ...readAssetDisplayLabels(), [assetId]: trimmed })
+  return true
+}
+
+export function removeAssetDisplayNameOverride(assetId: string): boolean {
+  if (typeof window === "undefined") return false
+  const labels = readAssetDisplayLabels()
+  if (!Object.hasOwn(labels, assetId)) return false
+  const { [assetId]: _removed, ...rest } = labels
+  writeAssetDisplayLabels(rest)
+  return true
 }
 
 function readCustomGroupDescriptions(): Record<string, string> {
@@ -512,6 +577,7 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   overrides: Record<string, string[]>
   customGroups: Record<string, string>
   fundLabelOverrides: Record<string, string>
+  assetLabelOverrides: Record<string, string>
   customGroupDescriptions: Record<string, string>
   fundDescriptionOverrides: Record<string, string>
   standalonePropertyNavIds: ReadonlySet<string>
@@ -527,11 +593,15 @@ export function parseAssetGroupOverrideSnapshot(snapshot: string): {
   const standaloneRaw = parts[5] ?? ""
   const removedGroupsRaw = parts[6] ?? ""
   const promotedProspectiveRaw = parts[7] ?? ""
+  const assetLabelsRaw = parts[8] ?? ""
 
   return {
     overrides: overridesRaw ? parseOverrides(overridesRaw) : {},
     customGroups: customGroupsRaw ? parseCustomAssetGroups(customGroupsRaw) : {},
     fundLabelOverrides: fundLabelsRaw ? parseFundDisplayLabels(fundLabelsRaw) : {},
+    assetLabelOverrides: assetLabelsRaw
+      ? parseAssetDisplayLabels(assetLabelsRaw)
+      : {},
     customGroupDescriptions: descriptionsRaw
       ? parseCustomGroupDescriptions(descriptionsRaw)
       : {},
@@ -886,5 +956,5 @@ export function subscribeAssetGroupOverrides(
 
 export function getAssetGroupOverridesSnapshot(): string {
   if (typeof window === "undefined") return ""
-  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}\0${localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""}\0${localStorage.getItem(PROMOTED_PROSPECTIVE_ASSET_IDS_KEY) ?? ""}`
+  return `${localStorage.getItem(STORAGE_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUPS_KEY) ?? ""}\0${localStorage.getItem(FUND_DISPLAY_LABELS_KEY) ?? ""}\0${localStorage.getItem(CUSTOM_GROUP_DESCRIPTIONS_KEY) ?? ""}\0${localStorage.getItem(FUND_DESCRIPTION_OVERRIDES_KEY) ?? ""}\0${localStorage.getItem(STANDALONE_PROPERTY_NAV_KEY) ?? ""}\0${localStorage.getItem(REMOVED_PORTFOLIO_GROUP_IDS_KEY) ?? ""}\0${localStorage.getItem(PROMOTED_PROSPECTIVE_ASSET_IDS_KEY) ?? ""}\0${localStorage.getItem(ASSET_DISPLAY_LABELS_KEY) ?? ""}`
 }

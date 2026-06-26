@@ -43,12 +43,16 @@ import { useAppToast } from "@/components/app-toast"
 import {
   clearAssetGroupOverrides,
   getAssetGroupOverridesSnapshot,
+  markPropertyStandaloneNav,
   markPropertiesStandaloneNav,
   parseAssetGroupOverrideSnapshot,
+  removeAssetDisplayNameOverride,
   removeAssetFromGroup,
   removeCustomAssetGroupById,
+  removeAssetGroupOverride,
   removeSeededPortfolioGroupById,
   subscribeAssetGroupOverrides,
+  updateAssetDisplayNameById,
   updateCustomAssetGroupById,
   updateFundByGroupId,
 } from "@/lib/asset-group-overrides"
@@ -307,6 +311,9 @@ export function AppTopbar() {
   const [compareRenameOpen, setCompareRenameOpen] = useState(false)
   const [compareDeleteOpen, setCompareDeleteOpen] = useState(false)
   const [compareRenameDraft, setCompareRenameDraft] = useState("")
+  const [assetRenameOpen, setAssetRenameOpen] = useState(false)
+  const [assetDeleteOpen, setAssetDeleteOpen] = useState(false)
+  const [assetRenameDraft, setAssetRenameDraft] = useState("")
   const [deletePortfolioScopeOpen, setDeletePortfolioScopeOpen] =
     useState(false)
   const [portfolioScopeRenameOpen, setPortfolioScopeRenameOpen] =
@@ -524,6 +531,35 @@ export function AppTopbar() {
     competitiveGroupData.groupDescriptions,
     competitiveGroupData.groupLabels,
   ])
+
+  const openAssetRename = useCallback(() => {
+    if (asset == null) return
+    setAssetRenameDraft(asset.name)
+    setAssetRenameOpen(true)
+  }, [asset])
+
+  const commitAssetRename = useCallback(() => {
+    if (asset == null) return
+    const name = assetRenameDraft.trim()
+    if (!name) return
+    if (name === asset.name) {
+      setAssetRenameOpen(false)
+      return
+    }
+    updateAssetDisplayNameById(asset.id, name)
+    setAssetRenameOpen(false)
+    showToast(`Renamed to “${name}”.`)
+  }, [asset, assetRenameDraft, showToast])
+
+  const commitAssetDelete = useCallback(() => {
+    if (asset == null) return
+    removeAssetGroupOverride(asset.id)
+    removeAssetDisplayNameOverride(asset.id)
+    markPropertyStandaloneNav(asset.id)
+    setAssetDeleteOpen(false)
+    showToast("Asset removed from portfolio.")
+    router.push("/portfolio")
+  }, [asset, router, showToast])
 
   const commitScenarioRename = useCallback(() => {
     const name = scenarioRenameDraft.trim()
@@ -1177,14 +1213,109 @@ export function AppTopbar() {
           </Button>
         ) : null}
         {showAssetBreadcrumb && asset != null ? (
-          <PortfolioGroupBadgeDropdown
-            assetId={asset.id}
-            resolvedGroupIds={
-              propertyStandaloneNav
-                ? []
-                : asset.groupIds ?? [asset.groupId]
-            }
-          />
+          <>
+            <PortfolioGroupBadgeDropdown
+              assetId={asset.id}
+              resolvedGroupIds={
+                propertyStandaloneNav
+                  ? []
+                  : asset.groupIds ?? [asset.groupId]
+              }
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground"
+                    aria-label={`More actions for ${asset.name}`}
+                  />
+                }
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={6}>
+                <DropdownMenuItem onClick={openAssetRename}>
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setAssetDeleteOpen(true)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog
+              open={assetRenameOpen}
+              onOpenChange={(open) => {
+                setAssetRenameOpen(open)
+                if (!open) setAssetRenameDraft("")
+              }}
+            >
+              <DialogContent showCloseButton className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rename asset</DialogTitle>
+                </DialogHeader>
+                <Input
+                  value={assetRenameDraft}
+                  onChange={(event) => setAssetRenameDraft(event.target.value)}
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      commitAssetRename()
+                    }
+                  }}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAssetRenameOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!assetRenameDraft.trim()}
+                    onClick={commitAssetRename}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={assetDeleteOpen} onOpenChange={setAssetDeleteOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Delete asset</DialogTitle>
+                  <DialogDescription>
+                    Remove “{asset.name}” from the portfolio view. You can still
+                    find it under Other Assets.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAssetDeleteOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={commitAssetDelete}
+                  >
+                    Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
         ) : showNonAssetPropertyBreadcrumb &&
           marketListingPin != null &&
           assetId != null ? (

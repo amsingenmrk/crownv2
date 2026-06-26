@@ -1,7 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { BriefcaseBusiness, MapPin, Plus, UploadCloud } from "lucide-react"
+import {
+  BriefcaseBusiness,
+  MapPin,
+  Plus,
+  RefreshCw,
+  UploadCloud,
+} from "lucide-react"
 
 import { useInitialAssetGroupOverrideSnapshot } from "@/components/app-shell-environment"
 import { Button } from "@/components/ui/button"
@@ -38,6 +44,7 @@ import {
 import { cn } from "@/lib/utils"
 
 type ImportDestination = "your-assets" | "other-assets"
+type ImportMode = "add" | "update"
 
 type GroupOption = {
   id: string
@@ -54,8 +61,15 @@ function formatFileSize(bytes: number) {
   return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`
 }
 
-export function SidebarAddAssetsImportModal() {
-  const [open, setOpen] = React.useState(false)
+export function AssetImportDialog({
+  open,
+  onOpenChange,
+  mode,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  mode: ImportMode
+}) {
   const [isDragging, setIsDragging] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
   const [destination, setDestination] =
@@ -136,7 +150,7 @@ export function SidebarAddAssetsImportModal() {
       items[option.id] = option.label
     }
     return items
-  }, [groupOptions, selectedDestinationLabel])
+  }, [groupOptions])
 
   const addFiles = React.useCallback((fileList: FileList | null) => {
     if (fileList == null || fileList.length === 0) return
@@ -164,115 +178,110 @@ export function SidebarAddAssetsImportModal() {
   }, [])
 
   const close = React.useCallback(() => {
-    setOpen(false)
+    onOpenChange(false)
     reset()
-  }, [reset])
+  }, [onOpenChange, reset])
+
+  const isUpdateMode = mode === "update"
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        className="mb-2 w-full"
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="size-4 shrink-0" aria-hidden />
-        Add Assets
-      </Button>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          onOpenChange(true)
+        } else {
+          close()
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{isUpdateMode ? "Update asset" : "Import assets"}</DialogTitle>
+          <DialogDescription>
+            {isUpdateMode
+              ? "Upload source files to update this asset."
+              : "Upload source files and choose where the assets should be organized."}
+          </DialogDescription>
+        </DialogHeader>
 
-      <Dialog
-        open={open}
-        onOpenChange={(nextOpen) => {
-          if (nextOpen) {
-            setOpen(true)
-          } else {
-            close()
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Import assets</DialogTitle>
-            <DialogDescription>
-              Upload source files and choose where the assets should be organized.
-            </DialogDescription>
-          </DialogHeader>
+        <div className="grid gap-5">
+          <div
+            className={cn(
+              "flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/25 px-4 py-8 text-center transition-colors",
+              isDragging && "border-ring bg-muted/50 ring-3 ring-ring/20"
+            )}
+            onDragEnter={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setIsDragging(true)
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setIsDragging(true)
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setIsDragging(false)
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setIsDragging(false)
+              addFiles(event.dataTransfer.files)
+            }}
+          >
+            <UploadCloud className="mb-3 size-9 text-muted-foreground" aria-hidden />
+            <p className="text-sm font-medium text-foreground">
+              Drop files here, or{" "}
+              <button
+                type="button"
+                className="underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() => inputRef.current?.click()}
+              >
+                browse your files
+              </button>
+            </p>
+            <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+              {isUpdateMode
+                ? "Add rent rolls, T12s, OMs, or other files for this asset."
+                : "Add rent rolls, T12s, OMs, or other asset files. You can choose the destination before importing."}
+            </p>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(event) => addFiles(event.target.files)}
+            />
+          </div>
 
-          <div className="grid gap-5">
-            <div
-              className={cn(
-                "flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/25 px-4 py-8 text-center transition-colors",
-                isDragging && "border-ring bg-muted/50 ring-3 ring-ring/20"
-              )}
-              onDragEnter={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setIsDragging(true)
-              }}
-              onDragOver={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setIsDragging(true)
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setIsDragging(false)
-              }}
-              onDrop={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                setIsDragging(false)
-                addFiles(event.dataTransfer.files)
-              }}
-            >
-              <UploadCloud className="mb-3 size-9 text-muted-foreground" aria-hidden />
-              <p className="text-sm font-medium text-foreground">
-                Drop files here, or{" "}
-                <button
-                  type="button"
-                  className="underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  onClick={() => inputRef.current?.click()}
-                >
-                  browse your files
-                </button>
-              </p>
-              <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-                Add rent rolls, T12s, OMs, or other asset files. You can choose the
-                destination before importing.
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                onChange={(event) => addFiles(event.target.files)}
-              />
-            </div>
-
-            {files.length > 0 ? (
-              <div className="rounded-lg border border-border bg-background">
-                <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-                  {files.length} {files.length === 1 ? "file" : "files"} selected
-                </div>
-                <ul className="max-h-28 overflow-y-auto px-3 py-2">
-                  {files.map((file) => (
-                    <li
-                      key={`${file.name}-${file.size}-${file.lastModified}`}
-                      className="flex min-w-0 items-center justify-between gap-3 py-1 text-sm"
-                    >
-                      <span className="min-w-0 truncate text-foreground">
-                        {file.name}
-                      </span>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {formatFileSize(file.size)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+          {files.length > 0 ? (
+            <div className="rounded-lg border border-border bg-background">
+              <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+                {files.length} {files.length === 1 ? "file" : "files"} selected
               </div>
-            ) : null}
+              <ul className="max-h-28 overflow-y-auto px-3 py-2">
+                {files.map((file) => (
+                  <li
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    className="flex min-w-0 items-center justify-between gap-3 py-1 text-sm"
+                  >
+                    <span className="min-w-0 truncate text-foreground">
+                      {file.name}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
+          {!isUpdateMode ? (
             <div className="grid gap-3">
               <div>
                 <p className="text-sm font-medium text-foreground">
@@ -344,18 +353,57 @@ export function SidebarAddAssetsImportModal() {
                 </Select>
               </label>
             </div>
-          </div>
+          ) : null}
+        </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={close}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={files.length === 0}>
-              Import assets
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="button" disabled={files.length === 0}>
+            {isUpdateMode ? "Update asset" : "Import assets"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function SidebarAddAssetsImportModal() {
+  const [open, setOpen] = React.useState(false)
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="mb-2 w-full"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="size-4 shrink-0" aria-hidden />
+        Add Assets
+      </Button>
+      <AssetImportDialog open={open} onOpenChange={setOpen} mode="add" />
+    </>
+  )
+}
+
+export function UpdateAssetImportButton({ className }: { className?: string }) {
+  const [open, setOpen] = React.useState(false)
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={className}
+        onClick={() => setOpen(true)}
+      >
+        <RefreshCw className="size-4 shrink-0" aria-hidden />
+        Update Asset
+      </Button>
+      <AssetImportDialog open={open} onOpenChange={setOpen} mode="update" />
     </>
   )
 }

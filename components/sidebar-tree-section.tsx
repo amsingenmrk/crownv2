@@ -2,10 +2,9 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { BriefcaseBusiness, MapPin, Plus } from "lucide-react"
+import { Binoculars, BriefcaseBusiness, FolderPlus } from "lucide-react"
 import {
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -60,53 +59,57 @@ export function SidebarTreeSection({
           }
         >
           {sectionHref.startsWith("/other-assets") ? (
-            <MapPin aria-hidden />
+            <Binoculars aria-hidden />
           ) : (
             <BriefcaseBusiness aria-hidden />
           )}
           <span>{sectionLabel}</span>
         </SidebarMenuButton>
-        <SidebarMenuAction
-          type="button"
-          className="top-1.5 right-1 rounded-md hover:bg-sidebar-accent/80"
-          aria-label={`New ${sectionLabel} group`}
-          title={`New ${sectionLabel} group`}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            onCreateGroup()
-          }}
-        >
-          <Plus className="size-4 shrink-0" aria-hidden />
-        </SidebarMenuAction>
       </SidebarMenuItem>
 
-      {groups.length > 0 ? (
-        <li className="list-none group-data-[collapsible=icon]:hidden">
-          <SidebarMenuSub className="mx-0 mt-1 translate-x-0 gap-0 border-l-0 px-0 py-0.5">
-            <SidebarMenuSub className="mt-0 gap-0 border-l border-sidebar-border/70 py-0 pl-3">
-              {groups.map((group) => (
-                <SidebarMenuSubItem key={`${sectionLabel}-${group.id}`}>
-                  <SidebarMenuSubButton
-                    size="md"
-                    className="h-7 text-[13px] text-sidebar-foreground/85 data-active:font-medium data-active:text-sidebar-accent-foreground"
-                    isActive={group.isActive}
-                    render={
-                      group.navigable === false ? (
-                        <button type="button" className="cursor-default" />
-                      ) : (
-                        <Link href={group.href} />
-                      )
-                    }
-                  >
-                    <span className="truncate">{group.label}</span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              ))}
-            </SidebarMenuSub>
+      <li className="list-none group-data-[collapsible=icon]:hidden">
+        <SidebarMenuSub className="mx-0 mt-1 translate-x-0 gap-0 border-l-0 px-0 py-0.5">
+          <SidebarMenuSub className="mt-0 gap-0 border-l border-sidebar-border/70 py-0 pl-3">
+            {groups.map((group) => (
+              <SidebarMenuSubItem key={`${sectionLabel}-${group.id}`}>
+                <SidebarMenuSubButton
+                  size="md"
+                  className="h-7 text-[13px] text-sidebar-foreground/85 data-active:font-medium data-active:text-sidebar-accent-foreground"
+                  isActive={group.isActive}
+                  render={
+                    group.navigable === false ? (
+                      <button type="button" className="cursor-default" />
+                    ) : (
+                      <Link href={group.href} />
+                    )
+                  }
+                >
+                  <span className="truncate">{group.label}</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+            <SidebarMenuSubItem className="mt-1">
+              <SidebarMenuSubButton
+                size="sm"
+                className="h-6 gap-1.5 text-[11px] font-medium text-sidebar-foreground/50 hover:text-sidebar-foreground [&>svg]:text-current"
+                render={
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onCreateGroup()
+                    }}
+                  />
+                }
+              >
+                <FolderPlus className="size-3 shrink-0 text-current" aria-hidden />
+                <span className="truncate">Create group</span>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
           </SidebarMenuSub>
-        </li>
-      ) : null}
+        </SidebarMenuSub>
+      </li>
     </SidebarMenu>
   )
 }

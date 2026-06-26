@@ -374,9 +374,9 @@ export function AssetBenchmarksTable({
                           ) : null}
                           {percentilePills.length > 0 ? (
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              {percentilePills.map((pill) => (
+                              {percentilePills.map((pill, pillIndex) => (
                                 <span
-                                  key={`${pill.contextLabel}-${pill.percentileLabel}`}
+                                  key={`${pill.contextLabel}-${pill.percentileLabel}-${pillIndex}`}
                                   className={cn(
                                     "inline-flex max-w-full items-center gap-1 rounded-full border border-border/70 bg-muted/25 px-1.5 py-0.5 text-[10px] leading-tight"
                                   )}

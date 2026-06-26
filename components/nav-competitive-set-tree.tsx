@@ -110,9 +110,9 @@ export function NavCompetitiveSetTree() {
   return (
     <>
       <SidebarTreeSection
-        sectionLabel="Prospective Assets"
+        sectionLabel="Prospective"
         sectionHref="/other-assets"
-        sectionTooltip="Prospective Assets"
+        sectionTooltip="Prospective"
         sectionIsActive={sectionIsActive}
         groups={treeGroups}
         onCreateGroup={() => setNewGroupOpen(true)}

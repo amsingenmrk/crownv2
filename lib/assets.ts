@@ -4,6 +4,7 @@
 
 import {
   readAssetGroupOverrides,
+  readAssetDisplayLabels,
   readCustomAssetGroups,
   readFundDisplayLabels,
   resolveAssetGroupIds,
@@ -80,6 +81,7 @@ type AssetGroupSnapshot = ReturnType<typeof parseAssetGroupOverrideSnapshot>
 type AssetGroupResolutionOptions = {
   overrides?: Record<string, string[]>
   customGroups?: Record<string, string>
+  assetLabelOverrides?: Record<string, string>
 }
 
 function slugify(text: string): string {
@@ -296,10 +298,18 @@ function assetWithResolvedGroups(
 ): Asset {
   const groupIds = resolveAssetGroupIdsForAsset(base.id, options)
   const primaryGroupId = groupIds[0] ?? base.groupId
+  const assetLabelOverrides =
+    options != null && "assetLabelOverrides" in options
+      ? options.assetLabelOverrides
+      : (options as AssetGroupResolutionOptions | undefined)?.assetLabelOverrides
+  const name = assetLabelOverrides?.[base.id] ??
+    (typeof window !== "undefined" ? readAssetDisplayLabels()[base.id] : undefined) ??
+    base.name
   if (
     primaryGroupId === base.groupId &&
     groupIds.length === 1 &&
-    groupIds[0] === base.groupId
+    groupIds[0] === base.groupId &&
+    name === base.name
   ) {
     return { ...base, groupIds }
   }
@@ -309,6 +319,7 @@ function assetWithResolvedGroups(
       : (options as AssetGroupResolutionOptions | undefined)?.customGroups
   return {
     ...base,
+    name,
     groupId: primaryGroupId,
     groupIds,
     groupLabel: resolveAssetGroupLabel(primaryGroupId, customGroups),
