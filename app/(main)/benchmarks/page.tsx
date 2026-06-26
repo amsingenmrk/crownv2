@@ -4,15 +4,18 @@ import { BenchmarkWorkspaceLoader } from "@/components/benchmark-workspace-loade
 export default async function BenchmarksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ area?: string }>
+  searchParams: Promise<{ area?: string; compare?: string }>
 }) {
-  const { area } = await searchParams
+  const { area, compare } = await searchParams
 
   return (
     <>
       <AppTopbar />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <BenchmarkWorkspaceLoader initialAreaId={area} />
+        <BenchmarkWorkspaceLoader
+          initialAreaId={area}
+          initialCompareAssetId={compare}
+        />
       </div>
     </>
   )

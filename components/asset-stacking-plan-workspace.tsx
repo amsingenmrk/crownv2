@@ -7,9 +7,6 @@ import {
   ChevronRight,
   Download,
   Eraser,
-  Merge,
-  MoreVertical,
-  Split,
   Upload,
 } from "lucide-react"
 
@@ -26,20 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { INPUT_LABEL_TEXT_CLASS } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select"
 import {
   Sheet,
@@ -145,16 +134,6 @@ type TenantEditorDraft = {
   leaseTermYears: string
 }
 
-type VacantSplitModalState = {
-  floorNumber: number
-  tenantId: string
-  totalSqft: number
-  suiteA: string
-  suiteB: string
-  sqftA: string
-  sqftB: string
-}
-
 type StackingVizMode =
   | "leaseExpiration"
   | "predictedRent"
@@ -170,13 +149,6 @@ const STACKING_VIZ_MODE_OPTIONS: Array<{
   { value: "predictedRent", label: "Predicted Rent" },
   { value: "contractRate", label: "Contract Rate" },
 ]
-const BUILDOUT_OPTIONS = ["Shell", "White Box", "Fully Built-Out"] as const
-const TENANT_LEASE_TYPE_OPTIONS = [
-  "Modified Gross",
-  "NNN",
-  "Full Service",
-] as const
-
 const PREDICTED_RENT_LEGEND: readonly StackingLegendItem[] = [
   { label: "Below Avg", color: "#f97316" },
   { label: "Within +/-5%", color: "#3b82f6" },
@@ -244,70 +216,6 @@ function parseOptionalIntegerInput(value: string, min: number, max: number) {
   const parsed = parseNumericInput(value)
   if (parsed == null) return undefined
   return Math.min(max, Math.max(min, Math.round(parsed)))
-}
-
-/** Avoid rebalancing on a single digit while typing large totals (e.g. 5 → 9995). */
-function vacantSplitSfMinDigitsBeforeBalance(totalSqft: number) {
-  return totalSqft >= 100 ? 2 : 1
-}
-
-function balanceVacantSplitSqftPair(
-  totalSqft: number,
-  editedSide: "a" | "b",
-  rawEdited: string,
-  previousOther: string
-): { sqftA: string; sqftB: string } {
-  const trimmed = rawEdited.trim()
-  if (trimmed === "") {
-    return editedSide === "a"
-      ? { sqftA: "", sqftB: String(totalSqft) }
-      : { sqftA: String(totalSqft), sqftB: "" }
-  }
-
-  const minDigits = vacantSplitSfMinDigitsBeforeBalance(totalSqft)
-  const core = trimmed.replace(/^0+/, "") || ""
-
-  if (core === "" || !/^\d+$/.test(core) || core.length < minDigits) {
-    return editedSide === "a"
-      ? { sqftA: trimmed, sqftB: previousOther }
-      : { sqftA: previousOther, sqftB: trimmed }
-  }
-
-  const n = parseInt(core, 10)
-  if (Number.isNaN(n)) {
-    return editedSide === "a"
-      ? { sqftA: trimmed, sqftB: previousOther }
-      : { sqftA: previousOther, sqftB: trimmed }
-  }
-
-  const clamped = Math.min(Math.max(1, n), totalSqft - 1)
-  const other = totalSqft - clamped
-  return editedSide === "a"
-    ? { sqftA: String(clamped), sqftB: String(other) }
-    : { sqftA: String(other), sqftB: String(clamped) }
-}
-
-function finalizeVacantSplitSfOnBlur(
-  totalSqft: number,
-  blurredSide: "a" | "b",
-  rawBlurred: string
-): { sqftA: string; sqftB: string } {
-  const t = rawBlurred.trim()
-  const core = t.replace(/^0+/, "") || ""
-  if (t === "" || core === "" || !/^\d+$/.test(core)) {
-    const a = Math.floor(totalSqft / 2)
-    return { sqftA: String(a), sqftB: String(totalSqft - a) }
-  }
-  let n = parseInt(core, 10)
-  if (Number.isNaN(n)) {
-    const a = Math.floor(totalSqft / 2)
-    return { sqftA: String(a), sqftB: String(totalSqft - a) }
-  }
-  n = Math.min(Math.max(1, n), totalSqft - 1)
-  const rest = totalSqft - n
-  return blurredSide === "a"
-    ? { sqftA: String(n), sqftB: String(rest) }
-    : { sqftA: String(rest), sqftB: String(n) }
 }
 
 function stripSuitePrefix(space: string) {
@@ -400,168 +308,6 @@ function recalculateFloor(floor: StackingPlanFloor): StackingPlanFloor {
           ? 0
           : Number(((tenant.sqft / totalSqft) * 100).toFixed(2)),
     })),
-  }
-}
-
-const VACANT_SEGMENT_DISPLAY_NAME = "Vacant"
-
-function createVacantTenantId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID()
-  }
-  return `vacant-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-function suiteCoreForVacantSplit(space: string) {
-  let raw = stripSuitePrefix(space).trim()
-  raw = raw.replace(/-a$/i, "").replace(/-b$/i, "")
-  return raw === "" ? "Suite" : raw
-}
-
-function splitVacantSuiteLabels(space: string): { first: string; second: string } {
-  const core = suiteCoreForVacantSplit(space)
-  return {
-    first: normalizeSuiteValue(`${core}-A`),
-    second: normalizeSuiteValue(`${core}-B`),
-  }
-}
-
-function adjacentVacantMergeDirection(
-  floor: StackingPlanFloor,
-  tenantIndex: number
-): "right" | "left" | null {
-  const tenant = floor.tenants[tenantIndex]
-  if (tenant == null || !tenant.isVacant) return null
-  const right = floor.tenants[tenantIndex + 1]
-  if (right?.isVacant) return "right"
-  const left = floor.tenants[tenantIndex - 1]
-  if (left?.isVacant) return "left"
-  return null
-}
-
-type VacantSpaceMergeResult = {
-  floors: StackingPlanFloor[]
-  survivorTenantId: string
-  mergedAwayTenantIds: string[]
-}
-
-function applyVacantSpaceMerge(
-  floors: readonly StackingPlanFloor[],
-  floorNumber: number,
-  tenantId: string
-): VacantSpaceMergeResult | null {
-  const floorIndex = floors.findIndex((f) => f.floor === floorNumber)
-  if (floorIndex < 0) return null
-  const floor = floors[floorIndex]!
-  const idx = floor.tenants.findIndex((t) => t.id === tenantId)
-  if (idx < 0 || !floor.tenants[idx]!.isVacant) return null
-
-  const direction = adjacentVacantMergeDirection(floor, idx)
-  const tenants = [...floor.tenants]
-
-  if (direction === "right") {
-    const left = tenants[idx]!
-    const right = tenants[idx + 1]!
-    tenants[idx] = {
-      ...left,
-      sqft: left.sqft + right.sqft,
-      name: VACANT_SEGMENT_DISPLAY_NAME,
-    }
-    tenants.splice(idx + 1, 1)
-    const nextFloor = recalculateFloor({ ...floor, tenants })
-    return {
-      floors: floors.map((f, i) => (i === floorIndex ? nextFloor : f)),
-      survivorTenantId: left.id,
-      mergedAwayTenantIds: [right.id],
-    }
-  }
-
-  if (direction === "left") {
-    const left = tenants[idx - 1]!
-    const right = tenants[idx]!
-    tenants[idx - 1] = {
-      ...left,
-      sqft: left.sqft + right.sqft,
-      name: VACANT_SEGMENT_DISPLAY_NAME,
-    }
-    tenants.splice(idx, 1)
-    const nextFloor = recalculateFloor({ ...floor, tenants })
-    return {
-      floors: floors.map((f, i) => (i === floorIndex ? nextFloor : f)),
-      survivorTenantId: left.id,
-      mergedAwayTenantIds: [right.id],
-    }
-  }
-
-  return null
-}
-
-type VacantSpaceSplitResult = {
-  floors: StackingPlanFloor[]
-  originalTenantId: string
-  firstTenantId: string
-}
-
-type VacantSplitParts = {
-  spaceA: string
-  spaceB: string
-  sqftA: number
-  sqftB: number
-}
-
-function applyVacantSpaceSplit(
-  floors: readonly StackingPlanFloor[],
-  floorNumber: number,
-  tenantId: string,
-  parts: VacantSplitParts
-): VacantSpaceSplitResult | null {
-  const floorIndex = floors.findIndex((f) => f.floor === floorNumber)
-  if (floorIndex < 0) return null
-  const floor = floors[floorIndex]!
-  const idx = floor.tenants.findIndex((t) => t.id === tenantId)
-  const tenant = floor.tenants[idx]
-  if (idx < 0 || tenant == null || !tenant.isVacant || tenant.sqft < 2) {
-    return null
-  }
-
-  const sqftA = Math.round(parts.sqftA)
-  const sqftB = Math.round(parts.sqftB)
-  if (sqftA < 1 || sqftB < 1 || sqftA + sqftB !== tenant.sqft) {
-    return null
-  }
-
-  const spaceA = normalizeSuiteValue(parts.spaceA.trim())
-  const spaceB = normalizeSuiteValue(parts.spaceB.trim())
-  if (spaceA === "" || spaceB === "") {
-    return null
-  }
-
-  const idA = createVacantTenantId()
-  const idB = createVacantTenantId()
-
-  const nextA: StackingPlanTenant = {
-    ...tenant,
-    id: idA,
-    space: spaceA,
-    sqft: sqftA,
-    name: VACANT_SEGMENT_DISPLAY_NAME,
-  }
-  const nextB: StackingPlanTenant = {
-    ...tenant,
-    id: idB,
-    space: spaceB,
-    sqft: sqftB,
-    name: VACANT_SEGMENT_DISPLAY_NAME,
-  }
-
-  const tenants = [...floor.tenants]
-  tenants.splice(idx, 1, nextA, nextB)
-  const nextFloor = recalculateFloor({ ...floor, tenants })
-
-  return {
-    floors: floors.map((f, i) => (i === floorIndex ? nextFloor : f)),
-    originalTenantId: tenant.id,
-    firstTenantId: idA,
   }
 }
 
@@ -1171,11 +917,6 @@ export function AssetStackingPlanWorkspace({
     React.useState<TenantEditorDraft | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
   const [expandedFloor, setExpandedFloor] = React.useState<number | null>(null)
-  const [vacantSplitModal, setVacantSplitModal] =
-    React.useState<VacantSplitModalState | null>(null)
-  const [vacantSplitSaveError, setVacantSplitSaveError] = React.useState<
-    string | null
-  >(null)
   const [clearRentRollConfirmOpen, setClearRentRollConfirmOpen] =
     React.useState(false)
   const effectiveViewMode = lockedViewMode ?? viewMode
@@ -1659,145 +1400,12 @@ export function AssetStackingPlanWorkspace({
     }
   }, [assetId, buildingLeasingAssumptions, selectedTenant, tenantEditorDraft])
 
-  const handleVacantSpaceCombine = React.useCallback(
-    (floorNumber: number, tenantId: string) => {
-      const result = applyVacantSpaceMerge(floors, floorNumber, tenantId)
-      if (result == null) return
-      setFloors(result.floors)
-      for (const removedId of result.mergedAwayTenantIds) {
-        setStackingPlanTenantForecastOverride(assetId, removedId, {})
-      }
-      if (
-        selectedTenantId != null &&
-        result.mergedAwayTenantIds.includes(selectedTenantId)
-      ) {
-        setSelectedTenantId(result.survivorTenantId)
-        const survivor = result.floors
-          .flatMap((f) => f.tenants)
-          .find((t) => t.id === result.survivorTenantId)
-        setTenantEditorDraft(
-          survivor != null ? buildTenantEditorDraft(survivor) : null
-        )
-      }
-    },
-    [assetId, floors, selectedTenantId]
-  )
-
-  const handleVacantSpaceSplitOpen = React.useCallback(
-    (floorNumber: number, tenantId: string) => {
-      const floor = floors.find((f) => f.floor === floorNumber)
-      const tenant = floor?.tenants.find((t) => t.id === tenantId)
-      if (tenant == null || !tenant.isVacant || tenant.sqft < 2) return
-
-      const sqftA = Math.floor(tenant.sqft / 2)
-      const sqftB = tenant.sqft - sqftA
-      const { first, second } = splitVacantSuiteLabels(tenant.space)
-      setVacantSplitSaveError(null)
-      setVacantSplitModal({
-        floorNumber,
-        tenantId,
-        totalSqft: tenant.sqft,
-        suiteA: stripSuitePrefix(first),
-        suiteB: stripSuitePrefix(second),
-        sqftA: String(sqftA),
-        sqftB: String(sqftB),
-      })
-    },
-    [floors]
-  )
-
-  const handleVacantSplitModalClose = React.useCallback(() => {
-    setVacantSplitModal(null)
-    setVacantSplitSaveError(null)
-  }, [])
-
-  const handleVacantSplitModalSave = React.useCallback(() => {
-    if (vacantSplitModal == null) return
-
-    const {
-      floorNumber,
-      tenantId,
-      totalSqft,
-      suiteA,
-      suiteB,
-      sqftA: sqftARaw,
-      sqftB: sqftBRaw,
-    } = vacantSplitModal
-
-    const sqftA = parseNumericInput(sqftARaw)
-    const sqftB = parseNumericInput(sqftBRaw)
-    if (
-      sqftA == null ||
-      sqftB == null ||
-      sqftA !== Math.floor(sqftA) ||
-      sqftB !== Math.floor(sqftB)
-    ) {
-      setVacantSplitSaveError(
-        "Enter a whole number of rentable SF for each space."
-      )
-      return
-    }
-    const sqftAi = Math.round(sqftA)
-    const sqftBi = Math.round(sqftB)
-    if (sqftAi < 1 || sqftBi < 1) {
-      setVacantSplitSaveError("Each space needs at least 1 SF.")
-      return
-    }
-    if (sqftAi + sqftBi !== totalSqft) {
-      setVacantSplitSaveError(
-        `The two SF values must add up to ${totalSqft.toLocaleString()} SF (the current vacant total).`
-      )
-      return
-    }
-
-    const spaceA = normalizeSuiteValue(suiteA.trim())
-    const spaceB = normalizeSuiteValue(suiteB.trim())
-    if (spaceA === "" || spaceB === "") {
-      setVacantSplitSaveError("Enter a suite name for each space.")
-      return
-    }
-
-    const result = applyVacantSpaceSplit(floors, floorNumber, tenantId, {
-      spaceA,
-      spaceB,
-      sqftA: sqftAi,
-      sqftB: sqftBi,
-    })
-    if (result == null) {
-      setVacantSplitSaveError(
-        "Could not apply split. Check values and try again."
-      )
-      return
-    }
-
-    setFloors(result.floors)
-    setStackingPlanTenantForecastOverride(assetId, result.originalTenantId, {})
-    if (selectedTenantId === result.originalTenantId) {
-      setSelectedTenantId(result.firstTenantId)
-      const first = result.floors
-        .flatMap((f) => f.tenants)
-        .find((t) => t.id === result.firstTenantId)
-      setTenantEditorDraft(
-        first != null ? buildTenantEditorDraft(first) : null
-      )
-    }
-    handleVacantSplitModalClose()
-  }, [
-    assetId,
-    floors,
-    handleVacantSplitModalClose,
-    selectedTenantId,
-    vacantSplitModal,
-  ])
-
   React.useEffect(() => {
     setFloors(derivedFloorsFromDataset)
     setIsDrawerOpen(false)
     setSelectedTenantId(null)
     setTenantEditorDraft(null)
     setExpandedFloor(null)
-    setVacantSplitModal(null)
-    setVacantSplitSaveError(null)
   }, [derivedFloorsFromDataset])
 
   return (
@@ -1926,8 +1534,6 @@ export function AssetStackingPlanWorkspace({
               totalSqft={summary.totalSqft}
               overallOccupancyPercent={summary.overallOccupancyPercent}
               stackingPlaceholderActive={stackingPlaceholderActive}
-              onVacantSpaceCombine={handleVacantSpaceCombine}
-              onVacantSpaceSplit={handleVacantSpaceSplitOpen}
               headerControls={
                 <div className="flex w-full flex-col gap-3">
                   <StackingPlanRentSummary
@@ -2088,8 +1694,6 @@ export function AssetStackingPlanWorkspace({
                   vizMode={vizMode}
                   averagePredictedRentPsf={averagePredictedRentPsf}
                   onTenantSelect={handleTenantSelect}
-                  onVacantSpaceCombine={handleVacantSpaceCombine}
-                  onVacantSpaceSplit={handleVacantSpaceSplitOpen}
                   selectedTenantId={selectedTenantId}
                   interactionMode={simplifiedTenantInteraction}
                   tenantVisualOverrides={simplifiedTenantVisualOverrides}
@@ -2135,174 +1739,6 @@ export function AssetStackingPlanWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {vacantSplitModal != null ? (
-        <Dialog
-          open
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) handleVacantSplitModalClose()
-          }}
-        >
-          <DialogContent className="max-w-2xl sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Split vacant space</DialogTitle>
-              <DialogDescription>
-                Set suite and rentable SF for each side. Editing SF in one
-                column updates the other so the two sides always total{" "}
-                <span className="font-medium text-foreground tabular-nums">
-                  {vacantSplitModal.totalSqft.toLocaleString()} SF
-                </span>
-                .
-              </DialogDescription>
-            </DialogHeader>
-
-            <form
-              className="contents"
-              onSubmit={(event) => {
-                event.preventDefault()
-                handleVacantSplitModalSave()
-              }}
-            >
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-4">
-                <p className="text-sm font-semibold leading-none text-muted-foreground">
-                  Space 1
-                </p>
-                <label className="block space-y-1.5">
-                  <span className={INPUT_LABEL_TEXT_CLASS}>
-                    Suite
-                  </span>
-                  <Input
-                    value={vacantSplitModal.suiteA}
-                    onChange={(event) => {
-                      setVacantSplitSaveError(null)
-                      setVacantSplitModal((m) =>
-                        m == null ? m : { ...m, suiteA: event.target.value }
-                      )
-                    }}
-                    placeholder="1201-A"
-                    autoComplete="off"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className={INPUT_LABEL_TEXT_CLASS}>
-                    SF
-                  </span>
-                  <Input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={vacantSplitModal.sqftA}
-                    onChange={(event) => {
-                      setVacantSplitSaveError(null)
-                      const raw = event.target.value
-                      setVacantSplitModal((m) => {
-                        if (m == null) return m
-                        const { sqftA, sqftB } = balanceVacantSplitSqftPair(
-                          m.totalSqft,
-                          "a",
-                          raw,
-                          m.sqftB
-                        )
-                        return { ...m, sqftA, sqftB }
-                      })
-                    }}
-                    onBlur={() => {
-                      setVacantSplitSaveError(null)
-                      setVacantSplitModal((m) => {
-                        if (m == null) return m
-                        const { sqftA, sqftB } = finalizeVacantSplitSfOnBlur(
-                          m.totalSqft,
-                          "a",
-                          m.sqftA
-                        )
-                        return { ...m, sqftA, sqftB }
-                      })
-                    }}
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-4">
-                <p className="text-sm font-semibold leading-none text-muted-foreground">
-                  Space 2
-                </p>
-                <label className="block space-y-1.5">
-                  <span className={INPUT_LABEL_TEXT_CLASS}>
-                    Suite
-                  </span>
-                  <Input
-                    value={vacantSplitModal.suiteB}
-                    onChange={(event) => {
-                      setVacantSplitSaveError(null)
-                      setVacantSplitModal((m) =>
-                        m == null ? m : { ...m, suiteB: event.target.value }
-                      )
-                    }}
-                    placeholder="1201-B"
-                    autoComplete="off"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className={INPUT_LABEL_TEXT_CLASS}>
-                    SF
-                  </span>
-                  <Input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={vacantSplitModal.sqftB}
-                    onChange={(event) => {
-                      setVacantSplitSaveError(null)
-                      const raw = event.target.value
-                      setVacantSplitModal((m) => {
-                        if (m == null) return m
-                        const { sqftA, sqftB } = balanceVacantSplitSqftPair(
-                          m.totalSqft,
-                          "b",
-                          raw,
-                          m.sqftA
-                        )
-                        return { ...m, sqftA, sqftB }
-                      })
-                    }}
-                    onBlur={() => {
-                      setVacantSplitSaveError(null)
-                      setVacantSplitModal((m) => {
-                        if (m == null) return m
-                        const { sqftA, sqftB } = finalizeVacantSplitSfOnBlur(
-                          m.totalSqft,
-                          "b",
-                          m.sqftB
-                        )
-                        return { ...m, sqftA, sqftB }
-                      })
-                    }}
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {vacantSplitSaveError != null ? (
-              <p className="text-sm text-destructive">{vacantSplitSaveError}</p>
-            ) : null}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleVacantSplitModalClose}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Save split</Button>
-            </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      ) : null}
 
       {effectiveViewMode === "matrix" &&
       selectedTenant != null &&
@@ -2703,8 +2139,6 @@ function DetailedStackingMatrix({
   totalSqft,
   overallOccupancyPercent,
   stackingPlaceholderActive,
-  onVacantSpaceCombine,
-  onVacantSpaceSplit,
   headerControls,
   expandedFloor,
   onToggleFloor,
@@ -2719,8 +2153,6 @@ function DetailedStackingMatrix({
   totalSqft: number
   overallOccupancyPercent: number
   stackingPlaceholderActive: boolean
-  onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
-  onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
   headerControls: React.ReactNode
   expandedFloor: number | null
   onToggleFloor: (floorNumber: number) => void
@@ -2742,8 +2174,6 @@ function DetailedStackingMatrix({
             isExpanded={expandedFloor === floor.floor}
             onToggleExpanded={() => onToggleFloor(floor.floor)}
             onTenantSelect={onTenantSelect}
-            onVacantSpaceCombine={onVacantSpaceCombine}
-            onVacantSpaceSplit={onVacantSpaceSplit}
             selectedTenantId={selectedTenantId}
           />
         ))}
@@ -2831,8 +2261,6 @@ function StackFirstRow({
   isExpanded,
   onToggleExpanded,
   onTenantSelect,
-  onVacantSpaceCombine,
-  onVacantSpaceSplit,
   selectedTenantId,
 }: {
   assetId: string
@@ -2843,8 +2271,6 @@ function StackFirstRow({
   isExpanded: boolean
   onToggleExpanded: () => void
   onTenantSelect: (tenant: StackingPlanTenant) => void
-  onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
-  onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
   selectedTenantId: string | null
 }) {
   const hasSelectedTenantOnFloor =
@@ -2895,8 +2321,6 @@ function StackFirstRow({
                   selectedTenantId={selectedTenantId}
                   showEmptyPlaceholder={metricsPlaceholder}
                   onTenantSelect={onTenantSelect}
-                  onVacantSpaceCombine={onVacantSpaceCombine}
-                  onVacantSpaceSplit={onVacantSpaceSplit}
                 />
               </div>
             </div>
@@ -3090,8 +2514,6 @@ function StackBand({
   selectedTenantId,
   showEmptyPlaceholder,
   onTenantSelect,
-  onVacantSpaceCombine,
-  onVacantSpaceSplit,
 }: {
   floor: StackingPlanFloor
   vizMode: StackingVizMode
@@ -3099,8 +2521,6 @@ function StackBand({
   selectedTenantId: string | null
   showEmptyPlaceholder: boolean
   onTenantSelect: (tenant: StackingPlanTenant) => void
-  onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
-  onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
 }) {
   const isMetricDrivenView =
     vizMode === "predictedRent" ||
@@ -3129,18 +2549,15 @@ function StackBand({
         isMetricDrivenView && "border-border/60 bg-background/55 ring-border/40"
       )}
     >
-      {floor.tenants.map((tenant, index) => (
+      {floor.tenants.map((tenant) => (
         <StackBandSegment
           key={tenant.id}
           tenant={tenant}
-          tenantIndex={index}
           floor={floor}
           vizMode={vizMode}
           averagePredictedRentPsf={averagePredictedRentPsf}
           isSelected={selectedTenantId === tenant.id}
           onTenantSelect={onTenantSelect}
-          onVacantSpaceCombine={onVacantSpaceCombine}
-          onVacantSpaceSplit={onVacantSpaceSplit}
         />
       ))}
     </div>
@@ -3149,24 +2566,18 @@ function StackBand({
 
 function StackBandSegment({
   tenant,
-  tenantIndex,
   floor,
   vizMode,
   averagePredictedRentPsf,
   isSelected,
   onTenantSelect,
-  onVacantSpaceCombine,
-  onVacantSpaceSplit,
 }: {
   tenant: StackingPlanTenant
-  tenantIndex: number
   floor: StackingPlanFloor
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
   isSelected: boolean
   onTenantSelect: (tenant: StackingPlanTenant) => void
-  onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
-  onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
 }) {
   const { assumptions: buildingLeasingAssumptions } = useAssetLeasingAssumptions()
   const tone = getMatrixSegmentTone({
@@ -3200,10 +2611,6 @@ function StackBandSegment({
   const predictedRateValue = tenant.predictedRentPsfValue
   const showVacantPredictedRow =
     tenant.isVacant && predictedRateValue != null && tenant.widthPercent >= 10
-  const canCombineVacant =
-    tenant.isVacant &&
-    adjacentVacantMergeDirection(floor, tenantIndex) != null
-  const canSplitVacant = tenant.isVacant && tenant.sqft >= 2
 
   const segmentSurfaceClass = cn(
     "relative flex h-full min-h-0 flex-col justify-center gap-1.5 overflow-hidden rounded-sm text-left ring-1 ring-inset ring-border/55 transition-[ring-color,box-shadow,transform] duration-150",
@@ -3303,65 +2710,7 @@ function StackBandSegment({
           </button>
         }
       />
-      {tenant.isVacant ? (
-        <div
-          className="pointer-events-auto absolute top-1 right-1 z-20 p-0.5"
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label={`More actions for vacant ${tenant.space}`}
-                />
-              }
-            >
-              <MoreVertical className="size-3.5" aria-hidden />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={4} className="min-w-40">
-              <DropdownMenuItem
-                disabled={!canCombineVacant}
-                onClick={() => onVacantSpaceCombine(floor.floor, tenant.id)}
-              >
-                <Merge className="size-4 shrink-0 opacity-70" aria-hidden />
-                Combine spaces
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!canSplitVacant}
-                onClick={() => onVacantSpaceSplit(floor.floor, tenant.id)}
-              >
-                <Split className="size-4 shrink-0 opacity-70" aria-hidden />
-                Split space
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : null}
     </div>
-  )
-}
-
-function SuiteEditorField({
-  label,
-  children,
-  className,
-}: {
-  label: string
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <label className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <span className={cn(INPUT_LABEL_TEXT_CLASS, "whitespace-nowrap")}>
-        {label}
-      </span>
-      <div className="min-w-0 w-full">{children}</div>
-    </label>
   )
 }
 
@@ -3416,134 +2765,6 @@ function CompactTenantEditor({
       className={cn("flex min-h-0 min-w-0 flex-col", className)}
     >
       <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-6 py-4">
-      <div className="grid min-w-0 grid-cols-1 gap-3">
-        {!tenant.isVacant ? (
-          <SuiteEditorField label="Tenant">
-            <Input
-              value={draft.name}
-              onChange={(event) => onDraftChange("name", event.target.value)}
-              placeholder="Tenant name"
-            />
-          </SuiteEditorField>
-        ) : null}
-
-        <SuiteEditorField label="Suite">
-          <Input
-            value={draft.suite}
-            onChange={(event) => onDraftChange("suite", event.target.value)}
-            placeholder="1201"
-          />
-        </SuiteEditorField>
-
-        <SuiteEditorField label="SF">
-          <Input
-            type="number"
-            min="1"
-            step="1"
-            value={draft.sqft}
-            onChange={(event) => onDraftChange("sqft", event.target.value)}
-            placeholder="10000"
-          />
-        </SuiteEditorField>
-
-        <SuiteEditorField label="Buildout">
-          <Select
-            value={draft.buildout}
-            onValueChange={(value) => {
-              if (
-                value === "Shell" ||
-                value === "White Box" ||
-                value === "Fully Built-Out"
-              ) {
-                onDraftChange("buildout", value)
-              }
-            }}
-          >
-            <SelectTrigger className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start">
-              {BUILDOUT_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </SuiteEditorField>
-
-        {tenant.isVacant ? (
-          <SuiteEditorField label="Availability">
-            <Input
-              value={draft.availabilityStatus}
-              onChange={(event) =>
-                onDraftChange("availabilityStatus", event.target.value)
-              }
-              placeholder="Available now"
-            />
-          </SuiteEditorField>
-        ) : (
-          <>
-            <SuiteEditorField label="Lease Type">
-              <Select
-                value={
-                  TENANT_LEASE_TYPE_OPTIONS.includes(
-                    draft.leaseType as (typeof TENANT_LEASE_TYPE_OPTIONS)[number]
-                  )
-                    ? draft.leaseType
-                    : ""
-                }
-                onValueChange={(value) => onDraftChange("leaseType", value ?? "")}
-              >
-                <SelectTrigger className="w-full min-w-0">
-                  <SelectValue placeholder="Select lease type" />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {TENANT_LEASE_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SuiteEditorField>
-
-            <SuiteEditorField label="Commencement">
-              <Input
-                type="date"
-                value={draft.commencement}
-                onChange={(event) =>
-                  onDraftChange("commencement", event.target.value)
-                }
-              />
-            </SuiteEditorField>
-
-            <SuiteEditorField label="Expiration">
-              <Input
-                type="date"
-                value={draft.expiration}
-                onChange={(event) =>
-                  onDraftChange("expiration", event.target.value)
-                }
-              />
-            </SuiteEditorField>
-
-            <SuiteEditorField label="Contract Rate">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.contractRate}
-                onChange={(event) =>
-                  onDraftChange("contractRate", event.target.value)
-                }
-                placeholder="42.50"
-              />
-            </SuiteEditorField>
-          </>
-        )}
-      </div>
-
       <div className="min-w-0 space-y-3 rounded-lg border border-border/70 bg-muted/50 px-3 py-3 dark:border-border/60 dark:bg-muted/35">
         <div className="space-y-1">
           <h4 className="text-sm font-semibold text-foreground">Space assumptions</h4>
@@ -3821,8 +3042,6 @@ function SimplifiedFloorRow({
   vizMode,
   averagePredictedRentPsf,
   onTenantSelect,
-  onVacantSpaceCombine,
-  onVacantSpaceSplit,
   selectedTenantId,
   interactionMode,
   tenantVisualOverrides,
@@ -3832,8 +3051,6 @@ function SimplifiedFloorRow({
   vizMode: StackingVizMode
   averagePredictedRentPsf: number | null
   onTenantSelect: (tenant: StackingPlanTenant) => void
-  onVacantSpaceCombine: (floorNumber: number, tenantId: string) => void
-  onVacantSpaceSplit: (floorNumber: number, tenantId: string) => void
   selectedTenantId: string | null
   interactionMode: "drawer" | "none"
   tenantVisualOverrides?: Record<string, SimplifiedTenantVisualOverride>
@@ -3859,7 +3076,7 @@ function SimplifiedFloorRow({
                 aria-hidden
               />
             ) : (
-              floor.tenants.map((tenant, index) => {
+              floor.tenants.map((tenant) => {
               const visualOverride = tenantVisualOverrides?.[tenant.id]
               const rentLiftSummaryLabel =
                 visualOverride?.rentLiftSummaryLabel?.trim()
@@ -3916,60 +3133,6 @@ function SimplifiedFloorRow({
                   : "hover:opacity-90"
               )
 
-              const canCombineVacant =
-                tenant.isVacant &&
-                adjacentVacantMergeDirection(floor, index) != null
-              const canSplitVacant = tenant.isVacant && tenant.sqft >= 2
-
-              const vacantMenu =
-                interactionMode === "drawer" && tenant.isVacant ? (
-                  <div
-                    className="pointer-events-auto absolute inset-y-0 right-0 z-20 flex items-start justify-end pr-1 pt-0.5"
-                    onClick={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => event.stopPropagation()}
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-muted-foreground hover:text-foreground [&_svg]:size-2.5"
-                            aria-label={`More actions for vacant ${tenant.space}`}
-                          />
-                        }
-                      >
-                        <MoreVertical className="size-2.5" aria-hidden />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        sideOffset={4}
-                        className="min-w-40"
-                      >
-                        <DropdownMenuItem
-                          disabled={!canCombineVacant}
-                          onClick={() =>
-                            onVacantSpaceCombine(floor.floor, tenant.id)
-                          }
-                        >
-                          <Merge className="size-4 shrink-0 opacity-70" aria-hidden />
-                          Combine spaces
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={!canSplitVacant}
-                          onClick={() =>
-                            onVacantSpaceSplit(floor.floor, tenant.id)
-                          }
-                        >
-                          <Split className="size-4 shrink-0 opacity-70" aria-hidden />
-                          Split space
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ) : null
-
               if (interactionMode === "none") {
                 return tenant.isVacant ? (
                   <div
@@ -3992,7 +3155,6 @@ function SimplifiedFloorRow({
                         tone={rentLiftLabelTone}
                       />
                     ) : null}
-                    {vacantMenu}
                   </div>
                 ) : (
                   <div
@@ -4063,7 +3225,6 @@ function SimplifiedFloorRow({
                         tone={rentLiftLabelTone}
                       />
                     ) : null}
-                    {vacantMenu}
                   </div>
                 )
               }

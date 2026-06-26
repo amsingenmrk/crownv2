@@ -17,7 +17,7 @@ import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
   MARKET_SEARCH_LISTING_COUNT,
   marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+} from "@/lib/other-assets"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
 const OTHER_ASSETS_LABEL = "Other Assets"

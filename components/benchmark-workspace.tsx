@@ -1,30 +1,28 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, ChevronRight, Search, X } from "lucide-react"
 
 import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
+import { BenchmarkAreaBreadcrumbs } from "@/components/benchmark-area-breadcrumbs"
+import { BenchmarkAreaSearchBox } from "@/components/benchmark-area-search-box"
 import { BenchmarkAreaStatsPanel } from "@/components/benchmark-area-stats-panel"
 import { BenchmarkForecastSection } from "@/components/benchmark-kpi-panel"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import {
   BENCHMARK_ROOT_AREA,
   getBenchmarkAreaLevelLabel,
-  getBenchmarkAreaParent,
   getBenchmarkAreaPath,
   listBenchmarkAreaChildren,
 } from "@/lib/benchmark-area-hierarchy"
 import {
   benchmarkAreaStats,
   benchmarkSnapshotFromRaw,
+  buildingCountBucketLabel,
 } from "@/lib/benchmark-area-model"
+import { BENCHMARK_AREA_QUERY_PARAM } from "@/lib/benchmark-area-url"
 import {
-  benchmarkAreaLevelLabel,
-  resolveBenchmarkAreaFromSearch,
   resolveBenchmarkAreaSelection,
-  searchBenchmarkAreas,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
 import { cn } from "@/lib/utils"
@@ -63,29 +61,21 @@ function BenchmarkMapSkeleton() {
 
 export function BenchmarkWorkspace({
   initialArea,
+  initialCompareAssetId,
 }: {
   initialArea?: BenchmarkArea
+  initialCompareAssetId?: string
 } = {}) {
   const { mapboxEnabled } = usePortfolioAssetCoordinates()
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
-  const searchInputId = React.useId()
-  const suggestionsListId = React.useId()
   const initialSelection = initialArea ?? BENCHMARK_ROOT_AREA
 
   const [currentArea, setCurrentArea] =
     React.useState<BenchmarkArea>(initialSelection)
   const [committedArea, setCommittedArea] =
     React.useState<BenchmarkArea>(initialSelection)
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [suggestions, setSuggestions] = React.useState<BenchmarkArea[]>(() => [
-    ...listBenchmarkAreaChildren(initialSelection),
-  ])
-  const [suggestionsOpen, setSuggestionsOpen] = React.useState(false)
-  const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
   const [searchPending, setSearchPending] = React.useState(false)
   const [searchFeedback, setSearchFeedback] = React.useState<string | null>(null)
-  const searchContainerRef = React.useRef<HTMLDivElement>(null)
-  const searchRequestIdRef = React.useRef(0)
   const visibleAreaRequestIdRef = React.useRef(0)
 
   const visibleChildren = React.useMemo(
@@ -102,45 +92,9 @@ export function BenchmarkWorkspace({
     ? getBenchmarkAreaLevelLabel(currentArea.childLevel)
     : null
 
-  const loadSuggestions = React.useCallback(
-    async (query: string, area = currentArea) => {
-      const requestId = ++searchRequestIdRef.current
-      setSearchPending(true)
-      try {
-        const results = await searchBenchmarkAreas(query, area, accessToken)
-        if (requestId !== searchRequestIdRef.current) return
-        setSuggestions(results)
-        if (!query.trim()) {
-          const areaNextLevelLabel = area.childLevel
-            ? getBenchmarkAreaLevelLabel(area.childLevel)
-            : null
-          setSearchFeedback(
-            results.length > 0
-              ? `Showing ${areaNextLevelLabel ?? "available"} choices for ${area.label}.`
-              : "No deeper drilldown areas are available here. Use search or the breadcrumbs to move elsewhere."
-          )
-          return
-        }
-        setSearchFeedback(
-          results.length > 0
-            ? `Showing ${results.length} matching benchmark ${results.length === 1 ? "area" : "areas"}.`
-            : "No benchmark matches found. Try a supported market, submarket, county, or ZIP."
-        )
-      } finally {
-        if (requestId === searchRequestIdRef.current) {
-          setSearchPending(false)
-        }
-      }
-    },
-    [accessToken, currentArea]
-  )
-
   const commitResolvedArea = React.useCallback((area: BenchmarkArea) => {
     setCurrentArea(area)
     setCommittedArea(area)
-    setSearchQuery("")
-    setSuggestionsOpen(false)
-    setHighlightedIndex(-1)
   }, [])
 
   React.useEffect(() => {
@@ -152,10 +106,6 @@ export function BenchmarkWorkspace({
         if (cancelled) return
         setCurrentArea(resolved)
         setCommittedArea(resolved)
-        setSuggestions([...listBenchmarkAreaChildren(resolved)])
-        setSearchQuery("")
-        setSuggestionsOpen(false)
-        setHighlightedIndex(-1)
       }
     )
 
@@ -166,7 +116,6 @@ export function BenchmarkWorkspace({
 
   const applyArea = React.useCallback(
     async (area: BenchmarkArea) => {
-      setSuggestionsOpen(false)
       setSearchPending(true)
       try {
         const resolved = await resolveBenchmarkAreaSelection(area, accessToken)
@@ -178,48 +127,6 @@ export function BenchmarkWorkspace({
     },
     [accessToken, commitResolvedArea]
   )
-
-  const runSearch = React.useCallback(
-    async (query: string) => {
-      const trimmed = query.trim()
-      if (!trimmed) {
-        setSuggestionsOpen(true)
-        await loadSuggestions("", currentArea)
-        return
-      }
-      setSearchPending(true)
-      try {
-        const resolved = await resolveBenchmarkAreaFromSearch(
-          query,
-          currentArea,
-          accessToken
-        )
-        if (
-          resolved.id === BENCHMARK_ROOT_AREA.id &&
-          trimmed.toLowerCase() !== BENCHMARK_ROOT_AREA.label.toLowerCase()
-        ) {
-          setSuggestionsOpen(true)
-          await loadSuggestions(trimmed, currentArea)
-          return
-        }
-        commitResolvedArea(resolved)
-        setSearchFeedback(`${resolved.label} selected.`)
-      } finally {
-        setSearchPending(false)
-      }
-    },
-    [accessToken, commitResolvedArea, currentArea, loadSuggestions]
-  )
-
-  React.useEffect(() => {
-    const onPointerDown = (event: MouseEvent) => {
-      if (!searchContainerRef.current?.contains(event.target as Node)) {
-        setSuggestionsOpen(false)
-      }
-    }
-    window.addEventListener("pointerdown", onPointerDown)
-    return () => window.removeEventListener("pointerdown", onPointerDown)
-  }, [])
 
   const statsRaw = React.useMemo(
     () => benchmarkAreaStats(committedArea),
@@ -246,13 +153,6 @@ export function BenchmarkWorkspace({
       : null
 
   const showMapbox = mapboxEnabled
-  const showSearchClear =
-    searchQuery.trim().length > 0 || currentArea.id !== BENCHMARK_ROOT_AREA.id
-
-  React.useEffect(() => {
-    if (!suggestionsOpen) return
-    void loadSuggestions(searchQuery, currentArea)
-  }, [currentArea.id, loadSuggestions, searchQuery, suggestionsOpen])
 
   React.useEffect(() => {
     const requestId = ++visibleAreaRequestIdRef.current
@@ -289,16 +189,35 @@ export function BenchmarkWorkspace({
     [commitResolvedArea]
   )
 
-  const goToParent = React.useCallback(() => {
-    const parent = getBenchmarkAreaParent(currentArea)
-    if (!parent) return
-    jumpToArea(parent)
-  }, [currentArea, jumpToArea])
+  // Mirror the committed area into the URL so the view is shareable and
+  // survives a refresh. Uses history.replaceState rather than the Next router
+  // to avoid a server round-trip (and the full remount the loader's `key`
+  // would trigger) on every breadcrumb/map navigation.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    if (committedArea.id === BENCHMARK_ROOT_AREA.id) {
+      url.searchParams.delete(BENCHMARK_AREA_QUERY_PARAM)
+    } else {
+      url.searchParams.set(BENCHMARK_AREA_QUERY_PARAM, committedArea.id)
+    }
+    if (url.href !== window.location.href) {
+      window.history.replaceState(window.history.state, "", url)
+    }
+  }, [committedArea.id])
 
-  const selectionPrompt =
-    nextLevelLabel != null
-      ? `Select ${nextLevelLabel}`
-      : "Deepest benchmark level selected"
+  const breadcrumbs = (
+    <BenchmarkAreaBreadcrumbs
+      path={breadcrumbPath}
+      currentAreaId={currentArea.id}
+      childrenOfCurrent={visibleChildren}
+      nextLevelLabel={nextLevelLabel}
+      onJump={jumpToArea}
+      onSelect={(area) => {
+        void applyArea(area)
+      }}
+    />
+  )
 
   return (
     <div
@@ -327,200 +246,30 @@ export function BenchmarkWorkspace({
               )}
             </div>
             <div className="pointer-events-none absolute inset-0 z-20 flex justify-start pr-24 md:pr-28">
-              <div
-                ref={searchContainerRef}
-                className="pointer-events-auto w-full max-w-[22rem] p-3 sm:max-w-sm md:p-4"
-              >
-                <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
-                  <label htmlFor={searchInputId} className="sr-only">
-                    Search benchmark area
-                  </label>
-                  <div className="relative">
-                    <Search
-                      className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <Input
-                      id={searchInputId}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setHighlightedIndex(-1)
-                        setSearchQuery(value)
-                        setSuggestionsOpen(true)
-                        void loadSuggestions(value)
-                      }}
-                      onFocus={() => {
-                        setSuggestionsOpen(true)
-                        void loadSuggestions(searchQuery)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault()
-                          setSuggestionsOpen(true)
-                          setHighlightedIndex((index) =>
-                            index < suggestions.length - 1 ? index + 1 : 0
-                          )
-                          return
-                        }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault()
-                          setSuggestionsOpen(true)
-                          setHighlightedIndex((index) =>
-                            index > 0
-                              ? index - 1
-                              : Math.max(suggestions.length - 1, 0)
-                          )
-                          return
-                        }
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          const highlighted =
-                            highlightedIndex >= 0
-                              ? suggestions[highlightedIndex]
-                              : undefined
-                          if (suggestionsOpen && highlighted) {
-                            void applyArea(highlighted)
-                            return
-                          }
-                          void runSearch(searchQuery)
-                          return
-                        }
-                        if (e.key === "Escape") {
-                          setSuggestionsOpen(false)
-                          setHighlightedIndex(-1)
-                        }
-                      }}
-                      placeholder="Search market, submarket, county, or ZIP…"
-                      autoComplete="off"
-                      role="combobox"
-                      aria-expanded={suggestionsOpen}
-                      aria-controls={suggestionsListId}
-                      aria-autocomplete="list"
-                      aria-activedescendant={
-                        highlightedIndex >= 0
-                          ? `${suggestionsListId}-option-${highlightedIndex}`
-                          : undefined
-                      }
-                      className={cn(
-                        "h-9 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0 dark:bg-transparent",
-                        showSearchClear && "pr-9"
-                      )}
-                    />
-                    {showSearchClear ? (
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-0 flex w-8 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                        aria-label="Clear search or reset benchmark level"
-                        onClick={() => {
-                          setHighlightedIndex(-1)
-                          if (searchQuery.trim()) {
-                            setSearchQuery("")
-                            setSuggestionsOpen(true)
-                            void loadSuggestions("")
-                            return
-                          }
-                          jumpToArea(BENCHMARK_ROOT_AREA)
-                        }}
-                      >
-                        <X className="size-4 shrink-0" aria-hidden />
-                      </button>
-                    ) : null}
+              <div className="pointer-events-auto w-full max-w-[22rem] p-3 sm:max-w-sm md:p-4">
+                <BenchmarkAreaSearchBox
+                  currentArea={currentArea}
+                  committedAreaId={committedArea.id}
+                  accessToken={accessToken}
+                  onApply={(area) => {
+                    void applyArea(area)
+                  }}
+                  onCommitResolved={jumpToArea}
+                  onPending={setSearchPending}
+                  onFeedback={setSearchFeedback}
+                />
+                {showMapbox ? (
+                  <div className="mt-2 inline-flex w-fit items-center rounded-md bg-background/85 px-2 py-1 text-[11px] text-muted-foreground shadow-sm ring-1 ring-black/5 backdrop-blur-sm dark:ring-white/10">
+                    {buildingCountBucketLabel(snapshot.buildingCount)}
                   </div>
-                  {suggestionsOpen ? (
-                    suggestions.length > 0 ? (
-                      <ul
-                        id={suggestionsListId}
-                        role="listbox"
-                        className="max-h-72 overflow-y-auto border-t border-border py-1"
-                      >
-                        {suggestions.map((suggestion, index) => (
-                          <li
-                            key={suggestion.id}
-                            id={`${suggestionsListId}-option-${index}`}
-                            role="option"
-                            aria-selected={
-                              highlightedIndex === index ||
-                              committedArea.id === suggestion.id
-                            }
-                          >
-                            <button
-                              type="button"
-                              className={cn(
-                                "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted",
-                                (highlightedIndex === index ||
-                                  committedArea.id === suggestion.id) &&
-                                  "bg-muted"
-                              )}
-                              onMouseEnter={() => setHighlightedIndex(index)}
-                              onClick={() => {
-                                void applyArea(suggestion)
-                              }}
-                            >
-                              <span className="min-w-0 truncate">
-                                {suggestion.label}
-                              </span>
-                              <span className="shrink-0 text-[11px] text-muted-foreground">
-                                {benchmarkAreaLevelLabel(suggestion)}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-                        No benchmark areas match this search yet.
-                      </div>
-                    )
-                  ) : null}
-                </div>
-                <div className="mt-2 space-y-2 px-1">
-                  <div className="rounded-lg border border-border/70 bg-background/80 p-2.5 shadow-sm backdrop-blur-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                        {selectionPrompt}
-                      </p>
-                      {currentArea.parentId ? (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          onClick={goToParent}
-                        >
-                          <ArrowLeft className="size-3" aria-hidden />
-                          Back
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
-                      {breadcrumbPath.map((area, index) => (
-                        <React.Fragment key={area.id}>
-                          {index > 0 ? (
-                            <ChevronRight className="size-3 shrink-0" aria-hidden />
-                          ) : null}
-                          <button
-                            type="button"
-                            className={cn(
-                              "rounded px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground",
-                              area.id === currentArea.id &&
-                                "bg-muted text-foreground"
-                            )}
-                            onClick={() => jumpToArea(area)}
-                          >
-                            {area.label}
-                          </button>
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                  {searchPending || searchFeedback ? (
-                    <p className="text-xs text-muted-foreground">
-                      {searchPending
-                        ? "Updating benchmark area…"
-                        : searchFeedback}
-                    </p>
-                  ) : null}
-                </div>
+                ) : null}
+                {searchPending || searchFeedback ? (
+                  <p className="mt-2 px-1 text-xs text-muted-foreground">
+                    {searchPending
+                      ? "Updating benchmark area…"
+                      : searchFeedback}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -536,6 +285,8 @@ export function BenchmarkWorkspace({
                 <BenchmarkAreaStatsPanel
                   snapshot={snapshot}
                   benchmarkAreaId={committedArea.id}
+                  headerSlot={breadcrumbs}
+                  initialCompareAssetId={initialCompareAssetId}
                 />
               ) : (
                 <div className="space-y-3">
