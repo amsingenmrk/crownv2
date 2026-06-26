@@ -571,7 +571,7 @@ export function PortfolioAssetsDataTable({
                       className={cn(buttonVariants({ variant: "outline" }))}
                       aria-label="Move selected assets to a portfolio group"
                     >
-                      Move to
+                      Move to...
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -645,7 +645,7 @@ export function PortfolioAssetsDataTable({
                       className={cn(buttonVariants({ variant: "outline" }))}
                       aria-label="Add selected assets to a portfolio group or scenario"
                     >
-                      Add to
+                      Copy to...
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -789,7 +789,7 @@ export function PortfolioAssetsDataTable({
                       className={cn(buttonVariants({ variant: "outline" }))}
                       aria-label="Move selected assets to an Other Assets group"
                     >
-                      Move to
+                      Move to...
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
@@ -863,7 +863,7 @@ export function PortfolioAssetsDataTable({
                       className={cn(buttonVariants({ variant: "outline" }))}
                       aria-label="Add selected assets to an Other Assets group or scenario"
                     >
-                      Add to
+                      Copy to...
                       <ChevronDown
                         className="size-4 opacity-60"
                         aria-hidden
