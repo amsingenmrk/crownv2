@@ -101,6 +101,7 @@ import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridg
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { PortfolioGroupBadgeDropdown } from "@/components/portfolio-group-badge-dropdown"
 import { CompetitiveGroupBadgeDropdown } from "@/components/competitive-group-badge-dropdown"
+import { UpdateAssetImportButton } from "@/components/sidebar-add-assets-import-modal"
 import { cn } from "@/lib/utils"
 
 function hrefForAssetSwitch(pathname: string | null, newAssetId: string): string {
@@ -1214,6 +1215,7 @@ export function AppTopbar() {
         ) : null}
         {showAssetBreadcrumb && asset != null ? (
           <>
+            <UpdateAssetImportButton className="shrink-0" />
             <PortfolioGroupBadgeDropdown
               assetId={asset.id}
               resolvedGroupIds={

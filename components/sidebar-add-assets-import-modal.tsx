@@ -401,7 +401,7 @@ export function UpdateAssetImportButton({ className }: { className?: string }) {
         onClick={() => setOpen(true)}
       >
         <RefreshCw className="size-4 shrink-0" aria-hidden />
-        Update Asset
+        Update asset
       </Button>
       <AssetImportDialog open={open} onOpenChange={setOpen} mode="update" />
     </>
