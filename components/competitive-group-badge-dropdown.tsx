@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, Plus, Radar, Trash2 } from "lucide-react"
+import { Binoculars, Check, ChevronDown, Plus, Trash2 } from "lucide-react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -144,7 +144,7 @@ export function CompetitiveGroupBadgeDropdown({
         >
           {hasMembership ? (
             <>
-              <Radar
+              <Binoculars
                 className="size-3.5 shrink-0 text-muted-foreground"
                 aria-hidden
               />

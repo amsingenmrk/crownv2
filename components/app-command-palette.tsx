@@ -136,7 +136,7 @@ export function AppCommandPalette({
       id: pin.id,
       name: pin.building,
       address: pin.location,
-      groupLabel: "Competitive set",
+      groupLabel: "Prospective",
     }))
   }, [open])
 
