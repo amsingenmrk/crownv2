@@ -1,6 +1,7 @@
 import { getAssetById } from "@/lib/assets"
 import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
+import { isRealAssetId } from "@/lib/real-properties"
 import {
   upliftFromModValues,
   type ModificationUnderwritingUplift,
@@ -432,6 +433,18 @@ function buildQuarterlySpaceRevenue({
 
 export function deriveBaseAnnualOpex(assetId: string, annualRevenue: number) {
   const financials = financialMetricsForAssetId(assetId)
+
+  // Real properties carry an actual operating-expense ratio from the export.
+  // Scale that ratio with revenue so In-Place valuation reconciles with the
+  // appraised as-is value (real revenue − real opex, at the real cap rate).
+  if (isRealAssetId(assetId) && financials != null) {
+    const ratio =
+      financials.annualRevenueUsd > 0
+        ? financials.annualOpexUsd / financials.annualRevenueUsd
+        : 0.3
+    return Math.max(0, annualRevenue * ratio)
+  }
+
   const assetContext = resolveSyntheticAssetContext(assetId)
   if (financials == null || assetContext == null) {
     return Math.max(annualRevenue * 0.34, 0)

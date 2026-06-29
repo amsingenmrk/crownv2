@@ -1,5 +1,10 @@
 import { type Asset } from "@/lib/assets"
 import {
+  buildRealStackingPlanDataset,
+  isRealAssetId,
+  realStackingPlanSpaceCount,
+} from "@/lib/real-properties"
+import {
   resolveSyntheticAssetContext,
   resolveSyntheticAssetRecord,
   syntheticContractRentPsf,
@@ -1159,6 +1164,11 @@ export function getSampleStackingPlanData(
   assetId: string,
   assetOverride?: Asset
 ): StackingPlanDataset {
+  if (isRealAssetId(assetId)) {
+    const real = buildRealStackingPlanDataset(assetId)
+    if (real != null) return real
+  }
+
   const cacheKey = syntheticAssetDataCacheKey(assetId, assetOverride)
   const cached = stackingPlanDatasetCache.get(cacheKey)
   if (cached != null) return cached
@@ -1413,6 +1423,9 @@ export function stackingPlanSpaceCountForAsset(
   assetId: string,
   assetOverride?: Asset
 ): number {
+  if (isRealAssetId(assetId)) {
+    return realStackingPlanSpaceCount(assetId)
+  }
   return buildFloorSeedsForAsset(assetId, assetOverride).reduce(
     (sum, floor) => sum + floor.tenants.length,
     0

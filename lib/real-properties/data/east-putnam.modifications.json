@@ -1,0 +1,1757 @@
+{
+  "building_id": "1d94be335c78c3f935fdbd2e29a69965",
+  "property_id": "a91312036fa6b87fe9fd87a5d0616fa2",
+  "scenarios": [
+    {
+      "scenario": "amenity_restaurant_white_tablecloth",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60672341.40361554,
+        "mark_to_market_value_per_sqft": 407.48681211879284,
+        "mark_to_market_revenue": 7728895.809721934,
+        "mark_to_market_expense": 3193720.1857397957,
+        "mark_to_market_noi": 4535175.623982138,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60672341.40361554,
+        "gross_potential_value_per_sqft": 407.48681211879284,
+        "gross_potential_revenue": 7728895.809721934,
+        "gross_potential_expense": 3193720.1857397957,
+        "gross_potential_noi": 4535175.623982138,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.21012825791409
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.260219434388475
+            },
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.354716881675756
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.22909360469667
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.05119269225799
+            },
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.32560239200847
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.70480990723138
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.73016495138263
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.16821338125439
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.357763939756296
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.57830337607802
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.04153435908297
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.2065727756556
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.8268401964304
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "leed_certified",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 61781972.5655176,
+        "mark_to_market_value_per_sqft": 414.9393028968098,
+        "mark_to_market_revenue": 7743319.575140413,
+        "mark_to_market_expense": 3162157.5542961266,
+        "mark_to_market_noi": 4581162.020844286,
+        "mark_to_market_cap_rate": 0.0741504654288292,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 61781972.5655176,
+        "gross_potential_value_per_sqft": 414.9393028968098,
+        "gross_potential_revenue": 7743319.575140413,
+        "gross_potential_expense": 3162157.5542961266,
+        "gross_potential_noi": 4581162.020844286,
+        "gross_potential_cap_rate": 0.0741504654288292,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.31420106792611
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.26700340899271
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.12744720674175
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.33993199383791
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.399049063423504
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.78007521228487
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.803524574455054
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.28325002481549
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.302140879229306
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.7215269840239
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 52.99163332677815
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.00117227038833
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.94954665952146
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.35826292961738
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_cafe_tea",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60767808.718686566,
+        "mark_to_market_value_per_sqft": 408.12798849306597,
+        "mark_to_market_revenue": 7735339.26704881,
+        "mark_to_market_expense": 3193027.5901275426,
+        "mark_to_market_noi": 4542311.676921267,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60767808.718686566,
+        "gross_potential_value_per_sqft": 408.12798849306597,
+        "gross_potential_revenue": 7735339.26704881,
+        "gross_potential_expense": 3193027.5901275426,
+        "gross_potential_noi": 4542311.676921267,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.2422458528123
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.29825438741052
+            },
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.39987925030294
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.24875157748173
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.113430186497276
+            },
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.36798596720824
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.749064787408784
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.77249829394553
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.22330540109333
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.41994114440864
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.609284269932786
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.103623303848366
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.22971481805291
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.88207386157861
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_restaurant_fast_casual",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60668127.635299526,
+        "mark_to_market_value_per_sqft": 407.4585116613129,
+        "mark_to_market_revenue": 7728359.0284550935,
+        "mark_to_market_expense": 3193498.3779668044,
+        "mark_to_market_noi": 4534860.650488289,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60668127.635299526,
+        "gross_potential_value_per_sqft": 407.4585116613129,
+        "gross_potential_revenue": 7728359.0284550935,
+        "gross_potential_expense": 3193498.3779668044,
+        "gross_potential_noi": 4534860.650488289,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.35122598082201
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.22560463423484
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.20664071625279
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.25674628108325
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.32214691414895
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.701360434957465
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.72671356892478
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.1647689261918
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.35430603892833
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.56667623482188
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.03808136670881
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.047731438506496
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.82338688544087
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.20302899878048
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_restaurant_full_service",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 61315785.756248444,
+        "mark_to_market_value_per_sqft": 411.8083049434393,
+        "mark_to_market_revenue": 7810862.555125257,
+        "mark_to_market_expense": 3227590.334309363,
+        "mark_to_market_noi": 4583272.220815894,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 61315785.756248444,
+        "gross_potential_value_per_sqft": 411.8083049434393,
+        "gross_potential_revenue": 7810862.555125257,
+        "gross_potential_expense": 3227590.334309363,
+        "gross_potential_noi": 4583272.220815894,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 54.05603446323641
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.763200188270744
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.89164966869791
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.81088723693233
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.854581784167586
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 53.23286993855149
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 53.25851740186454
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.714331082833354
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 52.052451857730844
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 52.31382640445527
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.735236174876704
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.74655420834407
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 51.36276240540876
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.734278760929826
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "leed_silver",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 62037873.95925801,
+        "mark_to_market_value_per_sqft": 416.65798460151524,
+        "mark_to_market_revenue": 7783245.210154204,
+        "mark_to_market_expense": 3183107.981860179,
+        "mark_to_market_noi": 4600137.228294024,
+        "mark_to_market_cap_rate": 0.0741504654288292,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 62037873.95925801,
+        "gross_potential_value_per_sqft": 416.65798460151524,
+        "gross_potential_revenue": 7783245.210154204,
+        "gross_potential_expense": 3183107.981860179,
+        "gross_potential_noi": 4600137.228294024,
+        "gross_potential_cap_rate": 0.0741504654288292,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 51.212088063949054
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 52.04007304705317
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.28680266160678
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.28315229338953
+            },
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.6773715471801
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 53.0375020763078
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 53.081517192875964
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.56771099665246
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.587816118744556
+            }
+          }
+        },
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.39503420050555
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.603732307980124
+            },
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.60270006163518
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.52491874766355
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.62782929453731
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "leed_gold",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 63097831.68735133,
+        "mark_to_market_value_per_sqft": 423.77685929151835,
+        "mark_to_market_revenue": 7900679.230107328,
+        "mark_to_market_expense": 3221945.6429402996,
+        "mark_to_market_noi": 4678733.587167028,
+        "mark_to_market_cap_rate": 0.0741504654288292,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 63097831.68735133,
+        "gross_potential_value_per_sqft": 423.77685929151835,
+        "gross_potential_revenue": 7900679.230107328,
+        "gross_potential_expense": 3221945.6429402996,
+        "gross_potential_noi": 4678733.587167028,
+        "gross_potential_cap_rate": 0.0741504654288292,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 54.408166650966855
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 54.33228428148378
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 54.193780964312225
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 51.401314390117975
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 50.458402430998426
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 53.83010437134615
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 53.87487592206605
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 55.36218478168534
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 52.392414498004335
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 52.71948458806839
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 54.08057174812711
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 56.08153767455779
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 52.005863919264655
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 55.393941870751306
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_bar_lounge",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60909243.00064465,
+        "mark_to_market_value_per_sqft": 409.07788762908274,
+        "mark_to_market_revenue": 7753342.913683525,
+        "mark_to_market_expense": 3200459.215094845,
+        "mark_to_market_noi": 4552883.6985886805,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60909243.00064465,
+        "gross_potential_value_per_sqft": 409.07788762908274,
+        "gross_potential_revenue": 7753342.913683525,
+        "gross_potential_expense": 3200459.215094845,
+        "gross_potential_noi": 4552883.6985886805,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.31878031047389
+            },
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.49007075144122
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.899502956534945
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.894438384376585
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.34503489591029
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.625092345303486
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.841330012632135
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.30848329477489
+            }
+          }
+        },
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.412349131328035
+            },
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.624596501012526
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.38959373567219
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.46668387430499
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.34609083980263
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.978100768051476
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_bar_wine_spirits",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60939128.41322145,
+        "mark_to_market_value_per_sqft": 409.27860365912295,
+        "mark_to_market_revenue": 7757147.128617249,
+        "mark_to_market_expense": 3202029.5357779856,
+        "mark_to_market_noi": 4555117.592839263,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60939128.41322145,
+        "gross_potential_value_per_sqft": 409.27860365912295,
+        "gross_potential_revenue": 7757147.128617249,
+        "gross_potential_expense": 3202029.5357779856,
+        "gross_potential_noi": 4555117.592839263,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.65033880281697
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.41526147141178
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.49239418923371
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.43789628170394
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.51549513082019
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.92490000047998
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.91983263100694
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.37038528561922
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.650591301146875
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.866396073099025
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.333946055119085
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.34430399115853
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 51.003501966153415
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.3721487950222
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_cafe_bakery",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60768223.32072005,
+        "mark_to_market_value_per_sqft": 408.1307730380005,
+        "mark_to_market_revenue": 7735392.043139596,
+        "mark_to_market_expense": 3193049.3752759583,
+        "mark_to_market_noi": 4542342.667863637,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60768223.32072005,
+        "gross_potential_value_per_sqft": 408.1307730380005,
+        "gross_potential_revenue": 7735392.043139596,
+        "gross_potential_expense": 3193049.3752759583,
+        "gross_potential_noi": 4542342.667863637,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.39987925030294
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.24875157748173
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.2422458528123
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.29825438741052
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.36798596720824
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.749064787408784
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.77249829394553
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.22330540109333
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.41994114440864
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.63129264807523
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.103623303848366
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.113430186497276
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.88207386157861
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.22971481805291
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_restaurant_specialty_dining",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60390147.17189435,
+        "mark_to_market_value_per_sqft": 405.5915427881201,
+        "mark_to_market_revenue": 7692947.801706742,
+        "mark_to_market_expense": 3178865.8156380737,
+        "mark_to_market_noi": 4514081.986068668,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60390147.17189435,
+        "gross_potential_value_per_sqft": 405.5915427881201,
+        "gross_potential_revenue": 7692947.801706742,
+        "gross_potential_expense": 3178865.8156380737,
+        "gross_potential_noi": 4514081.986068668,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.12976169489803
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 52.97192590974491
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 52.97194787004641
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.004217602475805
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.0907867589567
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.47281349296986
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.49562761973354
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 53.92757533665278
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.13493528915775
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.384037209118155
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 52.83529324221201
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 54.844458137955876
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.58610527048993
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 53.96110437530649
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_gym_general",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60311144.48074334,
+        "mark_to_market_value_per_sqft": 405.0609459128195,
+        "mark_to_market_revenue": 7677208.93643294,
+        "mark_to_market_expense": 3169032.294889442,
+        "mark_to_market_noi": 4508176.641543498,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60311144.48074334,
+        "gross_potential_value_per_sqft": 405.0609459128195,
+        "gross_potential_revenue": 7677208.93643294,
+        "gross_potential_expense": 3169032.294889442,
+        "gross_potential_noi": 4508176.641543498,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 49.91395613616324
+            },
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 52.861239097559455
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 52.86285769201315
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 52.70427500368291
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 53.891139279769035
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 48.97927796096457
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.36101588388594
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.384250980978365
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 53.835728607403354
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 50.85919736367468
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.09225772310091
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 52.54367549300356
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 54.552142685422176
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.50210476045278
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_gym_specialized",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60649484.718435556,
+        "mark_to_market_value_per_sqft": 407.33330233881526,
+        "mark_to_market_revenue": 7720277.406095209,
+        "mark_to_market_expense": 3186810.288478166,
+        "mark_to_market_noi": 4533467.117617043,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60649484.718435556,
+        "gross_potential_value_per_sqft": 407.33330233881526,
+        "gross_potential_revenue": 7720277.406095209,
+        "gross_potential_expense": 3186810.288478166,
+        "gross_potential_noi": 4533467.117617043,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.2960141637244
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.14500098308626
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.138509826938716
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.19854398475225
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.265180020589
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.64643316104548
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.66981419202111
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.12079863888898
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.31701885254364
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.546268761533916
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 53.00084710909236
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 55.01040809692508
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.777218395051875
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.13633024191533
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_gym_studio_mind_body",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60509041.94240437,
+        "mark_to_market_value_per_sqft": 406.39006234236683,
+        "mark_to_market_revenue": 7702399.97159306,
+        "mark_to_market_expense": 3179430.7619137364,
+        "mark_to_market_noi": 4522969.209679323,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60509041.94240437,
+        "gross_potential_value_per_sqft": 406.39006234236683,
+        "gross_potential_revenue": 7702399.97159306,
+        "gross_potential_expense": 3179430.7619137364,
+        "gross_potential_noi": 4522969.209679323,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 53.176443578131575
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.02556220210485
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 53.01908781739368
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.07958974130904
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 49.14682872811315
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.52828254789094
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.551603168445894
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.00279177067412
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 51.19853362219102
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.45756393660702
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 52.88253006727595
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 54.891807978397004
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.656071681245336
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.01206098425544
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_bar_beer_pub",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 61545179.22130458,
+        "mark_to_market_value_per_sqft": 413.34895443271444,
+        "mark_to_market_revenue": 7834293.3794438075,
+        "mark_to_market_expense": 3233874.3067518226,
+        "mark_to_market_noi": 4600419.0726919845,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 61545179.22130458,
+        "gross_potential_value_per_sqft": 413.34895443271444,
+        "gross_potential_revenue": 7834293.3794438075,
+        "gross_potential_expense": 3233874.3067518226,
+        "gross_potential_noi": 4600419.0726919845,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 54.38290941749995
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 53.92115822500983
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 54.2598101652987
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 50.94141636504811
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 50.077142068256435
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 53.42547265808358
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 53.480813909481455
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 54.87003839388482
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 52.376247998447624
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 52.614339883312994
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 54.05857269038303
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 56.070664315178966
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 51.4859833856429
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 54.85207301555154
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "amenity_cafe_coffee",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 60311144.48074334,
+        "mark_to_market_value_per_sqft": 405.0609459128195,
+        "mark_to_market_revenue": 7677208.93643294,
+        "mark_to_market_expense": 3169032.294889442,
+        "mark_to_market_noi": 4508176.641543498,
+        "mark_to_market_cap_rate": 0.07474865019321442,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 60311144.48074334,
+        "gross_potential_value_per_sqft": 405.0609459128195,
+        "gross_potential_revenue": 7677208.93643294,
+        "gross_potential_expense": 3169032.294889442,
+        "gross_potential_noi": 4508176.641543498,
+        "gross_potential_cap_rate": 0.07474865019321442,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 52.861239097559455
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 52.86285769201315
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 52.70427500368291
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 49.91395613616324
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 48.97927796096457
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 52.36101588388594
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 52.384250980978365
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 53.835728607403354
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 50.85919736367468
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 51.09225772310091
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 52.54367549300356
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 54.552142685422176
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 50.50210476045278
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 53.891139279769035
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario": "leed_platinum",
+      "asset": {
+        "building_rsf": 148894,
+        "occupancy_current": 1,
+        "occupancy_full": 1,
+        "as_is_value": 57086372.80261335,
+        "as_is_value_per_sqft": 383.40277514616673,
+        "as_is_revenue": 7373646.6414756775,
+        "as_is_expense": 3106517.330053703,
+        "as_is_noi": 4267129.311421975,
+        "as_is_cap_rate": 0.07474865019321442,
+        "as_is_occupancy_used": 1,
+        "mark_to_market_value": 62736565.399482325,
+        "mark_to_market_value_per_sqft": 421.35052721723054,
+        "mark_to_market_revenue": 7890842.218799948,
+        "mark_to_market_expense": 3238896.6950221523,
+        "mark_to_market_noi": 4651945.523777796,
+        "mark_to_market_cap_rate": 0.0741504654288292,
+        "mark_to_market_occupancy_used": 1,
+        "gross_potential_value": 62736565.399482325,
+        "gross_potential_value_per_sqft": 421.35052721723054,
+        "gross_potential_revenue": 7890842.218799948,
+        "gross_potential_expense": 3238896.6950221523,
+        "gross_potential_noi": 4651945.523777796,
+        "gross_potential_cap_rate": 0.0741504654288292,
+        "gross_potential_occupancy_used": 1
+      },
+      "floors": {
+        "eee03b9230ac4a78775ed83eb6ec0428": {
+          "spaces": {
+            "eaa0b54c754029aa02859c2c325be028": {
+              "lease_id": "7ed51f689b13f4e5db82bb7065c6f6c4",
+              "predicted_rent": 54.339576534215574
+            },
+            "be6f70dd3d2fb0283bdbac7a58bd5611": {
+              "lease_id": "5d8a6197a2c30b8fc91129a7dab246e8",
+              "predicted_rent": 54.26359152953401
+            },
+            "50e50c24beffba698ec9e366430fe923": {
+              "lease_id": "2f5dc245083a5b2c3ed521b62a3e1a80",
+              "predicted_rent": 54.12528887221403
+            },
+            "3e05738d311182b0199a3f9c461f3b57": {
+              "lease_id": "31f78b3ccb0b6cdfab31e153bdd9a46f",
+              "predicted_rent": 51.33590772158961
+            }
+          }
+        },
+        "f37013cb9b7d119731fc9d0948ffdddf": {
+          "spaces": {
+            "81961a4801c445cd17ae058e12b28705": {
+              "lease_id": "c737bc3f3c3a83fe12e9a932c8055858",
+              "predicted_rent": 50.390310859690516
+            },
+            "433c2cfe6ddc72dc487e78573186ec59": {
+              "lease_id": "ca68d73dab90af4abbac6fc5078fe785",
+              "predicted_rent": 53.76213916403778
+            },
+            "eb32ab5d8e9363c4c05cb67a903b09c3": {
+              "lease_id": "97f65b3be0ea7bd2d6da4e344a461778",
+              "predicted_rent": 53.806845850948605
+            },
+            "4ce1474f6725889520f7ca49a11c013e": {
+              "lease_id": "1440e168c26030afbee8a2e5b58b72cd",
+              "predicted_rent": 55.29723229953453
+            },
+            "f1c38f6bd91af957394df7a2a0848bb7": {
+              "lease_id": "e38930d917beab1b99ad800d8fd97274",
+              "predicted_rent": 52.32448556990162
+            },
+            "f06e77ea5119504b1b71ad6185211cda": {
+              "lease_id": "e94b8e2bdf3cf21c7a9dbe27ffa7cddf",
+              "predicted_rent": 52.66269612101623
+            },
+            "083cda8761ad88a34c44478541c70ed9": {
+              "lease_id": "c7d91e5020f92d588c7a85aec987f6fc",
+              "predicted_rent": 54.015676878849646
+            },
+            "4960733a43042a08df6e1db463f254b8": {
+              "lease_id": "1bf5f3d5b6fdc49df9ae1abae08cb2e6",
+              "predicted_rent": 56.01355056344461
+            }
+          }
+        },
+        "04f4f60328aec3e6cd740659d4185794": {
+          "spaces": {
+            "b0b703b0f538fd45b0960a69d080dd0c": {
+              "lease_id": "6489c526ddc22f8ef65bd8b1d9a65806",
+              "predicted_rent": 51.94076938489989
+            }
+          }
+        },
+        "2a2cabcce676ef5c9213100aac5009f6": {
+          "spaces": {
+            "a9ef11de3663291a94c6b14c4caee06f": {
+              "lease_id": "6fcf24379f0c137331a7cb81afc396db",
+              "predicted_rent": 55.32717327262483
+            }
+          }
+        }
+      }
+    }
+  ]
+}

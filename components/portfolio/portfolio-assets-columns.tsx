@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AssetModificationSetSelect } from "@/components/portfolio/asset-modification-set-select"
 import { AssetOutlookSetSelect } from "@/components/portfolio/asset-outlook-set-select"
-import { AssetScopeSelect } from "@/components/portfolio/asset-scope-select"
 import { CompetitiveScopeSelect } from "@/components/portfolio/competitive-scope-select"
 import {
   modificationSetMetricDelta,
@@ -437,23 +436,6 @@ export function createPortfolioAssetColumns(
       ),
     },
   ]
-
-  if (isOwnedPortfolioVariant && showScopeColumn) {
-    columns.splice(2, 0, {
-      id: "scope",
-      accessorFn: (row) => row.groupId,
-      enableHiding: true,
-      meta: { columnLabel: "Portfolio group" },
-      header: () => <div className="font-medium">Portfolio group</div>,
-      cell: ({ row }) => (
-        <AssetScopeSelect
-          assetId={row.original.id}
-          building={row.original.building}
-        />
-      ),
-      enableSorting: false,
-    })
-  }
 
   if (variant === "other-assets" && showScopeColumn) {
     columns.splice(2, 0, {

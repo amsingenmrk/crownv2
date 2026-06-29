@@ -10,6 +10,10 @@ import {
   deriveImpactMetrics,
 } from "@/lib/modifications-impact"
 import type { Asset } from "@/lib/assets"
+import {
+  buildRealModificationRecommendation,
+  isRealAssetId,
+} from "@/lib/real-properties"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
 
 export const RECOMMENDED_MOD_ID_PARAM = "recommendedMod"
@@ -64,6 +68,10 @@ export function getTopSingleModificationRecommendationForAsset(
   assetId: string,
   assetOverride?: Asset
 ): ModificationRecommendation | null {
+  if (isRealAssetId(assetId)) {
+    return buildRealModificationRecommendation(assetId)
+  }
+
   const cacheKey = recommendationCacheKey(assetId, assetOverride)
 
   if (recommendationCache.has(cacheKey)) {

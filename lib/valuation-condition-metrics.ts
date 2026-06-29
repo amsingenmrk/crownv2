@@ -59,7 +59,7 @@ function metricsForRevenue({
   const grossRevenue = revenueBeforeMods
   const opex = Math.max(0, baseOpex + annualOpexDeltaUsd)
   const noi = Math.max(0, grossRevenue - opex)
-  const capRate = clamp(baseCapRatePct + exitCapRateDeltaPct, 4, 8)
+  const capRate = clamp(baseCapRatePct + exitCapRateDeltaPct, 4, 12)
   const assetValue =
     capRate > 0
       ? Math.max(0, noi) / (capRate / 100) - upfrontCapexUsd

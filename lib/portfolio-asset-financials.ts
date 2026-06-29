@@ -1,5 +1,9 @@
 import { type Asset } from "@/lib/assets"
 import {
+  buildRealFinancialMetrics,
+  isRealAssetId,
+} from "@/lib/real-properties"
+import {
   getSampleStackingPlanData,
   syntheticAssetDataCacheKey,
 } from "@/lib/stacking-plan-data"
@@ -75,6 +79,10 @@ function buildDatasetRevenueRollups(assetId: string, asset?: Asset) {
 }
 
 function buildFinancialMetrics(assetId: string, asset?: Asset): AssetFinancialMetrics | null {
+  if (isRealAssetId(assetId)) {
+    return buildRealFinancialMetrics(assetId)
+  }
+
   const cacheKey = syntheticAssetDataCacheKey(assetId, asset)
   if (financialMetricsCache.has(cacheKey)) {
     return financialMetricsCache.get(cacheKey) ?? null
