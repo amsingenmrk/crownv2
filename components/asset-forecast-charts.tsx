@@ -197,7 +197,7 @@ export function AssetForecastChartMetricToggleGroup({
         }
       }}
       aria-label={ariaLabel}
-      className={cn("w-fit max-w-full flex-wrap", className)}
+      className={cn("w-full max-w-full flex-wrap sm:w-fit", className)}
     >
       {chartRows.map((row) => (
         <ToggleGroupItem key={row.id} value={row.id}>
@@ -248,7 +248,7 @@ export function AssetForecastChartMetricToolbar({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 justify-end @md:justify-start">
+      <div className="flex w-full shrink-0 justify-start @md:w-auto">
         <AssetForecastChartMetricToggleGroup
           models={models}
           metricTab={metricTab}

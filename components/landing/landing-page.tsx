@@ -71,23 +71,23 @@ export function LandingPage() {
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,var(--color-blue-100),transparent)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,color-mix(in_oklch,var(--color-blue-600)_25%,transparent),transparent)]"
           />
-          <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
+          <div className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-28">
             <p className="mb-4 text-sm font-medium text-primary">
               Institutional real estate analytics
             </p>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
               Clarity for portfolio, property, and capital decisions
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-muted-foreground text-pretty sm:text-xl">
+            <p className="mt-5 max-w-2xl text-base text-muted-foreground text-pretty sm:mt-6 sm:text-xl">
               Glassbox brings portfolio views, building-level stacking, scenarios,
               and forecasts into a single workspace—so your team can model,
               compare, and explain outcomes with confidence.
             </p>
-            <div className="mt-10">
+            <div className="mt-8 sm:mt-10">
               <LandingContactCta />
             </div>
 
-            <figure className="mt-16 sm:mt-20">
+            <figure className="mt-10 sm:mt-20">
               <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xl ring-1 ring-border/60">
                 <Image
                   src="/landing-portfolio-screenshot-light.png"
@@ -117,7 +117,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
+        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
           <div className="max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Built for how CRE teams actually work
@@ -127,12 +127,12 @@ export function LandingPage() {
               explain outcomes with the same workspace your analysts use every day.
             </p>
           </div>
-          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             {FEATURES.map((feature) => (
               <li
                 key={feature.title}
                 className={cn(
-                  "rounded-xl border border-border/80 bg-card p-6 shadow-sm",
+                  "rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:p-6",
                   "transition-colors hover:border-border hover:bg-card/80"
                 )}
               >
@@ -149,7 +149,7 @@ export function LandingPage() {
         </section>
 
         <section className="border-t border-border/60 bg-muted/30">
-          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
             <div className="mx-auto max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Contact for pricing
@@ -158,7 +158,7 @@ export function LandingPage() {
                 Tell us about your portfolio and we&apos;ll follow up with
                 pricing and next steps.
               </p>
-              <div className="mt-8 rounded-xl border border-border/80 bg-card p-6 shadow-sm sm:p-8">
+              <div className="mt-6 rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:mt-8 sm:p-8">
                 <LandingContactForm />
               </div>
             </div>
@@ -167,7 +167,7 @@ export function LandingPage() {
       </main>
 
       <footer className="border-t border-border/60">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-8">
           <p>© {new Date().getFullYear()} Glassbox. All rights reserved.</p>
           <a
             href="https://www.nmrk.com/"

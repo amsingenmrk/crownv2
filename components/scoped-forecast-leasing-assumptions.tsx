@@ -116,14 +116,14 @@ export function ScopedForecastLeasingAssumptionsBar({
       ) : null}
       <div
         className={cn(
-          "grid min-w-0 max-w-full grid-cols-1 gap-3 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)]",
+          "grid min-w-0 max-w-full grid-cols-1 gap-2 sm:w-max sm:flex-none sm:grid-cols-[repeat(3,max-content)] sm:gap-3",
           showTitle ? "w-full justify-items-end sm:justify-items-start" : "w-full justify-items-start sm:w-max",
         )}
       >
         {SCOPED_FORECAST_LEASING_ASSUMPTION_FIELDS.map((field) => (
           <ScopedForecastLeasingAssumptionField
             key={field.key}
-            className="w-fit max-w-full shrink-0"
+            className="w-full max-w-full shrink-0 sm:w-fit"
             nowrapLabel
             label={field.label}
             value={assumptions[field.key]}

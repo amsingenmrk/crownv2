@@ -14,7 +14,7 @@ export function AssetDetailLayoutClient({
     <AssetLeasingAssumptionsProvider assetId={assetId}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <AssetDetailHeader />
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-4 py-4 md:px-6 md:py-6">
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </div>
       </div>

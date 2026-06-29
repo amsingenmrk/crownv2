@@ -794,7 +794,7 @@ function PortfolioDashboardInner({
         )}
         aria-labelledby={assetsHeadingId}
       >
-        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <h2
               id={assetsHeadingId}
@@ -831,14 +831,14 @@ function PortfolioDashboardInner({
               <ToggleGroupItem value="map">Map</ToggleGroupItem>
             </ToggleGroup>
           </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:max-w-none sm:justify-end">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto md:max-w-none md:justify-end">
             <Input
               type="search"
               placeholder="Search assets…"
               value={assetTableSearch}
               onChange={(e) => setAssetTableSearch(e.target.value)}
               aria-label="Search assets in table"
-              className="min-w-0 w-full flex-1 sm:max-w-xs sm:w-auto"
+              className="min-w-0 w-full flex-1 md:w-auto md:max-w-xs"
             />
             <PortfolioAssetsViewOptions
               table={portfolioTable}
@@ -860,7 +860,7 @@ function PortfolioDashboardInner({
               className={cn(
                 "relative flex w-full shrink-0 flex-col rounded-xl border border-border bg-muted/60",
                 /* Map only: fill viewport below chrome; no dvh cap so the GL canvas matches this box. */
-                "h-[calc(100svh-22rem)] min-h-[16rem]",
+                "h-[min(58svh,28rem)] min-h-[18rem] sm:h-[calc(100svh-22rem)] sm:min-h-[16rem]",
                 "mb-4 md:mb-6"
               )}
             >

@@ -777,8 +777,8 @@ export function SearchComingSoon() {
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Map region */}
-        <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col lg:h-full lg:min-h-0">
-          <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
+        <div className="flex min-h-[min(42vh,340px)] min-w-0 flex-none flex-col sm:min-h-[min(50vh,420px)] lg:h-full lg:min-h-0 lg:flex-1">
+          <div className="relative min-h-[min(42vh,340px)] min-w-0 w-full flex-1 overflow-hidden border-b border-border bg-muted/20 sm:min-h-[min(50vh,420px)] lg:min-h-0 lg:border-b-0 lg:border-r">
             {showMapbox ? (
               <PortfolioMapbox pins={mapSearchFilteredPins} edgeToEdge />
             ) : (
@@ -789,7 +789,7 @@ export function SearchComingSoon() {
               />
             )}
             <div className="pointer-events-none absolute inset-0 z-20 flex justify-start">
-              <div className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-3 sm:max-w-sm md:p-4">
+              <div className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-2.5 sm:max-w-sm sm:p-3 md:p-4">
                 <div className="rounded-lg border border-border/80 bg-background/95 shadow-md ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10">
                   <label htmlFor="property-map-search" className="sr-only">
                     Search properties on map
@@ -816,7 +816,7 @@ export function SearchComingSoon() {
         </div>
 
         {/* Listings skeleton */}
-        <aside className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden border-t border-border bg-muted/15 p-4 lg:h-full lg:max-h-full lg:w-[min(100%,416px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[448px]">
+        <aside className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden border-t border-border bg-muted/15 p-3 sm:p-4 lg:h-full lg:max-h-full lg:w-[min(100%,416px)] lg:flex-none lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[448px]">
           <div className="flex shrink-0 min-w-0 items-center justify-between gap-3">
             <p className="min-w-0 truncate text-sm font-medium text-foreground">
               {propertyCount === 1

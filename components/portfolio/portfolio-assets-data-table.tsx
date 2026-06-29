@@ -535,7 +535,7 @@ export function PortfolioAssetsDataTable({
 
   return (
     <>
-      <div className="flex w-full min-w-0 flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+      <div className="flex w-full min-w-0 flex-col gap-2 border-b border-border bg-background px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:px-4">
         <p className="min-w-0 text-sm text-muted-foreground">
           {selectedCount === 0 ? (
             <>
@@ -551,7 +551,7 @@ export function PortfolioAssetsDataTable({
             </>
           )}
         </p>
-        <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 sm:ml-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end">
           {isPortfolioVariant ? (
             <>
               <DropdownMenu>
@@ -1183,7 +1183,7 @@ export function PortfolioAssetsDataTable({
       </div>
 
       {sortedRows.length > 0 ? (
-        <div className="flex items-start gap-2 border-b border-border bg-muted/15 px-4 py-2 lg:hidden">
+        <div className="flex items-start gap-2 border-b border-border bg-muted/15 px-3 py-2 sm:px-4 lg:hidden">
           <PortfolioProvenanceIndicator
             label={mobileModeledFieldsProvenanceLabel(variant)}
             className="mt-0.5 shrink-0"
@@ -1207,7 +1207,7 @@ export function PortfolioAssetsDataTable({
             const selected = tableRow.getIsSelected()
             return (
               <li key={tableRow.id}>
-                <div className="flex flex-col gap-2.5 px-4 py-4 text-sm">
+                <div className="flex flex-col gap-2.5 px-3 py-4 text-sm sm:px-4">
                   <div className="flex items-start gap-3">
                     <span className="flex shrink-0 items-center pt-0.5">
                       <Checkbox

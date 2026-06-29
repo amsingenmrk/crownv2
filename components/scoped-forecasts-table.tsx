@@ -806,66 +806,68 @@ export function ScopedForecastsPortfolioTotalsTable({
 
   return (
     <div className={cn(!hasOutlookBreakdown && "border-t border-border/80")}>
-      <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
-        <TableHeader>
-          <TableRow className="forecast-sticky-header-row border-b border-border hover:bg-transparent">
-            <TableHead
-              scope="col"
-              className="sticky left-0 z-20 h-auto min-w-0 px-2 py-2 text-left text-sm font-medium text-foreground"
-              style={firstColumnStyle}
-            >
-              Line Item
-            </TableHead>
-            {displayPeriods.map((period) => (
+      <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+        <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
+          <TableHeader>
+            <TableRow className="forecast-sticky-header-row border-b border-border hover:bg-transparent">
               <TableHead
-                key={`summary-h-${period.label}`}
                 scope="col"
-                className="h-auto min-w-0 px-3 py-2 text-right text-sm font-medium text-foreground"
-                style={periodColumnStyle}
-              >
-                {period.label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id} className={rowClassName(row.original)}>
-              <TableCell
-                className={cn(
-                  "sticky left-0 z-20 px-2",
-                  row.original.rowType === "asset" ? "py-3" : "py-2.5",
-                  firstColumnSurfaceClassName(row.original)
-                )}
+                className="sticky left-0 z-20 h-auto min-w-0 px-2 py-2 text-left text-sm font-medium text-foreground"
                 style={firstColumnStyle}
               >
-                {lineItemCellContent(row)}
-              </TableCell>
-              {displayPeriods.map((period, index) => (
-                <TableCell
-                  key={`${row.id}-${period.label}`}
-                  className="px-3 py-2.5"
+                Line Item
+              </TableHead>
+              {displayPeriods.map((period) => (
+                <TableHead
+                  key={`summary-h-${period.label}`}
+                  scope="col"
+                  className="h-auto min-w-0 px-3 py-2 text-right text-sm font-medium text-foreground"
                   style={periodColumnStyle}
                 >
-                  <div
-                    className={cn(
-                      "text-right tabular-nums text-foreground",
-                      isScopedForecastTotalRow(row.original)
-                        ? "font-semibold"
-                        : "font-normal",
-                    )}
-                  >
-                    {formatStatementValue(
-                      row.original.kind,
-                      row.original.values[index] ?? 0
-                    )}
-                  </div>
-                </TableCell>
+                  {period.label}
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className={rowClassName(row.original)}>
+                <TableCell
+                  className={cn(
+                    "sticky left-0 z-20 px-2",
+                    row.original.rowType === "asset" ? "py-3" : "py-2.5",
+                    firstColumnSurfaceClassName(row.original)
+                  )}
+                  style={firstColumnStyle}
+                >
+                  {lineItemCellContent(row)}
+                </TableCell>
+                {displayPeriods.map((period, index) => (
+                  <TableCell
+                    key={`${row.id}-${period.label}`}
+                    className="px-3 py-2.5"
+                    style={periodColumnStyle}
+                  >
+                    <div
+                      className={cn(
+                        "text-right tabular-nums text-foreground",
+                        isScopedForecastTotalRow(row.original)
+                          ? "font-semibold"
+                          : "font-normal",
+                      )}
+                    >
+                      {formatStatementValue(
+                        row.original.kind,
+                        row.original.values[index] ?? 0
+                      )}
+                    </div>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       {hasOutlookBreakdown ? (
         <div className="border-t border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
           Expand a line item to inspect outlook totals, then expand an outlook to
@@ -1012,7 +1014,7 @@ export function StatementPeriodGranularitySelect({
     >
       <SelectTrigger
         size="sm"
-        className="min-w-[9.5rem] justify-between"
+        className="w-full min-w-0 justify-between sm:w-auto sm:min-w-[9.5rem]"
         aria-label="Statement columns: two-year total horizon or quarterly"
       >
         <SelectValue />
@@ -1707,7 +1709,8 @@ export function ScopedForecastsTable({
         </div>
       ) : null}
 
-      <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
+      <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+        <Table className="table-fixed" style={{ minWidth: `${totalTableMinWidth}px` }}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
@@ -1809,7 +1812,8 @@ export function ScopedForecastsTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
 
       {portfolioTotalsPlacement === "belowStatement" ? (
         <ScopedForecastsPortfolioTotalsTable

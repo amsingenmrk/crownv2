@@ -30,7 +30,7 @@ export default function DocumentsPage() {
       <AppTopbar />
       <div
         role="main"
-        className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-6 md:px-6"
+        className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4 md:gap-8 md:px-6 md:py-6"
       >
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
           <div className="max-w-3xl">
@@ -48,7 +48,7 @@ export default function DocumentsPage() {
               return (
                 <section
                   key={surface.title}
-                  className="rounded-xl border border-dashed border-border/80 bg-card p-5 shadow-sm"
+                  className="rounded-xl border border-dashed border-border/80 bg-card p-4 shadow-sm sm:p-5"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -64,7 +64,7 @@ export default function DocumentsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
+                  <div className="mt-5 flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center sm:min-h-40 sm:py-8">
                     <UploadCloud
                       className="mb-3 size-8 text-muted-foreground"
                       aria-hidden
@@ -81,7 +81,7 @@ export default function DocumentsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-4"
+                      className="mt-4 w-full sm:w-auto"
                     >
                       Select file
                     </Button>

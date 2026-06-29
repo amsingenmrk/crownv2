@@ -125,12 +125,12 @@ export function AssetDetailHeader() {
 
   return (
     <>
-      <div className="border-b border-border bg-background px-6 py-4">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
+      <div className="border-b border-border bg-background px-4 py-3 md:px-6 md:py-4">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between sm:gap-4">
           <div className="flex min-w-0 items-start">
             <div className="h-fit min-w-0 self-center">
-              <h2 className="text-xl font-semibold truncate">{buildingLabel}</h2>
-              <p className="text-sm text-muted-foreground truncate">{addressLabel}</p>
+              <h2 className="truncate text-lg font-semibold sm:text-xl">{buildingLabel}</h2>
+              <p className="truncate text-xs text-muted-foreground sm:text-sm">{addressLabel}</p>
             </div>
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch justify-start sm:self-stretch sm:items-end">
@@ -143,7 +143,7 @@ export function AssetDetailHeader() {
               )}
             >
               <div
-                className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-end gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs sm:w-fit sm:max-w-none sm:shrink-0"
+                className="flex min-h-0 min-w-0 w-full max-w-full items-stretch justify-start gap-0 self-stretch overflow-x-auto rounded-lg border border-border bg-muted/30 text-xs shadow-[inset_-18px_0_18px_-22px_hsl(var(--foreground)/0.7)] sm:w-fit sm:max-w-none sm:shrink-0 sm:justify-end sm:shadow-none"
                 aria-label="Building key metrics"
               >
                 {keyMetrics.map((k, i) => (
@@ -175,7 +175,7 @@ export function AssetDetailHeader() {
         </div>
       </div>
 
-      <nav className="overflow-x-auto overflow-y-hidden border-b border-border bg-background px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <nav className="overflow-x-auto overflow-y-hidden border-b border-border bg-background px-4 shadow-[inset_-18px_0_18px_-22px_hsl(var(--foreground)/0.75)] md:px-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-fit items-center gap-1 -mb-px">
           {ASSET_TAB_PATHS.map((tab) => {
             const Icon = tab.icon
@@ -187,7 +187,7 @@ export function AssetDetailHeader() {
                 key={tab.pathSegment}
                 type="button"
                 className={cn(
-                  "px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap",
+                  "flex items-center gap-2 whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors sm:px-4",
                   isActive
                     ? "border-b-2 border-primary text-foreground"
                     : "text-muted-foreground hover:text-foreground"

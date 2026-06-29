@@ -346,7 +346,11 @@ export function PortfolioCompareDataTable({
   const tableMinWidth = COMPARE_ROW_LABEL_COL_PX + slotCount * 160
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+    <div className="rounded-xl border border-border bg-card">
+      <div className="border-b border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground sm:hidden">
+        Swipe sideways to compare scenarios.
+      </div>
+      <div className="overflow-x-auto overscroll-x-contain shadow-[inset_-18px_0_18px_-22px_hsl(var(--foreground)/0.7)] [-webkit-overflow-scrolling:touch] sm:shadow-none">
       <table
         className="grid w-full px-0 caption-bottom text-sm"
         style={{
@@ -386,6 +390,7 @@ export function PortfolioCompareDataTable({
           })}
         </TableBody>
       </table>
+      </div>
     </div>
   )
 }

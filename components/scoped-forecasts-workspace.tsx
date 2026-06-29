@@ -602,7 +602,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
         aria-label={`${scopeLabel} ${projectionChartMeta.title}`}
       >
         <div className="border-b border-border/60 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold tracking-tight text-foreground">
               {projectionChartMeta.title}
             </h2>
@@ -633,8 +633,8 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
       >
         {scope.kind === "scenario" ? (
           <div className="border-b border-border/60 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <h2 className="text-base font-semibold tracking-tight text-foreground">
                   Assets Forecast
                 </h2>
@@ -654,7 +654,7 @@ export function ScopedForecastsWorkspace({ scope }: { scope: ScopedForecastScope
           </div>
         ) : (
           <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <h2 className="text-base font-semibold tracking-tight text-foreground">
                 Asset Forecast
               </h2>

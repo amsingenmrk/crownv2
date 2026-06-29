@@ -177,8 +177,8 @@ const VACANCY_LEGEND: readonly StackingLegendItem[] = [
 const STACKING_DETAILED_VIEW_LABEL = "Detailed"
 const MATRIX_SURFACE_BAND_CLASS = "border-border bg-muted/25"
 const MATRIX_ROW_GRID_CLASS =
-  "grid grid-cols-[96px_minmax(0,1fr)] items-stretch"
-const MATRIX_ROW_CONTENT_CLASS = "min-w-0 py-2 pr-2"
+  "grid grid-cols-[72px_minmax(0,1fr)] items-stretch sm:grid-cols-[96px_minmax(0,1fr)]"
+const MATRIX_ROW_CONTENT_CLASS = "min-w-0 py-2 pr-2 sm:pr-2"
 const EDITOR_SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "numeric",
@@ -1456,7 +1456,7 @@ export function AssetStackingPlanWorkspace({
               </div>
             ) : null}
 
-            <div className="ml-auto flex flex-wrap items-center gap-3">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:gap-3">
               <Select
                 value={vizMode}
                 onValueChange={(value) => {
@@ -1471,7 +1471,7 @@ export function AssetStackingPlanWorkspace({
               >
                 <SelectTrigger
                   size="sm"
-                  className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                  className="w-full min-w-0 rounded-lg border-border bg-background shadow-sm sm:w-auto sm:min-w-[176px]"
                   aria-label="Select stacking visualization mode"
                 >
                   <span className="truncate">
@@ -1543,7 +1543,7 @@ export function AssetStackingPlanWorkspace({
                     predictedRentLiftPct={predictedRentLiftPct}
                   />
                   <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
                       {shouldShowViewToggle ? (
                         <div className="flex items-center">
                           <ToggleGroup
@@ -1579,7 +1579,7 @@ export function AssetStackingPlanWorkspace({
                             }}
                           >
                             <SelectTrigger
-                              className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                              className="w-full min-w-0 rounded-lg border-border bg-background shadow-sm sm:w-auto sm:min-w-[176px]"
                               aria-label="Select stacking visualization mode"
                             >
                               <span className="truncate">
@@ -1603,7 +1603,7 @@ export function AssetStackingPlanWorkspace({
                         </>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
+                    <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto xl:justify-end">
                       {shouldShowViewToggle ? (
                         <>
                           <Select
@@ -1619,7 +1619,7 @@ export function AssetStackingPlanWorkspace({
                             }}
                           >
                             <SelectTrigger
-                              className="min-w-[176px] rounded-lg border-border bg-background shadow-sm"
+                              className="w-full min-w-0 rounded-lg border-border bg-background shadow-sm sm:w-auto sm:min-w-[176px]"
                               aria-label="Select stacking visualization mode"
                             >
                               <span className="truncate">
@@ -1878,18 +1878,18 @@ function DetailedFloorRow({
 
   return (
     <div
-      className={`grid min-h-16 grid-cols-[116px_minmax(0,1fr)] items-stretch bg-background transition-colors hover:bg-muted/10 ${
+      className={`grid min-h-16 grid-cols-[76px_minmax(0,1fr)] items-stretch bg-background transition-colors hover:bg-muted/10 sm:grid-cols-[116px_minmax(0,1fr)] ${
         !isLast ? "border-b border-border/70" : ""
       }`}
     >
-      <div className="flex items-center justify-center px-3 py-3">
-        <div className="flex min-w-[72px] flex-col items-center justify-center gap-1.5">
-          <div className="flex h-10 min-w-[52px] items-center justify-center rounded-lg border border-border/60 bg-muted/35 px-3">
-            <div className="text-[15px] font-semibold text-foreground tabular-nums">
+      <div className="flex items-center justify-center px-2 py-3 sm:px-3">
+        <div className="flex min-w-[52px] flex-col items-center justify-center gap-1.5 sm:min-w-[72px]">
+          <div className="flex h-9 min-w-[44px] items-center justify-center rounded-lg border border-border/60 bg-muted/35 px-2 sm:h-10 sm:min-w-[52px] sm:px-3">
+            <div className="text-sm font-semibold text-foreground tabular-nums sm:text-[15px]">
               {floor.floor}
             </div>
           </div>
-          <div className="text-center text-[11px] font-medium text-muted-foreground/90 tabular-nums">
+          <div className="max-w-[60px] truncate text-center text-[10px] font-medium text-muted-foreground/90 tabular-nums sm:max-w-none sm:text-[11px]">
             {floor.sqft}
           </div>
         </div>
@@ -1897,7 +1897,7 @@ function DetailedFloorRow({
 
       <div className="min-w-0 py-2 pr-2">
         <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/10">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/30 px-2.5 py-1.5">
+          <div className="flex max-h-[4.75rem] flex-wrap items-center gap-x-1.5 gap-y-1 overflow-hidden border-b border-border/30 px-2 py-1.5 sm:max-h-none sm:gap-x-2 sm:gap-y-1.5 sm:px-2.5">
             <InlineMetricItem
               label={getFloorMetricLongLabel("occ")}
               value={`${floor.occupancyPercent}%`}
@@ -1923,7 +1923,7 @@ function DetailedFloorRow({
               valueClassName={qualityScoreValueClass(averageViewScore)}
             />
           </div>
-          <div className="flex min-h-[60px] min-w-0 flex-1 items-stretch gap-1.5 overflow-hidden rounded-sm border border-border/70 bg-muted/20 p-0.5 shadow-sm">
+          <div className="flex min-h-[68px] min-w-0 flex-1 items-stretch gap-1 overflow-hidden rounded-sm border border-border/70 bg-muted/20 p-0.5 shadow-sm sm:min-h-[60px] sm:gap-1.5">
             {floor.tenants.map((tenant, index) => (
               <TenantSegment
                 key={tenant.id}
@@ -1993,7 +1993,7 @@ function TenantSegment({
           )}
           style={{
             flex: `${tenant.widthPercent} 1 0px`,
-            minWidth: isVeryCompact ? "12px" : "28px",
+            minWidth: isVeryCompact ? "14px" : "32px",
           }}
         >
           <div
@@ -2764,7 +2764,7 @@ function CompactTenantEditor({
       }}
       className={cn("flex min-h-0 min-w-0 flex-col", className)}
     >
-      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-6 py-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6">
       <div className="min-w-0 space-y-3 rounded-lg border border-border/70 bg-muted/50 px-3 py-3 dark:border-border/60 dark:bg-muted/35">
         <div className="space-y-1">
           <h4 className="text-sm font-semibold text-foreground">Space assumptions</h4>
@@ -2784,7 +2784,7 @@ function CompactTenantEditor({
       </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-background px-6 py-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
         {onClose ? (
           <Button
             type="button"
@@ -2841,7 +2841,7 @@ function StackingPlanSuiteEditorSheet({
         className="w-[min(520px,100vw)] gap-0 border-l border-border bg-background p-0 shadow-xl sm:max-w-[520px]"
       >
         <div className="flex h-full min-h-0 flex-col bg-background">
-          <div className="shrink-0 border-b border-border px-6 py-4 pr-14">
+          <div className="shrink-0 border-b border-border px-4 py-4 pr-14 sm:px-6">
             <SheetTitle className="text-base font-semibold tracking-tight text-foreground">
               Floor {floor.floor} • {tenant.space}
             </SheetTitle>

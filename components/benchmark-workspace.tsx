@@ -223,7 +223,7 @@ export function BenchmarkWorkspace({
   return (
     <div
       role="main"
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-4"
     >
       <section
         className={cn(BENCHMARK_SECTION_CARD, "shrink-0")}
@@ -236,7 +236,7 @@ export function BenchmarkWorkspace({
           />
         ) : null}
         <div className="flex flex-col lg:flex-row lg:items-stretch">
-          <div className="relative min-h-[11rem] w-full shrink-0 bg-muted/20 sm:min-h-[12rem] lg:min-h-[34rem] lg:flex-1">
+          <div className="relative min-h-[13rem] w-full shrink-0 bg-muted/20 sm:min-h-[14rem] lg:min-h-[34rem] lg:flex-1">
             <div className="absolute inset-0 overflow-hidden">
               {showMapbox ? (
                 <BenchmarkMapbox
@@ -252,8 +252,8 @@ export function BenchmarkWorkspace({
                 <BenchmarkMapSkeleton />
               )}
             </div>
-            <div className="pointer-events-none absolute inset-0 z-20 flex justify-start pr-24 md:pr-28">
-              <div className="pointer-events-auto w-full max-w-[22rem] p-3 sm:max-w-sm md:p-4">
+            <div className="pointer-events-none absolute inset-0 z-20 flex justify-start pr-12 sm:pr-24 md:pr-28">
+              <div className="pointer-events-auto w-full max-w-[min(100%,22rem)] p-2.5 sm:max-w-sm sm:p-3 md:p-4">
                 <BenchmarkAreaSearchBox
                   currentArea={currentArea}
                   committedAreaId={committedArea.id}
@@ -282,7 +282,7 @@ export function BenchmarkWorkspace({
           </div>
 
           <div className="flex min-w-0 flex-col border-t border-border lg:flex-[2] lg:border-t-0 lg:border-l">
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               {coverageNote ? (
                 <div className="mb-3 rounded-lg border border-amber-200/70 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
                   {coverageNote}
