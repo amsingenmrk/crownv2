@@ -56,7 +56,7 @@ export function NewCompetitiveGroupDialog({
     if (!trimmed) return
     const created = addCustomCompetitiveGroup(trimmed, description.trim() || undefined)
     if (!created) {
-      showToast("Could not create competitive group.")
+      showToast("Could not create prospective group.")
       return
     }
 
@@ -70,20 +70,20 @@ export function NewCompetitiveGroupDialog({
 
     const nextHref = `/other-assets/groups/${encodeURIComponent(created.id)}`
     if (process.env.NODE_ENV !== "production") {
-      console.info("[other-assets] created competitive group", {
+      console.info("[other-assets] created prospective group", {
         groupId: created.id,
         href: nextHref,
       })
     }
     router.push(nextHref)
-    showToast(`Competitive group “${trimmed}” created.`)
+    showToast(`Prospective group “${trimmed}” created.`)
   }, [afterCreate, description, name, onOpenChange, router, showToast])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New competitive group</DialogTitle>
+          <DialogTitle>New prospective group</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
@@ -116,7 +116,7 @@ export function NewCompetitiveGroupDialog({
               id={descriptionId}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Optional: explain the strategy for this competitive group."
+              placeholder="Optional: explain the strategy for this prospective group."
               rows={3}
               maxLength={600}
               className={cn(

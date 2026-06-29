@@ -6,10 +6,7 @@ import Link from "next/link"
 import { ArrowDown, ArrowUp, Sun, Wrench } from "lucide-react"
 import {
   buildPortfolioAssetMetadataItems,
-  CompetitiveRemoveAssetButton,
   PortfolioAssetIdentity,
-  PortfolioRemoveAssetButton,
-  ScenarioRemoveAssetButton,
 } from "@/components/portfolio/portfolio-asset-identity"
 import { PortfolioProvenanceIndicator } from "@/components/portfolio/portfolio-provenance-indicator"
 import { PortfolioRowStatusBadge } from "@/components/portfolio/portfolio-row-status-badge"
@@ -442,8 +439,8 @@ export function createPortfolioAssetColumns(
       id: "competitiveScope",
       accessorFn: (row) => row.groupId,
       enableHiding: true,
-      meta: { columnLabel: "Competitive group" },
-      header: () => <div className="font-medium">Competitive group</div>,
+      meta: { columnLabel: "Prospective group" },
+      header: () => <div className="font-medium">Prospective group</div>,
       cell: ({ row }) => (
         <CompetitiveScopeSelect
           assetId={row.original.id}
@@ -506,42 +503,6 @@ export function createPortfolioAssetColumns(
     })
   }
 
-  if (isOwnedPortfolioVariant) {
-    columns.push({
-      id: "portfolioRemove",
-      enableHiding: false,
-      enableSorting: false,
-      meta: { columnLabel: "Remove from portfolio" },
-      header: () => <span className="sr-only">Remove from portfolio</span>,
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          <PortfolioRemoveAssetButton
-            assetId={row.original.id}
-            building={row.original.building}
-          />
-        </div>
-      ),
-    })
-  }
-
-  if (variant === "other-assets") {
-    columns.push({
-      id: "competitiveRemove",
-      enableHiding: false,
-      enableSorting: false,
-      meta: { columnLabel: "Remove from Other Assets" },
-      header: () => <span className="sr-only">Remove from Other Assets</span>,
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          <CompetitiveRemoveAssetButton
-            assetId={row.original.id}
-            building={row.original.building}
-          />
-        </div>
-      ),
-    })
-  }
-
   if (isScenarioVariant) {
     // Scenario overview: Asset column shows address in subtitle — keep Modifications next.
     columns.splice(2, 0, {
@@ -598,23 +559,6 @@ export function createPortfolioAssetColumns(
       cell: ({ row }) => (
         <div className="flex justify-start">
           <PortfolioRowStatusBadge rowId={row.original.id} />
-        </div>
-      ),
-    })
-    columns.push({
-      id: "scenarioRemove",
-      enableHiding: false,
-      enableSorting: false,
-      meta: { columnLabel: "Remove from scenario" },
-      header: () => (
-        <span className="sr-only">Remove from scenario</span>
-      ),
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          <ScenarioRemoveAssetButton
-            assetId={row.original.id}
-            building={row.original.building}
-          />
         </div>
       ),
     })

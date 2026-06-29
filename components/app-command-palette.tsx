@@ -299,11 +299,11 @@ export function AppCommandPalette({
 
           <CommandSeparator />
 
-          <CommandGroup heading="Competitive assets">
+          <CommandGroup heading="Prospective assets">
             {competitiveAssets.map((asset) => (
               <CommandItem
                 key={asset.id}
-                value={`competitive asset ${asset.name} ${asset.address}`}
+                value={`prospective asset ${asset.name} ${asset.address}`}
                 onSelect={() => go(assetHref(asset.id), { assetId: asset.id })}
               >
                 <Building2 className="text-muted-foreground" aria-hidden />

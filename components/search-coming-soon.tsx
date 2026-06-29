@@ -150,7 +150,7 @@ function SearchListingCardActions({
               variant="outline"
               size="icon-sm"
               className="shrink-0 border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Add listing to competitive group, portfolio group, or scenario"
+              aria-label="Add listing to prospective group, portfolio group, or scenario"
             />
           }
         >
@@ -176,7 +176,7 @@ function SearchListingCardActions({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              Competitive groups
+              Prospective groups
             </DropdownMenuLabel>
             {competitiveGroupsForMenu.map((group) => {
               const selected = competitiveMembershipGroupIds.includes(group.groupId)

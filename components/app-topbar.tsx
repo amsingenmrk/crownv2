@@ -1559,7 +1559,7 @@ export function AppTopbar() {
                     variant="ghost"
                     size="icon"
                     className="shrink-0"
-                    aria-label="Competitive group actions"
+                    aria-label="Prospective group actions"
                   />
                 }
               >
@@ -1591,7 +1591,7 @@ export function AppTopbar() {
             >
               <DialogContent showCloseButton className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Rename competitive group</DialogTitle>
+                  <DialogTitle>Rename prospective group</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-3">
                   <div className="grid gap-1.5">
@@ -1666,7 +1666,7 @@ export function AppTopbar() {
             >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Delete competitive group</DialogTitle>
+                  <DialogTitle>Delete prospective group</DialogTitle>
                   <DialogDescription>
                     This removes &ldquo;{pageTitle}&rdquo; and clears listing
                     membership in this group. This cannot be undone.
@@ -1690,13 +1690,13 @@ export function AppTopbar() {
                       setDeleteCompetitiveGroupOpen(false)
                       if (ok) {
                         router.replace("/other-assets")
-                        showToast("Competitive group deleted.")
+                        showToast("Prospective group deleted.")
                       } else {
-                        console.warn("Failed to delete competitive group.", {
+                        console.warn("Failed to delete prospective group.", {
                           groupId,
                           isSeededCompetitiveGroup,
                         })
-                        showToast("Could not delete competitive group.")
+                        showToast("Could not delete prospective group.")
                       }
                     }}
                   >

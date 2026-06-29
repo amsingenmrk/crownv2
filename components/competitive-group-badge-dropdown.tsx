@@ -110,8 +110,8 @@ export function CompetitiveGroupBadgeDropdown({
   const canRemoveFromOtherAssets = !competitiveData.removedAssetIds.has(assetId)
   const createDialogDescription =
     propertyDisplayName != null && propertyDisplayName.trim() !== ""
-      ? `Name this competitive group. ${propertyDisplayName.trim()} will be added to it.`
-      : "Name this competitive group. The current listing will be added to it."
+      ? `Name this prospective group. ${propertyDisplayName.trim()} will be added to it.`
+      : "Name this prospective group. The current listing will be added to it."
 
   return (
     <>
@@ -132,12 +132,12 @@ export function CompetitiveGroupBadgeDropdown({
                     )
               )}
               title={
-                hasMembership ? `Competitive groups: ${displayLabel}` : undefined
+                hasMembership ? `Prospective groups: ${displayLabel}` : undefined
               }
               aria-label={
                 hasMembership
-                  ? `Competitive groups: ${displayLabel}. Choose groups`
-                  : "Add listing to competitive group"
+                  ? `Prospective groups: ${displayLabel}. Choose groups`
+                  : "Add listing to prospective group"
               }
             />
           }
@@ -153,7 +153,7 @@ export function CompetitiveGroupBadgeDropdown({
             </>
           ) : (
             <>
-              Add to competitive set
+              Add to prospective set
               <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
             </>
           )}
@@ -211,7 +211,7 @@ export function CompetitiveGroupBadgeDropdown({
             }}
           >
             <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-            <span className="min-w-0 flex-1">Create new competitive group</span>
+            <span className="min-w-0 flex-1">Create new prospective group</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -225,12 +225,12 @@ export function CompetitiveGroupBadgeDropdown({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New competitive group</DialogTitle>
+            <DialogTitle>New prospective group</DialogTitle>
             <DialogDescription>{createDialogDescription}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-1">
             <label htmlFor={inputId} className="text-sm font-medium text-foreground">
-              Competitive group name
+              Prospective group name
             </label>
             <Input
               id={inputId}
@@ -243,13 +243,13 @@ export function CompetitiveGroupBadgeDropdown({
                 event.preventDefault()
                 const created = addCustomCompetitiveGroup(newGroupName)
                 if (created == null) {
-                  showToast("Enter a competitive group name.")
+                  showToast("Enter a prospective group name.")
                   return
                 }
                 addCompetitiveAssetToGroup(assetId, created.id)
                 setCreateOpen(false)
                 setNewGroupName("")
-                showToast(`Competitive group “${created.label}” created.`)
+                showToast(`Prospective group “${created.label}” created.`)
               }}
             />
           </div>
@@ -269,16 +269,16 @@ export function CompetitiveGroupBadgeDropdown({
               onClick={() => {
                 const created = addCustomCompetitiveGroup(newGroupName)
                 if (created == null) {
-                  showToast("Enter a competitive group name.")
+                  showToast("Enter a prospective group name.")
                   return
                 }
                 addCompetitiveAssetToGroup(assetId, created.id)
                 setCreateOpen(false)
                 setNewGroupName("")
-                showToast(`Competitive group “${created.label}” created.`)
+                showToast(`Prospective group “${created.label}” created.`)
               }}
             >
-              Create competitive group
+              Create prospective group
             </Button>
           </DialogFooter>
         </DialogContent>

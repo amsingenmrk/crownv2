@@ -107,12 +107,12 @@ export function CompetitiveScopeSelect({
                 "hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
               title={
-                hasMembership ? `Competitive groups: ${displayLabel}` : "Add to competitive set"
+                hasMembership ? `Prospective groups: ${displayLabel}` : "Add to prospective set"
               }
               aria-label={
                 hasMembership
-                  ? `Competitive groups: ${displayLabel}. Choose groups`
-                  : "Add listing to competitive group"
+                  ? `Prospective groups: ${displayLabel}. Choose groups`
+                  : "Add listing to prospective group"
               }
             />
           }
@@ -122,7 +122,7 @@ export function CompetitiveScopeSelect({
             aria-hidden
           />
           <span className="min-w-0 flex-1 truncate">
-            {hasMembership ? displayLabel : "Add to competitive set"}
+            {hasMembership ? displayLabel : "Add to prospective set"}
           </span>
           <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
         </DropdownMenuTrigger>
@@ -197,7 +197,7 @@ export function CompetitiveScopeSelect({
             }}
           >
             <Plus className="size-4 shrink-0 opacity-80" aria-hidden />
-            <span className="min-w-0 flex-1">Create new competitive group</span>
+            <span className="min-w-0 flex-1">Create new prospective group</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -211,15 +211,15 @@ export function CompetitiveScopeSelect({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New competitive group</DialogTitle>
+            <DialogTitle>New prospective group</DialogTitle>
             <DialogDescription>
-              Name this competitive group. This property ({building}) will be added
+              Name this prospective group. This property ({building}) will be added
               to it.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-1">
             <label htmlFor={inputId} className="text-sm font-medium text-foreground">
-              Competitive group name
+              Prospective group name
             </label>
             <Input
               id={inputId}
@@ -232,11 +232,11 @@ export function CompetitiveScopeSelect({
                 event.preventDefault()
                 const created = addCustomCompetitiveGroup(newGroupName)
                 if (created == null) {
-                  showToast("Enter a competitive group name.")
+                  showToast("Enter a prospective group name.")
                   return
                 }
                 addCompetitiveAssetToGroup(assetId, created.id)
-                showToast(`Competitive group “${created.label}” created.`)
+                showToast(`Prospective group “${created.label}” created.`)
                 setCreateOpen(false)
                 setNewGroupName("")
               }}
@@ -258,16 +258,16 @@ export function CompetitiveScopeSelect({
               onClick={() => {
                 const created = addCustomCompetitiveGroup(newGroupName)
                 if (created == null) {
-                  showToast("Enter a competitive group name.")
+                  showToast("Enter a prospective group name.")
                   return
                 }
                 addCompetitiveAssetToGroup(assetId, created.id)
-                showToast(`Competitive group “${created.label}” created.`)
+                showToast(`Prospective group “${created.label}” created.`)
                 setCreateOpen(false)
                 setNewGroupName("")
               }}
             >
-              Create competitive group
+              Create prospective group
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -885,7 +885,7 @@ export function PortfolioAssetsDataTable({
                 >
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="font-normal text-muted-foreground">
-                      Competitive groups
+                      Prospective groups
                     </DropdownMenuLabel>
                     {competitiveGroupsForMenu.map((group) => {
                       const alreadyAdded =
@@ -1276,7 +1276,7 @@ export function PortfolioAssetsDataTable({
                   ) : null}
                   {isOtherAssetsVariant && showScopeColumn ? (
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>Competitive group</span>
+                      <span>Prospective group</span>
                       <span className="min-w-0">
                         <CompetitiveScopeSelect
                           assetId={row.id}

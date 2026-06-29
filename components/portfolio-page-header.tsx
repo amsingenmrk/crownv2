@@ -128,16 +128,8 @@ export function PortfolioPageHeader() {
         (groupId) => !assetGroupData.removedPortfolioGroupIds.has(groupId)
       ).length +
       Object.keys(assetGroupData.customGroups).length
-    if (n === 0) {
-      const assetCount = scopedAssets.length
-      return assetCount === 1 ? "1 asset" : `${assetCount} assets`
-    }
     return n === 1 ? "1 portfolio group" : `${n} portfolio groups`
-  }, [
-    assetGroupData.customGroups,
-    assetGroupData.removedPortfolioGroupIds,
-    scopedAssets.length,
-  ])
+  }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
 
   const headerClusterMetrics = React.useMemo(
     () =>

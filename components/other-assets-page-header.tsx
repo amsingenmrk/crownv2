@@ -132,7 +132,7 @@ export function OtherAssetsPageHeader() {
 
   const overviewSubtitle = React.useMemo(() => {
     const n = groups.length
-    return n === 1 ? "1 competitive group" : `${n} competitive groups`
+    return n === 1 ? "1 prospective group" : `${n} prospective groups`
   }, [groups.length])
 
   const headerClusterMetrics = React.useMemo(
