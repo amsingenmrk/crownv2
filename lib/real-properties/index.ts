@@ -87,7 +87,15 @@ type RawAssetBlock = {
   as_is_noi?: number
   as_is_cap_rate?: number
   mark_to_market_value?: number
+  mark_to_market_revenue?: number
+  mark_to_market_expense?: number
   mark_to_market_noi?: number
+  mark_to_market_cap_rate?: number
+  gross_potential_value?: number
+  gross_potential_revenue?: number
+  gross_potential_expense?: number
+  gross_potential_noi?: number
+  gross_potential_cap_rate?: number
 }
 
 type RawMetrics = {
@@ -863,4 +871,60 @@ export function buildRealModificationRecommendation(
 
   recommendationCache.set(assetId, recommendation)
   return recommendation
+}
+
+/* ------------------------------------------------------------------ */
+/* Valuation condition metrics (In-Place / Mark-to-Market / Gross)    */
+/* ------------------------------------------------------------------ */
+
+export type RealConditionMetrics = {
+  grossRevenue: number
+  opex: number
+  noi: number
+  assetValue: number
+  capRate: number
+}
+
+export type RealConditionMetricMap = {
+  inPlace: RealConditionMetrics
+  markToMarket: RealConditionMetrics
+  grossPotential: RealConditionMetrics
+}
+
+/**
+ * The exact In-Place / Mark-to-Market / Gross Potential figures from the
+ * export's `asset` block. Values are used verbatim (not recomputed from
+ * NOI ÷ cap) because the source states value/revenue/NOI/cap independently —
+ * e.g. gross_potential_value can differ from gross_potential_noi ÷ cap.
+ */
+export function realValuationConditionMetrics(
+  assetId: string
+): RealConditionMetricMap | null {
+  const def = DEFS_BY_ID.get(assetId)
+  if (def == null) return null
+  const a = def.baseline.asset ?? {}
+
+  return {
+    inPlace: {
+      grossRevenue: a.as_is_revenue ?? 0,
+      opex: a.as_is_expense ?? 0,
+      noi: a.as_is_noi ?? 0,
+      assetValue: a.as_is_value ?? 0,
+      capRate: roundToHundredths((a.as_is_cap_rate ?? 0) * 100),
+    },
+    markToMarket: {
+      grossRevenue: a.mark_to_market_revenue ?? 0,
+      opex: a.mark_to_market_expense ?? 0,
+      noi: a.mark_to_market_noi ?? 0,
+      assetValue: a.mark_to_market_value ?? 0,
+      capRate: roundToHundredths((a.mark_to_market_cap_rate ?? 0) * 100),
+    },
+    grossPotential: {
+      grossRevenue: a.gross_potential_revenue ?? 0,
+      opex: a.gross_potential_expense ?? 0,
+      noi: a.gross_potential_noi ?? 0,
+      assetValue: a.gross_potential_value ?? 0,
+      capRate: roundToHundredths((a.gross_potential_cap_rate ?? 0) * 100),
+    },
+  }
 }

@@ -7,6 +7,11 @@ import {
   type ForecastAssumptions,
   type ForecastEconomicOutlookScenario,
 } from "@/lib/forecast-data"
+import {
+  isRealAssetId,
+  realValuationConditionMetrics,
+  type RealConditionMetrics,
+} from "@/lib/real-properties"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import type { StackingPlanDataset } from "@/lib/stacking-plan-data"
 import type { ValuationConditionId } from "@/lib/valuation-condition-config"
@@ -74,6 +79,52 @@ function metricsForRevenue({
   }
 }
 
+/** Scale a real property's stated condition metrics by scenario + modification levers. */
+function scaleRealConditionMetrics(
+  condition: ValuationConditionId,
+  base: RealConditionMetrics,
+  effects: {
+    rentFactor: number
+    opexFactor: number
+    exitCapAdjustmentPct: number
+  },
+  modUplift: {
+    rentLiftPct: number
+    annualOpexDeltaUsd: number
+    exitCapRateDeltaPct: number
+    upfrontCapexUsd: number
+  }
+): ValuationConditionMetrics {
+  const isInPlace = condition === "inPlace"
+  const grossRevenue = Math.max(
+    0,
+    base.grossRevenue * effects.rentFactor * (isInPlace ? 1 : 1 + modUplift.rentLiftPct)
+  )
+  const opexRatio = base.grossRevenue > 0 ? base.opex / base.grossRevenue : 0
+  const opex = Math.max(
+    0,
+    grossRevenue * opexRatio + (isInPlace ? 0 : modUplift.annualOpexDeltaUsd)
+  )
+  const noi = Math.max(0, grossRevenue - opex)
+  const capRate = clamp(
+    base.capRate + modUplift.exitCapRateDeltaPct + effects.exitCapAdjustmentPct,
+    4,
+    12
+  )
+  const upfront = isInPlace ? 0 : modUplift.upfrontCapexUsd
+  // Scale the stated value by NOI growth and cap compression so the exact
+  // exported value is preserved at the base case (the export states value
+  // independently of NOI ÷ cap), then flexes for forecast periods.
+  const scaledValue =
+    base.noi > 0 && base.capRate > 0
+      ? base.assetValue * (noi / base.noi) * (base.capRate / capRate)
+      : capRate > 0
+        ? noi / (capRate / 100)
+        : 0
+  const assetValue = Math.max(0, scaledValue - upfront)
+  return { grossRevenue, opex, noi, assetValue, capRate }
+}
+
 export function buildValuationConditionMetricMap({
   assetId,
   dataset,
@@ -102,6 +153,46 @@ export function buildValuationConditionMetricMap({
           occupancyTargetAdjustmentPct: 0,
           exitCapAdjustmentPct: 0,
         }
+
+  // Real properties carry exact In-Place / Mark-to-Market / Gross Potential
+  // figures in their export. Use them verbatim at the base case, and scale that
+  // base by the active scenario/modification levers for forecast periods.
+  if (isRealAssetId(assetId)) {
+    const realBase = realValuationConditionMetrics(assetId)
+    if (realBase != null) {
+      const isBaseCase =
+        effects.rentFactor === 1 &&
+        effects.opexFactor === 1 &&
+        effects.exitCapAdjustmentPct === 0 &&
+        modUplift.rentLiftPct === 0 &&
+        modUplift.annualOpexDeltaUsd === 0 &&
+        modUplift.exitCapRateDeltaPct === 0 &&
+        modUplift.upfrontCapexUsd === 0
+      if (isBaseCase) {
+        return {
+          inPlace: { ...realBase.inPlace },
+          markToMarket: { ...realBase.markToMarket },
+          grossPotential: { ...realBase.grossPotential },
+        }
+      }
+      return {
+        inPlace: scaleRealConditionMetrics("inPlace", realBase.inPlace, effects, modUplift),
+        markToMarket: scaleRealConditionMetrics(
+          "markToMarket",
+          realBase.markToMarket,
+          effects,
+          modUplift
+        ),
+        grossPotential: scaleRealConditionMetrics(
+          "grossPotential",
+          realBase.grossPotential,
+          effects,
+          modUplift
+        ),
+      }
+    }
+  }
+
   const currentOccupancyPct = dataset.summary.overallOccupancyPercent
   const effectiveTargetOccupancyPct = clamp(
     currentOccupancyPct +
