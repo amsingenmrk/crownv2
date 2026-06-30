@@ -43,8 +43,38 @@ function cell(row: BenchmarkRow, key: string): number {
   return Number.NaN
 }
 
+/** Resolve a row directly from an exported geo key (level + benchmarks key). */
+function rowForGeoKey(geoLevel: string, statsKey: string): BenchmarkRow | null {
+  switch (geoLevel) {
+    case "national":
+      return DATA.national
+    case "regional_hub":
+      return DATA.regionalHub[norm(statsKey)] ?? null
+    case "state":
+      return DATA.state[statsKey.toUpperCase()] ?? null
+    case "cbsa":
+      return DATA.cbsa[statsKey] ?? null
+    case "county":
+      return DATA.county[statsKey] ?? null
+    case "submarket":
+      return DATA.submarket[norm(statsKey)] ?? null
+    case "zip":
+      return DATA.zip[statsKey] ?? null
+    default:
+      return null
+  }
+}
+
 /** Resolve the CSV row for a benchmark area, by geography level + identity. */
 function rowForArea(area: BenchmarkArea): BenchmarkRow | null {
+  // Synthetic comparison areas carry their geo key in the id: `geo:<level>:<key>`.
+  if (area.id.startsWith("geo:")) {
+    const rest = area.id.slice(4)
+    const sep = rest.indexOf(":")
+    if (sep < 0) return null
+    return rowForGeoKey(rest.slice(0, sep), rest.slice(sep + 1))
+  }
+
   switch (area.level) {
     case "country":
       return DATA.national

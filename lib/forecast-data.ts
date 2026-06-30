@@ -1,7 +1,11 @@
 import { getAssetById } from "@/lib/assets"
 import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { isRealAssetId } from "@/lib/real-properties"
+import {
+  getRealForecastJson,
+  isRealAssetId,
+  type RealForecastJson,
+} from "@/lib/real-properties"
 import {
   upliftFromModValues,
   type ModificationUnderwritingUplift,
@@ -620,6 +624,179 @@ export function defaultForecastAssumptionsForAsset(
   }
 }
 
+/** Quarterly forecast periods derived from exported "YYYYQn" labels. */
+function periodsFromQuarterLabels(labels: readonly string[]): ForecastPeriod[] {
+  return labels.map((raw, index) => {
+    const match = /^(\d{4})Q([1-4])$/.exec(raw.trim())
+    const year = match ? Number(match[1]) : 2026 + Math.floor(index / 4)
+    const quarter = match ? Number(match[2]) : (index % 4) + 1
+    const startMonth = String((quarter - 1) * 3 + 1).padStart(2, "0")
+    return {
+      index,
+      quarter,
+      year,
+      label: `Q${quarter} ${String(year).slice(-2)}`,
+      startDate: `${year}-${startMonth}-01`,
+    }
+  })
+}
+
+/**
+ * Build the asset forecast model directly from an exported per-building
+ * forecast JSON scenario tree. Revenue arrays are annual run-rates (RSF × PSF),
+ * so they are converted to the model's quarterly basis (÷4); OpEx, NOI, cap
+ * rate, and sale price are derived with the same helpers as the synthetic path.
+ */
+function buildAssetForecastModelFromJson({
+  assetId,
+  scenario,
+  assumptions,
+  modValues = INITIAL_MOD_VALUES,
+  forecastJson,
+  tree,
+  includeRevenueBreakdown = true,
+}: {
+  assetId: string
+  scenario: ForecastEconomicOutlookScenario
+  assumptions: ForecastAssumptions
+  modValues?: ModValues
+  forecastJson: RealForecastJson
+  tree: RealForecastJson["floor_tree"][number]
+  includeRevenueBreakdown?: boolean
+}): AssetForecastModel {
+  const asset = getAssetById(assetId)
+  const periods = periodsFromQuarterLabels(forecastJson.quarter_labels)
+  const modificationUplift = upliftFromModValues(modValues)
+  const currentOccupancyPct = forecastJson.occupied_pct ?? 100
+
+  const toQuarterly = (annual: number) => annual / 4
+
+  const grossRevenue = periods.map((_, index) =>
+    toQuarterly(tree.gross_revenue_per_quarter[index] ?? 0)
+  )
+
+  const revenueBreakdown: ForecastRevenueFloorRow[] = includeRevenueBreakdown
+    ? [...tree.floors]
+        .sort((a, b) => b.floor_number - a.floor_number)
+        .map((floor) => ({
+          id: `floor-${floor.floor_number}`,
+          floor: floor.floor_number,
+          label: `Floor ${floor.floor_number}`,
+          sqft: floor.floor_rsf,
+          values: periods.map((_, index) =>
+            toQuarterly(floor.revenue_per_quarter[index] ?? 0)
+          ),
+          spaces: floor.spaces.map((space) => ({
+            id: space.space_id,
+            suite: space.suite,
+            tenantName: space.tenant_name,
+            floor: floor.floor_number,
+            sqft: space.rentable_sq_ft,
+            isVacant: space.occupancy_status !== "occupied",
+            leaseExpiration: "",
+            values: periods.map((_, index) =>
+              toQuarterly(space.revenue_per_quarter[index] ?? 0)
+            ),
+          })),
+        }))
+    : []
+
+  const normalizedAssumptions: ForecastAssumptions = {
+    markToMarketEnabled: assumptions.markToMarketEnabled !== false,
+    timeToLeaseMonths: clamp(Math.round(assumptions.timeToLeaseMonths), 3, 24),
+    occupancyTargetPct: Math.round(
+      effectiveForecastTargetOccupancyPct({
+        currentOccupancyPct,
+        periodIndex: 0,
+        scenario,
+        modificationUplift,
+      })
+    ),
+    defaultRenewalProbabilityPct: clamp(
+      Math.round(assumptions.defaultRenewalProbabilityPct),
+      10,
+      95
+    ),
+    exitCapRatePct: clamp(Number(assumptions.exitCapRatePct.toFixed(2)), 4, 8),
+  }
+
+  const currentAnnualRevenue = (grossRevenue[0] ?? 0) * 4
+  const baseAnnualOpex = deriveBaseAnnualOpex(assetId, currentAnnualRevenue)
+  const opex = buildQuarterlyOpex({
+    periods,
+    grossRevenue,
+    baseAnnualOpex,
+    annualOpexDeltaUsd: modificationUplift.annualOpexDeltaUsd,
+    currentOccupancyPct,
+    scenario,
+  })
+  const noi = grossRevenue.map((value, index) => value - (opex[index] ?? 0))
+  const capRate = periods.map((period) => {
+    const macroPeriod = macroPeriodForIndex(scenario, period.index)
+    const effects = scenarioEffectsForPeriod(macroPeriod)
+    return clamp(
+      Number(
+        (
+          normalizedAssumptions.exitCapRatePct +
+          modificationUplift.exitCapRateDeltaPct +
+          effects.exitCapAdjustmentPct
+        ).toFixed(2)
+      ),
+      4,
+      8
+    )
+  })
+  const salePrice = noi.map((value, index) =>
+    Math.max(
+      0,
+      (value * 4) /
+        ((capRate[index] ?? normalizedAssumptions.exitCapRatePct) / 100) -
+        modificationUplift.upfrontCapexUsd
+    )
+  )
+
+  const statementRows: ForecastStatementRow[] = (
+    [
+      { id: "grossRevenue", label: "Gross Revenue", kind: "currency", values: grossRevenue },
+      { id: "opex", label: "OpEx", kind: "expense", values: opex },
+      { id: "noi", label: "NOI", kind: "currency", values: noi },
+      { id: "salePrice", label: "Asset Value", kind: "currency", values: salePrice },
+      { id: "capRate", label: "Cap Rate", kind: "percent", values: capRate },
+    ] as ForecastStatementRow[]
+  ).map((row) => ({
+    ...row,
+    uncertaintyBand: buildHeuristicUncertaintyBand({
+      rowId: row.id,
+      kind: row.kind,
+      values: row.values,
+    }),
+  }))
+
+  return {
+    assetId,
+    assetName: asset?.name ?? "Selected asset",
+    scenario,
+    assumptions: normalizedAssumptions,
+    periods,
+    statementRows,
+    revenueBreakdown,
+    summary: {
+      currentOccupancyPct,
+      targetOccupancyPct: effectiveForecastTargetOccupancyPct({
+        currentOccupancyPct,
+        periodIndex: 0,
+        scenario,
+        modificationUplift,
+      }),
+      currentAnnualRevenue,
+      currentAnnualOpex: (opex[0] ?? 0) * 4,
+      currentAnnualNoi: (noi[0] ?? 0) * 4,
+      exitCapRatePct:
+        capRate[capRate.length - 1] ?? normalizedAssumptions.exitCapRatePct,
+    },
+  }
+}
+
 export function buildAssetForecastModel({
   assetId,
   scenario,
@@ -635,6 +812,25 @@ export function buildAssetForecastModel({
   stackingPlanData?: StackingPlanDataset
   includeRevenueBreakdown?: boolean
 }): AssetForecastModel {
+  // Real buildings with an exported forecast JSON drive the projection directly
+  // for the preset scenarios (baseline / optimistic / pessimistic). Custom
+  // outlooks (no matching tree) fall through to the synthetic model below.
+  const forecastJson = getRealForecastJson(assetId)
+  if (forecastJson != null) {
+    const tree = forecastJson.floor_tree.find((t) => t.name === scenario.id)
+    if (tree != null) {
+      return buildAssetForecastModelFromJson({
+        assetId,
+        scenario,
+        assumptions,
+        modValues,
+        forecastJson,
+        tree,
+        includeRevenueBreakdown,
+      })
+    }
+  }
+
   const asset = getAssetById(assetId)
   const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
   const periods = buildForecastPeriods()

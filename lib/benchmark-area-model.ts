@@ -1,6 +1,11 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-asset"
 import { realBenchmarkStatsForArea } from "@/lib/benchmark-data/real-benchmarks"
+import {
+  assetKpiPercentilesForGeoLevel,
+  geoKeyForBenchmarkArea,
+  isPercentileAsset,
+} from "@/lib/benchmark-data/asset-percentiles"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -1009,6 +1014,18 @@ export function benchmarkAssetKpiPercentilesForArea(
   const empty = Object.fromEntries(
     BENCHMARK_KPI_DEFINITIONS.map((definition) => [definition.key, null])
   ) as BenchmarkKpiPercentileByKey
+
+  // Prefer the exported per-asset percentile table when this asset + geography
+  // level is present (percentiles are stated explicitly per KPI per level).
+  if (isPercentileAsset(assetId)) {
+    const geoKey = geoKeyForBenchmarkArea(area)
+    if (geoKey != null) {
+      const fromTable = assetKpiPercentilesForGeoLevel(assetId, geoKey.geoLevel)
+      if (fromTable != null) {
+        return { ...empty, ...fromTable }
+      }
+    }
+  }
 
   const sample = benchmarkSampleForAssetId(assetId, coordinates)
   if (sample == null) return empty

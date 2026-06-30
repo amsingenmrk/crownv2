@@ -33,6 +33,7 @@ import {
 import { isTrackedBenchmarkArea } from "@/lib/benchmark-market-stats"
 import { zipBenchmarkAreaForCode } from "@/lib/benchmark-zip-areas"
 import { stateBenchmarkAreaForCode } from "@/lib/benchmark-state-areas"
+import { assetPercentileGeoAreas } from "@/lib/benchmark-data/asset-percentiles"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
@@ -215,19 +216,45 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     [assetId]
   )
 
-  const { lowArea, marketArea } = React.useMemo(
-    () =>
-      defaultBenchmarkAreasForAsset(
-        assetPin ? [assetPin.longitude, assetPin.latitude] : null,
-        fallbackMarketArea,
-        assetZipCode,
-        assetStateCode,
-        coordinates
-      ),
-    [assetPin, fallbackMarketArea, assetZipCode, assetStateCode, coordinates]
+  // Comparison areas come from the per-asset percentile table (the hierarchy
+  // levels this asset belongs to), so the options reflect the export.
+  const percentileAreas = React.useMemo(
+    () => assetPercentileGeoAreas(assetId),
+    [assetId]
   )
 
+  const { lowArea, marketArea } = React.useMemo(() => {
+    if (percentileAreas.length > 0) {
+      const byLevel = (level: string) =>
+        percentileAreas.find((area) => area.id.startsWith(`geo:${level}:`))
+      const low =
+        byLevel("zip") ?? percentileAreas[percentileAreas.length - 1]!
+      const market =
+        byLevel("cbsa") ??
+        byLevel("state") ??
+        byLevel("regional_hub") ??
+        byLevel("national") ??
+        percentileAreas[0]!
+      return { lowArea: low, marketArea: market }
+    }
+    return defaultBenchmarkAreasForAsset(
+      assetPin ? [assetPin.longitude, assetPin.latitude] : null,
+      fallbackMarketArea,
+      assetZipCode,
+      assetStateCode,
+      coordinates
+    )
+  }, [
+    percentileAreas,
+    assetPin,
+    fallbackMarketArea,
+    assetZipCode,
+    assetStateCode,
+    coordinates,
+  ])
+
   const comparisonAreas = React.useMemo(() => {
+    if (percentileAreas.length > 0) return percentileAreas
     const pathFromLow = getBenchmarkAreaPath(lowArea)
     const pathFromMarket = getBenchmarkAreaPath(marketArea)
     const merged = dedupeAreas([
@@ -239,7 +266,7 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
       (area) =>
         isTrackedBenchmarkArea(area.id) && benchmarkAreaHasSufficientCoverage(area)
     )
-  }, [lowArea, marketArea])
+  }, [percentileAreas, lowArea, marketArea])
 
   const comparisonOptions = React.useMemo<BenchmarkComparisonOption[]>(
     () =>
@@ -272,18 +299,20 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
 
   const selectedLowArea = React.useMemo(
     () =>
+      comparisonAreas.find((area) => area.id === lowSelectionId) ??
       resolveBenchmarkAreaById(lowSelectionId) ??
       getBenchmarkAreaById(lowSelectionId) ??
       lowArea,
-    [lowArea, lowSelectionId]
+    [comparisonAreas, lowArea, lowSelectionId]
   )
 
   const selectedMarketArea = React.useMemo(
     () =>
+      comparisonAreas.find((area) => area.id === marketSelectionId) ??
       resolveBenchmarkAreaById(marketSelectionId) ??
       getBenchmarkAreaById(marketSelectionId) ??
       marketArea,
-    [marketArea, marketSelectionId]
+    [comparisonAreas, marketArea, marketSelectionId]
   )
 
   const [resolvedAreas, setResolvedAreas] = React.useState<{
@@ -298,11 +327,21 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     let cancelled = false
     setResolvedAreas({ lowArea: selectedLowArea, marketArea: selectedMarketArea })
 
-    if (!mapboxAccessToken) return () => void (cancelled = true)
+    // Synthetic percentile-table areas (geo:*) keep their id (it carries the
+    // geo key used for stats); skip geocode/boundary enrichment for them.
+    const lowIsGeo = selectedLowArea.id.startsWith("geo:")
+    const marketIsGeo = selectedMarketArea.id.startsWith("geo:")
+    if (!mapboxAccessToken || (lowIsGeo && marketIsGeo)) {
+      return () => void (cancelled = true)
+    }
 
     Promise.all([
-      resolveBenchmarkAreaSelection(selectedLowArea, mapboxAccessToken),
-      resolveBenchmarkAreaSelection(selectedMarketArea, mapboxAccessToken),
+      lowIsGeo
+        ? Promise.resolve(selectedLowArea)
+        : resolveBenchmarkAreaSelection(selectedLowArea, mapboxAccessToken),
+      marketIsGeo
+        ? Promise.resolve(selectedMarketArea)
+        : resolveBenchmarkAreaSelection(selectedMarketArea, mapboxAccessToken),
     ])
       .then(([resolvedLowArea, resolvedMarketArea]) => {
         if (cancelled) return

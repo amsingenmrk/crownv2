@@ -40,6 +40,10 @@ import {
 import { KpiRangeBar } from "@/components/benchmark-kpi-range-bar"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import { resolveBenchmarkAreaForAsset } from "@/lib/benchmark-area-for-asset"
+import {
+  assetsSharingGeo,
+  geoKeyForBenchmarkArea,
+} from "@/lib/benchmark-data/asset-percentiles"
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 import {
@@ -303,12 +307,27 @@ export function BenchmarkAreaStatsPanel({
     [competitiveGroupSnap]
   )
 
+  // Portfolio assets comparable at this geography come from the per-asset
+  // percentile table (assets sharing the selected area's geo). Falls back to
+  // the curated path logic for areas the table doesn't key (e.g. markets).
+  const tableEligiblePortfolioIds = React.useMemo(() => {
+    const geoKey = geoKeyForBenchmarkArea({
+      id: benchmarkAreaId,
+      level: "country",
+      label: "",
+    })
+    if (geoKey == null) return null
+    return new Set(assetsSharingGeo(geoKey.geoLevel, geoKey.statsKey))
+  }, [benchmarkAreaId])
+
   const scopedPortfolioAssets = React.useMemo(
     () =>
       ASSETS.filter((asset) =>
-        benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId)
+        tableEligiblePortfolioIds != null
+          ? tableEligiblePortfolioIds.has(asset.id)
+          : benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId)
       ).map((asset) => ({ id: asset.id, label: asset.name })),
-    [benchmarkAreaId]
+    [benchmarkAreaId, tableEligiblePortfolioIds]
   )
   const scopedOtherAssets = React.useMemo(() => {
     const activePins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT).filter(

@@ -5,6 +5,12 @@ import { usePathname } from "next/navigation"
 
 import { NewCompetitiveGroupDialog } from "@/components/new-competitive-group-dialog"
 import { SidebarTreeSection, type TreeGroupItem } from "@/components/sidebar-tree-section"
+import { getAssetById } from "@/lib/assets"
+import {
+  getAssetGroupOverridesSnapshot,
+  parseAssetGroupOverrideSnapshot,
+  subscribeAssetGroupOverrides,
+} from "@/lib/asset-group-overrides"
 import {
   COMPETITIVE_SEEDED_GROUPS,
   ensureCompetitiveMembershipSeeded,
@@ -38,6 +44,16 @@ export function NavCompetitiveSetTree() {
     [snapshot]
   )
 
+  const assetGroupSnapshot = React.useSyncExternalStore(
+    subscribeAssetGroupOverrides,
+    getAssetGroupOverridesSnapshot,
+    () => ""
+  )
+  const standalonePropertyNavIds = React.useMemo(
+    () => parseAssetGroupOverrideSnapshot(assetGroupSnapshot).standalonePropertyNavIds,
+    [assetGroupSnapshot]
+  )
+
   const groups = React.useMemo<CompetitiveGroupDefinition[]>(
     () => [
       ...COMPETITIVE_SEEDED_GROUPS.filter(
@@ -69,6 +85,11 @@ export function NavCompetitiveSetTree() {
     const match = pathname.match(/^\/properties\/([^/]+)/)
     if (!match?.[1]) return null
     const assetId = decodeURIComponent(match[1])
+    // Owned portfolio assets belong to "Your Assets", not the competitive set —
+    // only market listings / standalone assets activate the Prospective tree.
+    const isOwnedPortfolioAsset =
+      getAssetById(assetId) != null && !standalonePropertyNavIds.has(assetId)
+    if (isOwnedPortfolioAsset) return null
     const groupIds = resolveCompetitiveGroupIdsForAsset(
       assetId,
       competitiveData.membershipOverrides,
@@ -86,6 +107,7 @@ export function NavCompetitiveSetTree() {
     competitiveData.removedSeededGroupIds,
     groups,
     pathname,
+    standalonePropertyNavIds,
   ])
 
   const sectionIsActive = React.useMemo(

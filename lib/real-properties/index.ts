@@ -26,10 +26,65 @@ import type {
 
 import mtKembleBaseline from "./data/mt-kemble.baseline.json"
 import mtKembleModifications from "./data/mt-kemble.modifications.json"
+import mtKembleForecast from "./data/340-mt-kemble.forecast.json"
 import eastPutnamBaseline from "./data/east-putnam.baseline.json"
 import eastPutnamModifications from "./data/east-putnam.modifications.json"
+import eastPutnamForecast from "./data/1700-east-putnam.forecast.json"
 import mackCentreBaseline from "./data/mack-centre-iv.baseline.json"
 import mackCentreModifications from "./data/mack-centre-iv.modifications.json"
+import mackCentreForecast from "./data/mack-centre-iv.forecast.json"
+
+/* ------------------------------------------------------------------ */
+/* Forecast JSON (per-building quarterly projection by scenario)      */
+/* ------------------------------------------------------------------ */
+
+export type RealForecastSpace = {
+  space_id: string
+  suite: string
+  tenant_name: string
+  rentable_sq_ft: number
+  occupancy_status: string
+  lease_id: string
+  predicted_rent_psf_per_quarter: number[]
+  revenue_per_quarter: number[]
+}
+export type RealForecastFloor = {
+  floor_id: string
+  floor_number: number
+  floor_rsf: number
+  revenue_per_quarter: number[]
+  spaces: RealForecastSpace[]
+}
+export type RealForecastScenarioTree = {
+  name: string
+  label: string
+  gross_revenue_per_quarter: number[]
+  floors: RealForecastFloor[]
+}
+export type RealForecastJson = {
+  building_id: string
+  as_of_date: string
+  forecast_horizon_quarters: number
+  quarter_labels: string[]
+  wale_years: number | null
+  occupied_pct: number | null
+  vacant_pct: number | null
+  in_place_rent_psf: number | null
+  mark_to_market_psf: number | null
+  gross_potential_psf: number | null
+  floor_tree: RealForecastScenarioTree[]
+}
+
+const FORECASTS_BY_ID: Record<string, RealForecastJson> = {
+  "340-mt-kemble": mtKembleForecast as unknown as RealForecastJson,
+  "1700-east-putnam": eastPutnamForecast as unknown as RealForecastJson,
+  "mack-centre-iv": mackCentreForecast as unknown as RealForecastJson,
+}
+
+/** Per-building forecast JSON for a real asset, or null. */
+export function getRealForecastJson(assetId: string): RealForecastJson | null {
+  return FORECASTS_BY_ID[assetId] ?? null
+}
 
 /* ------------------------------------------------------------------ */
 /* Raw JSON shapes (loose; the export omits/null-fills various fields) */
