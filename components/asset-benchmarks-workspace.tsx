@@ -31,6 +31,8 @@ import {
   type BenchmarkKpiKey,
 } from "@/lib/benchmark-area-model"
 import { isTrackedBenchmarkArea } from "@/lib/benchmark-market-stats"
+import { zipBenchmarkAreaForCode } from "@/lib/benchmark-zip-areas"
+import { stateBenchmarkAreaForCode } from "@/lib/benchmark-state-areas"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
@@ -109,6 +111,14 @@ function defaultBenchmarkAreasForAsset(
   assetStateCode: string | null,
   coordinates: Record<string, readonly [number, number]>
 ): { lowArea: BenchmarkArea; marketArea: BenchmarkArea } {
+  // Prefer the asset's actual ZIP (low) and state (market) so it benchmarks
+  // against its real geography from the export rather than a curated proxy.
+  const realZipArea = zipBenchmarkAreaForCode(assetZipCode)
+  if (realZipArea) {
+    const realStateArea = stateBenchmarkAreaForCode(assetStateCode)
+    return { lowArea: realZipArea, marketArea: realStateArea ?? fallbackMarketArea }
+  }
+
   if (!point) {
     return { lowArea: fallbackMarketArea, marketArea: fallbackMarketArea }
   }

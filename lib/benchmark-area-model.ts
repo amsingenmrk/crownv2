@@ -1,5 +1,6 @@
 import type { BenchmarkArea } from "@/lib/benchmark-area-search"
 import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-asset"
+import { realBenchmarkStatsForArea } from "@/lib/benchmark-data/real-benchmarks"
 import { getTrackedMarketStats } from "@/lib/benchmark-market-stats"
 import { ASSETS, getAssetById } from "@/lib/assets"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
@@ -399,10 +400,27 @@ function formatScoreRange(value: number, spread: number): string {
   return `${Math.round(lower)} - ${Math.round(upper)}`
 }
 
+const KPI_RAW_VALUE: Record<BenchmarkKpiKey, (raw: BenchmarkStatsRaw) => number> = {
+  askingRent: (r) => r.askingRentPsf,
+  inPlaceRent: (r) => r.inPlaceRentPsf,
+  occupancy: (r) => r.occupancyPct,
+  observedCapRate: (r) => r.observedCapRatePct,
+  intrinsicRent: (r) => r.intrinsicRentPsf,
+  intrinsicCapRate: (r) => r.intrinsicCapRatePct,
+  valuePerSf: (r) => r.valuePerSfUsd,
+  sunScore: (r) => r.sunScore,
+  viewScore: (r) => r.viewScore,
+  amenityQuality: (r) => r.amenityQuality,
+  accessibilityScore: (r) => r.accessibilityScore,
+}
+
 function supportingRangeForKpi(
   key: BenchmarkKpiKey,
   raw: BenchmarkStatsRaw
 ): string | undefined {
+  // No supporting range for metrics with no value (e.g. metrics absent from
+  // the benchmark export render as "—").
+  if (!Number.isFinite(KPI_RAW_VALUE[key](raw))) return undefined
   switch (key) {
     case "askingRent":
       return formatRentRange(raw.askingRentPsf, 1.75)
@@ -657,6 +675,10 @@ export function benchmarkAreaStats(
   area: BenchmarkArea,
   _coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkStatsRaw | null {
+  // Prefer real exported benchmark statistics when the geography is present.
+  const real = realBenchmarkStatsForArea(area)
+  if (real != null) return real
+
   const tracked = getTrackedMarketStats(area.id)
   if (tracked) {
     return {
