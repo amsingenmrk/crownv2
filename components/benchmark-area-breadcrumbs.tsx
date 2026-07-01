@@ -11,9 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  getBenchmarkAreaLevelLabel,
-  listBenchmarkAreaChildren,
-} from "@/lib/benchmark-area-hierarchy"
+  hierarchyLevelLabel as getBenchmarkAreaLevelLabel,
+  hierarchyChildren as listBenchmarkAreaChildren,
+} from "@/lib/benchmark-data/benchmark-hierarchy"
 import { type BenchmarkArea } from "@/lib/benchmark-area-search"
 import { cn } from "@/lib/utils"
 

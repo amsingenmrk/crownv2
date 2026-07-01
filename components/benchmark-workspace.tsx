@@ -10,11 +10,11 @@ import { BenchmarkForecastSection } from "@/components/benchmark-kpi-panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import {
-  BENCHMARK_ROOT_AREA,
-  getBenchmarkAreaLevelLabel,
-  getBenchmarkAreaPath,
-  listBenchmarkAreaChildren,
-} from "@/lib/benchmark-area-hierarchy"
+  HIERARCHY_ROOT_AREA as BENCHMARK_ROOT_AREA,
+  hierarchyLevelLabel as getBenchmarkAreaLevelLabel,
+  hierarchyAreaPath as getBenchmarkAreaPath,
+  hierarchyChildren as listBenchmarkAreaChildren,
+} from "@/lib/benchmark-data/benchmark-hierarchy"
 import {
   benchmarkAreaStats,
   benchmarkSnapshotFromRaw,
@@ -97,35 +97,43 @@ export function BenchmarkWorkspace({
     setCommittedArea(area)
   }, [])
 
+  // Data-hierarchy areas (geo:*) have no stored Mapbox boundary; skip geocode
+  // enrichment for them (avoids source/terrain churn that crashes mapbox-gl).
+  const resolveArea = React.useCallback(
+    (area: BenchmarkArea): Promise<BenchmarkArea> =>
+      area.id.startsWith("geo:")
+        ? Promise.resolve(area)
+        : resolveBenchmarkAreaSelection(area, accessToken),
+    [accessToken]
+  )
+
   React.useEffect(() => {
     const requestedArea = initialArea ?? BENCHMARK_ROOT_AREA
     let cancelled = false
 
-    void resolveBenchmarkAreaSelection(requestedArea, accessToken).then(
-      (resolved) => {
-        if (cancelled) return
-        setCurrentArea(resolved)
-        setCommittedArea(resolved)
-      }
-    )
+    void resolveArea(requestedArea).then((resolved) => {
+      if (cancelled) return
+      setCurrentArea(resolved)
+      setCommittedArea(resolved)
+    })
 
     return () => {
       cancelled = true
     }
-  }, [accessToken, initialArea])
+  }, [accessToken, initialArea, resolveArea])
 
   const applyArea = React.useCallback(
     async (area: BenchmarkArea) => {
       setSearchPending(true)
       try {
-        const resolved = await resolveBenchmarkAreaSelection(area, accessToken)
+        const resolved = await resolveArea(area)
         commitResolvedArea(resolved)
         setSearchFeedback(`${resolved.label} selected.`)
       } finally {
         setSearchPending(false)
       }
     },
-    [accessToken, commitResolvedArea]
+    [commitResolvedArea, resolveArea]
   )
 
   const statsRaw = React.useMemo(
@@ -164,9 +172,7 @@ export function BenchmarkWorkspace({
 
     void (async () => {
       const resolved = await Promise.all(
-        visibleChildren.map((area) =>
-          resolveBenchmarkAreaSelection(area, accessToken)
-        )
+        visibleChildren.map((area) => resolveArea(area))
       )
       if (requestId !== visibleAreaRequestIdRef.current) return
 

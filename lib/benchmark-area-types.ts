@@ -24,11 +24,14 @@ export type BenchmarkBoundaryGeometry =
 
 export type BenchmarkAreaLevel =
   | "country"
+  | "regionalHub"
+  | "state"
   | "market"
   | "submarket"
-  | "msaState"
   | "county"
   | "zip"
+  // Legacy level from the curated hierarchy; retained for back-compat.
+  | "msaState"
 
 export type BenchmarkArea = {
   id: string

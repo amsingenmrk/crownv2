@@ -7,6 +7,7 @@ import {
   resolveBenchmarkAreaById,
   US_NATIONAL_BENCHMARK_AREA,
 } from "@/lib/benchmark-area-search"
+import { hierarchyAreaById } from "@/lib/benchmark-data/benchmark-hierarchy"
 
 const BenchmarkWorkspace = dynamic(
   () =>
@@ -24,7 +25,10 @@ export function BenchmarkWorkspaceLoader({
   initialCompareAssetId?: string
 } = {}) {
   const initialArea = React.useMemo(
-    () => resolveBenchmarkAreaById(initialAreaId) ?? undefined,
+    () =>
+      (initialAreaId != null ? hierarchyAreaById(initialAreaId) : null) ??
+      resolveBenchmarkAreaById(initialAreaId) ??
+      undefined,
     [initialAreaId]
   )
 

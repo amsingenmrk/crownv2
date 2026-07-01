@@ -34,6 +34,8 @@ const BENCHMARK_AREA_LEVEL_ORDER: readonly BenchmarkAreaLevel[] = [
 
 const BENCHMARK_AREA_LEVEL_LABELS: Record<BenchmarkAreaLevel, string> = {
   country: "U.S.",
+  regionalHub: "Region",
+  state: "State",
   market: "Market",
   submarket: "Submarket",
   msaState: "MSA / State",

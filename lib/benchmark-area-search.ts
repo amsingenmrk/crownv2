@@ -81,6 +81,8 @@ const PLACE_TYPE_ZOOM: Record<string, number> = {
 
 const LEVEL_ZOOM: Record<BenchmarkAreaLevel, number> = {
   country: 4.5,
+  regionalHub: 6,
+  state: 6.5,
   market: 8.5,
   submarket: 10.5,
   msaState: 11.5,

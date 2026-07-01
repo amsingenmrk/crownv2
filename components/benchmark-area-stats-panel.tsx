@@ -30,8 +30,10 @@ import {
   getBenchmarkAreaById,
   getBenchmarkAreaParent,
 } from "@/lib/benchmark-area-hierarchy"
+import { hierarchyAreaById } from "@/lib/benchmark-data/benchmark-hierarchy"
 import {
   BENCHMARK_KPI_DEFINITIONS,
+  benchmarkAssetKpiDisplayForArea,
   benchmarkAssetKpiPercentilesForArea,
   benchmarkBuildingTableRowForAsset,
   type BenchmarkAreaSnapshot,
@@ -43,6 +45,7 @@ import { resolveBenchmarkAreaForAsset } from "@/lib/benchmark-area-for-asset"
 import {
   assetsSharingGeo,
   geoKeyForBenchmarkArea,
+  isPercentileAsset,
 } from "@/lib/benchmark-data/asset-percentiles"
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
@@ -378,11 +381,17 @@ export function BenchmarkAreaStatsPanel({
   const comparing = selectedAssetId !== ""
   const assetCompare = React.useMemo(() => {
     if (!comparing) return null
-    const area = getBenchmarkAreaById(benchmarkAreaId)
+    const area =
+      hierarchyAreaById(benchmarkAreaId) ?? getBenchmarkAreaById(benchmarkAreaId)
     if (area == null) return null
-    const row = benchmarkBuildingTableRowForAsset(selectedAssetId, coordinates)
+    // Real assets use the per-asset export only (no synthetic fallback). The
+    // synthetic building row remains for non-table assets (e.g. market listings).
+    const tableKpis = benchmarkAssetKpiDisplayForArea(area, selectedAssetId)
+    const row = isPercentileAsset(selectedAssetId)
+      ? null
+      : benchmarkBuildingTableRowForAsset(selectedAssetId, coordinates)
     return {
-      kpis: row?.kpis ?? null,
+      kpis: tableKpis ?? row?.kpis ?? null,
       percentiles: benchmarkAssetKpiPercentilesForArea(
         area,
         selectedAssetId,

@@ -4,13 +4,12 @@ import * as React from "react"
 import { Search, X } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
-import { BENCHMARK_ROOT_AREA } from "@/lib/benchmark-area-hierarchy"
 import {
-  benchmarkAreaLevelLabel,
-  resolveBenchmarkAreaFromSearch,
-  searchBenchmarkAreas,
-  type BenchmarkArea,
-} from "@/lib/benchmark-area-search"
+  HIERARCHY_ROOT_AREA as BENCHMARK_ROOT_AREA,
+  hierarchyLevelLabel as benchmarkAreaLevelLabel,
+  searchHierarchyAreas,
+} from "@/lib/benchmark-data/benchmark-hierarchy"
+import { type BenchmarkArea } from "@/lib/benchmark-area-search"
 import { cn } from "@/lib/utils"
 
 /**
@@ -64,11 +63,7 @@ export function BenchmarkAreaSearchBox({
       const requestId = ++requestIdRef.current
       onPending(true)
       try {
-        const results = await searchBenchmarkAreas(
-          nextQuery,
-          currentArea,
-          accessToken
-        )
+        const results = searchHierarchyAreas(nextQuery)
         if (requestId !== requestIdRef.current) return
         setSuggestions(results)
         onFeedback(
@@ -91,11 +86,7 @@ export function BenchmarkAreaSearchBox({
       if (!trimmed) return
       onPending(true)
       try {
-        const resolved = await resolveBenchmarkAreaFromSearch(
-          nextQuery,
-          currentArea,
-          accessToken
-        )
+        const resolved = searchHierarchyAreas(trimmed)[0] ?? BENCHMARK_ROOT_AREA
         if (
           resolved.id === BENCHMARK_ROOT_AREA.id &&
           trimmed.toLowerCase() !== BENCHMARK_ROOT_AREA.label.toLowerCase()

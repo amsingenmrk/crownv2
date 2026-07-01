@@ -130,6 +130,22 @@ export function assetKpiPercentilesForGeoLevel(
   return out
 }
 
+/** Per-KPI values for an asset at a given exported geo level (constant per asset). */
+export function assetKpiValuesForGeoLevel(
+  assetId: string,
+  geoLevel: string
+): Partial<Record<BenchmarkKpiKey, number | null>> | null {
+  const row = levelRow(assetId, geoLevel)
+  if (row == null) return null
+  const out: Partial<Record<BenchmarkKpiKey, number | null>> = {}
+  for (const [snakeKey, cell] of Object.entries(row.kpis)) {
+    const key = KPI_KEY_MAP[snakeKey]
+    if (key == null) continue
+    out[key] = cell.isUsable ? cell.value : null
+  }
+  return out
+}
+
 /** Assets whose hierarchy includes the given (geoLevel, statsKey). */
 export function assetsSharingGeo(geoLevel: string, statsKey: string): string[] {
   const out: string[] = []

@@ -3,6 +3,7 @@ import { resolveBenchmarkAreaForCoordinates } from "@/lib/benchmark-area-for-ass
 import { realBenchmarkStatsForArea } from "@/lib/benchmark-data/real-benchmarks"
 import {
   assetKpiPercentilesForGeoLevel,
+  assetKpiValuesForGeoLevel,
   geoKeyForBenchmarkArea,
   isPercentileAsset,
 } from "@/lib/benchmark-data/asset-percentiles"
@@ -680,9 +681,12 @@ export function benchmarkAreaStats(
   area: BenchmarkArea,
   _coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkStatsRaw | null {
-  // Prefer real exported benchmark statistics when the geography is present.
+  // Real benchmark geographies (geo:*) use the export only — real or nothing,
+  // never synthetic. Synthetic "tracked" stats remain for legacy/demo areas
+  // (e.g. market listings) until they're wired to real data.
   const real = realBenchmarkStatsForArea(area)
   if (real != null) return real
+  if (area.id.startsWith("geo:")) return null
 
   const tracked = getTrackedMarketStats(area.id)
   if (tracked) {
@@ -1015,16 +1019,15 @@ export function benchmarkAssetKpiPercentilesForArea(
     BENCHMARK_KPI_DEFINITIONS.map((definition) => [definition.key, null])
   ) as BenchmarkKpiPercentileByKey
 
-  // Prefer the exported per-asset percentile table when this asset + geography
-  // level is present (percentiles are stated explicitly per KPI per level).
+  // Real assets are driven solely by the exported per-asset percentile table —
+  // no synthetic fallback (missing geo/metric stays blank, never fabricated).
   if (isPercentileAsset(assetId)) {
     const geoKey = geoKeyForBenchmarkArea(area)
-    if (geoKey != null) {
-      const fromTable = assetKpiPercentilesForGeoLevel(assetId, geoKey.geoLevel)
-      if (fromTable != null) {
-        return { ...empty, ...fromTable }
-      }
-    }
+    const fromTable =
+      geoKey != null
+        ? assetKpiPercentilesForGeoLevel(assetId, geoKey.geoLevel)
+        : null
+    return { ...empty, ...(fromTable ?? {}) }
   }
 
   const sample = benchmarkSampleForAssetId(assetId, coordinates)
@@ -1040,6 +1043,50 @@ export function benchmarkAssetKpiPercentilesForArea(
     }
     const spread = benchmarkKpiSpread(definition.key, areaMean)
     out[definition.key] = percentileFromAreaMean(target, areaMean, spread)
+  }
+  return out
+}
+
+function formatKpiValueByFormat(
+  format: BenchmarkKpiDefinition["format"],
+  value: number | null | undefined
+): string {
+  const v = value == null ? Number.NaN : value
+  switch (format) {
+    case "rentPsf":
+      return formatRentPsf(v)
+    case "valuePsf":
+      return formatValuePsf(v)
+    case "percent":
+      return formatPercent(v)
+    case "score":
+      return formatScore(v)
+    default:
+      return "—"
+  }
+}
+
+/**
+ * Compared-asset KPI display values sourced from the exported per-asset table
+ * (asset-percentiles.json) for a real asset at the selected area's geo level.
+ * Returns null when the asset/geography isn't in the table (caller falls back
+ * to the synthetic building row).
+ */
+export function benchmarkAssetKpiDisplayForArea(
+  area: BenchmarkArea,
+  assetId: string
+): Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue> | null {
+  if (!isPercentileAsset(assetId)) return null
+  const geoKey = geoKeyForBenchmarkArea(area)
+  if (geoKey == null) return null
+  const values = assetKpiValuesForGeoLevel(assetId, geoKey.geoLevel)
+  if (values == null) return null
+
+  const out = {} as Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
+  for (const definition of BENCHMARK_KPI_DEFINITIONS) {
+    out[definition.key] = {
+      value: formatKpiValueByFormat(definition.format, values[definition.key]),
+    }
   }
   return out
 }
