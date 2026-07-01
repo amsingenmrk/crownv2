@@ -2,7 +2,6 @@
 
 import * as React from "react"
 
-import { AssetBenchmarkProjectionCharts } from "@/components/asset-benchmark-projection-charts"
 import {
   AssetBenchmarksTable,
   type BenchmarkComparisonOption,
@@ -415,23 +414,6 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
         marketSelectionId={marketSelectionId}
         onMarketSelectionChange={setMarketSelectionId}
       />
-      {assetRow == null ? null : (
-        <AssetBenchmarkProjectionCharts
-          columns={[
-            { id: assetId, label: assetName, kpis: assetRow.kpis },
-            {
-              id: resolvedAreas.lowArea.id,
-              label: lowLabel,
-              kpis: lowKpis,
-            },
-            {
-              id: resolvedAreas.marketArea.id,
-              label: marketLabel,
-              kpis: marketKpis,
-            },
-          ]}
-        />
-      )}
     </div>
   )
 }

@@ -14,7 +14,11 @@
     "test": "vitest run",
     "capture:landing-screenshot": "node scripts/capture-landing-portfolio-screenshot.mjs",
     "generate:benchmark-boundaries": "node scripts/generate-benchmark-market-boundaries.mjs",
-    "generate:benchmark-submarket-boundaries": "node scripts/generate-benchmark-submarket-boundaries.mjs"
+    "generate:benchmark-submarket-boundaries": "node scripts/generate-benchmark-submarket-boundaries.mjs",
+    "generate:asset-percentiles": "node scripts/generate-asset-percentiles.mjs",
+    "generate:benchmarks": "node scripts/generate-benchmarks.mjs",
+    "generate:benchmarks:export-csv": "node scripts/generate-benchmarks.mjs --export-csv",
+    "generate:benchmark-data": "node scripts/generate-benchmarks.mjs && node scripts/generate-asset-percentiles.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
