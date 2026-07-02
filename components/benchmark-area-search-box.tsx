@@ -263,7 +263,7 @@ export function BenchmarkAreaSearchBox({
                 >
                   <span className="min-w-0 truncate">{suggestion.label}</span>
                   <span className="shrink-0 text-[11px] text-muted-foreground">
-                    {benchmarkAreaLevelLabel(suggestion)}
+                    {benchmarkAreaLevelLabel(suggestion.level)}
                   </span>
                 </button>
               </li>
