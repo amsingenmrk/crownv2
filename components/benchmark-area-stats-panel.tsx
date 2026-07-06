@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ASSETS, getAssetById } from "@/lib/assets"
+import { ASSETS } from "@/lib/assets"
 import {
   ensureCompetitiveMembershipSeeded,
   getCompetitiveGroupSnapshot,
@@ -50,8 +50,8 @@ import {
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 import {
-  getOtherRealAssetById,
   otherRealAssetList,
+  resolveAssetById,
 } from "@/lib/other-assets"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
@@ -92,7 +92,7 @@ function areaPathIdsFromAreaId(areaId: string | null): Set<string> {
 }
 
 function benchmarkPathIdsForAsset(assetId: string): Set<string> {
-  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
+  const asset = resolveAssetById(assetId)
   const pin = getMarketListingPinById(assetId)
   const locationText = asset?.address ?? pin?.location
   const zipCode = zipCodeFromAddress(locationText)

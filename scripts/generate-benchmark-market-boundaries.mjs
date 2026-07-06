@@ -38,6 +38,8 @@ const PRESET_SOURCES = [
   { id: "state-il", source: "state", stusps: "IL" },
   { id: "state-ma", source: "state", stusps: "MA" },
   { id: "state-nc", source: "state", stusps: "NC" },
+  { id: "state-nj", source: "state", stusps: "NJ" },
+  { id: "state-ct", source: "state", stusps: "CT" },
   { id: "state-ny", source: "state", stusps: "NY" },
   { id: "state-tn", source: "state", stusps: "TN" },
   { id: "state-tx", source: "state", stusps: "TX" },

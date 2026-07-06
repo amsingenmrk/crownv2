@@ -6,7 +6,6 @@ import { BenchmarkMapbox } from "@/components/benchmark-mapbox"
 import { BenchmarkAreaBreadcrumbs } from "@/components/benchmark-area-breadcrumbs"
 import { BenchmarkAreaSearchBox } from "@/components/benchmark-area-search-box"
 import { BenchmarkAreaStatsPanel } from "@/components/benchmark-area-stats-panel"
-import { BenchmarkForecastSection } from "@/components/benchmark-kpi-panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePortfolioAssetCoordinates } from "@/hooks/use-portfolio-asset-coordinates"
 import {
@@ -25,23 +24,11 @@ import {
   resolveBenchmarkAreaSelection,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
-import { enrichGeoBenchmarkAreaForMap } from "@/lib/benchmark-data/geo-area-map"
+import { enrichGeoBenchmarkAreaForMap, constrainGeoChildAreaForMap } from "@/lib/benchmark-data/geo-area-map"
 import { cn } from "@/lib/utils"
 
 const BENCHMARK_SECTION_CARD =
   "overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-
-function sameBounds(
-  left: BenchmarkArea["bounds"],
-  right: BenchmarkArea["bounds"]
-): boolean {
-  return (
-    left[0][0] === right[0][0] &&
-    left[0][1] === right[0][1] &&
-    left[1][0] === right[1][0] &&
-    left[1][1] === right[1][1]
-  )
-}
 
 function BenchmarkMapSkeleton() {
   return (
@@ -85,9 +72,8 @@ export function BenchmarkWorkspace({
   )
   const [resolvedVisibleChildren, setResolvedVisibleChildren] =
     React.useState<BenchmarkArea[]>(visibleChildren)
-  const breadcrumbPath = React.useMemo(
-    () => getBenchmarkAreaPath(currentArea),
-    [currentArea.id]
+  const [breadcrumbPath, setBreadcrumbPath] = React.useState<BenchmarkArea[]>(
+    () => getBenchmarkAreaPath(initialArea ?? BENCHMARK_ROOT_AREA)
   )
   const nextLevelLabel = currentArea.childLevel
     ? getBenchmarkAreaLevelLabel(currentArea.childLevel)
@@ -112,6 +98,7 @@ export function BenchmarkWorkspace({
       if (cancelled) return
       setCurrentArea(resolved)
       setCommittedArea(resolved)
+      setBreadcrumbPath(getBenchmarkAreaPath(resolved))
     })
 
     return () => {
@@ -120,11 +107,23 @@ export function BenchmarkWorkspace({
   }, [accessToken, initialArea, resolveArea])
 
   const applyArea = React.useCallback(
-    async (area: BenchmarkArea) => {
+    async (
+      area: BenchmarkArea,
+      options?: { breadcrumbPath?: BenchmarkArea[] }
+    ) => {
       setSearchPending(true)
       try {
         const resolved = await resolveArea(area)
         commitResolvedArea(resolved)
+        if (options?.breadcrumbPath != null) {
+          setBreadcrumbPath(options.breadcrumbPath)
+        } else {
+          setBreadcrumbPath((prev) =>
+            getBenchmarkAreaPath(resolved, {
+              preferAncestorIds: new Set(prev.map((entry) => entry.id)),
+            })
+          )
+        }
         setSearchFeedback(`${resolved.label} selected.`)
       } finally {
         setSearchPending(false)
@@ -173,12 +172,13 @@ export function BenchmarkWorkspace({
       )
       if (requestId !== visibleAreaRequestIdRef.current) return
 
+      const scopedToParent = resolved.map((child) =>
+        constrainGeoChildAreaForMap(currentArea, child)
+      )
+
       setResolvedVisibleChildren(
-        resolved.filter(
-          (area) =>
-            area.boundaryGeometry != null ||
-            area.boundary != null ||
-            !sameBounds(area.bounds, currentArea.bounds)
+        scopedToParent.filter(
+          (area) => area.boundaryGeometry != null || area.boundary != null
         )
       )
     })()
@@ -186,10 +186,24 @@ export function BenchmarkWorkspace({
 
   const jumpToArea = React.useCallback(
     (area: BenchmarkArea) => {
-      commitResolvedArea(area)
-      setSearchFeedback(`${area.label} selected.`)
+      setSearchPending(true)
+      void resolveArea(area)
+        .then((resolved) => {
+          commitResolvedArea(resolved)
+          setBreadcrumbPath((prev) => {
+            const idx = prev.findIndex((entry) => entry.id === resolved.id)
+            if (idx >= 0) return prev.slice(0, idx + 1)
+            return getBenchmarkAreaPath(resolved, {
+              preferAncestorIds: new Set(prev.map((entry) => entry.id)),
+            })
+          })
+          setSearchFeedback(`${resolved.label} selected.`)
+        })
+        .finally(() => {
+          setSearchPending(false)
+        })
     },
-    [commitResolvedArea]
+    [commitResolvedArea, resolveArea]
   )
 
   // Mirror the committed area into the URL so the view is shareable and
@@ -217,7 +231,21 @@ export function BenchmarkWorkspace({
       nextLevelLabel={nextLevelLabel}
       onJump={jumpToArea}
       onSelect={(area) => {
-        void applyArea(area)
+        const isDrillDown = visibleChildren.some((child) => child.id === area.id)
+        const nextPath = isDrillDown
+          ? [...breadcrumbPath, area]
+          : (() => {
+              const idx = breadcrumbPath.findIndex(
+                (entry) => entry.level === area.level
+              )
+              if (idx >= 0) return [...breadcrumbPath.slice(0, idx), area]
+              return getBenchmarkAreaPath(area, {
+                preferAncestorIds: new Set(
+                  breadcrumbPath.map((entry) => entry.id)
+                ),
+              })
+            })()
+        void applyArea(area, { breadcrumbPath: nextPath })
       }}
     />
   )
@@ -320,24 +348,6 @@ export function BenchmarkWorkspace({
           </div>
         </div>
       </section>
-
-      {showMapbox ? (
-        <section
-          className={cn(BENCHMARK_SECTION_CARD, "shrink-0")}
-          aria-label="Benchmark forecasts"
-        >
-          {coverageNote ? (
-            <div className="border-b border-border/60 bg-amber-50/70 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-              {coverageNote}
-            </div>
-          ) : null}
-          <BenchmarkForecastSection
-            key={committedArea.id}
-            area={committedArea}
-            statsRaw={statsRaw}
-          />
-        </section>
-      ) : null}
     </div>
   )
 }

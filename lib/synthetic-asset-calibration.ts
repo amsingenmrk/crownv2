@@ -9,6 +9,7 @@ import {
   isMarketListingPinId,
   marketSearchDemoHash32,
 } from "@/lib/market-search-demo-listings"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 
 type MarketTier = "gateway" | "coastal" | "sunbelt" | "secondary"
 
@@ -142,6 +143,11 @@ export function resolveSyntheticAssetRecord(
   const ownedAsset = getAssetById(assetId, { overrides: {} })
   if (ownedAsset != null) {
     return ownedAsset
+  }
+
+  const otherAsset = getOtherRealAssetById(assetId)
+  if (otherAsset != null) {
+    return otherAsset
   }
 
   if (isMarketListingPinId(assetId)) {

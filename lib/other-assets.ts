@@ -6,6 +6,10 @@
  * and benchmarks, but the Other Assets UI only surfaces JSON-backed buildings.
  */
 
+import { getAssetById, type Asset } from "@/lib/assets"
+import type { parseAssetGroupOverrideSnapshot } from "@/lib/asset-group-overrides"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
+
 export {
   /** Default number of synthetic market listings generated for the demo. */
   MARKET_SEARCH_LISTING_COUNT,
@@ -37,3 +41,13 @@ export {
 export type { PortfolioMapboxPin } from "@/components/portfolio-mapbox"
 /** Readable alias for the Other Asset record type (currently `PortfolioMapboxPin`). */
 export type { PortfolioMapboxPin as OtherAsset } from "@/components/portfolio-mapbox"
+
+type AssetGroupSnapshot = ReturnType<typeof parseAssetGroupOverrideSnapshot>
+
+/** Owned portfolio asset or JSON-backed Other Asset, when either applies. */
+export function resolveAssetById(
+  id: string,
+  options?: AssetGroupSnapshot
+): Asset | undefined {
+  return getAssetById(id, options) ?? getOtherRealAssetById(id)
+}

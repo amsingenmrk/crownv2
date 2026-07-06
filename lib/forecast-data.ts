@@ -1,4 +1,5 @@
 import { getAssetById } from "@/lib/assets"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { INITIAL_MOD_VALUES, type ModValues } from "@/lib/building-modifications"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
 import {
@@ -664,7 +665,7 @@ function buildAssetForecastModelFromJson({
   tree: RealForecastJson["floor_tree"][number]
   includeRevenueBreakdown?: boolean
 }): AssetForecastModel {
-  const asset = getAssetById(assetId)
+  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
   const periods = periodsFromQuarterLabels(forecastJson.quarter_labels)
   const modificationUplift = upliftFromModValues(modValues)
   const currentOccupancyPct = forecastJson.occupied_pct ?? 100
@@ -831,7 +832,7 @@ export function buildAssetForecastModel({
     }
   }
 
-  const asset = getAssetById(assetId)
+  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
   const dataset = stackingPlanData ?? getSampleStackingPlanData(assetId)
   const periods = buildForecastPeriods()
   const modificationUplift = upliftFromModValues(modValues)

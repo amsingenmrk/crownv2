@@ -1,4 +1,5 @@
 import { getAssetById } from "@/lib/assets"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import {
   curatedBenchmarkMarketAreas,
   US_NATIONAL_BENCHMARK_AREA,
@@ -91,7 +92,7 @@ export function resolveBenchmarkAreaForCoordinates(
  * coordinates (stable fallback when geocoding is unavailable on the server).
  */
 export function resolveBenchmarkAreaForAsset(assetId: string): BenchmarkArea {
-  const asset = getAssetById(assetId)
+  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
   if (asset) {
     const zipCode = zipCodeFromText(asset.address)
     if (zipCode) {

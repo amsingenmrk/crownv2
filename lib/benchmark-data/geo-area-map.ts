@@ -1,6 +1,9 @@
 import type { BenchmarkArea, BenchmarkAreaBounds } from "@/lib/benchmark-area-types"
-import { US_NATIONAL_BENCHMARK_AREA } from "@/lib/benchmark-market-boundaries"
-import { stateBenchmarkAreaForCode } from "@/lib/benchmark-state-areas"
+import { US_NATIONAL_BENCHMARK_AREA, getStoredBoundary } from "@/lib/benchmark-market-boundaries"
+import {
+  stateBenchmarkAreaForCode,
+  stateBenchmarkAreaForRegionalHub,
+} from "@/lib/benchmark-state-areas"
 import { zipBenchmarkAreaForCode } from "@/lib/benchmark-zip-areas"
 
 const GEO_AREA_PREFIX = "geo:"
@@ -13,6 +16,11 @@ const US_BOUNDS: BenchmarkAreaBounds = [
 const CBSA_GEOCODE_QUERY: Record<string, string> = {
   "14860": "Bridgeport-Stamford-Norwalk, CT",
   "35620": "New York-Newark-Jersey City, NY-NJ",
+}
+
+/** Stored market presets keyed by CBSA code (for metro outline on asset maps). */
+const CBSA_STORED_MARKET_ID: Record<string, string> = {
+  "35620": "market-new-york",
 }
 
 /** Parse a synthetic comparison-area id back into its geo key. */
@@ -37,6 +45,122 @@ function geocodeQueryForGeoLevel(
   if (geoLevel === "national") return "United States"
   if (label) return label
   return statsKey || undefined
+}
+
+function boundsFromGeoJsonGeometry(
+  geometry: GeoJSON.Geometry
+): BenchmarkAreaBounds | null {
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+
+  const visit = (coords: unknown): void => {
+    if (
+      Array.isArray(coords) &&
+      coords.length >= 2 &&
+      typeof coords[0] === "number" &&
+      typeof coords[1] === "number"
+    ) {
+      const [lng, lat] = coords as [number, number]
+      minLng = Math.min(minLng, lng)
+      maxLng = Math.max(maxLng, lng)
+      minLat = Math.min(minLat, lat)
+      maxLat = Math.max(maxLat, lat)
+      return
+    }
+    if (Array.isArray(coords)) {
+      for (const part of coords) visit(part)
+    }
+  }
+
+  if ("coordinates" in geometry) {
+    visit(geometry.coordinates)
+  }
+
+  if (!Number.isFinite(minLng)) return null
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ]
+}
+
+function areaFitBounds(area: BenchmarkArea): BenchmarkAreaBounds {
+  const geometry = area.boundaryGeometry?.geometry
+  if (geometry) {
+    const fromGeometry = boundsFromGeoJsonGeometry(geometry)
+    if (fromGeometry) return fromGeometry
+  }
+  return area.bounds
+}
+
+function boundsContains(
+  outer: BenchmarkAreaBounds,
+  inner: BenchmarkAreaBounds,
+  tolerance = 0.01
+): boolean {
+  const [[ow, os], [oe, on]] = outer
+  const [[iw, is], [ie, in_]] = inner
+  return (
+    iw >= ow - tolerance &&
+    ie <= oe + tolerance &&
+    is >= os - tolerance &&
+    in_ <= on + tolerance
+  )
+}
+
+function intersectBounds(
+  left: BenchmarkAreaBounds,
+  right: BenchmarkAreaBounds
+): BenchmarkAreaBounds | null {
+  const [[lw, ls], [le, ln]] = left
+  const [[rw, rs], [re, rn]] = right
+  const west = Math.max(lw, rw)
+  const south = Math.max(ls, rs)
+  const east = Math.min(le, re)
+  const north = Math.min(ln, rn)
+  if (west >= east || south >= north) return null
+  return [
+    [west, south],
+    [east, north],
+  ]
+}
+
+/**
+ * Clip a child geo area for map preview when its stored outline spans outside
+ * the parent (e.g. NYC metro under New Jersey state).
+ */
+export function constrainGeoChildAreaForMap(
+  parent: BenchmarkArea,
+  child: BenchmarkArea
+): BenchmarkArea {
+  const parentGeo = geoKeyFromAreaId(parent.id)
+  const childGeo = geoKeyFromAreaId(child.id)
+  if (
+    parentGeo == null ||
+    childGeo == null ||
+    (parentGeo.geoLevel !== "state" && parentGeo.geoLevel !== "regional_hub")
+  ) {
+    return child
+  }
+
+  if (child.boundaryGeometry == null && child.boundary == null) {
+    return child
+  }
+
+  const parentBounds = areaFitBounds(enrichGeoBenchmarkAreaForMap(parent))
+  const childBounds = areaFitBounds(child)
+  if (boundsContains(parentBounds, childBounds)) {
+    return child
+  }
+
+  const clippedBounds = intersectBounds(parentBounds, childBounds)
+  return {
+    ...child,
+    boundaryGeometry: undefined,
+    boundary: undefined,
+    bounds: clippedBounds ?? child.bounds,
+  }
 }
 
 /**
@@ -71,6 +195,35 @@ export function enrichGeoBenchmarkAreaForMap(area: BenchmarkArea): BenchmarkArea
         geocodeHint: stateArea.geocodeHint,
         boundary: stateArea.boundary,
         boundaryGeometry: stateArea.boundaryGeometry,
+      }
+    }
+  }
+
+  if (geoLevel === "regional_hub") {
+    const stateArea = stateBenchmarkAreaForRegionalHub(statsKey, label)
+    if (stateArea) {
+      return {
+        ...area,
+        bounds: stateArea.bounds,
+        geocodeQuery: stateArea.geocodeQuery,
+        geocodeHint: stateArea.geocodeHint,
+        boundary: stateArea.boundary,
+        boundaryGeometry: stateArea.boundaryGeometry,
+      }
+    }
+  }
+
+  if (geoLevel === "cbsa") {
+    const storedMarketId = CBSA_STORED_MARKET_ID[statsKey]
+    const storedMarket = storedMarketId
+      ? getStoredBoundary(storedMarketId)
+      : null
+    if (storedMarket) {
+      return {
+        ...area,
+        bounds: storedMarket.bounds,
+        geocodeQuery: geocodeQueryForGeoLevel(geoLevel, statsKey, label),
+        boundaryGeometry: storedMarket.geometry,
       }
     }
   }

@@ -75,3 +75,23 @@ export function stateBenchmarkAreaById(areaId: string): BenchmarkArea | null {
   if (!match) return null
   return stateBenchmarkAreaForCode(match[1])
 }
+
+/** Map a regional-hub label/key to a state outline when they match 1:1. */
+export function stateBenchmarkAreaForRegionalHub(
+  statsKey: string,
+  label: string
+): BenchmarkArea | null {
+  const candidates = [statsKey, label]
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0)
+
+  for (const seed of STATE_BENCHMARK_SEEDS) {
+    const seedLabel = seed.label.toLowerCase()
+    const seedCode = seed.code.toLowerCase()
+    if (candidates.some((value) => value === seedLabel || value === seedCode)) {
+      return stateBenchmarkAreaForCode(seed.code)
+    }
+  }
+
+  return null
+}

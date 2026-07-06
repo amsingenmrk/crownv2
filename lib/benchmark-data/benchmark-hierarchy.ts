@@ -61,19 +61,58 @@ function nodeIdFromAreaId(areaId: string): string | null {
   return areaId.slice(4)
 }
 
-/** parentNodeId for each child nodeId (single-parent tree). */
-const PARENT_OF: Record<string, string> = (() => {
-  const out: Record<string, string> = {}
+/** parentNodeIds for each child nodeId (multi-parent DAG from export). */
+const PARENTS_OF: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {}
   for (const [parentId, byLevel] of Object.entries(DATA.children)) {
     for (const [childLevel, keys] of Object.entries(byLevel)) {
       for (const key of keys) {
         const childId = NODE_ID(childLevel, key)
-        if (out[childId] == null) out[childId] = parentId
+        const list = out[childId] ?? []
+        if (!list.includes(parentId)) list.push(parentId)
+        out[childId] = list
       }
     }
   }
   return out
 })()
+
+function pickPreferredParentNodeId(
+  childNodeId: string,
+  parentNodeIds: readonly string[],
+  preferAncestorIds?: ReadonlySet<string>
+): string | null {
+  if (parentNodeIds.length === 0) return null
+  if (parentNodeIds.length === 1) return parentNodeIds[0]!
+
+  if (preferAncestorIds != null) {
+    const matchByGeo = parentNodeIds.find((parentId) =>
+      preferAncestorIds.has(`geo:${parentId}`)
+    )
+    if (matchByGeo) return matchByGeo
+  }
+
+  const childNode = DATA.nodes[childNodeId]
+  if (childNode?.level === "state") {
+    const stateLabel = childNode.label.trim().toLowerCase()
+    const nameMatch = parentNodeIds.find((parentId) => {
+      const parent = DATA.nodes[parentId]
+      return (
+        parent?.level === "regional_hub" &&
+        parent.label.trim().toLowerCase() === stateLabel
+      )
+    })
+    if (nameMatch) return nameMatch
+  }
+
+  return [...parentNodeIds].sort((left, right) =>
+    (DATA.nodes[left]?.label ?? left).localeCompare(
+      DATA.nodes[right]?.label ?? right,
+      undefined,
+      { sensitivity: "base" }
+    )
+  )[0]!
+}
 
 function areaFromNodeId(nodeId: string): BenchmarkArea | null {
   const node = DATA.nodes[nodeId]
@@ -81,7 +120,7 @@ function areaFromNodeId(nodeId: string): BenchmarkArea | null {
   const dataLevel = node.level
   const childMap = DATA.children[nodeId]
   const childDataLevel = childMap ? Object.keys(childMap)[0] : undefined
-  const parentNodeId = PARENT_OF[nodeId]
+  const parentNodeId = pickPreferredParentNodeId(nodeId, PARENTS_OF[nodeId] ?? [])
   return enrichGeoBenchmarkAreaForMap({
     id: AREA_ID(dataLevel, node.key),
     label: node.label,
@@ -121,21 +160,32 @@ export function hierarchyChildren(area: BenchmarkArea): BenchmarkArea[] {
   return out
 }
 
-export function hierarchyAreaParent(area: BenchmarkArea): BenchmarkArea | null {
+export function hierarchyAreaParent(
+  area: BenchmarkArea,
+  options?: { preferAncestorIds?: ReadonlySet<string> }
+): BenchmarkArea | null {
   const nodeId = nodeIdFromAreaId(area.id)
   if (nodeId == null) return null
-  const parentNodeId = PARENT_OF[nodeId]
+  const parentNodeId = pickPreferredParentNodeId(
+    nodeId,
+    PARENTS_OF[nodeId] ?? [],
+    options?.preferAncestorIds
+  )
   return parentNodeId != null ? areaFromNodeId(parentNodeId) : null
 }
 
-export function hierarchyAreaPath(area: BenchmarkArea): BenchmarkArea[] {
+export function hierarchyAreaPath(
+  area: BenchmarkArea,
+  options?: { preferAncestorIds?: ReadonlySet<string> }
+): BenchmarkArea[] {
   const path: BenchmarkArea[] = []
   let cursor: BenchmarkArea | null = area
   const guard = new Set<string>()
+  const preferAncestorIds = options?.preferAncestorIds
   while (cursor != null && !guard.has(cursor.id)) {
     guard.add(cursor.id)
     path.unshift(cursor)
-    cursor = hierarchyAreaParent(cursor)
+    cursor = hierarchyAreaParent(cursor, { preferAncestorIds })
   }
   return path
 }

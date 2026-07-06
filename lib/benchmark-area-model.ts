@@ -18,7 +18,7 @@ import {
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
-import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
+import { getOtherRealAssetById, otherRealAssetList } from "@/lib/real-properties/other-assets"
 import { stateCodeFromAddressLike } from "@/lib/benchmark-state-areas"
 import { zipCodeFromAddressLike } from "@/lib/benchmark-zip-areas"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
@@ -258,11 +258,22 @@ function benchmarkBuildingCatalog(
     return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
   }).filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
+  const otherReal = otherRealAssetList()
+    .map((asset) => {
+      const [longitude, latitude] = lngLatForPortfolioAsset(
+        asset.id,
+        asset.groupId,
+        coordinates
+      )
+      return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
+    })
+    .filter((sample): sample is BenchmarkBuildingSample => sample != null)
+
   const market = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
     .map((pin) => buildBenchmarkBuildingSample(pin.id, pin.longitude, pin.latitude))
     .filter((sample): sample is BenchmarkBuildingSample => sample != null)
 
-  return [...portfolio, ...market]
+  return [...portfolio, ...otherReal, ...market]
 }
 
 function zipComparableSamples(

@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils"
 import {
   otherRealAssetList,
+  resolveAssetById,
 } from "@/lib/other-assets"
 
 const ROUTES = [
@@ -114,7 +115,7 @@ export function AppCommandPalette({
   const recentAssets = useMemo(() => {
     if (!open) return []
     return getRecentAssetIds()
-      .map((id) => getAssetById(id, assetGroupData))
+      .map((id) => resolveAssetById(id, assetGroupData))
       .filter((a): a is NonNullable<typeof a> => a != null)
   }, [assetGroupData, open])
 
@@ -131,13 +132,15 @@ export function AppCommandPalette({
 
   const competitiveAssets = useMemo(() => {
     if (!open) return []
-    return otherRealAssetList().map((asset) => ({
-      id: asset.id,
-      name: asset.name,
-      address: asset.address,
-      groupLabel: "Prospective",
-    }))
-  }, [open])
+    return otherRealAssetList()
+      .filter((asset) => !recentIds.has(asset.id))
+      .map((asset) => ({
+        id: asset.id,
+        name: asset.name,
+        address: asset.address,
+        groupLabel: "Prospective",
+      }))
+  }, [open, recentIds])
 
   const commandScenarios = useMemo(() => {
     if (!open) return []
