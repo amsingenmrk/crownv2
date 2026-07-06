@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 
 import {
   hierarchyAreaById,
-  hierarchyChildren,
 } from "@/lib/benchmark-data/benchmark-hierarchy"
 import {
   constrainGeoChildAreaForMap,
@@ -15,7 +14,7 @@ describe("constrainGeoChildAreaForMap", () => {
       hierarchyAreaById("geo:state:NJ")!
     )
     const nycMetro = enrichGeoBenchmarkAreaForMap(
-      hierarchyChildren(stateNj).find((area) => area.id === "geo:cbsa:35620")!
+      hierarchyAreaById("geo:cbsa:35620")!
     )
 
     expect(nycMetro.boundaryGeometry).not.toBeNull()
@@ -32,7 +31,7 @@ describe("constrainGeoChildAreaForMap", () => {
       hierarchyAreaById("geo:state:CA")!
     )
     const child = enrichGeoBenchmarkAreaForMap(
-      hierarchyChildren(stateCa)[0]!
+      hierarchyAreaById("geo:cbsa:31080")!
     )
 
     const preview = constrainGeoChildAreaForMap(stateCa, child)

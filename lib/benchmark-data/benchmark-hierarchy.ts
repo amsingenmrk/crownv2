@@ -31,29 +31,167 @@ const US_BOUNDS: BenchmarkAreaBounds = [
   [-66, 50],
 ]
 
-/** Data (CSV) level → display level used by the UI. */
-const DISPLAY_LEVEL: Record<string, BenchmarkAreaLevel> = {
-  national: "country",
-  regional_hub: "regionalHub",
-  state: "state",
-  cbsa: "market",
-  county: "county",
-  submarket: "submarket",
-  zip: "zip",
+/** Navigation tiers for breadcrumb drill-down (largest → smallest). */
+const NAV_TIER_DATA_LEVELS: readonly (readonly string[])[] = [
+  ["national"],
+  ["regional_hub"],
+  ["state", "cbsa", "submarket"],
+  ["county"],
+  ["zip"],
+] as const
+
+const NAV_TIER_BENCHMARK_LEVEL: readonly BenchmarkAreaLevel[] = [
+  "country",
+  "regionalHub",
+  "submarket",
+  "county",
+  "zip",
+] as const
+
+const DATA_LEVEL_TO_NAV_TIER: Record<string, number> = {}
+for (let tier = 0; tier < NAV_TIER_DATA_LEVELS.length; tier += 1) {
+  for (const dataLevel of NAV_TIER_DATA_LEVELS[tier]!) {
+    DATA_LEVEL_TO_NAV_TIER[dataLevel] = tier
+  }
 }
 
 const LEVEL_LABEL: Record<string, string> = {
   national: "U.S.",
   regional_hub: "Region",
-  state: "State",
-  cbsa: "Metro",
-  county: "County",
+  state: "Submarket",
+  cbsa: "Submarket",
   submarket: "Submarket",
+  county: "County",
   zip: "ZIP",
 }
 
 const NODE_ID = (dataLevel: string, key: string) => `${dataLevel}:${key}`
 const AREA_ID = (dataLevel: string, key: string) => `geo:${dataLevel}:${key}`
+
+function navTierForDataLevel(dataLevel: string): number {
+  return DATA_LEVEL_TO_NAV_TIER[dataLevel] ?? -1
+}
+
+function navTierForNodeId(nodeId: string): number {
+  return navTierForDataLevel(DATA.nodes[nodeId]?.level ?? "")
+}
+
+function navTierForArea(area: BenchmarkArea): number {
+  const nodeId = nodeIdFromAreaId(area.id)
+  if (nodeId == null) return -1
+  return navTierForNodeId(nodeId)
+}
+
+function benchmarkLevelForNavTier(tier: number): BenchmarkAreaLevel | undefined {
+  return NAV_TIER_BENCHMARK_LEVEL[tier]
+}
+
+function hasDescendantsAtNavTier(rootNodeId: string, targetTier: number): boolean {
+  const rootTier = navTierForNodeId(rootNodeId)
+  if (rootTier < 0 || targetTier <= rootTier) return false
+
+  let found = false
+  function walk(nodeId: string): void {
+    if (found) return
+    const childMap = DATA.children[nodeId]
+    if (childMap == null) return
+
+    for (const [childLevel, keys] of Object.entries(childMap)) {
+      const childTier = navTierForDataLevel(childLevel)
+      for (const key of keys) {
+        const childId = NODE_ID(childLevel, key)
+        if (childTier === targetTier) {
+          found = true
+          return
+        }
+        if (childTier >= 0 && childTier < targetTier) {
+          walk(childId)
+        }
+      }
+    }
+  }
+
+  walk(rootNodeId)
+  return found
+}
+
+const NEXT_NAV_TIER_CACHE = new Map<string, number | undefined>()
+
+function nextNavTierWithChildren(nodeId: string): number | undefined {
+  if (NEXT_NAV_TIER_CACHE.has(nodeId)) {
+    return NEXT_NAV_TIER_CACHE.get(nodeId)
+  }
+
+  const currentTier = navTierForNodeId(nodeId)
+  if (currentTier < 0) {
+    NEXT_NAV_TIER_CACHE.set(nodeId, undefined)
+    return undefined
+  }
+
+  for (let tier = currentTier + 1; tier < NAV_TIER_DATA_LEVELS.length; tier += 1) {
+    if (hasDescendantsAtNavTier(nodeId, tier)) {
+      NEXT_NAV_TIER_CACHE.set(nodeId, tier)
+      return tier
+    }
+  }
+
+  NEXT_NAV_TIER_CACHE.set(nodeId, undefined)
+  return undefined
+}
+
+function collectDescendantsAtNavTier(
+  rootNodeId: string,
+  targetTier: number
+): BenchmarkArea[] {
+  const rootTier = navTierForNodeId(rootNodeId)
+  if (rootTier < 0 || targetTier <= rootTier) return []
+
+  const out: BenchmarkArea[] = []
+  const seenNodeIds = new Set<string>()
+
+  function walk(nodeId: string): void {
+    const childMap = DATA.children[nodeId]
+    if (childMap == null) return
+
+    for (const [childLevel, keys] of Object.entries(childMap)) {
+      const childTier = navTierForDataLevel(childLevel)
+      for (const key of keys) {
+        const childId = NODE_ID(childLevel, key)
+        if (childTier === targetTier) {
+          if (!seenNodeIds.has(childId)) {
+            seenNodeIds.add(childId)
+            const area = areaFromNodeId(childId)
+            if (area != null) out.push(area)
+          }
+          walk(childId)
+          continue
+        }
+        if (childTier >= 0 && childTier < targetTier) {
+          walk(childId)
+        }
+      }
+    }
+  }
+
+  walk(rootNodeId)
+  return out.sort((left, right) =>
+    left.label.localeCompare(right.label, undefined, { sensitivity: "base" })
+  )
+}
+
+function compressPathToNavTiers(pathRootToLeaf: BenchmarkArea[]): BenchmarkArea[] {
+  const byTier = new Map<number, BenchmarkArea>()
+  for (let index = pathRootToLeaf.length - 1; index >= 0; index -= 1) {
+    const area = pathRootToLeaf[index]!
+    const tier = navTierForArea(area)
+    if (tier >= 0 && !byTier.has(tier)) {
+      byTier.set(tier, area)
+    }
+  }
+  return [...byTier.entries()]
+    .sort(([leftTier], [rightTier]) => leftTier - rightTier)
+    .map(([, area]) => area)
+}
 
 /** Parse an area id back to its node id (`<dataLevel>:<key>`), or null. */
 function nodeIdFromAreaId(areaId: string): string | null {
@@ -118,16 +256,16 @@ function areaFromNodeId(nodeId: string): BenchmarkArea | null {
   const node = DATA.nodes[nodeId]
   if (node == null) return null
   const dataLevel = node.level
-  const childMap = DATA.children[nodeId]
-  const childDataLevel = childMap ? Object.keys(childMap)[0] : undefined
+  const navTier = navTierForDataLevel(dataLevel)
+  const nextTier = nextNavTierWithChildren(nodeId)
   const parentNodeId = pickPreferredParentNodeId(nodeId, PARENTS_OF[nodeId] ?? [])
   return enrichGeoBenchmarkAreaForMap({
     id: AREA_ID(dataLevel, node.key),
     label: node.label,
     bounds: US_BOUNDS,
-    level: DISPLAY_LEVEL[dataLevel] ?? "market",
+    level: benchmarkLevelForNavTier(navTier) ?? "submarket",
     childLevel:
-      childDataLevel != null ? DISPLAY_LEVEL[childDataLevel] : undefined,
+      nextTier != null ? benchmarkLevelForNavTier(nextTier) : undefined,
     parentId: parentNodeId != null ? `geo:${parentNodeId}` : undefined,
     geocodeQuery: node.label,
     isCurated: false,
@@ -148,16 +286,9 @@ export function hierarchyAreaById(areaId: string): BenchmarkArea | null {
 export function hierarchyChildren(area: BenchmarkArea): BenchmarkArea[] {
   const nodeId = nodeIdFromAreaId(area.id)
   if (nodeId == null) return []
-  const childMap = DATA.children[nodeId]
-  if (childMap == null) return []
-  const out: BenchmarkArea[] = []
-  for (const [childLevel, keys] of Object.entries(childMap)) {
-    for (const key of keys) {
-      const child = areaFromNodeId(NODE_ID(childLevel, key))
-      if (child != null) out.push(child)
-    }
-  }
-  return out
+  const nextTier = nextNavTierWithChildren(nodeId)
+  if (nextTier == null) return []
+  return collectDescendantsAtNavTier(nodeId, nextTier)
 }
 
 export function hierarchyAreaParent(
@@ -187,12 +318,18 @@ export function hierarchyAreaPath(
     path.unshift(cursor)
     cursor = hierarchyAreaParent(cursor, { preferAncestorIds })
   }
-  return path
+  return compressPathToNavTiers(path)
 }
 
 export function hierarchyLevelLabel(level: BenchmarkAreaLevel): string {
-  const entry = Object.entries(DISPLAY_LEVEL).find(([, v]) => v === level)
-  return entry ? LEVEL_LABEL[entry[0]]! : level
+  if (level === "country") return LEVEL_LABEL.national!
+  if (level === "regionalHub") return LEVEL_LABEL.regional_hub!
+  if (level === "submarket" || level === "state" || level === "market") {
+    return LEVEL_LABEL.submarket!
+  }
+  if (level === "county") return LEVEL_LABEL.county!
+  if (level === "zip") return LEVEL_LABEL.zip!
+  return level
 }
 
 /** Search hierarchy nodes by label/key (broad → specific), capped. */
@@ -202,7 +339,7 @@ export function searchHierarchyAreas(
 ): BenchmarkArea[] {
   const q = query.trim().toLowerCase()
   if (q.length === 0) return []
-  const levelRank = (dataLevel: string) => DATA.levelOrder.indexOf(dataLevel)
+  const levelRank = (dataLevel: string) => navTierForDataLevel(dataLevel)
   const scored: Array<{ area: BenchmarkArea; exact: boolean; rank: number }> = []
   for (const [nodeId, node] of Object.entries(DATA.nodes)) {
     const label = node.label.toLowerCase()
