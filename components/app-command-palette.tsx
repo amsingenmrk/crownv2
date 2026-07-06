@@ -45,9 +45,8 @@ import {
 } from "@/lib/user-scenarios"
 import { cn } from "@/lib/utils"
 import {
-  MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+  otherRealAssetList,
+} from "@/lib/other-assets"
 
 const ROUTES = [
   { title: "Portfolio", href: "/portfolio", icon: Briefcase },
@@ -132,10 +131,10 @@ export function AppCommandPalette({
 
   const competitiveAssets = useMemo(() => {
     if (!open) return []
-    return marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT).map((pin) => ({
-      id: pin.id,
-      name: pin.building,
-      address: pin.location,
+    return otherRealAssetList().map((asset) => ({
+      id: asset.id,
+      name: asset.name,
+      address: asset.address,
       groupLabel: "Prospective",
     }))
   }, [open])

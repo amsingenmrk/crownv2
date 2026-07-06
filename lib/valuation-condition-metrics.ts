@@ -10,8 +10,10 @@ import {
 import {
   isRealAssetId,
   realValuationConditionMetrics,
+  realValuationConditionMetricsForModValues,
   type RealConditionMetrics,
 } from "@/lib/real-properties"
+import { resolveRealExportScenarioKey } from "@/lib/real-properties/modification-scenarios"
 import { upliftFromModValues } from "@/lib/scenario-modification-uplift"
 import type { StackingPlanDataset } from "@/lib/stacking-plan-data"
 import type { ValuationConditionId } from "@/lib/valuation-condition-config"
@@ -158,9 +160,10 @@ export function buildValuationConditionMetricMap({
   // figures in their export. Use them verbatim at the base case, and scale that
   // base by the active scenario/modification levers for forecast periods.
   if (isRealAssetId(assetId)) {
-    const realBase = realValuationConditionMetrics(assetId)
-    if (realBase != null) {
-      const isBaseCase =
+    const realMetrics = realValuationConditionMetricsForModValues(assetId, modValues)
+    if (realMetrics != null) {
+      const isUnmodified =
+        resolveRealExportScenarioKey(modValues) == null &&
         effects.rentFactor === 1 &&
         effects.opexFactor === 1 &&
         effects.exitCapAdjustmentPct === 0 &&
@@ -168,27 +171,40 @@ export function buildValuationConditionMetricMap({
         modUplift.annualOpexDeltaUsd === 0 &&
         modUplift.exitCapRateDeltaPct === 0 &&
         modUplift.upfrontCapexUsd === 0
-      if (isBaseCase) {
+
+      if (isUnmodified) {
         return {
-          inPlace: { ...realBase.inPlace },
-          markToMarket: { ...realBase.markToMarket },
-          grossPotential: { ...realBase.grossPotential },
+          inPlace: { ...realMetrics.inPlace },
+          markToMarket: { ...realMetrics.markToMarket },
+          grossPotential: { ...realMetrics.grossPotential },
         }
       }
-      return {
-        inPlace: scaleRealConditionMetrics("inPlace", realBase.inPlace, effects, modUplift),
-        markToMarket: scaleRealConditionMetrics(
-          "markToMarket",
-          realBase.markToMarket,
-          effects,
-          modUplift
-        ),
-        grossPotential: scaleRealConditionMetrics(
-          "grossPotential",
-          realBase.grossPotential,
-          effects,
-          modUplift
-        ),
+
+      if (resolveRealExportScenarioKey(modValues) != null) {
+        return {
+          inPlace: { ...realMetrics.inPlace },
+          markToMarket: { ...realMetrics.markToMarket },
+          grossPotential: { ...realMetrics.grossPotential },
+        }
+      }
+
+      const realBase = realValuationConditionMetrics(assetId)
+      if (realBase != null) {
+        return {
+          inPlace: scaleRealConditionMetrics("inPlace", realBase.inPlace, effects, modUplift),
+          markToMarket: scaleRealConditionMetrics(
+            "markToMarket",
+            realBase.markToMarket,
+            effects,
+            modUplift
+          ),
+          grossPotential: scaleRealConditionMetrics(
+            "grossPotential",
+            realBase.grossPotential,
+            effects,
+            modUplift
+          ),
+        }
       }
     }
   }

@@ -1,3 +1,5 @@
+import { realPropertyLngLat } from "@/lib/real-property-coordinates"
+
 /** Regional centers for synthetic coordinates when geocoding misses an asset. */
 const FALLBACK_REGION_CENTER: Record<
   "office" | "industrial" | "retail",
@@ -35,6 +37,9 @@ export function fallbackLngLatForPortfolioAsset(
   assetId: string,
   groupId: string
 ): [number, number] {
+  const known = realPropertyLngLat(assetId)
+  if (known) return [known[0], known[1]]
+
   const [lng0, lat0] = fallbackCenterForGroupId(groupId)
   const h = fnv1a32(assetId)
   const u1 = h / 0xffff_ffff

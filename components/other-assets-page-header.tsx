@@ -6,18 +6,14 @@ import { useParams, useRouter } from "next/navigation"
 import { HeaderRsfOccupancyCluster } from "@/components/header-rsf-occupancy-cluster"
 import { ScopedSurfaceNav } from "@/components/scoped-surface-nav"
 import {
-  COMPETITIVE_SEEDED_GROUPS,
   ensureCompetitiveMembershipSeeded,
   getCompetitiveGroupSnapshot,
+  isSeededCompetitiveGroupId,
   parseCompetitiveGroupSnapshot,
-  resolveCompetitiveGroupIdsForAsset,
   subscribeCompetitiveGroups,
 } from "@/lib/competitive-group-overrides"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import {
-  MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoPinsBase,
-} from "@/lib/other-assets"
+import { scopedOtherRealAssets } from "@/lib/other-assets"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 
 const OTHER_ASSETS_LABEL = "Other Assets"
@@ -58,72 +54,47 @@ export function OtherAssetsPageHeader() {
     [competitiveSnap]
   )
 
-  const groups = React.useMemo(
-    () => [
-      ...COMPETITIVE_SEEDED_GROUPS.filter(
-        (group) => !competitiveData.removedSeededGroupIds.has(group.id)
-      ).map((group) => ({
-        id: group.id,
-        label: competitiveData.groupLabels[group.id] ?? group.label,
-      })),
-      ...Object.entries(competitiveData.customGroups)
+  const customGroups = React.useMemo(
+    () =>
+      Object.entries(competitiveData.customGroups)
         .map(([id, label]) => ({ id, label }))
         .sort((a, b) =>
           a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
         ),
-    ],
-    [
-      competitiveData.customGroups,
-      competitiveData.groupLabels,
-      competitiveData.removedSeededGroupIds,
-    ]
+    [competitiveData.customGroups]
   )
 
   const isKnownGroup = React.useMemo(
-    () => groupParam == null || groups.some((group) => group.id === groupParam),
-    [groupParam, groups]
+    () =>
+      groupParam == null ||
+      Object.hasOwn(competitiveData.customGroups, groupParam),
+    [competitiveData.customGroups, groupParam]
   )
 
   React.useEffect(() => {
-    if (groupParam != null && !isKnownGroup) {
+    if (groupParam == null) return
+    if (isSeededCompetitiveGroupId(groupParam) || !isKnownGroup) {
       router.replace("/other-assets")
     }
   }, [groupParam, isKnownGroup, router])
 
-  const marketPins = React.useMemo(
-    () => marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT),
-    []
+  const scopedAssets = React.useMemo(
+    () => scopedOtherRealAssets(competitiveData, groupParam),
+    [
+      competitiveData.customGroups,
+      competitiveData.membershipOverrides,
+      competitiveData.removedAssetIds,
+      competitiveData.removedSeededGroupIds,
+      groupParam,
+    ]
   )
-
-  const scopedPins = React.useMemo(() => {
-    const visiblePins = marketPins.filter(
-      (pin) => !competitiveData.removedAssetIds.has(pin.id)
-    )
-    if (groupParam == null) return visiblePins
-    return visiblePins.filter((pin) =>
-      resolveCompetitiveGroupIdsForAsset(
-        pin.id,
-        competitiveData.membershipOverrides,
-        {
-          customGroups: competitiveData.customGroups,
-          removedAssetIds: competitiveData.removedAssetIds,
-          removedSeededGroupIds: competitiveData.removedSeededGroupIds,
-        }
-      ).includes(groupParam)
-    )
-  }, [
-    competitiveData.customGroups,
-    competitiveData.membershipOverrides,
-    competitiveData.removedAssetIds,
-    competitiveData.removedSeededGroupIds,
-    groupParam,
-    marketPins,
-  ])
 
   const title = React.useMemo(() => {
     if (groupParam == null) return OTHER_ASSETS_LABEL
-    return groups.find((group) => group.id === groupParam)?.label ?? groupParam
-  }, [groupParam, groups])
+    return (
+      customGroups.find((group) => group.id === groupParam)?.label ?? groupParam
+    )
+  }, [customGroups, groupParam])
 
   const scopeDescription = React.useMemo(() => {
     if (groupParam == null) return null
@@ -131,9 +102,10 @@ export function OtherAssetsPageHeader() {
   }, [competitiveData.groupDescriptions, groupParam])
 
   const overviewSubtitle = React.useMemo(() => {
-    const n = groups.length
-    return n === 1 ? "1 prospective group" : `${n} prospective groups`
-  }, [groups.length])
+    if (groupParam != null) return null
+    const n = scopedAssets.length
+    return n === 1 ? "1 prospective asset" : `${n} prospective assets`
+  }, [groupParam, scopedAssets.length])
 
   const headerClusterMetrics = React.useMemo(
     () =>
@@ -147,8 +119,8 @@ export function OtherAssetsPageHeader() {
           let waleSum = 0
           let waleCount = 0
 
-          for (const pin of scopedPins) {
-            const financials = financialMetricsForAssetId(pin.id)
+          for (const asset of scopedAssets) {
+            const financials = financialMetricsForAssetId(asset.id)
             if (financials != null && financials.rsfSqft > 0) {
               weightedSqftTotal += financials.rsfSqft
               weightedOccupiedTotal +=
@@ -164,7 +136,7 @@ export function OtherAssetsPageHeader() {
               }
             }
 
-            stackingSpaceTotal += stackingPlanSpaceCountForAsset(pin.id)
+            stackingSpaceTotal += stackingPlanSpaceCountForAsset(asset.id)
           }
 
           return {
@@ -178,7 +150,7 @@ export function OtherAssetsPageHeader() {
           }
         }
       ),
-    [groupParam, scopedPins]
+    [groupParam, scopedAssets]
   )
 
   const basePath =
@@ -205,7 +177,7 @@ export function OtherAssetsPageHeader() {
           <div className="flex min-w-0 items-start">
             <div className="min-w-0 self-center space-y-1">
               <h2 className="truncate text-xl font-semibold">{title}</h2>
-              {groupParam == null ? (
+              {overviewSubtitle != null ? (
                 <p className="line-clamp-3 text-sm leading-snug text-muted-foreground">
                   {overviewSubtitle}
                 </p>
@@ -219,7 +191,7 @@ export function OtherAssetsPageHeader() {
           <div className="flex h-full min-h-0 min-w-0 flex-col items-stretch justify-center sm:items-end">
             <HeaderRsfOccupancyCluster
               totalRsfSqft={headerClusterMetrics.totalRsfSqft}
-              assetCount={scopedPins.length}
+              assetCount={scopedAssets.length}
               spaceCount={headerClusterMetrics.stackingSpaceTotal}
               occupiedPercent={headerClusterMetrics.occupiedPercent}
               waleYears={headerClusterMetrics.waleYears}

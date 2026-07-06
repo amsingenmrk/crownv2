@@ -18,6 +18,7 @@ import {
   marketSearchDemoPinsBase,
 } from "@/lib/market-search-demo-listings"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { stateCodeFromAddressLike } from "@/lib/benchmark-state-areas"
 import { zipCodeFromAddressLike } from "@/lib/benchmark-zip-areas"
 import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
@@ -805,6 +806,8 @@ export type BenchmarkKpiPercentileByKey = Record<BenchmarkKpiKey, number | null>
 function benchmarkBuildingDisplayName(id: string): string {
   const asset = getAssetById(id)
   if (asset) return asset.name
+  const other = getOtherRealAssetById(id)
+  if (other) return other.name
   const pin = getMarketListingPinById(id)
   if (pin) return pin.building
   return id
@@ -895,6 +898,16 @@ function benchmarkSampleForAssetId(
     return buildBenchmarkBuildingSample(asset.id, longitude, latitude)
   }
 
+  const other = getOtherRealAssetById(assetId)
+  if (other) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      other.id,
+      other.groupId,
+      coordinates
+    )
+    return buildBenchmarkBuildingSample(other.id, longitude, latitude)
+  }
+
   const pin = getMarketListingPinById(assetId)
   if (pin) {
     return buildBenchmarkBuildingSample(
@@ -905,6 +918,43 @@ function benchmarkSampleForAssetId(
   }
 
   return null
+}
+
+function benchmarkKpisFromPercentileExport(
+  assetId: string
+): Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue> | null {
+  const values = assetKpiValuesForGeoLevel(assetId, "national")
+  if (values == null) return null
+
+  const out = {} as Record<BenchmarkKpiKey, BenchmarkKpiDisplayValue>
+  for (const definition of BENCHMARK_KPI_DEFINITIONS) {
+    out[definition.key] = {
+      value: formatKpiValueByFormat(definition.format, values[definition.key]),
+    }
+  }
+  return out
+}
+
+function benchmarkRegionLabelForAssetId(
+  assetId: string,
+  coordinates: Record<string, readonly [number, number]>
+): string {
+  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
+  if (asset) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      asset.id,
+      asset.groupId,
+      coordinates
+    )
+    return resolveBenchmarkAreaForCoordinates(longitude, latitude).label
+  }
+
+  const pin = getMarketListingPinById(assetId)
+  if (pin) {
+    return resolveBenchmarkAreaForCoordinates(pin.longitude, pin.latitude).label
+  }
+
+  return "—"
 }
 
 function benchmarkKpiNumericValue(
@@ -1097,6 +1147,19 @@ export function benchmarkBuildingTableRowForAsset(
   assetId: string,
   coordinates: Record<string, readonly [number, number]> = {}
 ): BenchmarkBuildingTableRow | null {
+  if (isPercentileAsset(assetId)) {
+    const kpis = benchmarkKpisFromPercentileExport(assetId)
+    if (kpis == null) return null
+
+    return {
+      id: assetId,
+      buildingName: benchmarkBuildingDisplayName(assetId),
+      regionLabel: benchmarkRegionLabelForAssetId(assetId, coordinates),
+      kpis,
+      isFullParticipant: true,
+    }
+  }
+
   const sample = benchmarkSampleForAssetId(assetId, coordinates)
   if (sample == null) return null
 

@@ -134,6 +134,12 @@ export function parseNullableBoolean(value) {
   return null
 }
 
+function nullableLabel(value) {
+  if (value == null || value === "" || value === "null") return null
+  const trimmed = value.trim()
+  return trimmed === "" ? null : trimmed
+}
+
 export function stateAbbrFromRow(row) {
   const direct = row.state?.trim().toUpperCase()
   if (direct && STATE_NAME_BY_ABBR[direct]) return direct
@@ -157,15 +163,19 @@ export function geoLabelForRow(row) {
       return geoId
     case "state":
       return stateNameFromAbbr(stateAbbr) ?? geoId
-    case "cbsa":
-      return row.cbsa_title?.trim() || geoId
+    case "cbsa": {
+      const title = nullableLabel(row.cbsa_title)
+      if (title) return title
+      const code = nullableLabel(row.cbsa_code) ?? geoId
+      return code ? `CBSA ${code}` : geoId
+    }
     case "county": {
-      const county = row.county?.trim()
+      const county = nullableLabel(row.county)
       if (county && stateAbbr) return `${county} County, ${stateAbbr}`
       return geoId
     }
     case "submarket":
-      return row.office_submarket_name?.trim() || geoId
+      return nullableLabel(row.office_submarket_name) ?? geoId
     case "zip": {
       const city = row.city?.trim()
       const zip = row.zip_code?.trim()

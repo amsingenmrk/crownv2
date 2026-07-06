@@ -18,6 +18,10 @@ import type {
   BenchmarkAreaLevel,
 } from "@/lib/benchmark-area-types"
 import type { BenchmarkKpiKey } from "@/lib/benchmark-area-model"
+import {
+  enrichGeoBenchmarkAreaForMap,
+  geoKeyFromAreaId,
+} from "@/lib/benchmark-data/geo-area-map"
 
 import data from "./asset-percentiles.json"
 
@@ -67,12 +71,15 @@ const LEVEL_MAP: Record<string, BenchmarkAreaLevel> = {
   zip: "zip",
 }
 
-const US_BOUNDS: [[number, number], [number, number]] = [
-  [-125, 24],
-  [-66, 50],
-]
-
 const GEO_AREA_PREFIX = "geo:"
+
+function sanitizeLabel(label: string): string {
+  const trimmed = label.trim()
+  if (trimmed === "" || trimmed.toLowerCase() === "null") return ""
+  return trimmed
+}
+
+export { geoKeyFromAreaId }
 
 export function isPercentileAsset(assetId: string): boolean {
   return assetId in DATA
@@ -82,17 +89,6 @@ function comparisonAreaId(geoLevel: string, statsKey: string): string {
   return `${GEO_AREA_PREFIX}${geoLevel}:${statsKey}`
 }
 
-/** Parse a synthetic comparison-area id back into its geo key. */
-export function geoKeyFromAreaId(
-  areaId: string
-): { geoLevel: string; statsKey: string } | null {
-  if (!areaId.startsWith(GEO_AREA_PREFIX)) return null
-  const rest = areaId.slice(GEO_AREA_PREFIX.length)
-  const sep = rest.indexOf(":")
-  if (sep < 0) return null
-  return { geoLevel: rest.slice(0, sep), statsKey: rest.slice(sep + 1) }
-}
-
 /**
  * Ordered (broad → narrow) comparison areas for an asset, one per hierarchy
  * level present in the export.
@@ -100,14 +96,25 @@ export function geoKeyFromAreaId(
 export function assetPercentileGeoAreas(assetId: string): BenchmarkArea[] {
   const entry = DATA[assetId]
   if (entry == null) return []
-  return entry.levels.map((row) => ({
-    id: comparisonAreaId(row.geoLevel, row.statsKey),
-    label: row.geoLabel,
-    bounds: US_BOUNDS,
-    level: LEVEL_MAP[row.geoLevel] ?? "market",
-    isCurated: false,
-    aliases: [row.geoLabel],
-  }))
+  return entry.levels.map((row) => {
+    const rawLabel = sanitizeLabel(row.geoLabel)
+    const label =
+      rawLabel ||
+      (row.geoLevel === "cbsa" ? `CBSA ${row.statsKey}` : row.statsKey)
+
+    return enrichGeoBenchmarkAreaForMap({
+      id: comparisonAreaId(row.geoLevel, row.statsKey),
+      label,
+      bounds: [
+        [-125, 24],
+        [-66, 50],
+      ],
+      level: LEVEL_MAP[row.geoLevel] ?? "market",
+      isCurated: false,
+      aliases: [label],
+      geocodeQuery: label,
+    })
+  })
 }
 
 function levelRow(assetId: string, geoLevel: string): LevelRow | null {

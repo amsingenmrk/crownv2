@@ -42,6 +42,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
 import {
+  filterStackingPlanBuildingFloors,
   getSampleStackingPlanData,
   STACKING_EXPIRATION_LEGEND,
   stackingPlanExpirationColor,
@@ -810,7 +811,7 @@ function downloadCsv(assetId: string, floors: readonly StackingPlanFloor[]) {
 
   const rows = floors.flatMap((floor) =>
     floor.tenants.map((tenant) => [
-      String(floor.floor),
+      String(floor.floorLabel),
       tenant.space,
       tenant.name,
       String(tenant.sqft),
@@ -881,8 +882,10 @@ export function AssetStackingPlanWorkspace({
   const stackingPlaceholderActive = false
   const showRentRollActions = false
   const derivedFloorsFromDataset = React.useMemo(() => {
-    if (!stackingPlaceholderActive) return baseDataset.floors
-    return buildEmptyMarketFloors(baseDataset.floors)
+    const datasetFloors = !stackingPlaceholderActive
+      ? baseDataset.floors
+      : buildEmptyMarketFloors(baseDataset.floors)
+    return filterStackingPlanBuildingFloors(datasetFloors)
   }, [baseDataset.floors, stackingPlaceholderActive])
   const [viewMode, setViewMode] =
     React.useState<StackingWorkspaceViewMode>("matrix")
@@ -1689,7 +1692,7 @@ export function AssetStackingPlanWorkspace({
             <div className="w-full min-w-0 max-w-full">
               {displayedFloors.map((floor) => (
                 <SimplifiedFloorRow
-                  key={floor.floor}
+                  key={floor.floorKey}
                   floor={floor}
                   vizMode={vizMode}
                   averagePredictedRentPsf={averagePredictedRentPsf}
@@ -1886,7 +1889,7 @@ function DetailedFloorRow({
         <div className="flex min-w-[52px] flex-col items-center justify-center gap-1.5 sm:min-w-[72px]">
           <div className="flex h-9 min-w-[44px] items-center justify-center rounded-lg border border-border/60 bg-muted/35 px-2 sm:h-10 sm:min-w-[52px] sm:px-3">
             <div className="text-sm font-semibold text-foreground tabular-nums sm:text-[15px]">
-              {floor.floor}
+              {floor.floorLabel}
             </div>
           </div>
           <div className="max-w-[60px] truncate text-center text-[10px] font-medium text-muted-foreground/90 tabular-nums sm:max-w-none sm:text-[11px]">
@@ -2035,6 +2038,8 @@ function StackSummaryRow({
 }) {
   const vacancyPercent = Math.max(0, 100 - occupancyPercent)
   const summaryToneFloor: StackingPlanFloor = {
+    floorKey: "summary",
+    floorLabel: "Total",
     floor: 0,
     sqft: formatSqftValue(totalSqft),
     occupancy: "",
@@ -2165,7 +2170,7 @@ function DetailedStackingMatrix({
       <div className="bg-background py-3 sm:py-4">
         {floors.map((floor) => (
           <StackFirstRow
-            key={floor.floor}
+            key={floor.floorKey}
             assetId={assetId}
             floor={floor}
             vizMode={vizMode}
@@ -2288,7 +2293,7 @@ function StackFirstRow({
           <div className="flex min-w-[60px] flex-col items-center gap-1">
             <div className="flex h-9 min-w-[52px] items-center justify-center rounded-lg border border-border/60 bg-muted/35 px-3">
               <div className="text-[15px] font-semibold text-foreground tabular-nums">
-                {floor.floor}
+                {floor.floorLabel}
               </div>
             </div>
             <div className="text-center text-[10px] font-medium text-muted-foreground/85 tabular-nums">
@@ -2338,7 +2343,7 @@ function StackFirstRow({
                 type="button"
                 onClick={onToggleExpanded}
                 className="inline-flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
-                aria-label={`${isExpanded ? "Collapse" : "Expand"} floor ${floor.floor} value drivers`}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${floor.floorLabel} value drivers`}
               >
                 {isExpanded ? (
                   <ChevronDown className="size-4" />
@@ -2843,7 +2848,7 @@ function StackingPlanSuiteEditorSheet({
         <div className="flex h-full min-h-0 flex-col bg-background">
           <div className="shrink-0 border-b border-border px-4 py-4 pr-14 sm:px-6">
             <SheetTitle className="text-base font-semibold tracking-tight text-foreground">
-              Floor {floor.floor} • {tenant.space}
+              {floor.floorLabel} • {tenant.space}
             </SheetTitle>
           </div>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -2886,7 +2891,7 @@ function ExpandedFloorDetails({ floor }: { floor: StackingPlanFloor }) {
         <div className="rounded-xl border border-border/55 bg-background/70 px-3 py-4">
           <div>
             <p className="text-sm font-semibold text-foreground">
-              Floor {floor.floor} Value Drivers
+              {floor.floorLabel} Value Drivers
             </p>
           </div>
           <StackingValueDriversWaterfall valueDrivers={floor.valueDrivers} />
@@ -3062,7 +3067,7 @@ function SimplifiedFloorRow({
       <div className="flex w-[52px] items-center justify-center px-1">
         <div className="flex h-[1.5625rem] min-w-[28px] justify-center rounded-sm border border-border bg-muted/60 px-1.5 shadow-sm">
           <div className="text-[11px] leading-5 font-semibold text-foreground tabular-nums">
-            {floor.floor}
+            {floor.floorLabel}
           </div>
         </div>
       </div>

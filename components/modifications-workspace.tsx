@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  buildModificationImpactDataset,
+  buildModificationImpactDatasetForAsset,
   createDefaultModificationImpactFilters,
   deriveImpactMetrics,
   matchesImpactFilters,
@@ -99,8 +99,8 @@ export function ModificationsWorkspace() {
     [assetId]
   )
   const impactDataset = React.useMemo(
-    () => buildModificationImpactDataset(baseDataset.floors, appliedValues),
-    [appliedValues, baseDataset.floors]
+    () => buildModificationImpactDatasetForAsset(assetId, baseDataset.floors, appliedValues),
+    [appliedValues, assetId, baseDataset.floors]
   )
   const allSpaces = React.useMemo(
     () => impactDataset.floors.flatMap((floor) => floor.tenants),

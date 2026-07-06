@@ -25,6 +25,7 @@ import {
   resolveBenchmarkAreaSelection,
   type BenchmarkArea,
 } from "@/lib/benchmark-area-search"
+import { enrichGeoBenchmarkAreaForMap } from "@/lib/benchmark-data/geo-area-map"
 import { cn } from "@/lib/utils"
 
 const BENCHMARK_SECTION_CARD =
@@ -97,13 +98,9 @@ export function BenchmarkWorkspace({
     setCommittedArea(area)
   }, [])
 
-  // Data-hierarchy areas (geo:*) have no stored Mapbox boundary; skip geocode
-  // enrichment for them (avoids source/terrain churn that crashes mapbox-gl).
   const resolveArea = React.useCallback(
     (area: BenchmarkArea): Promise<BenchmarkArea> =>
-      area.id.startsWith("geo:")
-        ? Promise.resolve(area)
-        : resolveBenchmarkAreaSelection(area, accessToken),
+      resolveBenchmarkAreaSelection(enrichGeoBenchmarkAreaForMap(area), accessToken),
     [accessToken]
   )
 

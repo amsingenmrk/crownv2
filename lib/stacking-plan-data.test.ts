@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { ASSETS } from "@/lib/assets"
 import { defaultAssetLeasingAssumptions } from "@/lib/asset-leasing-assumptions"
 import { financialMetricsForAssetId } from "@/lib/portfolio-asset-financials"
-import { getSampleStackingPlanData } from "@/lib/stacking-plan-data"
+import { getSampleStackingPlanData, filterStackingPlanBuildingFloors } from "@/lib/stacking-plan-data"
 import { buildStackingPlanSuiteEditorTooltipText } from "@/lib/stacking-plan-tooltip"
 
 const SAMPLE_ASSET_IDS = [ASSETS[0]?.id, ASSETS[6]?.id, ASSETS[12]?.id, "mkt-0"].filter(
@@ -115,5 +115,36 @@ describe("getSampleStackingPlanData", () => {
     expect(vacantTooltip).not.toContain("Annual rent:")
     expect(vacantTooltip).not.toContain("Contract Rate:")
     expect(vacantTooltip).not.toContain("Renewal probability:")
+  })
+
+  it("assigns unique floor keys for non-numeric real-property floor labels", () => {
+    const dataset = getSampleStackingPlanData("mack-centre-iv")
+    const floorKeys = dataset.floors.map((floor) => floor.floorKey)
+    const floorNumbers = dataset.floors.map((floor) => floor.floor)
+
+    expect(new Set(floorKeys).size).toBe(floorKeys.length)
+    expect(floorNumbers.every((floor) => Number.isFinite(floor))).toBe(true)
+
+    const roofFloor = dataset.floors.find((floor) => floor.floorLabel === "Roof")
+    const parkingFloor = dataset.floors.find(
+      (floor) => floor.floorLabel === "Parking"
+    )
+
+    expect(roofFloor).toBeDefined()
+    expect(parkingFloor).toBeDefined()
+    expect(roofFloor?.floor).not.toBe(parkingFloor?.floor)
+  })
+
+  it("excludes roof and parking floors from stacking plan building rows", () => {
+    const dataset = getSampleStackingPlanData("mack-centre-iv")
+    const visibleFloors = filterStackingPlanBuildingFloors(dataset.floors)
+
+    expect(visibleFloors.some((floor) => floor.floorLabel === "Roof")).toBe(
+      false
+    )
+    expect(visibleFloors.some((floor) => floor.floorLabel === "Parking")).toBe(
+      false
+    )
+    expect(visibleFloors.length).toBeLessThan(dataset.floors.length)
   })
 })

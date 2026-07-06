@@ -24,7 +24,6 @@ import { useAppToast } from "@/components/app-toast"
 import {
   addCompetitiveAssetToGroup,
   addCustomCompetitiveGroup,
-  COMPETITIVE_SEEDED_GROUPS,
   getCompetitiveGroupSnapshot,
   parseCompetitiveGroupSnapshot,
   removeCompetitiveAssetFromOtherAssets,
@@ -131,26 +130,6 @@ export function CompetitiveScopeSelect({
           sideOffset={6}
           className="min-w-60 w-max max-w-[min(calc(100vw-1.5rem),22rem)]"
         >
-          {COMPETITIVE_SEEDED_GROUPS.filter(
-            (group) => !competitiveData.removedSeededGroupIds.has(group.id)
-          ).map((group) => {
-            const label = competitiveData.groupLabels[group.id] ?? group.label
-            const selected = membershipGroupIds.includes(group.id)
-            return (
-              <DropdownMenuItem
-                key={group.id}
-                className="gap-2"
-                onClick={() => {
-                  toggleCompetitiveAssetGroupMembership(assetId, group.id)
-                }}
-              >
-                <span className="flex size-4 shrink-0 items-center justify-center">
-                  {selected ? <Check className="size-4" aria-hidden /> : null}
-                </span>
-                <span className="min-w-0 flex-1 break-words">{label}</span>
-              </DropdownMenuItem>
-            )
-          })}
           {Object.entries(competitiveData.customGroups)
             .sort((a, b) =>
               a[1].localeCompare(b[1], undefined, { sensitivity: "base" })

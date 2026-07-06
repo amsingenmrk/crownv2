@@ -56,11 +56,9 @@ import {
   valuationKpiStripRowsFromSingleConditionMap,
 } from "@/lib/valuation-kpi-strip-rows"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
-import {
-  getMarketListingPinById,
-  MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+import { otherRealAssetPortfolioRows } from "@/lib/other-assets"
+import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import {
   portfolioAssetRowForMarketPin,
 } from "@/lib/market-listing-portfolio-row"
@@ -293,27 +291,8 @@ function PortfolioDashboardInner({
         groupIds,
       }
     })
-    const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-    const marketRows = pins
-      .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
-      .map((pin) => {
-        const baseRow = portfolioAssetRowForMarketPin(pin)
-        const groupIds = resolveCompetitiveGroupIdsForAsset(
-          pin.id,
-          competitiveGroupData.membershipOverrides,
-          {
-            customGroups: competitiveGroupData.customGroups,
-            removedAssetIds: competitiveGroupData.removedAssetIds,
-            removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
-          }
-        )
-        return {
-          ...baseRow,
-          groupId: groupIds[0] ?? baseRow.groupId,
-          groupIds,
-        }
-      })
-    return [...movedPortfolioRows, ...marketRows]
+    const otherRealRows = otherRealAssetPortfolioRows(competitiveGroupData)
+    return [...movedPortfolioRows, ...otherRealRows]
       .sort(
         (a, b) =>
           b.liftPercent - a.liftPercent ||
@@ -658,7 +637,8 @@ function PortfolioDashboardInner({
         row.groupId,
         mapGeocodeCoordinates
       )
-      const asset = getAssetById(row.id)
+      const asset =
+        getAssetById(row.id) ?? getOtherRealAssetById(row.id) ?? undefined
       return {
         id: row.id,
         longitude,

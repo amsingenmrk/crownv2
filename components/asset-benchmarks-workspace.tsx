@@ -34,12 +34,15 @@ import { zipBenchmarkAreaForCode } from "@/lib/benchmark-zip-areas"
 import { stateBenchmarkAreaForCode } from "@/lib/benchmark-state-areas"
 import { assetPercentileGeoAreas } from "@/lib/benchmark-data/asset-percentiles"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 
 function assetNameForAsset(assetId: string): string {
   const asset = getAssetById(assetId)
   if (asset?.name) return asset.name
+  const other = getOtherRealAssetById(assetId)
+  if (other?.name) return other.name
   const pin = getMarketListingPinById(assetId)
   if (pin?.building) return pin.building
   return "—"
@@ -54,6 +57,16 @@ function assetPinForAsset(
     const [longitude, latitude] = lngLatForPortfolioAsset(
       asset.id,
       asset.groupId,
+      coordinates
+    )
+    return { longitude, latitude }
+  }
+
+  const other = getOtherRealAssetById(assetId)
+  if (other) {
+    const [longitude, latitude] = lngLatForPortfolioAsset(
+      other.id,
+      other.groupId,
       coordinates
     )
     return { longitude, latitude }
@@ -93,6 +106,8 @@ function stateCodeFromText(value: string | undefined): string | null {
 function assetZipForAssetId(assetId: string): string | null {
   const asset = getAssetById(assetId)
   if (asset) return zipCodeFromText(asset.address)
+  const other = getOtherRealAssetById(assetId)
+  if (other) return zipCodeFromText(other.address)
   const pin = getMarketListingPinById(assetId)
   return zipCodeFromText(pin?.location)
 }
@@ -100,6 +115,8 @@ function assetZipForAssetId(assetId: string): string | null {
 function assetStateForAssetId(assetId: string): string | null {
   const asset = getAssetById(assetId)
   if (asset) return stateCodeFromText(asset.address)
+  const other = getOtherRealAssetById(assetId)
+  if (other) return stateCodeFromText(other.address)
   const pin = getMarketListingPinById(assetId)
   return stateCodeFromText(pin?.location)
 }
@@ -326,21 +343,14 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     let cancelled = false
     setResolvedAreas({ lowArea: selectedLowArea, marketArea: selectedMarketArea })
 
-    // Synthetic percentile-table areas (geo:*) keep their id (it carries the
-    // geo key used for stats); skip geocode/boundary enrichment for them.
-    const lowIsGeo = selectedLowArea.id.startsWith("geo:")
-    const marketIsGeo = selectedMarketArea.id.startsWith("geo:")
-    if (!mapboxAccessToken || (lowIsGeo && marketIsGeo)) {
+    // Resolve map bounds/geometry via Mapbox while keeping geo:* ids for stats lookup.
+    if (!mapboxAccessToken) {
       return () => void (cancelled = true)
     }
 
     Promise.all([
-      lowIsGeo
-        ? Promise.resolve(selectedLowArea)
-        : resolveBenchmarkAreaSelection(selectedLowArea, mapboxAccessToken),
-      marketIsGeo
-        ? Promise.resolve(selectedMarketArea)
-        : resolveBenchmarkAreaSelection(selectedMarketArea, mapboxAccessToken),
+      resolveBenchmarkAreaSelection(selectedLowArea, mapboxAccessToken),
+      resolveBenchmarkAreaSelection(selectedMarketArea, mapboxAccessToken),
     ])
       .then(([resolvedLowArea, resolvedMarketArea]) => {
         if (cancelled) return

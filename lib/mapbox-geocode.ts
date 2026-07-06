@@ -1,6 +1,8 @@
 import "server-only"
 
 import { ASSETS } from "@/lib/assets"
+import { realPropertyLngLat } from "@/lib/real-property-coordinates"
+import { otherRealAssetList } from "@/lib/real-properties/other-assets"
 
 type GeocodeFeature = {
   center?: [number, number]
@@ -51,7 +53,14 @@ export async function geocodePortfolioAssets(
   accessToken: string
 ): Promise<Record<string, [number, number]>> {
   const out: Record<string, [number, number]> = {}
-  for (const asset of ASSETS) {
+  const assets = [...ASSETS, ...otherRealAssetList()]
+  for (const asset of assets) {
+    const known = realPropertyLngLat(asset.id)
+    if (known) {
+      out[asset.id] = [known[0], known[1]]
+      continue
+    }
+
     const ll = await geocodeAddress(asset.address, accessToken)
     if (ll) out[asset.id] = ll
     await new Promise((r) => setTimeout(r, 75))

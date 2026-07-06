@@ -41,7 +41,11 @@ function AreaSelectMenu({
           {heading}
         </div>
         <DropdownMenuSeparator />
-        {options.map((option) => (
+        {[...options]
+          .sort((a, b) =>
+            a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+          )
+          .map((option) => (
           <DropdownMenuItem
             key={option.id}
             onClick={() => onSelect(option)}
@@ -55,7 +59,7 @@ function AreaSelectMenu({
               <Check className="size-4 shrink-0 text-primary" aria-hidden />
             ) : null}
           </DropdownMenuItem>
-        ))}
+          ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

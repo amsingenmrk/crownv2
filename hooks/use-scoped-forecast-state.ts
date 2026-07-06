@@ -28,9 +28,8 @@ import {
 } from "@/lib/assets"
 import {
   getMarketListingPinById,
-  MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+  otherRealAssetPortfolioRows,
+} from "@/lib/other-assets"
 import {
   buildDefaultForecastScenarios,
   type ForecastAssumptions,
@@ -191,27 +190,11 @@ export function useScopedForecastState(scope: ScopedForecastScope) {
           groupIds,
         }
       })
-      const pins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-      const marketRows = pins
-        .filter((pin) => !competitiveGroupData.removedAssetIds.has(pin.id))
-        .map((pin) => {
-          const baseRow = portfolioAssetRowForMarketPin(pin)
-          const groupIds = resolveCompetitiveGroupIdsForAsset(
-            pin.id,
-            competitiveGroupData.membershipOverrides,
-            {
-              customGroups: competitiveGroupData.customGroups,
-              removedAssetIds: competitiveGroupData.removedAssetIds,
-              removedSeededGroupIds: competitiveGroupData.removedSeededGroupIds,
-            }
-          )
-          return {
-            ...baseRow,
-            groupId: groupIds[0] ?? baseRow.groupId,
-            groupIds,
-          }
-        })
-      const rows = [...movedPortfolioRows, ...marketRows]
+      const otherRealRows = otherRealAssetPortfolioRows(
+        competitiveGroupData,
+        competitiveGroupId
+      )
+      const rows = [...movedPortfolioRows, ...otherRealRows]
         .filter(
           (row) =>
             competitiveGroupId == null ||

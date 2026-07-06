@@ -899,9 +899,9 @@ export function buildAssetForecastModel({
 
     if (floorValues != null && spaces != null) {
       revenueBreakdown.push({
-        id: `floor-${floor.floor}`,
+        id: floor.floorKey,
         floor: floor.floor,
-        label: `Floor ${floor.floor}`,
+        label: floor.floorLabel,
         sqft: floor.tenants.reduce((sum, tenant) => sum + tenant.sqft, 0),
         values: floorValues,
         spaces,

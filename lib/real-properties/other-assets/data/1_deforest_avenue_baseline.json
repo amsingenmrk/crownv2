@@ -1,0 +1,837 @@
+{
+  "building_id": "5ca031811d3b913b700836835729e038",
+  "property_id": "100b7b66bc54e22725da1637c1abd411",
+  "metrics": {
+    "address": "1 DeForest Avenue, Summit, NJ 07901",
+    "building_name": "0066-01",
+    "rsf_total": 67514.0,
+    "spaces_count": 12.0,
+    "occupied_pct": 68.6998,
+    "vacant_pct": 31.3002,
+    "wale": 2.943305,
+    "predicted_rent_psf": 63.97919,
+    "market_rent": 38.22060423589292,
+    "property_class": "A",
+    "sector": "Office",
+    "highest_potential_lift_rent": 1.570537,
+    "highest_potential_lift_rent_pct": 2.44696,
+    "highest_potential_lift_rent_name": "amenity_gym_studio_mind_body"
+  },
+  "asset": {
+    "building_rsf": 67514.0,
+    "occupancy_current": 0.686998,
+    "occupancy_full": 1.0,
+    "as_is_value": 18842784.80367,
+    "as_is_value_per_sqft": 279.094481,
+    "as_is_revenue": 3114763.739132,
+    "as_is_expense": 1875564.32981,
+    "as_is_noi": 1239199.409322,
+    "as_is_cap_rate": 0.065765,
+    "as_is_rent_psf": 67.155153,
+    "as_is_occupancy_used": 0.686998,
+    "mark_to_market_value": 17419942.294317,
+    "mark_to_market_value_per_sqft": 258.019704,
+    "mark_to_market_revenue": 2993980.488882,
+    "mark_to_market_expense": 1848354.594065,
+    "mark_to_market_noi": 1145625.894817,
+    "mark_to_market_cap_rate": 0.065765,
+    "mark_to_market_occupancy_used": 0.686998,
+    "gross_potential_value": 24575705.426321,
+    "gross_potential_value_per_sqft": 364.009027,
+    "gross_potential_revenue": 4097116.943844,
+    "gross_potential_expense": 2238848.141095,
+    "gross_potential_noi": 1858268.802749,
+    "gross_potential_cap_rate": 0.075614,
+    "gross_potential_occupancy_used": 1.0
+  },
+  "floors": {
+    "a76ba3aa64cd3766633ff679f4a3c3f2": {
+      "metrics": {
+        "floor_label": "Floor 1",
+        "floor_number": 1.0,
+        "contract_rent_psf": 68.861453,
+        "occupancy_pct": 55.439318,
+        "vacancy_pct": 44.56068,
+        "predicted_rent_psf": 65.490847,
+        "sun_score": 50.099,
+        "view_score": 49.7123
+      },
+      "spaces": {
+        "e69ff59ea89f38493a49212103e4b147": {
+          "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+          "lease_id": "0eca453e83aeaf635063e920f87cacf9",
+          "metrics": {
+            "rsf": 3627.0,
+            "suite": "100",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 61.26,
+            "annual_rent": 222189.84,
+            "tenant_name": "WebBank",
+            "lease_type": "nnn",
+            "commencement_date": "2023-08-01",
+            "expiration_date": "2026-07-14",
+            "lease_end_date": "2026-07-14",
+            "predicted_rent_psf": 64.246169
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+                  "space_id": "e69ff59ea89f38493a49212103e4b147",
+                  "lease_id": "0eca453e83aeaf635063e920f87cacf9"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 64.246169
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 13.11449728,
+                    "transit_accessibility": 7.78718618,
+                    "year_built": 3.59633645
+                  },
+                  "negative": {
+                    "lease_economics": -0.17807013,
+                    "submarket_hospitality_density": -0.12302308,
+                    "interest_rate_effects": -0.08402826
+                  },
+                  "other": {
+                    "relative_floor_effects": 0.03491253,
+                    "seasonality_effects": 0.00756316,
+                    "submarket_rent_growth": -0.01635181,
+                    "number_of_floors": -0.00095906,
+                    "average_floorplate": 0.11452594,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.77654778,
+                    "view_score": 0.19088559,
+                    "building_risk_at_purchase": -0.0016582,
+                    "submarket_occupancy": -0.02127596,
+                    "inflation_effects": 0.17865912,
+                    "in_building_restaurant": 0.0595427,
+                    "in_building_cafe": -0.00046185,
+                    "in_building_gym": -0.00652941,
+                    "in_building_bar": 0.0061195,
+                    "in_building_retail_density": -0.01757191,
+                    "nearby_restaurant_density": 1.22517531,
+                    "leed": -0.02306896,
+                    "energy_star": -0.00146168,
+                    "bike_share": 2.7786573,
+                    "road_accessibility": 0.12673795,
+                    "building_class": 1.23021444,
+                    "lease_type": -0.02147255,
+                    "last_major_renovation": -0.03215777,
+                    "other": -4.67390606
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "3908616531b74914b94d0218e3c75c65": {
+          "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+          "lease_id": "d6d241dbe93c69b610ff3b66c0b2c625",
+          "metrics": {
+            "rsf": 5540.0,
+            "suite": "101",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 70.76,
+            "annual_rent": 392031.96,
+            "tenant_name": "Callan LLC",
+            "lease_type": "nnn",
+            "commencement_date": "2019-09-19",
+            "expiration_date": "2026-10-06",
+            "lease_end_date": "2026-10-06",
+            "predicted_rent_psf": 67.102686
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+                  "space_id": "3908616531b74914b94d0218e3c75c65",
+                  "lease_id": "d6d241dbe93c69b610ff3b66c0b2c625"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 67.102686
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 13.90730079,
+                    "transit_accessibility": 7.77488148,
+                    "year_built": 3.73405346
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.11615163,
+                    "interest_rate_effects": -0.07703306,
+                    "last_major_renovation": -0.0306641
+                  },
+                  "other": {
+                    "lease_economics": 0.6468355,
+                    "relative_floor_effects": 0.145439,
+                    "seasonality_effects": 0.00561884,
+                    "submarket_rent_growth": -0.01507503,
+                    "number_of_floors": -0.00453613,
+                    "average_floorplate": 0.08331307,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.82362087,
+                    "view_score": 0.34511719,
+                    "building_risk_at_purchase": 0.05973062,
+                    "submarket_occupancy": -0.01250459,
+                    "inflation_effects": 0.14328726,
+                    "in_building_restaurant": 0.07484974,
+                    "in_building_cafe": -0.00109662,
+                    "in_building_gym": -0.00733995,
+                    "in_building_bar": 0.00651488,
+                    "in_building_retail_density": -0.00956804,
+                    "nearby_restaurant_density": 1.33606825,
+                    "leed": -0.02015246,
+                    "energy_star": -0.0014732,
+                    "bike_share": 2.91610586,
+                    "road_accessibility": 0.17158734,
+                    "building_class": 1.35294816,
+                    "lease_type": -0.0295158,
+                    "other": -4.3200802
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "09e20851257bb1a4522cfcc238d10bbb": {
+          "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+          "lease_id": null,
+          "metrics": {
+            "rsf": 3627.0,
+            "suite": "102",
+            "occupancy_status": "vacant",
+            "contract_rate_psf": 0.0,
+            "annual_rent": 0.0,
+            "lease_type": "unknown",
+            "predicted_rent_psf": 64.27355
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+                  "space_id": "09e20851257bb1a4522cfcc238d10bbb",
+                  "lease_id": null
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 64.27355
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.55370787,
+                    "transit_accessibility": 7.11247131,
+                    "year_built": 3.4109783
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.14221764,
+                    "interest_rate_effects": -0.08262746,
+                    "last_major_renovation": -0.03459436
+                  },
+                  "other": {
+                    "lease_economics": 1.12814824,
+                    "relative_floor_effects": 0.14577376,
+                    "seasonality_effects": 0.0352044,
+                    "submarket_rent_growth": -0.02272284,
+                    "number_of_floors": -0.00563502,
+                    "average_floorplate": 0.08001869,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.76388793,
+                    "view_score": 0.26496868,
+                    "building_risk_at_purchase": 0.06002378,
+                    "submarket_occupancy": -0.01370438,
+                    "inflation_effects": 0.13693617,
+                    "in_building_restaurant": 0.06245962,
+                    "in_building_cafe": -0.00134594,
+                    "in_building_gym": -0.00889829,
+                    "in_building_bar": 0.00602586,
+                    "in_building_retail_density": -0.01122073,
+                    "nearby_restaurant_density": 1.0826873,
+                    "leed": -0.02310453,
+                    "energy_star": -0.00157301,
+                    "bike_share": 2.71611851,
+                    "road_accessibility": 0.33850378,
+                    "building_class": 1.38327996,
+                    "lease_type": 0.12645481,
+                    "other": -5.00705905
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "96fb39633dc777310c608fb03b32c226": {
+          "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+          "lease_id": null,
+          "metrics": {
+            "rsf": 3442.0,
+            "suite": "B-1",
+            "occupancy_status": "vacant",
+            "contract_rate_psf": 0.0,
+            "annual_rent": 0.0,
+            "lease_type": "unknown"
+          }
+        },
+        "2cb7741b0226f80c61e498e8a2828be3": {
+          "floor_id": "a76ba3aa64cd3766633ff679f4a3c3f2",
+          "lease_id": null,
+          "metrics": {
+            "rsf": 300.0,
+            "suite": "B-1A",
+            "occupancy_status": "vacant",
+            "contract_rate_psf": 0.0,
+            "annual_rent": 0.0,
+            "lease_type": "unknown"
+          }
+        }
+      }
+    },
+    "48200b087150bcf8cb31d1b9dde2b1f4": {
+      "metrics": {
+        "floor_label": "Floor 2",
+        "floor_number": 2.0,
+        "contract_rent_psf": 65.767769,
+        "occupancy_pct": 100.0,
+        "vacancy_pct": 0.0,
+        "predicted_rent_psf": 64.703632,
+        "sun_score": 53.5936,
+        "view_score": 49.7123
+      },
+      "spaces": {
+        "3116fb0dd74124ac69d416831839c2a6": {
+          "floor_id": "48200b087150bcf8cb31d1b9dde2b1f4",
+          "lease_id": "a71d67622d0e0aa6c6ec95f79b99546f",
+          "metrics": {
+            "rsf": 9999.0,
+            "suite": "200",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 66.61,
+            "annual_rent": 666039.48,
+            "tenant_name": "Merrill Lynch Pierce Fenner & Smith Incorporated",
+            "lease_type": "nnn",
+            "commencement_date": "2023-03-07",
+            "expiration_date": "2029-01-31",
+            "lease_end_date": "2029-01-31",
+            "predicted_rent_psf": 65.567807
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "48200b087150bcf8cb31d1b9dde2b1f4",
+                  "space_id": "3116fb0dd74124ac69d416831839c2a6",
+                  "lease_id": "a71d67622d0e0aa6c6ec95f79b99546f"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 65.567807
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 13.55563817,
+                    "transit_accessibility": 7.62360115,
+                    "year_built": 3.78583099
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.12693978,
+                    "interest_rate_effects": -0.07493515,
+                    "last_major_renovation": -0.03118692
+                  },
+                  "other": {
+                    "lease_economics": 0.06920736,
+                    "relative_floor_effects": -0.0254769,
+                    "seasonality_effects": -0.0003978,
+                    "submarket_rent_growth": -0.01466529,
+                    "number_of_floors": -0.00212397,
+                    "average_floorplate": 0.07099966,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.74491486,
+                    "view_score": 0.31513413,
+                    "building_risk_at_purchase": 0.06660973,
+                    "submarket_occupancy": -0.01256971,
+                    "inflation_effects": 0.08255423,
+                    "in_building_restaurant": 0.0702243,
+                    "in_building_cafe": -0.00119753,
+                    "in_building_gym": -0.00701656,
+                    "in_building_bar": 0.0059408,
+                    "in_building_retail_density": -0.01375617,
+                    "nearby_restaurant_density": 1.31103693,
+                    "leed": -0.0203011,
+                    "energy_star": -0.00147597,
+                    "bike_share": 2.89346831,
+                    "road_accessibility": 0.15454598,
+                    "building_class": 1.40245021,
+                    "lease_type": -0.02846655,
+                    "other": -4.44444487
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "7b9ae2871f3e8ec3f01647334b476e97": {
+          "floor_id": "48200b087150bcf8cb31d1b9dde2b1f4",
+          "lease_id": "07fc42d3cff9ab3710ab0d6e43d582cf",
+          "metrics": {
+            "rsf": 8906.0,
+            "suite": "201",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 64.82,
+            "annual_rent": 577300.2,
+            "tenant_name": "Merrill Lynch Pierce Fenner & Smith Incorporated",
+            "lease_type": "nnn",
+            "commencement_date": "2023-03-07",
+            "expiration_date": "2029-01-31",
+            "lease_end_date": "2029-01-31",
+            "predicted_rent_psf": 63.733401
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "48200b087150bcf8cb31d1b9dde2b1f4",
+                  "space_id": "7b9ae2871f3e8ec3f01647334b476e97",
+                  "lease_id": "07fc42d3cff9ab3710ab0d6e43d582cf"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 63.733401
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.98783041,
+                    "transit_accessibility": 7.28785446,
+                    "year_built": 3.62632214
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.13697564,
+                    "interest_rate_effects": -0.08037635,
+                    "last_major_renovation": -0.03311103
+                  },
+                  "other": {
+                    "lease_economics": 0.05557197,
+                    "relative_floor_effects": -0.02746103,
+                    "seasonality_effects": -0.00040005,
+                    "submarket_rent_growth": -0.01548871,
+                    "number_of_floors": -0.00219793,
+                    "average_floorplate": 0.06845616,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.7125236,
+                    "view_score": 0.30415718,
+                    "building_risk_at_purchase": 0.053183,
+                    "submarket_occupancy": -0.01519331,
+                    "inflation_effects": 0.07428601,
+                    "in_building_restaurant": 0.06716033,
+                    "in_building_cafe": -0.00129052,
+                    "in_building_gym": -0.00763613,
+                    "in_building_bar": 0.005685,
+                    "in_building_retail_density": -0.0148467,
+                    "nearby_restaurant_density": 1.25589898,
+                    "leed": -0.02187302,
+                    "energy_star": -0.00159058,
+                    "bike_share": 2.76805643,
+                    "road_accessibility": 0.13865154,
+                    "building_class": 1.2881808,
+                    "lease_type": -0.02987855,
+                    "other": -4.79270207
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "d8e0145334d77672b19151179c82f6bb": {
+      "metrics": {
+        "floor_label": "Floor 4",
+        "floor_number": 4.0,
+        "occupancy_pct": 0.0,
+        "vacancy_pct": 100.0,
+        "sun_score": 87.1593,
+        "view_score": 64.8446,
+        "predicted_rent_psf": 63.214146
+      },
+      "spaces": {
+        "00d0b563c7405f116f5789191876e7c8": {
+          "floor_id": "d8e0145334d77672b19151179c82f6bb",
+          "lease_id": null,
+          "metrics": {
+            "rsf": 13763.0,
+            "suite": "400",
+            "occupancy_status": "vacant",
+            "contract_rate_psf": 0.0,
+            "annual_rent": 0.0,
+            "lease_type": "unknown",
+            "predicted_rent_psf": 63.214146
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "d8e0145334d77672b19151179c82f6bb",
+                  "space_id": "00d0b563c7405f116f5789191876e7c8",
+                  "lease_id": null
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 63.214146
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.82641476,
+                    "transit_accessibility": 6.98362227,
+                    "year_built": 3.42009044
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.15024756,
+                    "sunlight_score": -0.0881946,
+                    "interest_rate_effects": -0.0660344
+                  },
+                  "other": {
+                    "lease_economics": 0.64493845,
+                    "relative_floor_effects": -0.01395819,
+                    "seasonality_effects": 0.03625357,
+                    "submarket_rent_growth": -0.00576558,
+                    "number_of_floors": 0.01126932,
+                    "average_floorplate": 0.07523806,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "view_score": 0.87383187,
+                    "building_risk_at_purchase": 0.08839043,
+                    "submarket_occupancy": -0.01469304,
+                    "inflation_effects": 0.12244614,
+                    "in_building_restaurant": 0.05663092,
+                    "in_building_cafe": -0.0013478,
+                    "in_building_gym": -0.00574271,
+                    "in_building_bar": 0.0064431,
+                    "in_building_retail_density": -0.01476113,
+                    "nearby_restaurant_density": 1.05113335,
+                    "leed": -0.02311368,
+                    "energy_star": -0.0013696,
+                    "bike_share": 2.72345247,
+                    "road_accessibility": 0.05552796,
+                    "building_class": 1.19705371,
+                    "lease_type": 0.09803565,
+                    "last_major_renovation": -0.03264309,
+                    "other": -4.85935947
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "7521670919308c7c7f16de662b727a06": {
+      "metrics": {
+        "floor_label": "Floor 3",
+        "floor_number": 3.0,
+        "contract_rent_psf": 67.733292,
+        "occupancy_pct": 100.0,
+        "vacancy_pct": 0.0,
+        "predicted_rent_psf": 62.749937,
+        "sun_score": 59.2848,
+        "view_score": 57.3072
+      },
+      "spaces": {
+        "8319d4af2d2634d720d3e0e30df61280": {
+          "floor_id": "7521670919308c7c7f16de662b727a06",
+          "lease_id": "7bebb90276c5ec52ea8a0d5f56cf3da5",
+          "metrics": {
+            "rsf": 8960.0,
+            "suite": "301",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 68.5,
+            "annual_rent": 613759.92,
+            "tenant_name": "Merrill Lynch Pierce Fenner & Smith Incorporated",
+            "lease_type": "nnn",
+            "commencement_date": "2025-09-15",
+            "expiration_date": "2029-01-31",
+            "lease_end_date": "2029-01-31",
+            "predicted_rent_psf": 63.412362
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "7521670919308c7c7f16de662b727a06",
+                  "space_id": "8319d4af2d2634d720d3e0e30df61280",
+                  "lease_id": "7bebb90276c5ec52ea8a0d5f56cf3da5"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 63.412362
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.94235189,
+                    "transit_accessibility": 7.68064097,
+                    "year_built": 3.522511
+                  },
+                  "negative": {
+                    "lease_economics": -0.2270166,
+                    "submarket_hospitality_density": -0.12754269,
+                    "interest_rate_effects": -0.07764069
+                  },
+                  "other": {
+                    "relative_floor_effects": -0.01512015,
+                    "seasonality_effects": 0.0247422,
+                    "submarket_rent_growth": -0.01319511,
+                    "number_of_floors": 0.02182388,
+                    "average_floorplate": 0.09395954,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.36406346,
+                    "view_score": 0.70265156,
+                    "building_risk_at_purchase": -0.00175248,
+                    "submarket_occupancy": -0.02694868,
+                    "inflation_effects": 0.11863797,
+                    "in_building_restaurant": 0.05974732,
+                    "in_building_cafe": -0.00143461,
+                    "in_building_gym": -0.00549358,
+                    "in_building_bar": 0.00574566,
+                    "in_building_retail_density": -0.01574629,
+                    "nearby_restaurant_density": 1.19177916,
+                    "leed": -0.02354102,
+                    "energy_star": -0.00149478,
+                    "bike_share": 2.77544187,
+                    "road_accessibility": -0.01897662,
+                    "building_class": 1.17445592,
+                    "lease_type": -0.02204224,
+                    "last_major_renovation": -0.03296515,
+                    "other": -4.87588405
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "1291eae6b0132c356c006f310586b124": {
+          "floor_id": "7521670919308c7c7f16de662b727a06",
+          "lease_id": "7e21cea4143b69e46a996bd4d1c26d2b",
+          "metrics": {
+            "rsf": 4763.0,
+            "suite": "302",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 67.0,
+            "annual_rent": 319122.96,
+            "tenant_name": "Apex Systems, LLC",
+            "lease_type": "nnn",
+            "commencement_date": "2026-03-01",
+            "expiration_date": "2033-02-28",
+            "lease_end_date": "2033-02-28",
+            "predicted_rent_psf": 62.053892
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "7521670919308c7c7f16de662b727a06",
+                  "space_id": "1291eae6b0132c356c006f310586b124",
+                  "lease_id": "7e21cea4143b69e46a996bd4d1c26d2b"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 62.053892
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.44938676,
+                    "transit_accessibility": 6.90203606,
+                    "year_built": 3.29217119
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.14496325,
+                    "interest_rate_effects": -0.09510162,
+                    "lease_type": -0.03538343
+                  },
+                  "other": {
+                    "lease_economics": 0.43563897,
+                    "relative_floor_effects": -0.02895031,
+                    "seasonality_effects": 0.02262982,
+                    "submarket_rent_growth": -0.02036506,
+                    "number_of_floors": -0.00279433,
+                    "average_floorplate": 0.07041819,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.42034284,
+                    "view_score": 0.70397341,
+                    "building_risk_at_purchase": 0.06066994,
+                    "submarket_occupancy": -0.01668771,
+                    "inflation_effects": 0.11068695,
+                    "in_building_restaurant": 0.07531478,
+                    "in_building_cafe": -0.00132707,
+                    "in_building_gym": -0.00771588,
+                    "in_building_bar": 0.00606003,
+                    "in_building_retail_density": -0.01580597,
+                    "nearby_restaurant_density": 1.15889989,
+                    "leed": -0.02454118,
+                    "energy_star": -0.00174501,
+                    "bike_share": 2.59674539,
+                    "road_accessibility": -0.01062275,
+                    "building_class": 1.17678052,
+                    "last_major_renovation": -0.03499472,
+                    "other": -5.20746855
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        },
+        "18fd69b06f643ae5699e082c599e9aae": {
+          "floor_id": "7521670919308c7c7f16de662b727a06",
+          "lease_id": "f2684c4d5eebf2a2b947f42c054bdad7",
+          "metrics": {
+            "rsf": 4586.0,
+            "suite": "303",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 67.0,
+            "annual_rent": 307245.96,
+            "tenant_name": "Horizon Kinetics LLC",
+            "lease_type": "nnn",
+            "commencement_date": "2026-03-01",
+            "expiration_date": "2033-05-31",
+            "lease_end_date": "2033-05-31",
+            "predicted_rent_psf": 62.178617
+          },
+          "ml_output": {
+            "predictions": [
+              {
+                "entity_ids": {
+                  "property_id": "100b7b66bc54e22725da1637c1abd411",
+                  "building_id": "5ca031811d3b913b700836835729e038",
+                  "floor_id": "7521670919308c7c7f16de662b727a06",
+                  "space_id": "18fd69b06f643ae5699e082c599e9aae",
+                  "lease_id": "f2684c4d5eebf2a2b947f42c054bdad7"
+                },
+                "outputs": {
+                  "predicted_rent_per_sqft": 62.178617
+                },
+                "explainability": {
+                  "positive": {
+                    "structure_value": 12.43909505,
+                    "transit_accessibility": 6.8244905,
+                    "year_built": 3.227578
+                  },
+                  "negative": {
+                    "submarket_hospitality_density": -0.15621889,
+                    "interest_rate_effects": -0.09427347,
+                    "last_major_renovation": -0.03553649
+                  },
+                  "other": {
+                    "lease_economics": 0.68759045,
+                    "relative_floor_effects": -0.0318514,
+                    "seasonality_effects": 0.03717536,
+                    "submarket_rent_growth": -0.01949734,
+                    "number_of_floors": -0.00286477,
+                    "average_floorplate": 0.08243412,
+                    "historical_significance": 0,
+                    "market_effects": 0,
+                    "sunlight_score": 0.46351746,
+                    "view_score": 0.71560137,
+                    "building_risk_at_purchase": 0.06360302,
+                    "submarket_occupancy": -0.01805732,
+                    "inflation_effects": 0.09906247,
+                    "in_building_restaurant": 0.07235081,
+                    "in_building_cafe": -0.00124674,
+                    "in_building_gym": -0.0076535,
+                    "in_building_bar": 0.00605073,
+                    "in_building_retail_density": -0.01545446,
+                    "nearby_restaurant_density": 1.15552555,
+                    "leed": -0.0246754,
+                    "energy_star": -0.00172475,
+                    "bike_share": 2.62592424,
+                    "road_accessibility": -0.00482073,
+                    "building_class": 1.14798491,
+                    "lease_type": -0.03453788,
+                    "other": -5.24155781
+                  }
+                },
+                "lineage": {
+                  "source": "lease_model_output",
+                  "as_of_date": "2026-07-06"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "71d0617b-c825-52c8-aa03-9ca16d5b5c03": {
+      "metrics": {
+        "floor_label": "PARKING",
+        "predicted_rent_psf": null
+      },
+      "spaces": {
+        "f94b16e6014299fab1af9a96f13475c4": {
+          "floor_id": "71d0617b-c825-52c8-aa03-9ca16d5b5c03",
+          "lease_id": "9541f968953d420753eacfba6924e73c",
+          "metrics": {
+            "rsf": 1.0,
+            "suite": "PRK1",
+            "occupancy_status": "occupied",
+            "contract_rate_psf": 17100.0,
+            "annual_rent": 17100.0,
+            "tenant_name": "Summit-Parmley Company",
+            "lease_type": "full_service_gross",
+            "commencement_date": "2022-01-01",
+            "expiration_date": "2026-12-31",
+            "lease_end_date": "2026-12-31"
+          }
+        }
+      }
+    }
+  }
+}

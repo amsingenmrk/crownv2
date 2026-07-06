@@ -15,6 +15,7 @@ import {
 import { portfolioAssetRowForAsset } from "@/lib/portfolio-row-for-asset"
 import { stackingPlanSpaceCountForAsset } from "@/lib/stacking-plan-data"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { portfolioAssetRowForMarketPin } from "@/lib/market-listing-portfolio-row"
 
 export const ASSET_TAB_PATHS = [
@@ -53,6 +54,11 @@ export function AssetDetailHeader() {
     [id]
   )
 
+  const otherRealAsset = React.useMemo(
+    () => (id ? getOtherRealAssetById(id) : null),
+    [id]
+  )
+
   const assetIndex = React.useMemo(
     () => (asset ? ASSETS.findIndex((a) => a.id === asset.id) : -1),
     [asset]
@@ -63,11 +69,16 @@ export function AssetDetailHeader() {
       const index = assetIndex >= 0 ? assetIndex : 0
       return portfolioAssetRowForAsset(asset, index)
     }
+    if (otherRealAsset) {
+      return portfolioAssetRowForAsset(otherRealAsset, 0, {
+        ownership: "Prospective",
+      })
+    }
     if (marketPin) {
       return portfolioAssetRowForMarketPin(marketPin)
     }
     return null
-  }, [asset, assetIndex, marketPin])
+  }, [asset, assetIndex, marketPin, otherRealAsset])
 
   const waleDisplay = React.useMemo(() => {
     if (tableRow == null) return "—"
@@ -85,8 +96,10 @@ export function AssetDetailHeader() {
       })),
     [basePath]
   )
-  const buildingLabel = asset?.name ?? marketPin?.building ?? id
-  const addressLabel = asset?.address ?? marketPin?.location ?? "—"
+  const buildingLabel =
+    asset?.name ?? otherRealAsset?.name ?? marketPin?.building ?? id
+  const addressLabel =
+    asset?.address ?? otherRealAsset?.address ?? marketPin?.location ?? "—"
 
   const prefetchTabPath = React.useCallback(
     (href: string) => {

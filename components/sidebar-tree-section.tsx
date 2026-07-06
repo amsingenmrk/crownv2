@@ -29,6 +29,7 @@ export function SidebarTreeSection({
   sectionNavigable = true,
   groups,
   onCreateGroup,
+  showCreateGroup = true,
 }: {
   sectionLabel: string
   sectionHref: string
@@ -38,6 +39,7 @@ export function SidebarTreeSection({
   sectionNavigable?: boolean
   groups: TreeGroupItem[]
   onCreateGroup: () => void
+  showCreateGroup?: boolean
 }) {
   return (
     <SidebarMenu className="gap-0">
@@ -88,25 +90,27 @@ export function SidebarTreeSection({
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             ))}
-            <SidebarMenuSubItem className="mt-1">
-              <SidebarMenuSubButton
-                size="sm"
-                className="h-6 gap-1.5 text-[11px] font-medium text-sidebar-foreground/50 hover:text-sidebar-foreground [&>svg]:text-current"
-                render={
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      onCreateGroup()
-                    }}
-                  />
-                }
-              >
-                <FolderPlus className="size-3 shrink-0 text-current" aria-hidden />
-                <span className="truncate">Create group</span>
-              </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
+            {showCreateGroup ? (
+              <SidebarMenuSubItem className="mt-1">
+                <SidebarMenuSubButton
+                  size="sm"
+                  className="h-6 gap-1.5 text-[11px] font-medium text-sidebar-foreground/50 hover:text-sidebar-foreground [&>svg]:text-current"
+                  render={
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        onCreateGroup()
+                      }}
+                    />
+                  }
+                >
+                  <FolderPlus className="size-3 shrink-0 text-current" aria-hidden />
+                  <span className="truncate">Create group</span>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ) : null}
           </SidebarMenuSub>
         </SidebarMenuSub>
       </li>

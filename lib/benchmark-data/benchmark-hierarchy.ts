@@ -15,6 +15,7 @@ import type {
 } from "@/lib/benchmark-area-types"
 
 import hierarchy from "./benchmark-hierarchy.json"
+import { enrichGeoBenchmarkAreaForMap } from "./geo-area-map"
 
 type HierarchyNode = { level: string; key: string; label: string }
 type HierarchyData = {
@@ -81,7 +82,7 @@ function areaFromNodeId(nodeId: string): BenchmarkArea | null {
   const childMap = DATA.children[nodeId]
   const childDataLevel = childMap ? Object.keys(childMap)[0] : undefined
   const parentNodeId = PARENT_OF[nodeId]
-  return {
+  return enrichGeoBenchmarkAreaForMap({
     id: AREA_ID(dataLevel, node.key),
     label: node.label,
     bounds: US_BOUNDS,
@@ -92,7 +93,7 @@ function areaFromNodeId(nodeId: string): BenchmarkArea | null {
     geocodeQuery: node.label,
     isCurated: false,
     aliases: [node.label, node.key],
-  }
+  })
 }
 
 export const HIERARCHY_ROOT_AREA: BenchmarkArea = areaFromNodeId(

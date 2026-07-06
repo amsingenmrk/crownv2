@@ -57,7 +57,6 @@ import {
 } from "@/lib/assets"
 import {
   addCompetitiveAssetsToGroup,
-  COMPETITIVE_SEEDED_GROUPS,
   getCompetitiveGroupSnapshot,
   parseCompetitiveGroupSnapshot,
   removeCompetitiveAssetsFromOtherAssets,
@@ -258,23 +257,12 @@ export function PortfolioAssetsDataTable({
     return [...seededGroups, ...custom]
   }, [assetGroupData.customGroups, assetGroupData.removedPortfolioGroupIds])
   const competitiveGroupsForMenu = React.useMemo((): CompetitiveMenuOption[] => {
-    const seeded = COMPETITIVE_SEEDED_GROUPS.filter(
-      (group) => !competitiveGroupData.removedSeededGroupIds.has(group.id)
-    ).map((group) => ({
-      name: competitiveGroupData.groupLabels[group.id] ?? group.label,
-      groupId: group.id,
-    }))
-    const custom = Object.entries(competitiveGroupData.customGroups)
+    return Object.entries(competitiveGroupData.customGroups)
       .map(([groupId, name]) => ({ name, groupId }))
       .sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       )
-    return [...seeded, ...custom]
-  }, [
-    competitiveGroupData.customGroups,
-    competitiveGroupData.groupLabels,
-    competitiveGroupData.removedSeededGroupIds,
-  ])
+  }, [competitiveGroupData.customGroups])
 
   const liftStrength = React.useCallback(
     (liftPercent: number) =>

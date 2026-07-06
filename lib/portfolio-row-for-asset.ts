@@ -1,5 +1,9 @@
 import { OFFICE_SECTOR_LABEL, type Asset } from "@/lib/assets"
 import { financialMetricsForAssetAtIndex } from "@/lib/portfolio-asset-financials"
+import {
+  isRealAssetId,
+  realPropertyIdentityLabels,
+} from "@/lib/real-properties"
 import type { PortfolioAssetRow } from "@/lib/portfolio-asset-row"
 import { formatUsdPortfolioCompact } from "@/lib/scenario-kpi-format"
 import { getTopSingleModificationRecommendationForAsset } from "@/lib/modification-recommendations"
@@ -24,22 +28,30 @@ function formatLiftPercent(value: number) {
 }
 
 function sectorLabelForAsset(asset: Asset) {
-  void asset
+  if (isRealAssetId(asset.id)) {
+    const { sectorLabel } = realPropertyIdentityLabels(asset.id)
+    if (sectorLabel != null) return sectorLabel
+  }
   return OFFICE_SECTOR_LABEL
 }
 
 /** One portfolio table row — same values as the main portfolio assets grid. */
 export function portfolioAssetRowForAsset(
   asset: Asset,
-  index: number
+  index: number,
+  options?: { ownership?: string }
 ): PortfolioAssetRow {
   const fin = financialMetricsForAssetAtIndex(asset, index)
+  const identityLabels = isRealAssetId(asset.id)
+    ? realPropertyIdentityLabels(asset.id)
+    : null
   const recommendation = getTopSingleModificationRecommendationForAsset(
     asset.id,
     asset
   )
   const typeLabel = sectorLabelForAsset(asset)
   const liftPercent = Number((recommendation?.averageLiftPct ?? 0).toFixed(1))
+  const ownership = options?.ownership ?? "Owned"
 
   if (fin == null) {
     return {
@@ -48,9 +60,9 @@ export function portfolioAssetRowForAsset(
       groupIds: asset.groupIds ?? [asset.groupId],
       building: asset.name,
       location: asset.address,
-      ownership: "Owned",
+      ownership,
       typeLabel,
-      classLabel: "B",
+      classLabel: identityLabels?.classLabel ?? "B",
       rsf: "—",
       occPct: "—",
       pricePerSf: "—",
@@ -81,7 +93,7 @@ export function portfolioAssetRowForAsset(
     groupIds: asset.groupIds ?? [asset.groupId],
     building: asset.name,
     location: asset.address,
-    ownership: "Owned",
+    ownership,
     typeLabel,
     classLabel: fin.classLabel,
     rsf: formatRsfShort(fin.rsfSqft),

@@ -10,10 +10,12 @@
     "predicted_rent_psf": 51.561574,
     "property_class": null,
     "spaces_count": 14.0,
-    "sector": null,
+    "sector": "Office",
     "occupied_pct": 100.0,
     "market_rent": 71.1932659983635,
-    "highest_potential_lift_rent_name": "leed_gold"
+    "highest_potential_lift_rent_name": "leed_gold",
+    "highest_potential_lift_rent": 1.500868,
+    "highest_potential_lift_rent_pct": 2.910827
   },
   "asset": {
     "building_rsf": 148894,
@@ -35,10 +37,10 @@
     "mark_to_market_occupancy_used": 1,
     "gross_potential_value": 66124692.992178306,
     "gross_potential_value_per_sqft": 444.10582691161704,
-    "gross_potential_revenue": 7661913.390639792,
-    "gross_potential_expense": 3129925.307034868,
-    "gross_potential_noi": 4531988.083604924,
-    "gross_potential_cap_rate": 0.068537,
+    "gross_potential_revenue": 7677208.936432939,
+    "gross_potential_expense": 3136173.604740943,
+    "gross_potential_noi": 4541035.331691996,
+    "gross_potential_cap_rate": 0.07474865019321442,
     "gross_potential_occupancy_used": 1
   },
   "floors": {

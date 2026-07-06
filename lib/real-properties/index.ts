@@ -14,7 +14,7 @@
 import type { Asset } from "@/lib/assets"
 import type { AssetFinancialMetrics } from "@/lib/portfolio-asset-financials"
 import type { ModificationRecommendation } from "@/lib/modification-recommendations"
-import type { ModId } from "@/lib/building-modifications"
+import type { ModId, ModValues } from "@/lib/building-modifications"
 import type {
   StackingFloorValueDrivers,
   StackingPlanContact,
@@ -33,6 +33,28 @@ import eastPutnamForecast from "./data/1700-east-putnam.forecast.json"
 import mackCentreBaseline from "./data/mack-centre-iv.baseline.json"
 import mackCentreModifications from "./data/mack-centre-iv.modifications.json"
 import mackCentreForecast from "./data/mack-centre-iv.forecast.json"
+import {
+  realConditionMetricMapFromAssetBlock,
+  resolveRealExportScenarioKey,
+  SCENARIO_TO_MOD,
+} from "./modification-scenarios"
+import {
+  getOtherRealAssetById,
+  isOtherRealAssetId,
+  otherRealPropertyDefs,
+} from "./other-assets"
+import type {
+  RawAssetBlock,
+  RawBaseline,
+  RawExplainability,
+  RawFloor,
+  RawFloorMetrics,
+  RawMetrics,
+  RawModifications,
+  RawScenario,
+  RawSpace,
+  RealPropertyDef,
+} from "./property-def"
 
 /* ------------------------------------------------------------------ */
 /* Forecast JSON (per-building quarterly projection by scenario)      */
@@ -86,105 +108,15 @@ export function getRealForecastJson(assetId: string): RealForecastJson | null {
   return FORECASTS_BY_ID[assetId] ?? null
 }
 
-/* ------------------------------------------------------------------ */
-/* Raw JSON shapes (loose; the export omits/null-fills various fields) */
-/* ------------------------------------------------------------------ */
-
-type RawSpaceMetrics = {
-  rsf?: number
-  occupancy_status?: string
-  contract_rate_psf?: number
-  annual_rent?: number
-  lease_type?: string
-  expiration_date?: string
-  commencement_date?: string
-  lease_end_date?: string
-  predicted_rent_psf?: number
-  renewal_prob?: number | null
-  suite?: string | number
-  tenant_name?: string
-}
-
-type RawExplainability = {
-  positive?: Record<string, number | null>
-  negative?: Record<string, number | null>
-  other?: Record<string, number | null>
-}
-
-type RawSpace = {
-  lease_id?: string
-  metrics?: RawSpaceMetrics
-  ml_output?: { predictions?: Array<{ explainability?: RawExplainability }> }
-}
-
-type RawFloorMetrics = {
-  floor_number?: number
-  floor_label?: string
-  occupancy_pct?: number
-  vacancy_pct?: number
-  predicted_rent_psf?: number
-  contract_rent_psf?: number
-  sun_score?: number
-  view_score?: number
-}
-
-type RawFloor = {
-  metrics?: RawFloorMetrics
-  spaces?: Record<string, RawSpace>
-}
-
-type RawAssetBlock = {
-  building_rsf?: number
-  as_is_value?: number
-  as_is_value_per_sqft?: number
-  as_is_revenue?: number
-  as_is_expense?: number
-  as_is_noi?: number
-  as_is_cap_rate?: number
-  mark_to_market_value?: number
-  mark_to_market_revenue?: number
-  mark_to_market_expense?: number
-  mark_to_market_noi?: number
-  mark_to_market_cap_rate?: number
-  gross_potential_value?: number
-  gross_potential_revenue?: number
-  gross_potential_expense?: number
-  gross_potential_noi?: number
-  gross_potential_cap_rate?: number
-}
-
-type RawMetrics = {
-  building_name?: string
-  address?: string
-  rsf_total?: number
-  occupied_pct?: number
-  vacant_pct?: number
-  wale?: number
-  predicted_rent_psf?: number
-  market_rent?: number
-  spaces_count?: number
-}
-
-type RawBaseline = {
-  building_id: string
-  property_id: string
-  metrics?: RawMetrics
-  asset?: RawAssetBlock
-  floors?: Record<string, RawFloor>
-}
-
-type RawScenario = {
-  scenario: string
-  asset?: RawAssetBlock
-}
-
-type RawModifications = {
-  property_id: string
-  scenarios?: RawScenario[]
-}
+export type {
+  RawBaseline,
+  RawMetrics,
+  RawModifications,
+  RealPropertyDef,
+} from "./property-def"
 
 /* ------------------------------------------------------------------ */
-/* Registry                                                           */
+/* Registry (Your Assets — owned portfolio)                             */
 /* ------------------------------------------------------------------ */
 
 const BUILDING_IMAGES = [
@@ -192,15 +124,6 @@ const BUILDING_IMAGES = [
   "https://images.unsplash.com/photo-1516344301847-92e6c9ff876f?w=400&h=300&fit=crop",
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
 ] as const
-
-type RealPropertyDef = {
-  id: string
-  name: string
-  address: string
-  imageUrl: string
-  baseline: RawBaseline
-  modifications: RawModifications
-}
 
 const REAL_PROPERTY_DEFS: RealPropertyDef[] = [
   {
@@ -233,11 +156,22 @@ const REAL_PROPERTY_DEFS: RealPropertyDef[] = [
 export const REAL_PROPERTY_GROUP_ID = "office"
 export const REAL_PROPERTY_GROUP_LABEL = "Fund I"
 
-const DEFS_BY_ID = new Map(REAL_PROPERTY_DEFS.map((def) => [def.id, def]))
+const ALL_PROPERTY_DEFS: RealPropertyDef[] = [
+  ...REAL_PROPERTY_DEFS,
+  ...otherRealPropertyDefs(),
+]
+
+const DEFS_BY_ID = new Map(ALL_PROPERTY_DEFS.map((def) => [def.id, def]))
 
 export function isRealAssetId(assetId: string): boolean {
   return DEFS_BY_ID.has(assetId)
 }
+
+export function isOwnedRealAssetId(assetId: string): boolean {
+  return REAL_PROPERTY_DEFS.some((def) => def.id === assetId)
+}
+
+export { isOtherRealAssetId, getOtherRealAssetById } from "./other-assets"
 
 export const REAL_ASSET_IDS: readonly string[] = REAL_PROPERTY_DEFS.map(
   (def) => def.id
@@ -388,19 +322,71 @@ function humanizeFactor(key: string): string {
     .join(" ")
 }
 
-function explainabilityEntries(space: RawSpace): Array<[string, number]> {
-  const prediction = space.ml_output?.predictions?.[0]
-  const explain = prediction?.explainability
-  if (explain == null) return []
+function spacePredictedRentPsf(space: RawSpace, fallback: number): number {
+  const fromMl =
+    space.ml_output?.predictions?.[0]?.outputs?.predicted_rent_per_sqft
+  if (fromMl != null && Number.isFinite(fromMl)) return fromMl
+  const fromMetrics = space.metrics?.predicted_rent_psf
+  if (fromMetrics != null && Number.isFinite(fromMetrics)) return fromMetrics
+  return fallback
+}
+
+function weightedSpaceAverage(
+  spaces: RawSpace[],
+  pick: (space: RawSpace) => number | undefined,
+  fallback: number
+): number {
+  const totalRsf = spaces.reduce((sum, space) => sum + (space.metrics?.rsf ?? 0), 0)
+  if (totalRsf <= 0) return fallback
+  return (
+    spaces.reduce(
+      (sum, space) =>
+        sum + (space.metrics?.rsf ?? 0) * (pick(space) ?? fallback),
+      0
+    ) / totalRsf
+  )
+}
+
+function explainabilityGroupEntries(
+  group: Record<string, number | null> | undefined
+): Array<[string, number]> {
+  if (group == null) return []
   const entries: Array<[string, number]> = []
-  for (const group of [explain.positive, explain.negative, explain.other]) {
-    if (group == null) continue
-    for (const [key, value] of Object.entries(group)) {
-      if (value == null || !Number.isFinite(value)) continue
-      entries.push([key, value])
-    }
+  for (const [key, value] of Object.entries(group)) {
+    if (value == null || !Number.isFinite(value)) continue
+    entries.push([key, value])
   }
   return entries
+}
+
+function aggregateExplainabilityGroup(
+  spaces: RawSpace[],
+  pickGroup: (
+    explain: RawExplainability
+  ) => Record<string, number | null> | undefined
+): Map<string, number> {
+  const totalRsf = spaces.reduce((sum, space) => sum + (space.metrics?.rsf ?? 0), 0)
+  const aggregated = new Map<string, number>()
+  for (const space of spaces) {
+    const explain = space.ml_output?.predictions?.[0]?.explainability
+    if (explain == null) continue
+    const weight = totalRsf > 0 ? (space.metrics?.rsf ?? 0) / totalRsf : 0
+    if (weight <= 0) continue
+    for (const [key, impact] of explainabilityGroupEntries(pickGroup(explain))) {
+      const label = humanizeFactor(key)
+      aggregated.set(label, (aggregated.get(label) ?? 0) + impact * weight)
+    }
+  }
+  return aggregated
+}
+
+function mapAggregatedToFactors(
+  aggregated: Map<string, number>
+): StackingValueDriverFactor[] {
+  return [...aggregated.entries()]
+    .map(([factor, impact]) => ({ factor, impact: roundToHundredths(impact) }))
+    .filter((entry) => Math.abs(entry.impact) >= 0.01)
+    .sort((left, right) => Math.abs(right.impact) - Math.abs(left.impact))
 }
 
 function buildFloorValueDrivers(args: {
@@ -410,38 +396,41 @@ function buildFloorValueDrivers(args: {
 }): StackingFloorValueDrivers {
   const { spaces, floorMetrics, marketRentPsf } = args
 
-  // Weight each space's SHAP contribution by its share of floor RSF.
-  const totalRsf = spaces.reduce((sum, s) => sum + (s.metrics?.rsf ?? 0), 0)
-  const aggregated = new Map<string, number>()
-  for (const space of spaces) {
-    const weight = totalRsf > 0 ? (space.metrics?.rsf ?? 0) / totalRsf : 0
-    if (weight <= 0) continue
-    for (const [key, impact] of explainabilityEntries(space)) {
-      const label = humanizeFactor(key)
-      aggregated.set(label, (aggregated.get(label) ?? 0) + impact * weight)
-    }
+  const positiveMap = aggregateExplainabilityGroup(spaces, (explain) => explain.positive)
+  const negativeMap = aggregateExplainabilityGroup(spaces, (explain) => explain.negative)
+  const otherMap = aggregateExplainabilityGroup(spaces, (explain) => explain.other)
+
+  const positiveNegative = new Map<string, number>()
+  for (const [key, impact] of positiveMap) {
+    positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
+  }
+  for (const [key, impact] of negativeMap) {
+    positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
   }
 
-  const factors: StackingValueDriverFactor[] = [...aggregated.entries()]
-    .map(([factor, impact]) => ({ factor, impact: roundToHundredths(impact) }))
-    .filter((entry) => Math.abs(entry.impact) >= 0.01)
-    .sort((left, right) => Math.abs(right.impact) - Math.abs(left.impact))
-
-  const visibleFactorCount = 5
-  const waterfallFactors = sortForDisplay(factors.slice(0, visibleFactorCount))
-  const otherFactors = sortForDisplay(factors.slice(visibleFactorCount))
+  const waterfallFactors = sortForDisplay(mapAggregatedToFactors(positiveNegative))
+  const otherFactors = sortForDisplay(mapAggregatedToFactors(otherMap))
+  const allFactors = [...waterfallFactors, ...otherFactors]
 
   const predictedRentPsf = roundToHundredths(
-    floorMetrics?.predicted_rent_psf ?? marketRentPsf
+    weightedSpaceAverage(spaces, (space) => spacePredictedRentPsf(space, marketRentPsf), marketRentPsf)
+  )
+  const occupiedSpaces = spaces.filter(
+    (space) =>
+      (space.metrics?.occupancy_status ?? "occupied").toLowerCase() === "occupied"
   )
   const contractRentPsf = roundToHundredths(
-    floorMetrics?.contract_rent_psf ?? predictedRentPsf
+    weightedSpaceAverage(
+      occupiedSpaces.length > 0 ? occupiedSpaces : spaces,
+      (space) => space.metrics?.contract_rate_psf,
+      floorMetrics?.contract_rent_psf ?? predictedRentPsf
+    )
   )
   const totalPositiveImpact = roundToHundredths(
-    factors.reduce((sum, f) => sum + (f.impact > 0 ? f.impact : 0), 0)
+    allFactors.reduce((sum, factor) => sum + (factor.impact > 0 ? factor.impact : 0), 0)
   )
   const totalNegativeImpact = roundToHundredths(
-    factors.reduce((sum, f) => sum + (f.impact < 0 ? f.impact : 0), 0)
+    allFactors.reduce((sum, factor) => sum + (factor.impact < 0 ? factor.impact : 0), 0)
   )
 
   return {
@@ -509,6 +498,52 @@ function buildContacts(
 
 const stackingCache = new Map<string, StackingPlanDataset>()
 
+const SPECIAL_FLOOR_SORT_KEYS: Record<string, number> = {
+  ROOF: 10_000,
+  PARKING: -10_000,
+}
+
+function parseRealFloorNumber(
+  raw: unknown,
+  options?: { floorLabel?: string | null }
+): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.round(raw)
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    const special = SPECIAL_FLOOR_SORT_KEYS[trimmed.toUpperCase()]
+    if (special != null) return special
+
+    const parsed = Number.parseFloat(trimmed)
+    if (Number.isFinite(parsed)) return Math.round(parsed)
+  }
+
+  const fromLabel = options?.floorLabel?.match(/(\d+)/)?.[1]
+  if (fromLabel != null) {
+    const parsed = Number.parseInt(fromLabel, 10)
+    if (Number.isFinite(parsed)) return parsed
+  }
+
+  return 0
+}
+
+function formatRealFloorLabel(
+  raw: unknown,
+  floorLabel?: string | null
+): string {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    if (SPECIAL_FLOOR_SORT_KEYS[trimmed.toUpperCase()] != null) {
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase()
+    }
+  }
+
+  const floorNumber = parseRealFloorNumber(raw, { floorLabel })
+  return String(floorNumber)
+}
+
 export function buildRealStackingPlanDataset(
   assetId: string
 ): StackingPlanDataset | null {
@@ -531,7 +566,13 @@ export function buildRealStackingPlanDataset(
         (sum, space) => sum + (space.metrics?.rsf ?? 0),
         0
       )
-      const floorNumber = Math.round(floorMetrics?.floor_number ?? 0)
+      const floorNumber = parseRealFloorNumber(floorMetrics?.floor_number, {
+        floorLabel: floorMetrics?.floor_label,
+      })
+      const floorLabel = formatRealFloorLabel(
+        floorMetrics?.floor_number,
+        floorMetrics?.floor_label
+      )
 
       const tenants: StackingPlanTenant[] = spaceEntries.map(
         ([spaceId, space], index) => {
@@ -542,8 +583,7 @@ export function buildRealStackingPlanDataset(
           const contractRatePsfValue = isVacant
             ? undefined
             : m.contract_rate_psf
-          const predictedRentPsfValue =
-            m.predicted_rent_psf ?? marketRentPsf
+          const predictedRentPsfValue = spacePredictedRentPsf(space, marketRentPsf)
           const rentPremiumPerSfValue = predictedRentPsfValue - marketRentPsf
           const rentPremiumPct =
             marketRentPsf > 0
@@ -567,8 +607,7 @@ export function buildRealStackingPlanDataset(
             widthPercent,
             isVacant,
             address: def.address,
-            floorLabel:
-              floorMetrics?.floor_label ?? `Floor ${floorNumber}`,
+            floorLabel,
             owner: def.name,
             buildout: isVacant ? "White Box" : "Fully Built-Out",
             verificationStatus: isVacant
@@ -624,6 +663,8 @@ export function buildRealStackingPlanDataset(
       const vacancyPercent = Math.max(0, 100 - occupancyPercent)
 
       return {
+        floorKey: floorId,
+        floorLabel,
         floor: floorNumber,
         sqft: formatSqft(floorTotalRsf),
         occupancy: `${occupancyPercent}%`,
@@ -725,6 +766,35 @@ function classLabelFor(asset: RawAssetBlock | undefined): "A" | "B" | "C" {
   return "C"
 }
 
+function propertyClassFromMetrics(
+  metrics: RawMetrics
+): "A" | "B" | "C" | null {
+  const value = metrics.property_class?.trim().toUpperCase()
+  if (value === "A" || value === "B" || value === "C") return value
+  return null
+}
+
+function sectorLabelFromMetrics(metrics: RawMetrics): string | null {
+  const sector = metrics.sector?.trim()
+  return sector && sector.length > 0 ? sector : null
+}
+
+/** Sector and class from baseline JSON when present. */
+export function realPropertyIdentityLabels(assetId: string): {
+  sectorLabel: string | null
+  classLabel: "A" | "B" | "C" | null
+} {
+  const def = DEFS_BY_ID.get(assetId)
+  if (def == null) {
+    return { sectorLabel: null, classLabel: null }
+  }
+  const metrics = def.baseline.metrics ?? {}
+  return {
+    sectorLabel: sectorLabelFromMetrics(metrics),
+    classLabel: propertyClassFromMetrics(metrics),
+  }
+}
+
 const financialCache = new Map<string, AssetFinancialMetrics | null>()
 
 export function buildRealFinancialMetrics(
@@ -760,12 +830,13 @@ export function buildRealFinancialMetrics(
     dataset?.summary.averageContractRentPsf ??
     (occupiedSqft > 0 ? annualRevenueUsd / occupiedSqft : 0)
 
+  const otherAsset = getOtherRealAssetById(assetId)
   const metricsResult: AssetFinancialMetrics = {
     assetId,
     assetName: def.name,
-    groupId: REAL_PROPERTY_GROUP_ID,
-    groupLabel: REAL_PROPERTY_GROUP_LABEL,
-    scope: "owned",
+    groupId: otherAsset?.groupId ?? REAL_PROPERTY_GROUP_ID,
+    groupLabel: otherAsset?.groupLabel ?? REAL_PROPERTY_GROUP_LABEL,
+    scope: otherAsset != null ? "market" : "owned",
     valueMills: valueUsd / 1_000_000,
     valueUsd,
     noiTenthM: noiUsd / 1_000_000,
@@ -792,7 +863,7 @@ export function buildRealFinancialMetrics(
           ? Math.round(valueUsd / rsfSqft)
           : 0,
     waleYears: roundToHundredths(metrics.wale ?? dataset?.summary.waleYears ?? 0),
-    classLabel: classLabelFor(block),
+    classLabel: propertyClassFromMetrics(metrics) ?? classLabelFor(block),
     status:
       occupancyPct >= 90 && (metrics.wale ?? 0) >= 4.5
         ? "Stabilized"
@@ -809,38 +880,7 @@ export function buildRealFinancialMetrics(
 /* Modification recommendation (best projection scenario)             */
 /* ------------------------------------------------------------------ */
 
-/** Maps an exported scenario name to the app's modification id + option. */
-const SCENARIO_TO_MOD: Record<string, { id: ModId; optionValue: string }> = {
-  leed_certified: { id: "leed", optionValue: "leed-certified" },
-  leed_silver: { id: "leed", optionValue: "leed-silver" },
-  leed_gold: { id: "leed", optionValue: "leed-gold" },
-  leed_platinum: { id: "leed", optionValue: "leed-platinum" },
-  amenity_gym_general: { id: "gym", optionValue: "general-fitness" },
-  amenity_gym_specialized: { id: "gym", optionValue: "specialty-fitness" },
-  amenity_gym_studio_mind_body: { id: "gym", optionValue: "mind-body-studio" },
-  amenity_bar_beer_pub: { id: "bar", optionValue: "beer-bar-pub" },
-  amenity_bar_lounge: { id: "bar", optionValue: "lounge-bar" },
-  amenity_bar_wine_spirits: { id: "bar", optionValue: "wine-spirits-bar" },
-  amenity_cafe_bakery: { id: "cafe", optionValue: "bakery-cafe" },
-  amenity_cafe_coffee: { id: "cafe", optionValue: "coffee-cafe" },
-  amenity_cafe_tea: { id: "cafe", optionValue: "tea-cafe" },
-  amenity_restaurant_white_tablecloth: {
-    id: "restaurant",
-    optionValue: "white-cloth",
-  },
-  amenity_restaurant_full_service: {
-    id: "restaurant",
-    optionValue: "full-service-restaurant",
-  },
-  amenity_restaurant_fast_casual: {
-    id: "restaurant",
-    optionValue: "fast-casual-quick-service",
-  },
-  amenity_restaurant_specialty_dining: {
-    id: "restaurant",
-    optionValue: "specialty-dietary-dining",
-  },
-}
+export { SCENARIO_TO_MOD } from "./modification-scenarios"
 
 const MOD_CHECKBOX_LABEL: Record<ModId, string> = {
   gym: "Add Gym",
@@ -885,9 +925,12 @@ export function buildRealModificationRecommendation(
     return null
   }
 
+  const metrics = def.baseline.metrics ?? {}
   const baselineValue = def.baseline.asset?.mark_to_market_value ?? 0
-  const baselinePredictedPsf =
-    def.baseline.metrics?.predicted_rent_psf ?? 0
+  const baselinePredictedPsf = metrics.predicted_rent_psf ?? 0
+  const exportLiftPct = metrics.highest_potential_lift_rent_pct
+  const exportLiftPsf = metrics.highest_potential_lift_rent
+  const exportScenarioName = metrics.highest_potential_lift_rent_name
   const scenarios = def.modifications.scenarios ?? []
 
   let best: { scenario: RawScenario; value: number } | null = null
@@ -899,21 +942,40 @@ export function buildRealModificationRecommendation(
     }
   }
 
-  if (best == null || baselineValue <= 0) {
+  const scenarioKey =
+    exportScenarioName != null && SCENARIO_TO_MOD[exportScenarioName] != null
+      ? exportScenarioName
+      : best?.scenario.scenario
+
+  if (scenarioKey == null || SCENARIO_TO_MOD[scenarioKey] == null) {
     recommendationCache.set(assetId, null)
     return null
   }
 
-  const mapping = SCENARIO_TO_MOD[best.scenario.scenario]!
-  const averageLiftPct = roundToHundredths(
-    (best.value / baselineValue - 1) * 100
-  )
-  // Per-RSF dollar lift implied by the scenario value gain.
+  const mapping = SCENARIO_TO_MOD[scenarioKey]!
   const rsf = def.baseline.asset?.building_rsf ?? 1
-  const valueGainPsf = (best.value - baselineValue) / Math.max(rsf, 1)
-  const averageLiftPsf = roundToHundredths(
-    Math.max(valueGainPsf, baselinePredictedPsf * (averageLiftPct / 100))
-  )
+  const averageLiftPct =
+    exportLiftPct != null
+      ? roundToHundredths(exportLiftPct)
+      : best != null && baselineValue > 0
+        ? roundToHundredths((best.value / baselineValue - 1) * 100)
+        : 0
+  const averageLiftPsf =
+    exportLiftPsf != null
+      ? roundToHundredths(exportLiftPsf)
+      : best != null && baselineValue > 0
+        ? roundToHundredths(
+            Math.max(
+              (best.value - baselineValue) / Math.max(rsf, 1),
+              baselinePredictedPsf * (averageLiftPct / 100)
+            )
+          )
+        : 0
+
+  if (averageLiftPsf <= 0 && averageLiftPct <= 0) {
+    recommendationCache.set(assetId, null)
+    return null
+  }
 
   const recommendation: ModificationRecommendation = {
     id: mapping.id,
@@ -931,6 +993,30 @@ export function buildRealModificationRecommendation(
 /* ------------------------------------------------------------------ */
 /* Valuation condition metrics (In-Place / Mark-to-Market / Gross)    */
 /* ------------------------------------------------------------------ */
+
+export function getRealExportScenario(assetId: string, modValues: ModValues) {
+  const def = DEFS_BY_ID.get(assetId)
+  if (def == null) return null
+  const scenarioKey = resolveRealExportScenarioKey(modValues)
+  if (scenarioKey == null) return null
+  return (
+    def.modifications.scenarios?.find(
+      (entry) => entry.scenario === scenarioKey
+    ) ?? null
+  )
+}
+
+/** Valuation KPIs from the scenarios export when a modification is active. */
+export function realValuationConditionMetricsForModValues(
+  assetId: string,
+  modValues: ModValues
+): RealConditionMetricMap | null {
+  const scenario = getRealExportScenario(assetId, modValues)
+  if (scenario?.asset != null) {
+    return realConditionMetricMapFromAssetBlock(scenario.asset)
+  }
+  return realValuationConditionMetrics(assetId)
+}
 
 export type RealConditionMetrics = {
   grossRevenue: number

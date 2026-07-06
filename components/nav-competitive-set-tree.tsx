@@ -5,33 +5,17 @@ import { usePathname } from "next/navigation"
 
 import { NewCompetitiveGroupDialog } from "@/components/new-competitive-group-dialog"
 import { SidebarTreeSection, type TreeGroupItem } from "@/components/sidebar-tree-section"
-import { getAssetById } from "@/lib/assets"
+import { assetHref } from "@/lib/assets"
 import {
-  getAssetGroupOverridesSnapshot,
-  parseAssetGroupOverrideSnapshot,
-  subscribeAssetGroupOverrides,
-} from "@/lib/asset-group-overrides"
-import {
-  COMPETITIVE_SEEDED_GROUPS,
-  ensureCompetitiveMembershipSeeded,
   getCompetitiveGroupSnapshot,
   parseCompetitiveGroupSnapshot,
-  resolveCompetitiveGroupIdsForAsset,
   subscribeCompetitiveGroups,
 } from "@/lib/competitive-group-overrides"
-
-type CompetitiveGroupDefinition = {
-  id: string
-  label: string
-}
+import { otherRealAssetList, isOtherRealAssetId } from "@/lib/other-assets"
 
 export function NavCompetitiveSetTree() {
   const pathname = usePathname()
   const [newGroupOpen, setNewGroupOpen] = React.useState(false)
-
-  React.useEffect(() => {
-    ensureCompetitiveMembershipSeeded()
-  }, [])
 
   const snapshot = React.useSyncExternalStore(
     subscribeCompetitiveGroups,
@@ -44,89 +28,64 @@ export function NavCompetitiveSetTree() {
     [snapshot]
   )
 
-  const assetGroupSnapshot = React.useSyncExternalStore(
-    subscribeAssetGroupOverrides,
-    getAssetGroupOverridesSnapshot,
-    () => ""
-  )
-  const standalonePropertyNavIds = React.useMemo(
-    () => parseAssetGroupOverrideSnapshot(assetGroupSnapshot).standalonePropertyNavIds,
-    [assetGroupSnapshot]
+  const assets = React.useMemo(
+    () =>
+      otherRealAssetList()
+        .filter((asset) => !competitiveData.removedAssetIds.has(asset.id))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        ),
+    [competitiveData.removedAssetIds]
   )
 
-  const groups = React.useMemo<CompetitiveGroupDefinition[]>(
-    () => [
-      ...COMPETITIVE_SEEDED_GROUPS.filter(
-        (group) => !competitiveData.removedSeededGroupIds.has(group.id)
-      ).map((group) => ({
-        id: group.id,
-        label: competitiveData.groupLabels[group.id] ?? group.label,
-      })),
-      ...Object.entries(competitiveData.customGroups)
+  const customGroups = React.useMemo(
+    () =>
+      Object.entries(competitiveData.customGroups)
         .map(([id, label]) => ({ id, label }))
         .sort((a, b) =>
           a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
         ),
-    ],
-    [
-      competitiveData.customGroups,
-      competitiveData.groupLabels,
-      competitiveData.removedSeededGroupIds,
-    ]
+    [competitiveData.customGroups]
   )
 
-  const activeCompetitiveGroupId = React.useMemo(() => {
-    const groupMatch = pathname.match(/^\/other-assets\/groups\/([^/]+)/)
-    if (groupMatch?.[1]) {
-      const groupId = decodeURIComponent(groupMatch[1])
-      return groups.some((group) => group.id === groupId) ? groupId : null
-    }
-
+  const activeOtherAssetId = React.useMemo(() => {
     const match = pathname.match(/^\/properties\/([^/]+)/)
     if (!match?.[1]) return null
     const assetId = decodeURIComponent(match[1])
-    // Owned portfolio assets belong to "Your Assets", not the competitive set —
-    // only market listings / standalone assets activate the Prospective tree.
-    const isOwnedPortfolioAsset =
-      getAssetById(assetId) != null && !standalonePropertyNavIds.has(assetId)
-    if (isOwnedPortfolioAsset) return null
-    const groupIds = resolveCompetitiveGroupIdsForAsset(
-      assetId,
-      competitiveData.membershipOverrides,
-      {
-        customGroups: competitiveData.customGroups,
-        removedSeededGroupIds: competitiveData.removedSeededGroupIds,
-        removedAssetIds: competitiveData.removedAssetIds,
-      }
-    )
-    return groups.find((group) => groupIds.includes(group.id))?.id ?? null
-  }, [
-    competitiveData.customGroups,
-    competitiveData.membershipOverrides,
-    competitiveData.removedAssetIds,
-    competitiveData.removedSeededGroupIds,
-    groups,
-    pathname,
-    standalonePropertyNavIds,
-  ])
+    return isOtherRealAssetId(assetId) ? assetId : null
+  }, [pathname])
+
+  const activeCustomGroupId = React.useMemo(() => {
+    const match = pathname.match(/^\/other-assets\/groups\/([^/]+)/)
+    if (!match?.[1]) return null
+    const groupId = decodeURIComponent(match[1])
+    return Object.hasOwn(competitiveData.customGroups, groupId) ? groupId : null
+  }, [competitiveData.customGroups, pathname])
 
   const sectionIsActive = React.useMemo(
     () =>
       pathname === "/other-assets" ||
       pathname.startsWith("/other-assets/") ||
-      activeCompetitiveGroupId != null,
-    [activeCompetitiveGroupId, pathname]
+      activeOtherAssetId != null,
+    [activeOtherAssetId, pathname]
   )
 
   const treeGroups = React.useMemo<TreeGroupItem[]>(
-    () =>
-      groups.map((group) => ({
+    () => [
+      ...assets.map((asset) => ({
+        id: asset.id,
+        label: asset.name,
+        href: assetHref(asset.id),
+        isActive: asset.id === activeOtherAssetId,
+      })),
+      ...customGroups.map((group) => ({
         id: group.id,
         label: group.label,
         href: `/other-assets/groups/${encodeURIComponent(group.id)}`,
-        isActive: group.id === activeCompetitiveGroupId,
+        isActive: group.id === activeCustomGroupId,
       })),
-    [activeCompetitiveGroupId, groups]
+    ],
+    [activeCustomGroupId, activeOtherAssetId, assets, customGroups]
   )
 
   return (

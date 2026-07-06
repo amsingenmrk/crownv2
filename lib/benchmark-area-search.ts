@@ -259,6 +259,60 @@ const PLACE_TYPE_RANK: Record<string, number> = {
   country: 6,
 }
 
+const US_STATE_QUERY = new Set([
+  "alabama",
+  "alaska",
+  "arizona",
+  "arkansas",
+  "california",
+  "colorado",
+  "connecticut",
+  "delaware",
+  "district of columbia",
+  "florida",
+  "georgia",
+  "hawaii",
+  "idaho",
+  "illinois",
+  "indiana",
+  "iowa",
+  "kansas",
+  "kentucky",
+  "louisiana",
+  "maine",
+  "maryland",
+  "massachusetts",
+  "michigan",
+  "minnesota",
+  "mississippi",
+  "missouri",
+  "montana",
+  "nebraska",
+  "nevada",
+  "new hampshire",
+  "new jersey",
+  "new mexico",
+  "new york",
+  "north carolina",
+  "north dakota",
+  "ohio",
+  "oklahoma",
+  "oregon",
+  "pennsylvania",
+  "rhode island",
+  "south carolina",
+  "south dakota",
+  "tennessee",
+  "texas",
+  "utah",
+  "vermont",
+  "virginia",
+  "washington",
+  "west virginia",
+  "wisconsin",
+  "wyoming",
+])
+
 function pickBestGeocodeFeature(
   features: GeocodeFeature[],
   query: string
@@ -274,6 +328,7 @@ function pickBestGeocodeFeature(
 
   const q = normalizeQuery(query)
   const wantsRegion =
+    US_STATE_QUERY.has(q) ||
     q.includes("state") ||
     q.endsWith(" county") ||
     q.includes(" metro") ||
@@ -285,13 +340,17 @@ function pickBestGeocodeFeature(
     const aRank = PLACE_TYPE_RANK[aType] ?? 99
     const bRank = PLACE_TYPE_RANK[bType] ?? 99
 
-    if (!wantsRegion) {
-      if (aType === "region" && (bType === "place" || bType === "locality")) {
-        return 1
-      }
-      if (bType === "region" && (aType === "place" || aType === "locality")) {
-        return -1
-      }
+    if (wantsRegion) {
+      // Prefer broader administrative regions (state/county) over localities
+      // like "Jerseyville" when the query is "New Jersey".
+      return bRank - aRank
+    }
+
+    if (aType === "region" && (bType === "place" || bType === "locality")) {
+      return 1
+    }
+    if (bType === "region" && (aType === "place" || aType === "locality")) {
+      return -1
     }
 
     return aRank - bRank

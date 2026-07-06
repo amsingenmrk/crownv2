@@ -4,6 +4,14 @@ import {
   type ModId,
   type ModValues,
 } from "@/lib/building-modifications"
+import {
+  getRealExportScenario,
+  isRealAssetId,
+} from "@/lib/real-properties"
+import {
+  scenarioPredictedRentBySpaceId,
+  stackingPlanSpaceIdFromTenantId,
+} from "@/lib/real-properties/modification-scenarios"
 import type {
   StackingPlanFloor,
   StackingPlanTenant,
@@ -610,4 +618,96 @@ function getRentGapBucket(deltaPsf: number): RentGapBucket {
 
 function roundToHundredths(value: number) {
   return Math.round(value * 100) / 100
+}
+
+function buildRealImpactSpace(
+  tenant: StackingPlanTenant,
+  floor: StackingPlanFloor,
+  activeSelections: ActiveModificationSelection[],
+  predictedBySpace: Map<string, number>
+): ModificationImpactSpace {
+  const baselineRentPsf = getBaselineRentPsf(tenant, floor)
+  const spaceId = stackingPlanSpaceIdFromTenantId(tenant.id)
+  const scenarioRent = predictedBySpace.get(spaceId)
+  const modifiedRentPsf = roundToHundredths(scenarioRent ?? baselineRentPsf)
+  const deltaPsf = roundToHundredths(modifiedRentPsf - baselineRentPsf)
+  const deltaPct =
+    baselineRentPsf === 0
+      ? 0
+      : roundToHundredths((deltaPsf / baselineRentPsf) * 100)
+  const leaseTiming = getLeaseTiming(tenant)
+  const sizeBucket = getSizeBucket(tenant.sqft)
+
+  return {
+    ...tenant,
+    floor: floor.floor,
+    baselineRentPsf,
+    modifiedRentPsf,
+    deltaPsf,
+    deltaPct,
+    impactBand: "inactive",
+    leaseTiming,
+    sizeBucket,
+    rentGapBucket: getRentGapBucket(deltaPsf),
+  }
+}
+
+export function buildRealModificationImpactDataset(
+  assetId: string,
+  floors: StackingPlanFloor[],
+  modValues: ModValues
+): ModificationImpactDataset | null {
+  const scenario = getRealExportScenario(assetId, modValues)
+  const activeSelections = getSelectedModificationDetails(modValues)
+  const predictedBySpace =
+    scenario != null ? scenarioPredictedRentBySpaceId(scenario) : new Map()
+
+  const rawFloors = floors.map((floor) => ({
+    ...floor,
+    tenants: floor.tenants.map((tenant) =>
+      buildRealImpactSpace(
+        tenant,
+        floor,
+        activeSelections,
+        predictedBySpace
+      )
+    ),
+  }))
+
+  const maxDeltaPsf = rawFloors.reduce((maxValue, floor) => {
+    const floorMax = floor.tenants.reduce(
+      (tenantMax, tenant) => Math.max(tenantMax, tenant.deltaPsf),
+      0
+    )
+    return Math.max(maxValue, floorMax)
+  }, 0)
+
+  return {
+    activeSelections,
+    floors: rawFloors.map((floor) => ({
+      ...floor,
+      tenants: floor.tenants.map((tenant) => ({
+        ...tenant,
+        impactBand: resolveImpactBand(tenant.deltaPsf, maxDeltaPsf),
+      })),
+    })),
+  }
+}
+
+export function buildModificationImpactDatasetForAsset(
+  assetId: string,
+  floors: StackingPlanFloor[],
+  modValues: ModValues
+): ModificationImpactDataset {
+  if (isRealAssetId(assetId)) {
+    const realDataset = buildRealModificationImpactDataset(
+      assetId,
+      floors,
+      modValues
+    )
+    if (realDataset != null) {
+      return realDataset
+    }
+  }
+  return buildModificationImpactDataset(floors, modValues)
 }

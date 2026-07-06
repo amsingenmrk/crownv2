@@ -94,6 +94,8 @@ export type StackingFloorValueDrivers = {
 }
 
 export type StackingPlanFloor = {
+  floorKey: string
+  floorLabel: string
   floor: number
   sqft: string
   occupancy: string
@@ -101,6 +103,17 @@ export type StackingPlanFloor = {
   vacancyPercent: number
   tenants: StackingPlanTenant[]
   valueDrivers: StackingFloorValueDrivers
+}
+
+/** Sort keys for non-building floors (ROOF, PARKING) in real-property baselines. */
+const STACKING_NON_BUILDING_FLOOR_NUMBERS = new Set([10_000, -10_000])
+
+export function filterStackingPlanBuildingFloors(
+  floors: readonly StackingPlanFloor[]
+): StackingPlanFloor[] {
+  return floors.filter(
+    (floor) => !STACKING_NON_BUILDING_FLOOR_NUMBERS.has(floor.floor)
+  )
 }
 
 export type StackingPlanSummary = {
@@ -1293,7 +1306,7 @@ export function getSampleStackingPlanData(
           ),
           isVacant,
           address,
-          floorLabel: `Floor ${floorSeed.floor}`,
+          floorLabel: String(floorSeed.floor),
           owner,
           buildout,
           verificationStatus: isVacant
@@ -1345,6 +1358,8 @@ export function getSampleStackingPlanData(
       })
 
       return {
+        floorKey: `${assetId}:floor-${floorSeed.floor}`,
+        floorLabel: String(floorSeed.floor),
         floor: floorSeed.floor,
         sqft: formatSqft(floorSeed.totalSqft),
         occupancy: `${occupancyPercent}%`,

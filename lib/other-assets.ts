@@ -1,15 +1,9 @@
 /**
- * Single entry point for the "Other Assets" domain — the non-portfolio
- * (competitive-set / market-listing) buildings shown alongside owned assets.
+ * Single entry point for the "Other Assets" domain — prospective buildings
+ * backed by exported JSON in `lib/real-properties/other-assets/data`.
  *
- * This is a consolidation (barrel) module: it gives Other Assets one import
- * surface and a readable vocabulary without changing any underlying data or
- * behavior. The records still come from the demo listing source, and the
- * dual-lookup branching against portfolio assets (getAssetById ??
- * getMarketListingPinById) is intentionally left in place.
- *
- * When Other Assets is wired to a real data source, this module is the
- * natural seam to repoint — callers that import from here won't need to change.
+ * Synthetic market listings (`mkt-…` ids) remain available for property search
+ * and benchmarks, but the Other Assets UI only surfaces JSON-backed buildings.
  */
 
 export {
@@ -22,6 +16,18 @@ export {
   /** Resolves a single Other Asset by id, or null if the id isn't a market listing. */
   getMarketListingPinById,
 } from "@/lib/market-search-demo-listings"
+
+export {
+  getOtherRealAssetById,
+  isOtherRealAssetId,
+  otherRealAssetList,
+  OTHER_REAL_ASSET_IDS,
+} from "@/lib/real-properties/other-assets"
+
+export {
+  otherRealAssetPortfolioRows,
+  scopedOtherRealAssets,
+} from "@/lib/real-properties/other-assets/portfolio-rows"
 
 export {
   /** Adapts an Other Asset record into the shared PortfolioAssetRow display shape. */

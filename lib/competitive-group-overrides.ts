@@ -1,8 +1,5 @@
-import {
-  MARKET_SEARCH_LISTING_COUNT,
-  marketSearchDemoPinsBase,
-} from "@/lib/other-assets"
 import { marketSearchDemoHash32 } from "@/lib/market-search-demo-listings"
+import { OTHER_REAL_ASSET_IDS } from "@/lib/real-properties/other-assets/registry"
 
 const COMPETITIVE_CUSTOM_GROUPS_KEY = "glassbox:competitive-custom-groups"
 const COMPETITIVE_CUSTOM_GROUP_DESCRIPTIONS_KEY =
@@ -16,7 +13,7 @@ const COMPETITIVE_REMOVED_SEEDED_GROUP_IDS_KEY =
   "glassbox:competitive-removed-seeded-group-ids"
 const COMPETITIVE_REMOVED_ASSET_IDS_KEY = "glassbox:competitive-removed-asset-ids"
 const COMPETITIVE_SEED_VERSION_KEY = "glassbox:competitive-group-seed-version"
-const COMPETITIVE_SEED_VERSION = "1"
+const COMPETITIVE_SEED_VERSION = "3"
 
 const COMPETITIVE_CHANGED = "glassbox:competitive-groups-changed"
 
@@ -38,6 +35,10 @@ export const COMPETITIVE_SEEDED_GROUP_DESCRIPTIONS: Record<string, string> = {
 const SEEDED_COMPETITIVE_GROUP_IDS: ReadonlySet<string> = new Set(
   COMPETITIVE_SEEDED_GROUPS.map((group) => group.id)
 )
+
+export function isSeededCompetitiveGroupId(groupId: string): boolean {
+  return SEEDED_COMPETITIVE_GROUP_IDS.has(groupId)
+}
 
 const RESERVED_COMPETITIVE_GROUP_IDS = new Set([
   ...SEEDED_COMPETITIVE_GROUP_IDS,
@@ -277,16 +278,30 @@ export function ensureCompetitiveMembershipSeeded(): void {
   const currentMembership = parseCompetitiveMembership(
     localStorage.getItem(COMPETITIVE_MEMBERSHIP_KEY) ?? ""
   )
+  const nextMembership: CompetitiveMembershipOverrides = {}
+  let membershipChanged = false
 
-  if (Object.keys(currentMembership).length === 0) {
-    const seededMembership: CompetitiveMembershipOverrides = {}
-    const marketAssets = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT)
-    for (let index = 0; index < marketAssets.length; index += 1) {
-      const asset = marketAssets[index]
-      if (!asset) continue
-      seededMembership[asset.id] = [seedGroupIdForIndex(index)]
+  for (const [assetId, groupIds] of Object.entries(currentMembership)) {
+    if (assetId.startsWith("mkt-")) {
+      membershipChanged = true
+      continue
     }
-    localStorage.setItem(COMPETITIVE_MEMBERSHIP_KEY, JSON.stringify(seededMembership))
+    nextMembership[assetId] = groupIds
+  }
+
+  for (let index = 0; index < OTHER_REAL_ASSET_IDS.length; index += 1) {
+    const assetId = OTHER_REAL_ASSET_IDS[index]
+    if (assetId == null) continue
+    if (nextMembership[assetId] != null) continue
+    nextMembership[assetId] = [seedGroupIdForIndex(index)]
+    membershipChanged = true
+  }
+
+  if (
+    membershipChanged ||
+    Object.keys(currentMembership).length !== Object.keys(nextMembership).length
+  ) {
+    localStorage.setItem(COMPETITIVE_MEMBERSHIP_KEY, JSON.stringify(nextMembership))
     dispatchCompetitiveChangedEvent()
   }
 

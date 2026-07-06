@@ -1,15 +1,3 @@
-import { redirect } from "next/navigation"
-
-export default async function OtherAssetsGroupForecastsPage({
-  params,
-}: {
-  params: Promise<{ groupId: string }>
-}) {
-  const { groupId } = await params
-  const resolvedGroupId = decodeURIComponent(groupId)
-  const canonicalGroupParam = encodeURIComponent(resolvedGroupId)
-  if (groupId !== canonicalGroupParam) {
-    redirect(`/other-assets/groups/${canonicalGroupParam}/forecasts`)
-  }
+export default function OtherAssetsGroupForecastsPage() {
   return null
 }

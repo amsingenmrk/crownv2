@@ -50,10 +50,9 @@ import {
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 import {
-  MARKET_SEARCH_LISTING_COUNT,
-  getMarketListingPinById,
-  marketSearchDemoPinsBase,
-} from "@/lib/market-search-demo-listings"
+  otherRealAssetList,
+} from "@/lib/other-assets"
+import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { qualityScoreValueClass } from "@/lib/stacking-plan-visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -333,12 +332,10 @@ export function BenchmarkAreaStatsPanel({
     [benchmarkAreaId, tableEligiblePortfolioIds]
   )
   const scopedOtherAssets = React.useMemo(() => {
-    const activePins = marketSearchDemoPinsBase(MARKET_SEARCH_LISTING_COUNT).filter(
-      (pin) => !competitiveGroupData.removedAssetIds.has(pin.id)
-    )
-    return activePins
-      .filter((pin) => benchmarkPathIdsForAsset(pin.id).has(benchmarkAreaId))
-      .map((pin) => ({ id: pin.id, label: pin.building }))
+    return otherRealAssetList()
+      .filter((asset) => !competitiveGroupData.removedAssetIds.has(asset.id))
+      .filter((asset) => benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId))
+      .map((asset) => ({ id: asset.id, label: asset.name }))
       .sort((left, right) =>
         left.label.localeCompare(right.label, undefined, { sensitivity: "base" })
       )

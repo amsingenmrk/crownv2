@@ -99,6 +99,7 @@ import {
 } from "@/lib/user-scenarios"
 import { useCompareNewHeaderBridge } from "@/components/compare-new-header-bridge"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
+import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { PortfolioGroupBadgeDropdown } from "@/components/portfolio-group-badge-dropdown"
 import { CompetitiveGroupBadgeDropdown } from "@/components/competitive-group-badge-dropdown"
 import { UpdateAssetImportButton } from "@/components/sidebar-add-assets-import-modal"
@@ -348,12 +349,16 @@ export function AppTopbar() {
     () => (assetId ? getMarketListingPinById(assetId) : null),
     [assetId]
   )
+  const otherRealAsset = useMemo(
+    () => (assetId ? getOtherRealAssetById(assetId) : null),
+    [assetId]
+  )
   const showAssetBreadcrumb =
     pathname?.startsWith("/properties/") === true && asset != null
   const showNonAssetPropertyBreadcrumb =
     pathname?.startsWith("/properties/") === true &&
     asset == null &&
-    marketListingPin != null
+    (marketListingPin != null || otherRealAsset != null)
   const showScenarioBreadcrumb =
     pathname != null && pathname.startsWith("/scenarios/")
   const scenarioSlug = scenarioSlugFromPathname(pathname ?? null)
@@ -1009,9 +1014,37 @@ export function AppTopbar() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-        ) : showNonAssetPropertyBreadcrumb && marketListingPin != null ? (
-          marketListingPortfolioGroupIds.length > 0 &&
-          marketListingPortfolioGroupLabel != null ? (
+        ) : showNonAssetPropertyBreadcrumb &&
+          (marketListingPin != null || otherRealAsset != null) ? (
+          otherRealAsset != null ? (
+            <Breadcrumb className="min-w-0 flex-1">
+              <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
+                <BreadcrumbItem className="shrink-0">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        href="/other-assets"
+                        className="font-medium text-muted-foreground"
+                      />
+                    }
+                  >
+                    Other Assets
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="shrink-0 [&>svg]:size-4" />
+                <BreadcrumbItem className="min-w-0 max-w-[min(100%,18rem)]">
+                  <BreadcrumbPage
+                    className="truncate font-medium"
+                    title={otherRealAsset.address}
+                  >
+                    {otherRealAsset.name}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          ) : marketListingPin != null &&
+            marketListingPortfolioGroupIds.length > 0 &&
+            marketListingPortfolioGroupLabel != null ? (
             <Breadcrumb className="min-w-0 flex-1">
               <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
                 <BreadcrumbItem className="shrink-0">
@@ -1053,7 +1086,7 @@ export function AppTopbar() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-          ) : (
+          ) : marketListingPin != null ? (
             <Breadcrumb className="min-w-0 flex-1">
               <BreadcrumbList className="min-w-0 flex-nowrap gap-2 sm:gap-1.5">
                 <BreadcrumbItem className="shrink-0">
@@ -1079,7 +1112,7 @@ export function AppTopbar() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-          )
+          ) : null
         ) : showScenarioBreadcrumb && scenarioSlug != null ? (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-2 sm:gap-1.5">
