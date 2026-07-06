@@ -38,6 +38,7 @@ function norm(value: string): string {
 function cell(row: BenchmarkRow, key: string): number {
   const entry = row[key]
   if (entry != null && typeof entry === "object" && "v" in entry) {
+    if (entry.u === false) return Number.NaN
     return entry.v
   }
   return Number.NaN
@@ -167,6 +168,20 @@ export function realBenchmarkStatsForArea(
   }
 }
 
+const REAL_STATS_PRIMARY_METRIC_KEYS = [
+  "occupancyPct",
+  "askingRentPsf",
+  "inPlaceRentPsf",
+  "intrinsicRentPsf",
+] as const
+
+/** True when the export has at least one core benchmark metric for this area. */
+export function benchmarkAreaHasRealStats(area: BenchmarkArea): boolean {
+  const raw = realBenchmarkStatsForArea(area)
+  if (raw == null) return false
+  return REAL_STATS_PRIMARY_METRIC_KEYS.some((key) => Number.isFinite(raw[key]))
+}
+
 /** Supporting p5–p95 range for a metric, when present in the export. */
 export function realBenchmarkRange(
   area: BenchmarkArea,
@@ -174,7 +189,13 @@ export function realBenchmarkRange(
 ): { lo: number; hi: number } | null {
   const row = rowForArea(area)
   const entry = row?.[metricKey]
-  if (entry != null && typeof entry === "object" && entry.lo != null && entry.hi != null) {
+  if (
+    entry != null &&
+    typeof entry === "object" &&
+    entry.u !== false &&
+    entry.lo != null &&
+    entry.hi != null
+  ) {
     return { lo: entry.lo, hi: entry.hi }
   }
   return null

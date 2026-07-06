@@ -23,15 +23,20 @@ export type RawExplainability = {
   other?: Record<string, number | null>
 }
 
+export type RawMlPrediction = {
+  entity_ids?: Record<string, string>
+  outputs?: { predicted_rent_per_sqft?: number }
+  explainability?: RawExplainability
+}
+
+export type RawMlOutput = {
+  predictions?: RawMlPrediction[]
+}
+
 export type RawSpace = {
   lease_id?: string
   metrics?: RawSpaceMetrics
-  ml_output?: {
-    predictions?: Array<{
-      outputs?: { predicted_rent_per_sqft?: number }
-      explainability?: RawExplainability
-    }>
-  }
+  ml_output?: RawMlOutput
 }
 
 export type RawFloorMetrics = {
@@ -48,6 +53,7 @@ export type RawFloorMetrics = {
 export type RawFloor = {
   metrics?: RawFloorMetrics
   spaces?: Record<string, RawSpace>
+  ml_output?: RawMlOutput
 }
 
 export type RawAssetBlock = {

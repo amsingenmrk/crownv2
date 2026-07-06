@@ -208,7 +208,8 @@ function areaFromCenter(
 
 async function fetchGeocodeFeatures(
   query: string,
-  accessToken: string
+  accessToken: string,
+  options?: { proximity?: [number, number] }
 ): Promise<GeocodeFeature[]> {
   const url = new URL(
     `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json`
@@ -217,6 +218,12 @@ async function fetchGeocodeFeatures(
   url.searchParams.set("country", "US")
   url.searchParams.set("types", GEOCODE_TYPES)
   url.searchParams.set("limit", "6")
+  if (options?.proximity) {
+    url.searchParams.set(
+      "proximity",
+      `${options.proximity[0]},${options.proximity[1]}`
+    )
+  }
 
   try {
     const res = await fetch(url.toString())
@@ -313,11 +320,37 @@ const US_STATE_QUERY = new Set([
   "wyoming",
 ])
 
+function normalizedStateCode(value: string | undefined): string | null {
+  if (!value) return null
+  const code = value.trim().toUpperCase().replace(/^US-/, "")
+  return /^[A-Z]{2}$/.test(code) ? code : null
+}
+
+function featureMatchesRegionHint(
+  feature: GeocodeFeature,
+  hint?: BenchmarkAreaGeocodeHint
+): boolean {
+  const expectedState = normalizedStateCode(hint?.regionShortCode)
+  if (expectedState == null) return false
+
+  const region = feature.context?.find((item) => item.id.startsWith("region."))
+  const featureState = normalizedStateCode(region?.short_code)
+  return featureState === expectedState
+}
+
 function pickBestGeocodeFeature(
   features: GeocodeFeature[],
-  query: string
+  query: string,
+  hint?: BenchmarkAreaGeocodeHint
 ): GeocodeFeature | null {
   if (features.length === 0) return null
+
+  if (hint != null) {
+    const regionMatch = features.find((feature) =>
+      featureMatchesRegionHint(feature, hint)
+    )
+    if (regionMatch) return regionMatch
+  }
 
   if (isUsPostcodeQuery(query)) {
     const postcode = features.find((feature) =>
@@ -547,8 +580,14 @@ async function resolveAreaFromGeocodeQuery(
       return resolveAreaBoundary(area, accessToken)
     }
 
-    const features = await fetchGeocodeFeatures(area.geocodeQuery, accessToken)
-    const bestFeature = pickBestGeocodeFeature(features, area.geocodeQuery)
+    const features = await fetchGeocodeFeatures(area.geocodeQuery, accessToken, {
+      proximity: area.geocodeHint?.center,
+    })
+    const bestFeature = pickBestGeocodeFeature(
+      features,
+      area.geocodeQuery,
+      area.geocodeHint
+    )
     if (bestFeature == null) {
       return resolveAreaBoundary(area, accessToken)
     }
@@ -712,8 +751,7 @@ export async function resolveBenchmarkAreaSelection(
   if (
     accessToken &&
     registered.geocodeQuery &&
-    registered.boundaryGeometry == null &&
-    (registered.geocodeHint == null || registered.geocodeHint.center == null)
+    registered.boundaryGeometry == null
   ) {
     return resolveAreaFromGeocodeQuery(registered, accessToken)
   }

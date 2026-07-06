@@ -271,7 +271,7 @@ async function resolveBoundaryFromHint(
   const placeType = hint.placeTypes?.[0]
   const center = hint.center ?? boundsCenter(area.bounds)
 
-  if (placeType === "country" || hint.countryShortCode === "us") {
+  if (placeType === "country") {
     return usContinentalBoundarySpec(area.id)
   }
 

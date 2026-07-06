@@ -23,6 +23,39 @@ const CBSA_STORED_MARKET_ID: Record<string, string> = {
   "35620": "market-new-york",
 }
 
+function countyContextFromStatsKey(
+  statsKey: string,
+  label: string
+): {
+  countyName: string
+  stateCode: string
+  stateArea: ReturnType<typeof stateBenchmarkAreaForCode>
+} | null {
+  const pipeIndex = statsKey.indexOf("|")
+  if (pipeIndex < 0) return null
+
+  const stateCode = statsKey.slice(pipeIndex + 1).trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(stateCode)) return null
+
+  const countyName =
+    label.split(",")[0]?.trim() ||
+    `${statsKey
+      .slice(0, pipeIndex)
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())} County`
+
+  return {
+    countyName,
+    stateCode,
+    stateArea: stateBenchmarkAreaForCode(stateCode),
+  }
+}
+
+function boundsCenter(bounds: BenchmarkAreaBounds): [number, number] {
+  const [[west, south], [east, north]] = bounds
+  return [(west + east) / 2, (south + north) / 2]
+}
+
 /** Parse a synthetic comparison-area id back into its geo key. */
 export function geoKeyFromAreaId(
   areaId: string
@@ -243,6 +276,29 @@ export function enrichGeoBenchmarkAreaForMap(area: BenchmarkArea): BenchmarkArea
   }
 
   if (geoLevel === "county") {
+    const countyContext = countyContextFromStatsKey(statsKey, label)
+    if (countyContext != null) {
+      const { countyName, stateCode, stateArea } = countyContext
+      const stateLabel = stateArea?.label ?? stateCode
+      const center =
+        stateArea?.geocodeHint?.center ??
+        (stateArea ? boundsCenter(stateArea.bounds) : undefined)
+
+      return {
+        ...area,
+        bounds: stateArea?.bounds ?? area.bounds,
+        geocodeQuery: `${countyName}, ${stateLabel}`,
+        geocodeHint: {
+          placeTypes: ["district"],
+          districtName: countyName,
+          regionName: stateLabel,
+          regionShortCode: `US-${stateCode}`,
+          countryShortCode: "us",
+          center,
+        },
+      }
+    }
+
     return {
       ...area,
       geocodeQuery: label,

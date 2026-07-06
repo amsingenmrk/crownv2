@@ -40,4 +40,17 @@ describe("constrainGeoChildAreaForMap", () => {
       expect(preview.boundaryGeometry).toEqual(child.boundaryGeometry)
     }
   })
+
+  it("scopes county geocoding to the state encoded in the stats key", () => {
+    const essex = enrichGeoBenchmarkAreaForMap(
+      hierarchyAreaById("geo:county:essex|NJ")!
+    )
+
+    expect(essex.geocodeQuery).toBe("Essex County, New Jersey")
+    expect(essex.geocodeHint?.regionShortCode).toBe("US-NJ")
+    expect(essex.geocodeHint?.center?.[0]).toBeGreaterThan(-76)
+    expect(essex.geocodeHint?.center?.[0]).toBeLessThan(-73)
+    expect(essex.geocodeHint?.center?.[1]).toBeGreaterThan(38)
+    expect(essex.geocodeHint?.center?.[1]).toBeLessThan(42)
+  })
 })

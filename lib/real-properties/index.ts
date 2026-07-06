@@ -3,7 +3,8 @@
  *
  * These three buildings replace the synthetic demo portfolio in "Your Assets".
  * The baseline file carries the current rent roll (floors → spaces → leases) plus
- * a building-level `asset` financial block and per-space ML explainability (SHAP).
+ * a building-level `asset` financial block and per-space or per-floor ML
+ * explainability (SHAP).
  * The modifications file carries 17 projection scenarios (LEED tiers + amenity
  * concepts) with a re-underwritten `asset` block per scenario.
  *
@@ -322,13 +323,33 @@ function humanizeFactor(key: string): string {
     .join(" ")
 }
 
-function spacePredictedRentPsf(space: RawSpace, fallback: number): number {
+function spacePredictedRentPsf(space: RawSpace): number | undefined {
   const fromMl =
     space.ml_output?.predictions?.[0]?.outputs?.predicted_rent_per_sqft
   if (fromMl != null && Number.isFinite(fromMl)) return fromMl
   const fromMetrics = space.metrics?.predicted_rent_psf
   if (fromMetrics != null && Number.isFinite(fromMetrics)) return fromMetrics
-  return fallback
+  return undefined
+}
+
+function weightedSpaceAverageWhenPresent(
+  spaces: RawSpace[],
+  pick: (space: RawSpace) => number | undefined
+): number | undefined {
+  let weightedSum = 0
+  let countedRsf = 0
+
+  for (const space of spaces) {
+    const value = pick(space)
+    if (value == null) continue
+    const rsf = space.metrics?.rsf ?? 0
+    if (rsf <= 0) continue
+    weightedSum += rsf * value
+    countedRsf += rsf
+  }
+
+  if (countedRsf <= 0) return undefined
+  return weightedSum / countedRsf
 }
 
 function weightedSpaceAverage(
@@ -357,6 +378,37 @@ function explainabilityGroupEntries(
     entries.push([key, value])
   }
   return entries
+}
+
+function hasExplainabilityData(explain: RawExplainability): boolean {
+  return (
+    explainabilityGroupEntries(explain.positive).length > 0 ||
+    explainabilityGroupEntries(explain.negative).length > 0 ||
+    explainabilityGroupEntries(explain.other).length > 0
+  )
+}
+
+function explainabilityToFactorMaps(explain: RawExplainability): {
+  positiveNegative: Map<string, number>
+  other: Map<string, number>
+} {
+  const positiveNegative = new Map<string, number>()
+  for (const [key, impact] of explainabilityGroupEntries(explain.positive)) {
+    const label = humanizeFactor(key)
+    positiveNegative.set(label, (positiveNegative.get(label) ?? 0) + impact)
+  }
+  for (const [key, impact] of explainabilityGroupEntries(explain.negative)) {
+    const label = humanizeFactor(key)
+    positiveNegative.set(label, (positiveNegative.get(label) ?? 0) + impact)
+  }
+
+  const other = new Map<string, number>()
+  for (const [key, impact] of explainabilityGroupEntries(explain.other)) {
+    const label = humanizeFactor(key)
+    other.set(label, (other.get(label) ?? 0) + impact)
+  }
+
+  return { positiveNegative, other }
 }
 
 function aggregateExplainabilityGroup(
@@ -392,28 +444,48 @@ function mapAggregatedToFactors(
 function buildFloorValueDrivers(args: {
   spaces: RawSpace[]
   floorMetrics: RawFloorMetrics | undefined
+  floorMlOutput?: RawFloor["ml_output"]
   marketRentPsf: number
 }): StackingFloorValueDrivers {
-  const { spaces, floorMetrics, marketRentPsf } = args
+  const { spaces, floorMetrics, floorMlOutput, marketRentPsf } = args
 
-  const positiveMap = aggregateExplainabilityGroup(spaces, (explain) => explain.positive)
-  const negativeMap = aggregateExplainabilityGroup(spaces, (explain) => explain.negative)
-  const otherMap = aggregateExplainabilityGroup(spaces, (explain) => explain.other)
+  const floorExplainability =
+    floorMlOutput?.predictions?.[0]?.explainability
+  const usesFloorExplainability =
+    floorExplainability != null && hasExplainabilityData(floorExplainability)
 
-  const positiveNegative = new Map<string, number>()
-  for (const [key, impact] of positiveMap) {
-    positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
-  }
-  for (const [key, impact] of negativeMap) {
-    positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
+  let positiveNegative = new Map<string, number>()
+  let otherMap = new Map<string, number>()
+
+  if (usesFloorExplainability) {
+    const maps = explainabilityToFactorMaps(floorExplainability)
+    positiveNegative = maps.positiveNegative
+    otherMap = maps.other
+  } else {
+    const positiveMap = aggregateExplainabilityGroup(spaces, (explain) => explain.positive)
+    const negativeMap = aggregateExplainabilityGroup(spaces, (explain) => explain.negative)
+    otherMap = aggregateExplainabilityGroup(spaces, (explain) => explain.other)
+
+    for (const [key, impact] of positiveMap) {
+      positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
+    }
+    for (const [key, impact] of negativeMap) {
+      positiveNegative.set(key, (positiveNegative.get(key) ?? 0) + impact)
+    }
   }
 
   const waterfallFactors = sortForDisplay(mapAggregatedToFactors(positiveNegative))
   const otherFactors = sortForDisplay(mapAggregatedToFactors(otherMap))
   const allFactors = [...waterfallFactors, ...otherFactors]
 
+  const predictedRentFromSpaces = weightedSpaceAverageWhenPresent(
+    spaces,
+    (space) => spacePredictedRentPsf(space)
+  )
   const predictedRentPsf = roundToHundredths(
-    weightedSpaceAverage(spaces, (space) => spacePredictedRentPsf(space, marketRentPsf), marketRentPsf)
+    usesFloorExplainability && floorMetrics?.predicted_rent_psf != null
+      ? floorMetrics.predicted_rent_psf
+      : predictedRentFromSpaces ?? 0
   )
   const occupiedSpaces = spaces.filter(
     (space) =>
@@ -426,6 +498,12 @@ function buildFloorValueDrivers(args: {
       floorMetrics?.contract_rent_psf ?? predictedRentPsf
     )
   )
+  const shapSum = roundToHundredths(
+    allFactors.reduce((sum, factor) => sum + factor.impact, 0)
+  )
+  const effectiveMarketRentPsf = roundToHundredths(
+    marketRentPsf > 0 ? marketRentPsf : predictedRentPsf - shapSum
+  )
   const totalPositiveImpact = roundToHundredths(
     allFactors.reduce((sum, factor) => sum + (factor.impact > 0 ? factor.impact : 0), 0)
   )
@@ -434,13 +512,13 @@ function buildFloorValueDrivers(args: {
   )
 
   return {
-    marketBaselineRentPsf: roundToHundredths(marketRentPsf),
+    marketBaselineRentPsf: effectiveMarketRentPsf,
     predictedRentPsf,
     waterfallFactors,
     otherFactors,
     summary: {
       contractRentPsf,
-      deltaFromMarketPsf: roundToHundredths(predictedRentPsf - marketRentPsf),
+      deltaFromMarketPsf: roundToHundredths(predictedRentPsf - effectiveMarketRentPsf),
       totalPositiveImpact,
       totalNegativeImpact,
       visibleFactorCount: waterfallFactors.length,
@@ -583,12 +661,15 @@ export function buildRealStackingPlanDataset(
           const contractRatePsfValue = isVacant
             ? undefined
             : m.contract_rate_psf
-          const predictedRentPsfValue = spacePredictedRentPsf(space, marketRentPsf)
-          const rentPremiumPerSfValue = predictedRentPsfValue - marketRentPsf
+          const predictedRentPsfValue = spacePredictedRentPsf(space)
+          const rentPremiumPerSfValue =
+            predictedRentPsfValue != null
+              ? predictedRentPsfValue - marketRentPsf
+              : undefined
           const rentPremiumPct =
-            marketRentPsf > 0
+            rentPremiumPerSfValue != null && marketRentPsf > 0
               ? (rentPremiumPerSfValue / marketRentPsf) * 100
-              : 0
+              : undefined
           const leaseType = normalizeLeaseType(m.lease_type)
           const expiration = m.expiration_date ?? m.lease_end_date
           const widthPercent =
@@ -641,12 +722,18 @@ export function buildRealStackingPlanDataset(
                 ? undefined
                 : formatCurrencyPerSf(contractRatePsfValue),
             marketRent: formatCurrencyPerSf(marketRentPsf),
-            predictedRent: formatCurrencyPerSf(predictedRentPsfValue),
-            rentPremium: `${formatSignedCurrencyPerSf(
-              rentPremiumPerSfValue
-            )} (${rentPremiumPct >= 0 ? "+" : "−"}${Math.abs(
-              rentPremiumPct
-            ).toFixed(1)}% vs market rent)`,
+            predictedRent:
+              predictedRentPsfValue != null
+                ? formatCurrencyPerSf(predictedRentPsfValue)
+                : "N/A",
+            rentPremium:
+              rentPremiumPerSfValue != null && rentPremiumPct != null
+                ? `${formatSignedCurrencyPerSf(
+                    rentPremiumPerSfValue
+                  )} (${rentPremiumPct >= 0 ? "+" : "−"}${Math.abs(
+                    rentPremiumPct
+                  ).toFixed(1)}% vs market rent)`
+                : undefined,
             contacts: buildContacts(def.name, isVacant),
           }
         }
@@ -674,6 +761,7 @@ export function buildRealStackingPlanDataset(
         valueDrivers: buildFloorValueDrivers({
           spaces,
           floorMetrics,
+          floorMlOutput: rawFloor.ml_output,
           marketRentPsf,
         }),
       }

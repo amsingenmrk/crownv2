@@ -2676,9 +2676,7 @@ function StackBandSegment({
                 <div className={cn("truncate", tone.metaClass)}>{metaLabel}</div>
               </div>
             ) : null}
-            {showFullRateRow &&
-            contractRateValue != null &&
-            predictedRateValue != null ? (
+            {showFullRateRow && contractRateValue != null ? (
               <div className="flex w-full items-center gap-1.5 overflow-hidden text-[10px] font-medium whitespace-nowrap">
                 <div className={cn("truncate", tone.metaClass)}>
                   Contract {formatCompactRate(contractRateValue)}
@@ -2690,9 +2688,7 @@ function StackBandSegment({
                   Predicted {formatCompactRate(predictedRateValue)}
                 </div>
               </div>
-            ) : showCompactRateRow &&
-              contractRateValue != null &&
-              predictedRateValue != null ? (
+            ) : showCompactRateRow && contractRateValue != null ? (
               <div
                 className={cn(
                   "w-full truncate text-[10px] font-medium whitespace-nowrap",
