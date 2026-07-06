@@ -50,6 +50,7 @@ import {
 import { assetBenchmarksPageHref } from "@/lib/benchmark-area-url"
 import { curatedZipAssignmentsForZipCode } from "@/lib/benchmark-submarket-assignments"
 import {
+  getOtherRealAssetById,
   otherRealAssetList,
 } from "@/lib/other-assets"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
@@ -91,7 +92,7 @@ function areaPathIdsFromAreaId(areaId: string | null): Set<string> {
 }
 
 function benchmarkPathIdsForAsset(assetId: string): Set<string> {
-  const asset = getAssetById(assetId)
+  const asset = getAssetById(assetId) ?? getOtherRealAssetById(assetId)
   const pin = getMarketListingPinById(assetId)
   const locationText = asset?.address ?? pin?.location
   const zipCode = zipCodeFromAddress(locationText)
@@ -309,10 +310,10 @@ export function BenchmarkAreaStatsPanel({
     [competitiveGroupSnap]
   )
 
-  // Portfolio assets comparable at this geography come from the per-asset
-  // percentile table (assets sharing the selected area's geo). Falls back to
-  // the curated path logic for areas the table doesn't key (e.g. markets).
-  const tableEligiblePortfolioIds = React.useMemo(() => {
+  // Compare assets at this geography come from the per-asset percentile table
+  // (assets sharing the selected area's geo). Falls back to curated zip/path
+  // logic for areas the table doesn't key (e.g. legacy market presets).
+  const tableEligibleAssetIds = React.useMemo(() => {
     const geoKey = geoKeyForBenchmarkArea({
       id: benchmarkAreaId,
       level: "country",
@@ -322,24 +323,31 @@ export function BenchmarkAreaStatsPanel({
     return new Set(assetsSharingGeo(geoKey.geoLevel, geoKey.statsKey))
   }, [benchmarkAreaId])
 
+  const assetInBenchmarkScope = React.useCallback(
+    (assetId: string) =>
+      tableEligibleAssetIds != null
+        ? tableEligibleAssetIds.has(assetId)
+        : benchmarkPathIdsForAsset(assetId).has(benchmarkAreaId),
+    [benchmarkAreaId, tableEligibleAssetIds]
+  )
+
   const scopedPortfolioAssets = React.useMemo(
     () =>
-      ASSETS.filter((asset) =>
-        tableEligiblePortfolioIds != null
-          ? tableEligiblePortfolioIds.has(asset.id)
-          : benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId)
-      ).map((asset) => ({ id: asset.id, label: asset.name })),
-    [benchmarkAreaId, tableEligiblePortfolioIds]
+      ASSETS.filter((asset) => assetInBenchmarkScope(asset.id)).map((asset) => ({
+        id: asset.id,
+        label: asset.name,
+      })),
+    [assetInBenchmarkScope]
   )
   const scopedOtherAssets = React.useMemo(() => {
     return otherRealAssetList()
       .filter((asset) => !competitiveGroupData.removedAssetIds.has(asset.id))
-      .filter((asset) => benchmarkPathIdsForAsset(asset.id).has(benchmarkAreaId))
+      .filter((asset) => assetInBenchmarkScope(asset.id))
       .map((asset) => ({ id: asset.id, label: asset.name }))
       .sort((left, right) =>
         left.label.localeCompare(right.label, undefined, { sensitivity: "base" })
       )
-  }, [benchmarkAreaId, competitiveGroupData.removedAssetIds])
+  }, [assetInBenchmarkScope, competitiveGroupData.removedAssetIds])
 
   const scopedAssets = React.useMemo<CompareAssetOption[]>(
     () => [...scopedPortfolioAssets, ...scopedOtherAssets],
