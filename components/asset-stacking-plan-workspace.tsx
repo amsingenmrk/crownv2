@@ -662,7 +662,7 @@ function getTenantVisualizationTitle({
   })
 }
 
-function formatCompactRate(value: number | null) {
+function formatCompactRate(value: number | null | undefined) {
   if (value == null) {
     return "N/A"
   }
@@ -670,7 +670,7 @@ function formatCompactRate(value: number | null) {
   return `$${value.toFixed(2)}`
 }
 
-function formatCompactRatePerSf(value: number | null) {
+function formatCompactRatePerSf(value: number | null | undefined) {
   if (value == null) {
     return "N/A"
   }
