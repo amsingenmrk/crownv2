@@ -33,7 +33,7 @@ import { isTrackedBenchmarkArea } from "@/lib/benchmark-market-stats"
 import { zipBenchmarkAreaForCode } from "@/lib/benchmark-zip-areas"
 import { stateBenchmarkAreaForCode } from "@/lib/benchmark-state-areas"
 import { assetPercentileGeoAreas } from "@/lib/benchmark-data/asset-percentiles"
-import { benchmarkAreaHasRealStats } from "@/lib/benchmark-data/real-benchmarks"
+import { formatGeoAreaOptionLabel } from "@/lib/benchmark-data/geo-area-map"
 import { getMarketListingPinById } from "@/lib/market-search-demo-listings"
 import { getOtherRealAssetById } from "@/lib/real-properties/other-assets"
 import { lngLatForPortfolioAsset } from "@/lib/portfolio-asset-lng-lat"
@@ -206,79 +206,6 @@ function dedupeAreas(areas: BenchmarkArea[]): BenchmarkArea[] {
   return out
 }
 
-const LOW_GEO_FALLBACK_ORDER = [
-  "zip",
-  "submarket",
-  "county",
-  "state",
-  "cbsa",
-  "regional_hub",
-  "national",
-] as const
-
-const MARKET_GEO_FALLBACK_ORDER = [
-  "cbsa",
-  "submarket",
-  "county",
-  "state",
-  "regional_hub",
-  "national",
-] as const
-
-function geoAreaAtLevel(
-  areas: readonly BenchmarkArea[],
-  level: string
-): BenchmarkArea | null {
-  return areas.find((area) => area.id.startsWith(`geo:${level}:`)) ?? null
-}
-
-function pickLowBenchmarkArea(
-  areas: readonly BenchmarkArea[],
-  marketArea?: BenchmarkArea
-): BenchmarkArea {
-  for (const level of LOW_GEO_FALLBACK_ORDER) {
-    const candidate = geoAreaAtLevel(areas, level)
-    if (
-      candidate != null &&
-      candidate.id !== marketArea?.id &&
-      benchmarkAreaHasRealStats(candidate)
-    ) {
-      return candidate
-    }
-  }
-  return (
-    areas.find(
-      (area) =>
-        area.id !== marketArea?.id && benchmarkAreaHasRealStats(area)
-    ) ?? areas[areas.length - 1]!
-  )
-}
-
-function pickMarketBenchmarkArea(
-  areas: readonly BenchmarkArea[],
-  lowArea: BenchmarkArea
-): BenchmarkArea {
-  for (const level of MARKET_GEO_FALLBACK_ORDER) {
-    const candidate = geoAreaAtLevel(areas, level)
-    if (
-      candidate != null &&
-      candidate.id !== lowArea.id &&
-      benchmarkAreaHasRealStats(candidate)
-    ) {
-      return candidate
-    }
-  }
-  return (
-    areas.find(
-      (area) => area.id !== lowArea.id && benchmarkAreaHasRealStats(area)
-    ) ?? areas[0]!
-  )
-}
-
-function percentileAreasWithStats(areas: readonly BenchmarkArea[]): BenchmarkArea[] {
-  return areas.filter((area) => benchmarkAreaHasRealStats(area))
-}
-
 export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
   const { coordinates } = usePortfolioAssetCoordinates()
   const mapboxAccessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
@@ -315,16 +242,17 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
 
   const { lowArea, marketArea } = React.useMemo(() => {
     if (percentileAreas.length > 0) {
-      const withStats = percentileAreasWithStats(percentileAreas)
-      const candidates = withStats.length > 0 ? withStats : percentileAreas
-      const market = pickMarketBenchmarkArea(
-        candidates,
-        geoAreaAtLevel(candidates, "zip") ?? candidates[0]!
-      )
-      return {
-        lowArea: pickLowBenchmarkArea(candidates, market),
-        marketArea: market,
-      }
+      const byLevel = (level: string) =>
+        percentileAreas.find((area) => area.id.startsWith(`geo:${level}:`))
+      const low =
+        byLevel("zip") ?? percentileAreas[percentileAreas.length - 1]!
+      const market =
+        byLevel("cbsa") ??
+        byLevel("state") ??
+        byLevel("regional_hub") ??
+        byLevel("national") ??
+        percentileAreas[0]!
+      return { lowArea: low, marketArea: market }
     }
     return defaultBenchmarkAreasForAsset(
       assetPin ? [assetPin.longitude, assetPin.latitude] : null,
@@ -343,10 +271,7 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
   ])
 
   const comparisonAreas = React.useMemo(() => {
-    if (percentileAreas.length > 0) {
-      const withStats = percentileAreasWithStats(percentileAreas)
-      return withStats.length > 0 ? withStats : percentileAreas
-    }
+    if (percentileAreas.length > 0) return percentileAreas
     const pathFromLow = getBenchmarkAreaPath(lowArea)
     const pathFromMarket = getBenchmarkAreaPath(marketArea)
     const merged = dedupeAreas([
@@ -364,7 +289,7 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     () =>
       comparisonAreas.map((area) => ({
         id: area.id,
-        label: area.label,
+        label: formatGeoAreaOptionLabel(area),
       })),
     [comparisonAreas]
   )
@@ -377,16 +302,10 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
     if (!availableIds.has(lowSelectionId)) {
       setLowSelectionId(lowArea.id)
     }
-    if (
-      !availableIds.has(marketSelectionId) ||
-      !benchmarkAreaHasRealStats(
-        comparisonAreas.find((area) => area.id === marketSelectionId) ??
-          marketArea
-      )
-    ) {
+    if (!availableIds.has(marketSelectionId)) {
       setMarketSelectionId(marketArea.id)
     }
-  }, [comparisonAreas, lowArea, lowSelectionId, marketArea, marketSelectionId])
+  }, [comparisonAreas, lowArea.id, lowSelectionId, marketArea.id, marketSelectionId])
 
   React.useEffect(() => {
     setLowSelectionId((current) => (current === lowArea.id ? current : lowArea.id))
@@ -459,9 +378,9 @@ export function AssetBenchmarksWorkspace({ assetId }: { assetId: string }) {
       )
 
       return {
-        lowLabel: resolvedAreas.lowArea.label,
+        lowLabel: formatGeoAreaOptionLabel(resolvedAreas.lowArea),
         lowKpis: kpisRecordFromSnapshot(lowSnapshot),
-        marketLabel: resolvedAreas.marketArea.label,
+        marketLabel: formatGeoAreaOptionLabel(resolvedAreas.marketArea),
         marketKpis: kpisRecordFromSnapshot(marketSnapshot),
       }
     }, [coordinates, resolvedAreas])

@@ -14,8 +14,26 @@ import {
   hierarchyLevelLabel as getBenchmarkAreaLevelLabel,
   hierarchyChildren as listBenchmarkAreaChildren,
 } from "@/lib/benchmark-data/benchmark-hierarchy"
+import {
+  formatGeoAreaOptionLabel,
+  geoKeyFromAreaId,
+} from "@/lib/benchmark-data/geo-area-map"
 import { type BenchmarkArea } from "@/lib/benchmark-area-search"
 import { cn } from "@/lib/utils"
+
+/** Prefix state / CBSA / office-submarket peers so colliding names stay clear. */
+function breadcrumbAreaLabel(area: BenchmarkArea): string {
+  const geo = geoKeyFromAreaId(area.id)
+  if (
+    geo != null &&
+    (geo.geoLevel === "state" ||
+      geo.geoLevel === "cbsa" ||
+      geo.geoLevel === "submarket")
+  ) {
+    return formatGeoAreaOptionLabel(area)
+  }
+  return area.label
+}
 
 function AreaSelectMenu({
   trigger,
@@ -43,7 +61,11 @@ function AreaSelectMenu({
         <DropdownMenuSeparator />
         {[...options]
           .sort((a, b) =>
-            a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+            breadcrumbAreaLabel(a).localeCompare(
+              breadcrumbAreaLabel(b),
+              undefined,
+              { sensitivity: "base" }
+            )
           )
           .map((option) => (
           <DropdownMenuItem
@@ -54,7 +76,9 @@ function AreaSelectMenu({
               option.id === selectedId && "font-medium text-foreground"
             )}
           >
-            <span className="min-w-0 truncate">{option.label}</span>
+            <span className="min-w-0 truncate">
+              {breadcrumbAreaLabel(option)}
+            </span>
             {option.id === selectedId ? (
               <Check className="size-4 shrink-0 text-primary" aria-hidden />
             ) : null}
@@ -131,7 +155,7 @@ export function BenchmarkAreaBreadcrumbs({
                 onClick={() => onJump(area)}
                 aria-current={isCurrent ? "page" : undefined}
               >
-                {area.label}
+                {breadcrumbAreaLabel(area)}
               </button>
               {hasSiblings ? (
                 <AreaSelectMenu
@@ -143,7 +167,7 @@ export function BenchmarkAreaBreadcrumbs({
                     <button
                       type="button"
                       className="flex h-full items-center border-l border-border/60 px-1.5 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted data-[popup-open]:text-foreground"
-                      aria-label={`Switch ${levelLabel} (${area.label})`}
+                      aria-label={`Switch ${levelLabel} (${breadcrumbAreaLabel(area)})`}
                     >
                       <ChevronDown className="size-3.5" aria-hidden />
                     </button>

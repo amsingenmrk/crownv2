@@ -31,7 +31,12 @@ const US_BOUNDS: BenchmarkAreaBounds = [
   [-66, 50],
 ]
 
-/** Navigation tiers for breadcrumb drill-down (largest → smallest). */
+/**
+ * Navigation tiers for breadcrumb drill-down (largest → smallest).
+ *
+ * State, CBSA, and office submarket share one peer tier under regional hub —
+ * they are alternative geographies at the same depth, not a 1:1 chain.
+ */
 const NAV_TIER_DATA_LEVELS: readonly (readonly string[])[] = [
   ["national"],
   ["regional_hub"],

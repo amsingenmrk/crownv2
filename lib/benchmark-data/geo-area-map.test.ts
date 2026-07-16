@@ -6,7 +6,31 @@ import {
 import {
   constrainGeoChildAreaForMap,
   enrichGeoBenchmarkAreaForMap,
+  formatGeoAreaOptionLabel,
 } from "@/lib/benchmark-data/geo-area-map"
+
+describe("formatGeoAreaOptionLabel", () => {
+  it("prefixes the area name with its export geo level", () => {
+    expect(
+      formatGeoAreaOptionLabel({
+        id: "geo:national:national",
+        label: "United States",
+      })
+    ).toBe("National - United States")
+    expect(
+      formatGeoAreaOptionLabel({
+        id: "geo:state:NJ",
+        label: "New Jersey",
+      })
+    ).toBe("State - New Jersey")
+    expect(
+      formatGeoAreaOptionLabel({
+        id: "geo:regional_hub:new jersey",
+        label: "New Jersey",
+      })
+    ).toBe("Regional Hub - New Jersey")
+  })
+})
 
 describe("constrainGeoChildAreaForMap", () => {
   it("removes multi-state metro outlines that extend outside a state parent", () => {

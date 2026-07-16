@@ -13,14 +13,14 @@ describe("benchmark hierarchy navigation tiers", () => {
     expect(stateNj!.level).toBe("submarket")
 
     const path = hierarchyAreaPath(stateNj!)
-    expect(path.map((area) => area.label)).toEqual([
-      "United States",
-      "New Jersey",
-      "New Jersey",
+    expect(path.map((area) => area.id)).toEqual([
+      "geo:national:national",
+      "geo:regional_hub:new jersey",
+      "geo:state:NJ",
     ])
   })
 
-  it("flattens state and cbsa into one submarket tier on the breadcrumb path", () => {
+  it("keeps state / CBSA / office submarket as one peer tier on the path", () => {
     const metro = hierarchyAreaById("geo:cbsa:35620")
     expect(metro).not.toBeNull()
 
@@ -51,27 +51,41 @@ describe("benchmark hierarchy navigation tiers", () => {
     ])
   })
 
-  it("lists states, cbsas, and submarkets together under a regional hub", () => {
-    const laHub = hierarchyAreaById("geo:regional_hub:los angeles")
-    expect(laHub).not.toBeNull()
+  it("lists states, cbsas, and office submarkets together under a regional hub", () => {
+    const njHub = hierarchyAreaById("geo:regional_hub:new jersey")
+    expect(njHub).not.toBeNull()
 
-    const children = hierarchyChildren(laHub!)
+    const children = hierarchyChildren(njHub!)
     const childIds = new Set(children.map((area) => area.id))
 
-    expect(childIds.has("geo:state:CA")).toBe(true)
-    expect([...childIds].some((id) => id.startsWith("geo:cbsa:"))).toBe(true)
-    expect([...childIds].some((id) => id.startsWith("geo:submarket:"))).toBe(
-      true
-    )
+    expect(childIds.has("geo:state:NJ")).toBe(true)
+    expect(childIds.has("geo:cbsa:35620")).toBe(true)
+    expect(childIds.has("geo:submarket:nj - northern & central")).toBe(true)
     expect(children.every((area) => area.level === "submarket")).toBe(true)
   })
 
-  it("steps from submarket tier to counties", () => {
+  it("steps from any submarket-tier peer to counties, then to ZIPs", () => {
     const stateNj = hierarchyAreaById("geo:state:NJ")!
     expect(stateNj.childLevel).toBe("county")
 
     const counties = hierarchyChildren(stateNj)
     expect(counties.length).toBeGreaterThan(0)
     expect(counties.every((area) => area.level === "county")).toBe(true)
+    expect(counties.some((area) => area.id === "geo:county:union|NJ")).toBe(
+      true
+    )
+
+    const officeSubmarket = hierarchyAreaById(
+      "geo:submarket:nj - northern & central"
+    )!
+    const submarketCounties = hierarchyChildren(officeSubmarket)
+    expect(
+      submarketCounties.some((area) => area.id === "geo:county:union|NJ")
+    ).toBe(true)
+
+    const union = hierarchyAreaById("geo:county:union|NJ")!
+    expect(union.childLevel).toBe("zip")
+    const zips = hierarchyChildren(union)
+    expect(zips.some((area) => area.id === "geo:zip:07901")).toBe(true)
   })
 })

@@ -155,6 +155,18 @@ export function geoLabelForRow(row) {
   const geoLevel = row.geo_level?.trim()
   const geoId = row.geo_id?.trim() ?? ""
   const stateAbbr = stateAbbrFromRow(row)
+  const exported = nullableLabel(row.geo_label)
+  const zip = row.zip_code?.trim()
+
+  // Prefer the export's geo_label when it carries more than a raw id/ZIP.
+  if (
+    exported &&
+    exported !== geoId &&
+    exported !== zip &&
+    exported.toLowerCase() !== "null"
+  ) {
+    return exported
+  }
 
   switch (geoLevel) {
     case "national":
@@ -178,13 +190,12 @@ export function geoLabelForRow(row) {
       return nullableLabel(row.office_submarket_name) ?? geoId
     case "zip": {
       const city = row.city?.trim()
-      const zip = row.zip_code?.trim()
       if (city && stateAbbr && zip) return `${city}, ${stateAbbr}, ${zip}`
       if (zip && stateAbbr) return `${stateAbbr}, ${zip}`
-      return geoId
+      return exported ?? geoId
     }
     default:
-      return geoId
+      return exported ?? geoId
   }
 }
 

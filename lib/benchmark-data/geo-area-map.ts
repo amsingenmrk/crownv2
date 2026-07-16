@@ -67,6 +67,41 @@ export function geoKeyFromAreaId(
   return { geoLevel: rest.slice(0, sep), statsKey: rest.slice(sep + 1) }
 }
 
+const GEO_LEVEL_DISPLAY: Record<string, string> = {
+  national: "National",
+  regional_hub: "Regional Hub",
+  state: "State",
+  cbsa: "CBSA",
+  county: "County",
+  submarket: "Submarket",
+  zip: "ZIP",
+}
+
+/** Human-readable export geo_level for dropdowns (e.g. "State"). */
+export function geoLevelDisplayName(geoLevel: string): string {
+  return (
+    GEO_LEVEL_DISPLAY[geoLevel] ??
+    geoLevel
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  )
+}
+
+/**
+ * Dropdown label that prefixes the area name with its geo level so state vs
+ * regional hub (etc.) stay distinguishable when names collide.
+ */
+export function formatGeoAreaOptionLabel(
+  area: Pick<BenchmarkArea, "id" | "label">
+): string {
+  const geo = geoKeyFromAreaId(area.id)
+  if (geo == null) return area.label
+  const levelLabel = geoLevelDisplayName(geo.geoLevel)
+  const name = area.label.trim() || geo.statsKey
+  return `${levelLabel} - ${name}`
+}
+
 function geocodeQueryForGeoLevel(
   geoLevel: string,
   statsKey: string,
